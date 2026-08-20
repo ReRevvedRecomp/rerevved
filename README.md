@@ -34,6 +34,9 @@ Windows 10 or 11 x64 with a Direct3D 12 capable GPU is the supported player
 platform. Linux archives use the same first run flow when a Linux binary is
 available, but Linux support is experimental.
 
+See the [packaged player guide](scripts/packaging/README.txt) for detailed
+setup, backup, restore, and automation instructions.
+
 ## Development
 
 - [ReXGlue runtime and build](docs/rexglue-runtime.md) - prerequisites,
@@ -54,7 +57,5 @@ open one.
 <a href="LICENSE"><img src="https://www.gnu.org/graphics/gplv3-127x51.png" alt="GNU General Public License version 3"></a>
 
 Code and documentation use the [GNU General Public License version 3](LICENSE).
-License notices for external components ship in
-`licenses/ReXGlue-LICENSE.txt`. Retail game content is not distributed by this
-project.
-
+License notices for external components are in
+`REXGLUE-LICENSE.txt`. Retail game content is not distributed by this project.

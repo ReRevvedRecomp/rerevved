@@ -1,0 +1,206 @@
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      publish_mode:
+        description: artifact or release
+        required: true
+        type: string
+    secrets:
+      ASSETS_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  ASSETS_REPO: ${{ vars.ASSETS_REPO }}
+  ASSET_PATH: ${{ vars.ASSET_PATH }}
+  ASSET_XEXP_PATH: ${{ vars.ASSET_XEXP_PATH }}
+  EXPECTED_XEX_SIZE: '16822272'
+  EXPECTED_XEXP_SIZE: '3291136'
+
+jobs:
+  build:
+    name: Windows x64
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out ReRevved
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify repository
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check clang-format==22.1.8
+          ./scripts/verify.ps1
+
+      - name: Install build tools
+        shell: pwsh
+        run: |
+          choco install cmake ninja -y --no-progress
+          'C:\Program Files\LLVM\bin' | Out-File -FilePath $env:GITHUB_PATH -Append
+          & 'C:\Program Files\LLVM\bin\clang.exe' --version
+
+      - name: Set up MSVC environment
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+        with:
+          arch: x64
+
+      - name: Set up sccache
+        uses: hendrikmuhs/ccache-action@v1.2.22
+        with:
+          variant: sccache
+          key: windows-amd64
+
+      - name: Read SDK lock
+        id: sdk-lock
+        shell: pwsh
+        run: |
+          $lock = Get-Content rexglue-sdk.lock.json -Raw | ConvertFrom-Json
+          if ($lock.repository -ne 'https://github.com/Aeshur/rexglue-sdk') {
+            throw 'Unexpected SDK repository in rexglue-sdk.lock.json'
+          }
+          if ($lock.commit -notmatch '^[0-9a-f]{40}$') {
+            throw 'Invalid SDK commit in rexglue-sdk.lock.json'
+          }
+          "commit=$($lock.commit)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Clone pinned SDK
+        shell: pwsh
+        run: |
+          $sdkRoot = Join-Path $env:RUNNER_TEMP 'rexglue-sdk'
+          git clone --branch rerevved-sdk --single-branch `
+            https://github.com/Aeshur/rexglue-sdk $sdkRoot
+          if ($LASTEXITCODE -ne 0) { throw 'SDK clone failed' }
+          git -C $sdkRoot checkout --detach '${{ steps.sdk-lock.outputs.commit }}'
+          if ($LASTEXITCODE -ne 0) { throw 'SDK checkout failed' }
+          git -C $sdkRoot submodule update --init --recursive --depth 1
+          if ($LASTEXITCODE -ne 0) { throw 'SDK submodule init failed' }
+
+      - name: Restore SDK install
+        id: sdk-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}\rexglue-sdk\out\install\win-amd64
+          key: rexglue-sdk-windows-${{ steps.sdk-lock.outputs.commit }}
+
+      - name: Build and install SDK
+        if: steps.sdk-cache.outputs.cache-hit != 'true'
+        working-directory: ${{ runner.temp }}\rexglue-sdk
+        shell: pwsh
+        run: |
+          cmake --preset win-amd64 `
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache `
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build out/build/win-amd64 --config Release `
+            --target install --parallel
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # Owner-supplied inputs live only in the private assets repository.
+      # Never echo their contents or a command that exposes them.
+      - name: Fetch codegen input
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.ASSETS_TOKEN }}
+        run: |
+          if (-not $env:GH_TOKEN) {
+            throw 'ASSETS_TOKEN secret is empty or missing'
+          }
+          if ($env:ASSETS_REPO -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') {
+            throw 'Set ASSETS_REPO to owner/repository'
+          }
+          New-Item -ItemType Directory -Force -Path (Join-Path $PWD 'game') |
+            Out-Null
+          $ProgressPreference = 'SilentlyContinue'
+          $assets = @(
+            @{ Path = $env:ASSET_PATH;      File = 'default.xex' },
+            @{ Path = $env:ASSET_XEXP_PATH; File = 'default.xexp' }
+          )
+          foreach ($asset in $assets) {
+            if ($asset.Path -notmatch '^[A-Za-z0-9._/-]+$' -or
+                $asset.Path.StartsWith('/') -or
+                $asset.Path.Split('/') -contains '..') {
+              throw 'Set the asset path variables to repository-relative file paths'
+            }
+            $destination = Join-Path $PWD ('game\' + $asset.File)
+            try {
+              Invoke-WebRequest `
+                -Uri "https://api.github.com/repos/$env:ASSETS_REPO/contents/$($asset.Path)" `
+                -Headers @{
+                  Authorization = "Bearer $env:GH_TOKEN"
+                  Accept        = 'application/vnd.github.raw+json'
+                } `
+                -OutFile $destination
+            } catch {
+              Remove-Item -LiteralPath $destination -ErrorAction SilentlyContinue
+              throw "Private asset download failed: $($_.Exception.Message)"
+            }
+          }
+
+      - name: Validate codegen input
+        shell: pwsh
+        run: |
+          $checks = @(
+            @{ File = 'game\default.xex';  Size = $env:EXPECTED_XEX_SIZE },
+            @{ File = 'game\default.xexp'; Size = $env:EXPECTED_XEXP_SIZE }
+          )
+          foreach ($check in $checks) {
+            $asset = Get-Item -LiteralPath $check.File
+            if ($asset.Length -ne [int64]$check.Size) {
+              throw "Codegen input has the wrong size: $($check.File)"
+            }
+          }
+
+      - name: Configure for codegen
+        shell: pwsh
+        run: |
+          $sdkConfig = Join-Path $env:RUNNER_TEMP `
+            'rexglue-sdk\out\install\win-amd64\lib\cmake\rexglue'
+          cmake --preset win-amd64-release "-Drexglue_DIR=$sdkConfig" `
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Generate recompiled sources
+        shell: pwsh
+        run: |
+          cmake --build --preset win-amd64-release --target rerevved_codegen
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build ReRevved
+        shell: pwsh
+        run: |
+          $sdkConfig = Join-Path $env:RUNNER_TEMP `
+            'rexglue-sdk\out\install\win-amd64\lib\cmake\rexglue'
+          cmake --preset win-amd64-release "-Drexglue_DIR=$sdkConfig" `
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build --preset win-amd64-release --parallel
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Package archive
+        shell: pwsh
+        run: |
+          python scripts/package.py --platform windows --arch x64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: rerevved-windows-x64
+          path: out/rerevved-v*-windows-x64.zip
+          if-no-files-found: error
+          retention-days: ${{ inputs.publish_mode == 'release' && 1 || 14 }}
+
+      - name: Show sccache statistics
+        if: always()
+        shell: pwsh
+        run: sccache --show-stats
