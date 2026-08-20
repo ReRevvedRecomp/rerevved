@@ -1,0 +1,63 @@
+# AI agents
+.claude/
+.agents/
+AGENTS.md
+CLAUDE.md
+docs/ai_agents/local/
+
+# Visual Studio / IDE droppings
+.vs/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.code-workspace
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build output
+/out/
+build/
+[Bb]in/
+[Oo]bj/
+**/CMakeFiles/
+**/CMakeCache.txt
+**/cmake_install.cmake
+**/Makefile
+**/cmake-build-*/
+
+# Generated recomp sources
+/generated/
+
+# Runtime artifacts
+/logs/
+scratch/
+*.log
+*.tmp
+*.swp
+
+# Game content dropped in by the user
+# (retail images and anything derived from them must NEVER be committed)
+/game/
+*.iso
+*.bin
+*.xex
+*.xexp
+
+# Reverse-engineering workspace
+*.gpr
+*.gzf
+*.rep/
+
+# Python caches
+__pycache__/
+*.py[cod]
+
+# OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini

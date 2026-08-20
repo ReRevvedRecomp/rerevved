@@ -1,0 +1,122 @@
+---
+# https://clang.llvm.org/docs/ClangFormatStyleOptions.html
+# WebKit base with Allman braces.
+# Compatible with clang-format 22.
+Language: Cpp
+
+AccessModifierOffset: -4
+EmptyLineAfterAccessModifier: Never
+EmptyLineBeforeAccessModifier: LogicalBlock
+IndentAccessModifiers: false
+
+AlignAfterOpenBracket: Align
+AlignArrayOfStructures: None
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: true
+AlignConsecutiveMacros: true
+AlignEscapedNewlines: Right
+AlignOperands: Align
+AlignTrailingComments: true
+
+AllowShortBlocksOnASingleLine: Never
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLambdasOnASingleLine: None
+AllowShortLoopsOnASingleLine: false
+LambdaBodyIndentation: Signature
+
+AlwaysBreakTemplateDeclarations: Yes
+
+BreakBeforeBraces: Allman
+BraceWrapping:
+  AfterCaseLabel: true
+  AfterClass: true
+  AfterControlStatement: Always
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  AfterUnion: true
+  BeforeCatch: true
+  BeforeElse: true
+  BeforeLambdaBody: true
+  BeforeWhile: false
+  IndentBraces: false
+  SplitEmptyFunction: true
+  SplitEmptyRecord: true
+  SplitEmptyNamespace: true
+  AfterExternBlock: true
+
+BreakConstructorInitializers: BeforeComma
+BreakInheritanceList: BeforeColon
+ConstructorInitializerIndentWidth: 0
+PackConstructorInitializers: BinPack
+
+ColumnLimit: 0
+AllowAllArgumentsOnNextLine: true
+AllowAllParametersOfDeclarationOnNextLine: true
+BinPackArguments: false
+BinPackParameters: false
+
+CompactNamespaces: false
+NamespaceIndentation: None
+WrapNamespaceBodyWithEmptyLines: Always
+SeparateDefinitionBlocks: Always
+
+Cpp11BracedListStyle: false
+
+IndentWidth: 4
+IndentCaseLabels: true
+IndentPPDirectives: None
+IndentWrappedFunctionNames: false
+ContinuationIndentWidth: 4
+
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1
+
+PointerAlignment: Left
+ReferenceAlignment: Pointer
+QualifierAlignment: Left
+
+ReflowComments: Always
+SpacesBeforeTrailingComments: 1
+
+SortIncludes: true
+SortUsingDeclarations: LexicographicNumeric
+
+SpaceBeforeParens: ControlStatements
+SpaceBeforeParensOptions:
+  AfterControlStatements: true
+  AfterForeachMacros: true
+  AfterFunctionDefinitionName: false
+  AfterFunctionDeclarationName: false
+  AfterIfMacros: true
+  BeforeNonEmptyParentheses: false
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCaseColon: false
+SpaceBeforeCpp11BracedList: false
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeInheritanceColon: true
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceBeforeSquareBrackets: false
+SpaceInEmptyBlock: false
+SpacesInAngles: Never
+SpacesInContainerLiterals: true
+SpacesInParens: Never
+SpacesInSquareBrackets: false
+
+Standard: Latest
+
+UseTab: Never
+TabWidth: 4
+
+BreakBeforeBinaryOperators: None
+BreakBeforeTernaryOperators: true
+
+BreakStringLiterals: true
+
+FixNamespaceComments: true
+
+...

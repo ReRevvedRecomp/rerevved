@@ -1,0 +1,35 @@
+# Ring-buffer initialization brackets the guest reset. Pause the host GPU while
+# the guest resets the ring, then resume it before the next instruction.
+
+[[midasm_hook]]
+address = 0x8269CAE0
+name = "ReRevvedCompatRingInitializeBegin"
+registers = ["r3", "r4"]
+
+[[midasm_hook]]
+address = 0x8269CAE4
+name = "ReRevvedCompatRingInitializeEnd"
+
+# Retain a failed render config until the same renderer supplies valid caps.
+
+[[midasm_hook]]
+address = 0x82245050
+name = "ReRevvedRememberGfxRenderConfig"
+registers = ["r3", "r4"]
+
+[[midasm_hook]]
+address = 0x82302E90
+name = "ReRevvedHandleGfxRenderCapsBegin"
+registers = ["r3", "r4", "lr"]
+
+[[midasm_hook]]
+address = 0x82302F0C
+name = "ReRevvedHandleGfxRenderCapsEnd"
+registers = ["r3", "r31"]
+
+# GFx's 512-entry vector cache can reject a live glyph until the next redraw.
+
+[[midasm_hook]]
+address = 0x82253D2C
+name = "ReRevvedCompatExpandGfxVectorGlyphCache"
+registers = ["r31"]

@@ -1,0 +1,187 @@
+# The maintained executable exposes direct-branch targets absent from its PDATA
+# function-entry set. Keep inferred roots implicit; the truncated 0x82D77670
+# routine uses the maintained next-entry boundary.
+
+# The city UI label dispatch bounds and indexes its eight-entry table with r11.
+# Keep that register explicit so code generation does not select the unrelated
+# city-data offset held in r7.
+[[switch_tables]]
+address = 0x82DFF930
+register = 11
+labels = [
+    0x82DFF954,
+    0x82DFF960,
+    0x82DFF96C,
+    0x82DFF978,
+    0x82DFF984,
+    0x82DFF990,
+    0x82DFF99C,
+    0x82DFF9A8,
+]
+
+[functions."82D77670"]
+end = 0x82D78648
+
+# Indirect-call targets absent from the static call graph; two sit past
+# unrecoverable jumptables. Removing any of these five fails codegen
+# validation with unresolved calls.
+[functions."82323728"]
+
+[functions."821B1C88"]
+
+[functions."82844F60"]
+
+[functions."82A6ED28"]
+
+[functions."82A749F8"]
+
+# Startup constructor reached through its data table. Its size remains implicit
+# so ReXGlue discovers the natural boundary.
+[functions."82E8D298"]
+
+[functions."82E8D3A0"]
+
+# Constructor-table targets not otherwise reachable from the static call graph.
+# The table at 0x82F10014 supplies roots filtered against the generated map.
+[functions."82E8C588"]
+
+[functions."82E8C9C8"]
+
+[functions."82E8CB50"]
+
+[functions."82E8CF90"]
+
+[functions."82E8D7D8"]
+
+[functions."82E8D7F0"]
+
+[functions."82E8D8C8"]
+
+[functions."82E8D8E0"]
+
+[functions."82E8DDA0"]
+
+[functions."82E8DDD8"]
+
+[functions."82E8E160"]
+
+[functions."82E8E178"]
+
+[functions."82E8E1B0"]
+
+[functions."82E8E288"]
+
+[functions."82E8E2A0"]
+
+[functions."82E8FA50"]
+
+[functions."82E90138"]
+
+[functions."82E90170"]
+
+# Runtime vtable targets reached immediately after constructor startup.
+[functions."82C84540"]
+
+[functions."82C84668"]
+
+[functions."82C84678"]
+
+# Sole target not reached statically from the bounded 32-slot dispatch
+# table used during early runtime initialization.
+[functions."823AA9E8"]
+
+# Resource-list comparator reached through an indirect callback while
+# binding initialized frontend resources.
+[functions."8271F4E0"]
+
+# Frontend virtual method reached after resource-list binding.
+[functions."82E0ECA0"]
+
+# Additional roots in the same contiguous frontend block. Their identities are
+# confirmed by the block's uniform layout and current function bodies.
+[functions."82E0EC60"]
+
+[functions."82E0FFA8"]
+
+[functions."82E10360"]
+
+# Exact targets in the same frontend dispatch table. Both entries contain
+# forwarding code but are absent from the image's PDATA function-entry set.
+[functions."82E10380"]
+
+[functions."82E10398"]
+
+# Frontend virtual target observed after display-dimension publication.
+[functions."8221ADC0"]
+
+# Frontend layout accessor observed through the next virtual call.
+[functions."822349D0"]
+
+# Six-instruction target stored at 0x8213FF98 in the frontend dispatch table.
+[functions."82234AD8"]
+
+# Layout accessor reached late in the same vtable sequence.
+[functions."82234AF0"]
+
+# Five-instruction target referenced by the maintained frontend pointer tables.
+[functions."821E6CE8"]
+
+# Nullable frontend delegate thunk reached from layout setup.
+[functions."8226C0D8"]
+
+# Frontend state accessor observed after delegate dispatch.
+[functions."82514890"]
+
+# Resource-object dispatch routine reached indirectly during late startup.
+[functions."82A71B20"]
+
+# Six-instruction audio callback leaf reached after resource dispatch.
+[functions."82A69B00"]
+
+# Post-startup state callback observed after audio initialization.
+[functions."828BCAA0"]
+
+# Exact target in the frontend vtable at 0x820BCA98; the image's PDATA set
+# leaves this forwarding leaf as an undecoded gap between neighboring entries.
+[functions."828BC0C8"]
+
+# Missing executable entries from the same vtable at 0x820C4838.
+[functions."829BC188"]
+
+[functions."829BC190"]
+
+[functions."829BC198"]
+
+[functions."829BC1A0"]
+
+# Exact target referenced by the maintained vtable at 0x820C0E58.
+[functions."82914EA8"]
+
+# Three-instruction target referenced by the maintained vtable at 0x82135D30.
+[functions."82D9A1F0"]
+
+# Exact target referenced by the maintained frontend table at 0x82121404.
+[functions."82E287E8"]
+
+# Exact target referenced by the maintained frontend table at 0x821222EC.
+[functions."82E1CBB0"]
+
+# Exact target referenced by the maintained frontend table at 0x821388A0.
+[functions."82D7B508"]
+
+# Missing executable entries from the adjacent vtable at 0x820BCC5C.
+[functions."828BC600"]
+
+[functions."828BCA98"]
+
+# Exact adjusted-pointer thunk reached through an indirect runtime callback.
+[functions."8289E9E0"]
+size = 0x8
+
+# Exact float-copy leaf reached through an indirect runtime callback.
+[functions."828F3F10"]
+size = 0x14
+
+# Exact bitfield-result leaf reached through an indirect runtime callback.
+[functions."828F4950"]
+size = 0x20

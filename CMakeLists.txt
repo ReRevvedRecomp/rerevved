@@ -1,0 +1,54 @@
+cmake_minimum_required(VERSION 3.25)
+project(rerevved VERSION 1.0.0 LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+find_package(rexglue 0.9.0 REQUIRED CONFIG)
+
+# Consumed by the codegen-emitted dll_targets.cmake to colocate guest DLLs.
+set(REXGLUE_HOST_TARGET rerevved)
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/generated/default/sources.cmake")
+    include(generated/default/sources.cmake)
+endif()
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/generated/default/dll_targets.cmake")
+    include(generated/default/dll_targets.cmake)
+endif()
+
+add_custom_target(rerevved_codegen
+    COMMAND $<TARGET_FILE:rex::rexglue> codegen ${CMAKE_CURRENT_SOURCE_DIR}/rerevved_manifest.toml
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Generating recompiled code for rerevved"
+    VERBATIM
+)
+
+set(REREVVED_SOURCES
+    src/app.cpp
+    src/compat_hooks.cpp
+    src/game_content.cpp
+    src/imports.cpp
+    src/main.cpp
+)
+
+if(WIN32)
+    set(REREVVED_RC_ICON "${CMAKE_CURRENT_SOURCE_DIR}/assets/ReRevved.ico")
+    configure_file(assets/rerevved.rc.in
+        "${CMAKE_CURRENT_BINARY_DIR}/rerevved.rc" @ONLY)
+    list(APPEND REREVVED_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/rerevved.rc")
+endif()
+
+if(WIN32)
+    add_executable(rerevved WIN32 ${REREVVED_SOURCES})
+else()
+    add_executable(rerevved ${REREVVED_SOURCES})
+endif()
+
+target_sources(rerevved PRIVATE ${GENERATED_SOURCES})
+target_include_directories(rerevved PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/generated/default
+)
+target_link_libraries(rerevved PRIVATE rex::runtime)
+rexglue_configure_target(rerevved GPU_PLUGINS xenos)
