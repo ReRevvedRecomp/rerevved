@@ -11,6 +11,7 @@
 #include <rex/ui/windowed_app_context.h>
 
 #include "game_content.h"
+#include "presence.h"
 
 REXCVAR_DECLARE(std::string, game_data_root);
 
@@ -118,6 +119,19 @@ void ReRevvedApp::OnPostSetup()
 {
     rex::ReXApp::OnPostSetup();
 
+    rerevved::StartPresence();
+
     // GetName() remains lowercase because it also names user data paths.
     window()->SetTitle("ReRevved");
+}
+
+void ReRevvedApp::OnShutdown()
+{
+    rerevved::StopPresence();
+}
+
+bool ReRevvedApp::OnWindowCloseRequested()
+{
+    rerevved::StopPresence();
+    return true;
 }

@@ -27,4 +27,8 @@ protected:
                                                    std::function<void(rex::PathConfig)> resume) override;
 
     void OnPostSetup() override;
+
+    void OnShutdown() override;
+
+    bool OnWindowCloseRequested() override;
 };

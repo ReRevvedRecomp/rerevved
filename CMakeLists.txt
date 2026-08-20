@@ -29,6 +29,8 @@ set(REREVVED_SOURCES
     src/game_content.cpp
     src/imports.cpp
     src/main.cpp
+    src/presence.cpp
+    src/presence.h
 )
 
 if(WIN32)
