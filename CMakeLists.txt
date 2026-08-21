@@ -33,6 +33,8 @@ set(REREVVED_SOURCES
     src/main.cpp
     src/presence.cpp
     src/presence.h
+    src/presence_model.cpp
+    src/presence_model.h
 )
 
 if(WIN32)
@@ -64,3 +66,16 @@ if(UNIX)
 endif()
 target_link_libraries(rerevved PRIVATE rex::runtime)
 rexglue_configure_target(rerevved GPU_PLUGINS xenos)
+
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(presence_model_tests
+        src/presence_model.cpp
+        tests/presence_model_test.cpp
+    )
+    target_include_directories(presence_model_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/api
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    add_test(NAME presence_model COMMAND presence_model_tests)
+endif()

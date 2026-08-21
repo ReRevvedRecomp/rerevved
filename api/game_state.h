@@ -34,12 +34,20 @@ enum
 
 enum
 {
-    REREVVED_GAMEPLAY_VALID_FRONTEND  = 1u << 0,
-    REREVVED_GAMEPLAY_VALID_TURN      = 1u << 1,
-    REREVVED_GAMEPLAY_VALID_INTERFACE = 1u << 2,
+    REREVVED_GAMEPLAY_VALID_FRONTEND     = 1u << 0,
+    REREVVED_GAMEPLAY_VALID_TURN         = 1u << 1,
+    REREVVED_GAMEPLAY_VALID_INTERFACE    = 1u << 2,
+    REREVVED_GAMEPLAY_VALID_CIVILIZATION = 1u << 3,
+    REREVVED_GAMEPLAY_VALID_ERA          = 1u << 4,
+    REREVVED_GAMEPLAY_VALID_YEAR         = 1u << 5,
+    REREVVED_GAMEPLAY_VALID_TURN_NUMBER  = 1u << 6,
 };
 
-#define REREVVED_GAMEPLAY_PLAYER_UNKNOWN (-1)
+#define REREVVED_GAMEPLAY_PLAYER_UNKNOWN       (-1)
+#define REREVVED_GAMEPLAY_CIVILIZATION_UNKNOWN (-1)
+#define REREVVED_GAMEPLAY_ERA_UNKNOWN          (-1)
+#define REREVVED_GAMEPLAY_YEAR_UNKNOWN         (-2147483647 - 1)
+#define REREVVED_GAMEPLAY_TURN_UNKNOWN         (-1)
 
 typedef struct ReRevvedGameplayState
 {
@@ -60,7 +68,13 @@ typedef struct ReRevvedGameplayState
     int32_t  turn_owner_known;
     int32_t  human_turn;
     int32_t  available;
-    int32_t  reserved[8];
+    // These fields describe the active human player. Their validity bits are
+    // clear during AI turns, menu/loading transitions, or failed guest reads.
+    int32_t civilization;
+    int32_t era;
+    int32_t year;
+    int32_t turn;
+    int32_t reserved[4];
 } ReRevvedGameplayState;
 
 typedef uint32_t (*ReRevvedGameplayAbiVersionFn)(void);
