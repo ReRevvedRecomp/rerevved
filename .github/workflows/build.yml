@@ -65,7 +65,7 @@ jobs:
         shell: pwsh
         run: |
           $lock = Get-Content rexglue-sdk.lock.json -Raw | ConvertFrom-Json
-          if ($lock.repository -ne 'https://github.com/Aeshur/rexglue-sdk') {
+          if ($lock.repository -ne 'https://github.com/ReRevvedRecomp/rexglue-sdk') {
             throw 'Unexpected SDK repository in rexglue-sdk.lock.json'
           }
           if ($lock.commit -notmatch '^[0-9a-f]{40}$') {
@@ -78,7 +78,7 @@ jobs:
         run: |
           $sdkRoot = Join-Path $env:RUNNER_TEMP 'rexglue-sdk'
           git clone --branch rerevved-sdk --single-branch `
-            https://github.com/Aeshur/rexglue-sdk $sdkRoot
+            https://github.com/ReRevvedRecomp/rexglue-sdk $sdkRoot
           if ($LASTEXITCODE -ne 0) { throw 'SDK clone failed' }
           git -C $sdkRoot checkout --detach '${{ steps.sdk-lock.outputs.commit }}'
           if ($LASTEXITCODE -ne 0) { throw 'SDK checkout failed' }
