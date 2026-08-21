@@ -22,6 +22,11 @@ constexpr std::size_t kMaxReportedErrors = 10;
 
 } // namespace
 
+void ReRevvedApp::OnPreSetup(rex::RuntimeConfig& config)
+{
+    config.game_version = REREVVED_VERSION;
+}
+
 void ReRevvedApp::OnConfigurePaths(rex::PathConfig& paths)
 {
     // Keep user state outside a potentially read-only install directory.

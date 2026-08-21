@@ -9,6 +9,8 @@
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
 
+#include "game_state.h"
+
 namespace
 {
 
@@ -102,6 +104,11 @@ std::atomic_uint32_t            gfx_stale_render_config          = 0;
 std::atomic_uint32_t            gfx_stale_render_config_renderer = 0;
 
 } // namespace
+
+void ReRevvedPublishGameplayState()
+{
+    rerevved::gameplay::PublishFrameSnapshot();
+}
 
 void ReRevvedCompatNullOptionalDispatch(PPCRegister& r0, PPCRegister& r3)
 {

@@ -6,4 +6,4 @@ game_root = "game"
 [entrypoint]
 file_path = "game/default.xex"
 out_directory_path = "generated/default"
-includes = ["rerevved_functions.toml", "rerevved_hooks.toml"]
+includes = ["config/rerevved_functions.toml", "config/rerevved_hooks.toml"]

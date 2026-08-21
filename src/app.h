@@ -17,6 +17,8 @@ public:
     }
 
 protected:
+    void OnPreSetup(rex::RuntimeConfig& config) override;
+
     void OnConfigurePaths(rex::PathConfig& paths) override;
 
     bool SetupEnvironment() override;

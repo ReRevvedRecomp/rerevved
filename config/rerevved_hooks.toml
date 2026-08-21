@@ -1,3 +1,9 @@
+# Publish the conservative read-only title state once per guest frame.
+
+[[midasm_hook]]
+address = 0x82C7DF58
+name = "ReRevvedPublishGameplayState"
+
 # Ring-buffer initialization brackets the guest reset. Pause the host GPU while
 # the guest resets the ring, then resume it before the next instruction.
 

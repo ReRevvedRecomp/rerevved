@@ -27,6 +27,8 @@ set(REREVVED_SOURCES
     src/app.cpp
     src/compat_hooks.cpp
     src/game_content.cpp
+    src/game_state.cpp
+    src/game_state.h
     src/imports.cpp
     src/main.cpp
     src/presence.cpp
@@ -49,8 +51,16 @@ endif()
 target_sources(rerevved PRIVATE ${GENERATED_SOURCES})
 target_include_directories(rerevved PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/api
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/generated/default
 )
+target_compile_definitions(rerevved PRIVATE
+    REREVVED_GAMEPLAY_API_EXPORTS
+    REREVVED_VERSION="${PROJECT_VERSION}"
+)
+if(UNIX)
+    target_link_options(rerevved PRIVATE -Wl,--export-dynamic)
+endif()
 target_link_libraries(rerevved PRIVATE rex::runtime)
 rexglue_configure_target(rerevved GPU_PLUGINS xenos)

@@ -7,11 +7,15 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-HOOK_CONFIG = ROOT / "rerevved_hooks.toml"
+HOOK_CONFIG = ROOT / "config" / "rerevved_hooks.toml"
 HOOK_SOURCE = ROOT / "src" / "compat_hooks.cpp"
 GENERATED = ROOT / "generated" / "default"
 
 EXPECTED_HOOKS = [
+    {
+        "address": 0x82C7DF58,
+        "name": "ReRevvedPublishGameplayState",
+    },
     {
         "address": 0x8269CAE0,
         "name": "ReRevvedCompatRingInitializeBegin",

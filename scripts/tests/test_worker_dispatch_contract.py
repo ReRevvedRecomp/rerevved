@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-FUNCTION_CONFIG = ROOT / "rerevved_functions.toml"
+FUNCTION_CONFIG = ROOT / "config" / "rerevved_functions.toml"
 GENERATED = ROOT / "generated" / "default"
 
 
