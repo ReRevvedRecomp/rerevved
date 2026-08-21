@@ -36,11 +36,6 @@ EXPECTED_HOOKS = [
         "name": "ReRevvedHandleGfxRenderCapsEnd",
         "registers": ["r3", "r31"],
     },
-    {
-        "address": 0x82253D2C,
-        "name": "ReRevvedCompatExpandGfxVectorGlyphCache",
-        "registers": ["r31"],
-    },
 ]
 
 
@@ -78,20 +73,6 @@ class HookContractTests(unittest.TestCase):
             "\t__imp__VdInitializeRingBuffer(ctx, base);\n"
             "\t// rlwinm r11,r25,23,9,31\n"
             "\tReRevvedCompatRingInitializeEnd();"
-        )
-        self.assertEqual(generated.count(expected), 1)
-
-    def test_generated_vector_glyph_cache_hook_when_available(self) -> None:
-        paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
-        if not paths:
-            self.skipTest("generated sources are not available")
-
-        generated = "".join(path.read_text(encoding="utf-8") for path in paths)
-        expected = (
-            "\tctx.lr = 0x82253D2C;\n"
-            "\tsub_82253DC8(ctx, base);\n"
-            "\t// mr r3,r31\n"
-            "\tReRevvedCompatExpandGfxVectorGlyphCache(ctx.r31);"
         )
         self.assertEqual(generated.count(expected), 1)
 

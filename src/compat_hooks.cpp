@@ -190,27 +190,3 @@ void ReRevvedHandleGfxRenderCapsEnd(PPCRegister& r3, PPCRegister& r31)
         }
     }
 }
-
-void ReRevvedCompatExpandGfxVectorGlyphCache(PPCRegister& r31)
-{
-    constexpr uint32_t kManagerField          = 72;
-    constexpr uint32_t kVectorCacheLimitField = 2512;
-    constexpr uint32_t kDefaultLimit          = 512;
-    constexpr uint32_t kCompatLimit           = 1024;
-
-    if (!IsGuestReadableRange(r31.u32, kManagerField + sizeof(uint32_t)))
-    {
-        return;
-    }
-    const uint32_t manager = ReadGuestU32(r31.u32 + kManagerField);
-    if (manager > UINT32_MAX - kVectorCacheLimitField)
-    {
-        return;
-    }
-    const uint32_t limit = manager + kVectorCacheLimitField;
-    if (IsGuestReadableRange(limit, sizeof(uint32_t)) &&
-        ReadGuestU32(limit) == kDefaultLimit)
-    {
-        WriteGuestU32Safely(limit, kCompatLimit);
-    }
-}

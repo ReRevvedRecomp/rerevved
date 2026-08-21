@@ -26,10 +26,3 @@ registers = ["r3", "r4", "lr"]
 address = 0x82302F0C
 name = "ReRevvedHandleGfxRenderCapsEnd"
 registers = ["r3", "r31"]
-
-# GFx's 512-entry vector cache can reject a live glyph until the next redraw.
-
-[[midasm_hook]]
-address = 0x82253D2C
-name = "ReRevvedCompatExpandGfxVectorGlyphCache"
-registers = ["r31"]
