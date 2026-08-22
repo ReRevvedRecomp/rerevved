@@ -16,8 +16,6 @@ permissions:
 
 env:
   ASSETS_REPO: ${{ vars.ASSETS_REPO }}
-  ASSET_PATH: ${{ vars.ASSET_PATH }}
-  ASSET_XEXP_PATH: ${{ vars.ASSET_XEXP_PATH }}
   EXPECTED_XEX_SIZE: '16822272'
   EXPECTED_XEXP_SIZE: '3291136'
 
@@ -111,6 +109,10 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.ASSETS_TOKEN }}
+          GIT_CONFIG_COUNT: '1'
+          GIT_CONFIG_KEY_0: credential.helper
+          GIT_CONFIG_VALUE_0: '!gh auth git-credential'
+          GIT_LFS_SKIP_SMUDGE: '1'
         run: |
           if (-not $env:GH_TOKEN) {
             throw 'ASSETS_TOKEN secret is empty or missing'
@@ -118,32 +120,35 @@ jobs:
           if ($env:ASSETS_REPO -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') {
             throw 'Set ASSETS_REPO to owner/repository'
           }
-          New-Item -ItemType Directory -Force -Path (Join-Path $PWD 'game') |
-            Out-Null
-          $ProgressPreference = 'SilentlyContinue'
-          $assets = @(
-            @{ Path = $env:ASSET_PATH;      File = 'default.xex' },
-            @{ Path = $env:ASSET_XEXP_PATH; File = 'default.xexp' }
-          )
-          foreach ($asset in $assets) {
-            if ($asset.Path -notmatch '^[A-Za-z0-9._/-]+$' -or
-                $asset.Path.StartsWith('/') -or
-                $asset.Path.Split('/') -contains '..') {
-              throw 'Set the asset path variables to repository-relative file paths'
-            }
-            $destination = Join-Path $PWD ('game\' + $asset.File)
-            try {
-              Invoke-WebRequest `
-                -Uri "https://api.github.com/repos/$env:ASSETS_REPO/contents/$($asset.Path)" `
-                -Headers @{
-                  Authorization = "Bearer $env:GH_TOKEN"
-                  Accept        = 'application/vnd.github.raw+json'
-                } `
-                -OutFile $destination
-            } catch {
-              Remove-Item -LiteralPath $destination -ErrorAction SilentlyContinue
-              throw "Private asset download failed: $($_.Exception.Message)"
-            }
+          git lfs version
+          if ($LASTEXITCODE -ne 0) { throw 'Git LFS is unavailable' }
+          $assetsRoot = Join-Path $env:RUNNER_TEMP 'rerevved-private-assets'
+          git clone --quiet --depth 1 --branch main --single-branch `
+            "https://github.com/$env:ASSETS_REPO" $assetsRoot
+          if ($LASTEXITCODE -ne 0) { throw 'Private asset clone failed' }
+          git -C $assetsRoot lfs pull `
+            --include='game/default.xex,game/default.xexp' --exclude=''
+          if ($LASTEXITCODE -ne 0) { throw 'Private asset LFS pull failed' }
+          $gameRoot = Join-Path $PWD 'game'
+          New-Item -ItemType Directory -Force -Path $gameRoot | Out-Null
+          Copy-Item -LiteralPath (Join-Path $assetsRoot 'game\default.xex') `
+            -Destination (Join-Path $gameRoot 'default.xex')
+          Copy-Item -LiteralPath (Join-Path $assetsRoot 'game\default.xexp') `
+            -Destination (Join-Path $gameRoot 'default.xexp')
+
+      - name: Clean up private asset checkout
+        if: always()
+        shell: pwsh
+        run: |
+          $tempRoot = [System.IO.Path]::GetFullPath($env:RUNNER_TEMP)
+          $assetsRoot = [System.IO.Path]::GetFullPath(
+            (Join-Path $tempRoot 'rerevved-private-assets'))
+          if ([System.IO.Path]::GetDirectoryName($assetsRoot) -ne
+              $tempRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar)) {
+            throw 'Refusing unsafe private asset cleanup'
+          }
+          if (Test-Path -LiteralPath $assetsRoot) {
+            Remove-Item -LiteralPath $assetsRoot -Recurse -Force
           }
 
       - name: Validate codegen input
@@ -204,3 +209,290 @@ jobs:
         if: always()
         shell: pwsh
         run: sccache --show-stats
+
+  build-linux:
+    name: Linux x64
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out ReRevved
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify repository
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check clang-format==22.1.8
+          ./scripts/verify.ps1
+
+      - name: Install clang 20
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget gnupg lsb-release
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 20
+          sudo apt-get install -y clang-20 lld-20
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-20 200
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-20 200
+
+      - name: Install Linux build dependencies
+        shell: bash
+        run: |
+          wget -qO- https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo tee /etc/apt/trusted.gpg.d/lunarg.asc
+          sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-noble.list http://packages.lunarg.com/vulkan/lunarg-vulkan-noble.list
+          sudo apt update
+          sudo apt install -y cmake ninja-build build-essential git curl unzip autoconf python3.12-venv \
+            libgtk-3-dev libx11-xcb-dev libxss-dev vulkan-sdk \
+            libasound2-dev libpulse-dev libpipewire-0.3-dev
+
+      - name: Read SDK lock
+        id: sdk-lock-linux
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+          import re
+
+          lock = json.loads(pathlib.Path("rexglue-sdk.lock.json").read_text(encoding="ascii"))
+          if lock.get("repository") != "https://github.com/ReRevvedRecomp/rexglue-sdk":
+              raise SystemExit("Unexpected SDK repository in rexglue-sdk.lock.json")
+          commit = lock.get("commit", "")
+          if re.fullmatch(r"[0-9a-f]{40}", commit) is None:
+              raise SystemExit("Invalid SDK commit in rexglue-sdk.lock.json")
+          with pathlib.Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="ascii") as output:
+              output.write(f"commit={commit}\n")
+          PY
+
+      - name: Clone pinned SDK
+        shell: bash
+        run: |
+          sdk_root="$RUNNER_TEMP/rexglue-sdk"
+          git clone --branch rerevved-sdk --single-branch \
+            https://github.com/ReRevvedRecomp/rexglue-sdk "$sdk_root"
+          git -C "$sdk_root" checkout --detach '${{ steps.sdk-lock-linux.outputs.commit }}'
+          git -C "$sdk_root" submodule update --init --recursive --depth 1
+
+      - name: Fetch upstream SDK release tags
+        working-directory: ${{ runner.temp }}/rexglue-sdk
+        shell: bash
+        run: >-
+          git fetch --force --no-tags
+          https://github.com/rexglue/rexglue-sdk.git
+          'refs/tags/v*:refs/tags/v*'
+
+      - name: Restore SDK install
+        id: sdk-cache-linux
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/rexglue-sdk/out/install/linux-amd64
+          key: rexglue-sdk-linux-${{ steps.sdk-lock-linux.outputs.commit }}
+
+      - name: Build and install SDK
+        if: steps.sdk-cache-linux.outputs.cache-hit != 'true'
+        working-directory: ${{ runner.temp }}/rexglue-sdk
+        shell: bash
+        env:
+          CC: clang-20
+          CXX: clang++-20
+        run: |
+          cmake --preset linux-amd64 -DREXGLUE_BUILD_TESTS=OFF
+          cmake --build out/build/linux-amd64 --config Release \
+            --target install --parallel
+
+      # Owner-supplied inputs live only in the private assets repository.
+      # Never echo their contents or a command that exposes them.
+      - name: Fetch codegen input
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.ASSETS_TOKEN }}
+          GIT_CONFIG_COUNT: '1'
+          GIT_CONFIG_KEY_0: credential.helper
+          GIT_CONFIG_VALUE_0: '!gh auth git-credential'
+          GIT_LFS_SKIP_SMUDGE: '1'
+        run: |
+          if (-not $env:GH_TOKEN) {
+            throw 'ASSETS_TOKEN secret is empty or missing'
+          }
+          if ($env:ASSETS_REPO -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') {
+            throw 'Set ASSETS_REPO to owner/repository'
+          }
+          git lfs version
+          if ($LASTEXITCODE -ne 0) { throw 'Git LFS is unavailable' }
+          $assetsRoot = Join-Path $env:RUNNER_TEMP 'rerevved-private-assets'
+          git clone --quiet --depth 1 --branch main --single-branch `
+            "https://github.com/$env:ASSETS_REPO" $assetsRoot
+          if ($LASTEXITCODE -ne 0) { throw 'Private asset clone failed' }
+          git -C $assetsRoot lfs pull `
+            --include='game/default.xex,game/default.xexp' --exclude=''
+          if ($LASTEXITCODE -ne 0) { throw 'Private asset LFS pull failed' }
+          $gameRoot = Join-Path $PWD 'game'
+          New-Item -ItemType Directory -Force -Path $gameRoot | Out-Null
+          Copy-Item -LiteralPath (Join-Path $assetsRoot 'game/default.xex') `
+            -Destination (Join-Path $gameRoot 'default.xex')
+          Copy-Item -LiteralPath (Join-Path $assetsRoot 'game/default.xexp') `
+            -Destination (Join-Path $gameRoot 'default.xexp')
+
+      - name: Clean up private asset checkout
+        if: always()
+        shell: pwsh
+        run: |
+          $tempRoot = [System.IO.Path]::GetFullPath($env:RUNNER_TEMP)
+          $assetsRoot = [System.IO.Path]::GetFullPath(
+            (Join-Path $tempRoot 'rerevved-private-assets'))
+          if ([System.IO.Path]::GetDirectoryName($assetsRoot) -ne
+              $tempRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar)) {
+            throw 'Refusing unsafe private asset cleanup'
+          }
+          if (Test-Path -LiteralPath $assetsRoot) {
+            Remove-Item -LiteralPath $assetsRoot -Recurse -Force
+          }
+
+      - name: Validate codegen input
+        shell: pwsh
+        run: |
+          $checks = @(
+            @{ File = 'game/default.xex';  Size = $env:EXPECTED_XEX_SIZE },
+            @{ File = 'game/default.xexp'; Size = $env:EXPECTED_XEXP_SIZE }
+          )
+          foreach ($check in $checks) {
+            $asset = Get-Item -LiteralPath $check.File
+            if ($asset.Length -ne [int64]$check.Size) {
+              throw "Codegen input has the wrong size: $($check.File)"
+            }
+          }
+
+      - name: Configure for codegen
+        shell: bash
+        run: |
+          sdk_config="$RUNNER_TEMP/rexglue-sdk/out/install/linux-amd64/lib/cmake/rexglue"
+          cmake --preset linux-amd64-release "-Drexglue_DIR=$sdk_config"
+
+      - name: Generate recompiled sources
+        shell: bash
+        run: cmake --build --preset linux-amd64-release --target rerevved_codegen
+
+      - name: Build ReRevved
+        shell: bash
+        run: |
+          sdk_config="$RUNNER_TEMP/rexglue-sdk/out/install/linux-amd64/lib/cmake/rexglue"
+          cmake --preset linux-amd64-release "-Drexglue_DIR=$sdk_config"
+          cmake --build --preset linux-amd64-release --parallel
+
+      - name: Package archive
+        shell: bash
+        run: python scripts/package.py --platform linux --arch x64
+
+      - name: Validate archive allowlist
+        shell: bash
+        run: |
+          archives=(out/rerevved-v*-linux-x64.tar.gz)
+          if [[ ${#archives[@]} -ne 1 || ! -f "${archives[0]}" ]]; then
+            echo 'Expected exactly one Linux x64 archive' >&2
+            exit 1
+          fi
+          python - "${archives[0]}" <<'PY'
+          import pathlib
+          import re
+          import sys
+          import tarfile
+
+          archive_path = pathlib.Path(sys.argv[1])
+          if re.fullmatch(r"rerevved-v\d+\.\d+\.\d+-linux-x64\.tar\.gz", archive_path.name) is None:
+              raise SystemExit("Unexpected Linux archive name")
+          root = archive_path.name.removesuffix(".tar.gz")
+          expected_dirs = {root, f"{root}/game", f"{root}/licenses"}
+          expected_files = {
+              f"{root}/LICENSE.txt",
+              f"{root}/README.txt",
+              f"{root}/libTracyClient.so",
+              f"{root}/librexgpu-xenos.so",
+              f"{root}/librexruntime.so",
+              f"{root}/licenses/REXGLUE-LICENSE.txt",
+              f"{root}/rerevved",
+          }
+          seen = {}
+          with tarfile.open(archive_path, "r:gz") as archive:
+              for member in archive.getmembers():
+                  name = member.name.rstrip("/")
+                  path = pathlib.PurePosixPath(name)
+                  if path.is_absolute() or ".." in path.parts:
+                      raise SystemExit("Archive contains an unsafe path")
+                  if name in seen:
+                      raise SystemExit("Archive contains a duplicate path")
+                  seen[name] = member
+          if set(seen) != expected_dirs | expected_files:
+              raise SystemExit("Archive contents do not match the Linux allowlist")
+          if any(not seen[name].isdir() for name in expected_dirs):
+              raise SystemExit("Archive directory allowlist entry has the wrong type")
+          if any(not seen[name].isfile() for name in expected_files):
+              raise SystemExit("Archive file allowlist entry has the wrong type")
+          if seen[f"{root}/rerevved"].mode & 0o111 == 0:
+              raise SystemExit("Linux executable has no executable mode bit")
+          print("Linux archive allowlist: PASS")
+          PY
+
+          extract_root="$(mktemp -d "$RUNNER_TEMP/rerevved-package.XXXXXX")"
+          cleanup_extract() {
+            if [[ "$extract_root" == "$RUNNER_TEMP"/rerevved-package.* ]]; then
+              rm -rf -- "$extract_root"
+            else
+              echo 'Refusing unsafe package cleanup' >&2
+              return 1
+            fi
+          }
+          trap cleanup_extract EXIT
+
+          archive_name="$(basename "${archives[0]}" .tar.gz)"
+          tar -xzf "${archives[0]}" -C "$extract_root"
+          package_root="$extract_root/$archive_name"
+
+          if ! readelf -d "$package_root/rerevved" |
+              grep -Eq "\\((RPATH|RUNPATH)\\).*\\\$ORIGIN"; then
+            echo "Linux executable lacks an \$ORIGIN RPATH or RUNPATH" >&2
+            exit 1
+          fi
+
+          runtime_line='^[[:space:]]*(librexruntime\.so|librexgpu-xenos\.so|libTracyClient\.so)[[:space:]]*=>[[:space:]]*([^[:space:]]+)'
+          resolved_dependencies=0
+          for binary in rerevved librexruntime.so librexgpu-xenos.so libTracyClient.so; do
+            ldd_output="$(ldd "$package_root/$binary")"
+            if grep -Fq 'not found' <<<"$ldd_output"; then
+              echo "Linux archive dependency is missing for $binary" >&2
+              exit 1
+            fi
+            while IFS= read -r line; do
+              if [[ "$line" =~ $runtime_line ]]; then
+                dependency="${BASH_REMATCH[1]}"
+                resolved_path="${BASH_REMATCH[2]}"
+                canonical_path="$(readlink -f "$resolved_path")"
+                expected_path="$package_root/$dependency"
+                if [[ "$canonical_path" != "$expected_path" ]]; then
+                  echo 'ReXGlue dependency resolved outside the archive' >&2
+                  exit 1
+                fi
+                ((resolved_dependencies += 1))
+              fi
+            done <<<"$ldd_output"
+          done
+          if ((resolved_dependencies == 0)); then
+            echo 'No ReXGlue archive dependencies were resolved' >&2
+            exit 1
+          fi
+          echo 'Linux archive linkage: PASS'
+
+      - name: Upload archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: rerevved-linux-x64
+          path: out/rerevved-v*-linux-x64.tar.gz
+          if-no-files-found: error
+          retention-days: ${{ inputs.publish_mode == 'release' && 1 || 14 }}
