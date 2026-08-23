@@ -1,8 +1,10 @@
 // Hooks preserve title behavior unless documented as a compatibility repair.
 
 #include <atomic>
+#include <bit>
 #include <cstdint>
 
+#include <rex/cvar.h>
 #include <rex/ppc.h>
 #include <rex/runtime.h>
 #include <rex/system/interfaces/graphics.h>
@@ -10,6 +12,9 @@
 #include <rex/system/xmemory.h>
 
 #include "game_state.h"
+
+REXCVAR_DEFINE_STRING(combat_speed, "normal", "ReRevved/Combat", "Combat presentation speed")
+    .allowed({ "normal", "fast" });
 
 namespace
 {
@@ -108,6 +113,33 @@ std::atomic_uint32_t            gfx_stale_render_config_renderer = 0;
 void ReRevvedPublishGameplayState()
 {
     rerevved::gameplay::PublishFrameSnapshot();
+}
+
+void ReRevvedApplyCombatPaceOverride()
+{
+    if (REXCVAR_GET(combat_speed) != "fast")
+    {
+        return;
+    }
+
+    constexpr uint32_t kCombatPaceDivisor = 0x82F79FBC;
+    constexpr float    kNativeStandard    = 2.0f;
+    constexpr float    kNativeAlternate   = 1.5f;
+    constexpr float    kNativeFast        = 0.5f;
+    if (!IsGuestReadableRange(kCombatPaceDivisor, sizeof(uint32_t)))
+    {
+        return;
+    }
+
+    const float selected =
+        std::bit_cast<float>(ReadGuestU32(kCombatPaceDivisor));
+    if (selected != kNativeStandard && selected != kNativeAlternate)
+    {
+        return;
+    }
+
+    WriteGuestU32Safely(kCombatPaceDivisor,
+                        std::bit_cast<uint32_t>(kNativeFast));
 }
 
 void ReRevvedCompatNullOptionalDispatch(PPCRegister& r0, PPCRegister& r3)

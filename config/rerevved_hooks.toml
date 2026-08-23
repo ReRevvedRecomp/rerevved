@@ -32,3 +32,9 @@ registers = ["r3", "r4", "lr"]
 address = 0x82302F0C
 name = "ReRevvedHandleGfxRenderCapsEnd"
 registers = ["r3", "r31"]
+
+# Fast combat selects the guest's native 0.5 presentation divisor only after
+# setup selected an observed native 2.0 or 1.5 divisor.
+[[midasm_hook]]
+address = 0x82D7F934
+name = "ReRevvedApplyCombatPaceOverride"
