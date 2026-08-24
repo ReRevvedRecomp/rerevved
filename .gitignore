@@ -54,6 +54,7 @@ scratch/
 *.rep/
 
 # Python caches
+.pytest_cache/
 __pycache__/
 *.py[cod]
 

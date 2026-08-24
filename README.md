@@ -1,5 +1,5 @@
 <p align="center">
-<img src="assets/ReRevved_Banner.png" alt="ReRevved" width="640">
+<img src="res/rerevved_banner.png" alt="ReRevved" width="640">
 </p>
 
 <p align="center">

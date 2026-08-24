@@ -38,8 +38,8 @@ set(REREVVED_SOURCES
 )
 
 if(WIN32)
-    set(REREVVED_RC_ICON "${CMAKE_CURRENT_SOURCE_DIR}/assets/ReRevved.ico")
-    configure_file(assets/rerevved.rc.in
+    set(REREVVED_RC_ICON "${CMAKE_CURRENT_SOURCE_DIR}/res/rerevved.ico")
+    configure_file(res/rerevved.rc.in
         "${CMAKE_CURRENT_BINARY_DIR}/rerevved.rc" @ONLY)
     list(APPEND REREVVED_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/rerevved.rc")
 endif()
