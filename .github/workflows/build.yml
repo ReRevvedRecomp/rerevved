@@ -63,7 +63,7 @@ jobs:
         shell: pwsh
         run: |
           $lock = Get-Content rexglue-sdk.lock.json -Raw | ConvertFrom-Json
-          if ($lock.repository -ne 'https://github.com/ReRevvedRecomp/rexglue-sdk') {
+          if ($lock.repository -ne 'https://github.com/ReRevvedRecomp/rerevved-rexglue-sdk') {
             throw 'Unexpected SDK repository in rexglue-sdk.lock.json'
           }
           if ($lock.commit -notmatch '^[0-9a-f]{40}$') {
@@ -76,7 +76,7 @@ jobs:
         run: |
           $sdkRoot = Join-Path $env:RUNNER_TEMP 'rexglue-sdk'
           git clone --branch rerevved-sdk --single-branch `
-            https://github.com/ReRevvedRecomp/rexglue-sdk $sdkRoot
+            https://github.com/ReRevvedRecomp/rerevved-rexglue-sdk $sdkRoot
           if ($LASTEXITCODE -ne 0) { throw 'SDK clone failed' }
           git -C $sdkRoot checkout --detach '${{ steps.sdk-lock.outputs.commit }}'
           if ($LASTEXITCODE -ne 0) { throw 'SDK checkout failed' }
@@ -263,7 +263,7 @@ jobs:
           import re
 
           lock = json.loads(pathlib.Path("rexglue-sdk.lock.json").read_text(encoding="ascii"))
-          if lock.get("repository") != "https://github.com/ReRevvedRecomp/rexglue-sdk":
+          if lock.get("repository") != "https://github.com/ReRevvedRecomp/rerevved-rexglue-sdk":
               raise SystemExit("Unexpected SDK repository in rexglue-sdk.lock.json")
           commit = lock.get("commit", "")
           if re.fullmatch(r"[0-9a-f]{40}", commit) is None:
@@ -277,7 +277,7 @@ jobs:
         run: |
           sdk_root="$RUNNER_TEMP/rexglue-sdk"
           git clone --branch rerevved-sdk --single-branch \
-            https://github.com/ReRevvedRecomp/rexglue-sdk "$sdk_root"
+            https://github.com/ReRevvedRecomp/rerevved-rexglue-sdk "$sdk_root"
           git -C "$sdk_root" checkout --detach '${{ steps.sdk-lock-linux.outputs.commit }}'
           git -C "$sdk_root" submodule update --init --recursive --depth 1
 

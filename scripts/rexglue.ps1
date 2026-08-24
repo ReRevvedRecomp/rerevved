@@ -5,7 +5,7 @@
 .DESCRIPTION
   Initializes a child cmd.exe with Visual Studio and LLVM, then runs one explicit
   ReXGlue stage. The sibling SDK is consumed only from its installed package; this
-  script never configures, builds, or writes to ../rexglue-sdk.
+  script never configures, builds, or writes to ../rerevved-rexglue-sdk.
 
 .PARAMETER Stage
   Configure, Codegen, Build, Launch, or All. All runs configure, codegen,
@@ -46,7 +46,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$sdkRepo = Join-Path $repo '..\rexglue-sdk'
+$sdkRepo = Join-Path $repo '..\rerevved-rexglue-sdk'
 $sdkInstall = Join-Path $sdkRepo 'out\install\win-amd64-1.0'
 $sdkLock = Join-Path $repo 'rexglue-sdk.lock.json'
 $manifest = Join-Path $repo 'rerevved_manifest.toml'
