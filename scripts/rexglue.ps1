@@ -47,7 +47,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $sdkRepo = Join-Path $repo '..\rerevved-rexglue-sdk'
-$sdkInstall = Join-Path $sdkRepo 'out\install\win-amd64-1.0'
+$sdkInstall = Join-Path $sdkRepo 'out\install\win-amd64'
 $sdkLock = Join-Path $repo 'rexglue-sdk.lock.json'
 $manifest = Join-Path $repo 'rerevved_manifest.toml'
 $xex = Join-Path $repo 'game\default.xex'

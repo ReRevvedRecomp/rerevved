@@ -27,10 +27,10 @@ jobs:
 
     steps:
       - name: Check out ReRevved
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 
@@ -85,7 +85,7 @@ jobs:
 
       - name: Restore SDK install
         id: sdk-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}\rexglue-sdk\out\install\win-amd64
           key: rexglue-sdk-windows-${{ steps.sdk-lock.outputs.commit }}
@@ -198,7 +198,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload archive
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rerevved-windows-x64
           path: out/rerevved-v*-windows-x64.zip
@@ -217,10 +217,10 @@ jobs:
 
     steps:
       - name: Check out ReRevved
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 
@@ -230,17 +230,17 @@ jobs:
           python -m pip install --disable-pip-version-check clang-format==22.1.8
           ./scripts/verify.ps1
 
-      - name: Install clang 20
+      - name: Install clang 22
         shell: bash
         run: |
           sudo apt-get update
           sudo apt-get install -y wget gnupg lsb-release
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
-          sudo ./llvm.sh 20
-          sudo apt-get install -y clang-20 lld-20
-          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-20 200
-          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-20 200
+          sudo ./llvm.sh 22
+          sudo apt-get install -y clang-22 lld-22
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-22 220
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-22 220
 
       - name: Install Linux build dependencies
         shell: bash
@@ -291,7 +291,7 @@ jobs:
 
       - name: Restore SDK install
         id: sdk-cache-linux
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/rexglue-sdk/out/install/linux-amd64
           key: rexglue-sdk-linux-${{ steps.sdk-lock-linux.outputs.commit }}
@@ -301,8 +301,8 @@ jobs:
         working-directory: ${{ runner.temp }}/rexglue-sdk
         shell: bash
         env:
-          CC: clang-20
-          CXX: clang++-20
+          CC: clang-22
+          CXX: clang++-22
         run: |
           cmake --preset linux-amd64 -DREXGLUE_BUILD_TESTS=OFF
           cmake --build out/build/linux-amd64 --config Release \
@@ -413,7 +413,6 @@ jobs:
           expected_files = {
               f"{root}/LICENSE.txt",
               f"{root}/README.txt",
-              f"{root}/libTracyClient.so",
               f"{root}/librexgpu-xenos.so",
               f"{root}/librexruntime.so",
               f"{root}/licenses/REXGLUE-LICENSE.txt",
@@ -461,9 +460,9 @@ jobs:
             exit 1
           fi
 
-          runtime_line='^[[:space:]]*(librexruntime\.so|librexgpu-xenos\.so|libTracyClient\.so)[[:space:]]*=>[[:space:]]*([^[:space:]]+)'
+          runtime_line='^[[:space:]]*(librexruntime\.so|librexgpu-xenos\.so)[[:space:]]*=>[[:space:]]*([^[:space:]]+)'
           resolved_dependencies=0
-          for binary in rerevved librexruntime.so librexgpu-xenos.so libTracyClient.so; do
+          for binary in rerevved librexruntime.so librexgpu-xenos.so; do
             ldd_output="$(ldd "$package_root/$binary")"
             if grep -Fq 'not found' <<<"$ldd_output"; then
               echo "Linux archive dependency is missing for $binary" >&2
@@ -490,7 +489,7 @@ jobs:
           echo 'Linux archive linkage: PASS'
 
       - name: Upload archive
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rerevved-linux-x64
           path: out/rerevved-v*-linux-x64.tar.gz

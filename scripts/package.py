@@ -11,8 +11,8 @@ import zipfile
 REPO = pathlib.Path(__file__).resolve().parent.parent
 
 BINARIES = {
-    "windows": ["rerevved.exe", "rexruntime.dll", "rexgpu-xenos.dll", "TracyClient.dll"],
-    "linux": ["rerevved", "librexruntime.so", "librexgpu-xenos.so", "libTracyClient.so"],
+    "windows": ["rerevved.exe", "rexruntime.dll", "rexgpu-xenos.dll"],
+    "linux": ["rerevved", "librexruntime.so", "librexgpu-xenos.so"],
 }
 
 FORBIDDEN_SUFFIXES = {".xex", ".xexp", ".iso", ".sve", ".log", ".trace"}

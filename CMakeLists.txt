@@ -4,7 +4,7 @@ project(rerevved VERSION 1.0.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(rexglue 0.9.0 REQUIRED CONFIG)
+find_package(rexglue 0.10.0 REQUIRED CONFIG)
 
 # Consumed by the codegen-emitted dll_targets.cmake to colocate guest DLLs.
 set(REXGLUE_HOST_TARGET rerevved)
