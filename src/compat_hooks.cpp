@@ -12,6 +12,7 @@
 #include <rex/system/xmemory.h>
 
 #include "game_state.h"
+#include "rush_cost.h"
 
 REXCVAR_DEFINE_STRING(combat_speed, "normal", "ReRevved/Combat", "Combat presentation speed")
     .allowed({ "normal", "fast" });
@@ -102,11 +103,12 @@ struct GfxRenderCapsState
     bool     observing;
 };
 
-thread_local GfxRenderCapsState gfx_render_caps{};
-thread_local uint32_t           gfx_render_config_candidate      = 0;
-thread_local uint32_t           gfx_render_config_renderer       = 0;
-std::atomic_uint32_t            gfx_stale_render_config          = 0;
-std::atomic_uint32_t            gfx_stale_render_config_renderer = 0;
+thread_local GfxRenderCapsState       gfx_render_caps{};
+thread_local uint32_t                 gfx_render_config_candidate = 0;
+thread_local uint32_t                 gfx_render_config_renderer  = 0;
+thread_local rerevved::RushCostRepair rush_cost_repair{};
+std::atomic_uint32_t                  gfx_stale_render_config          = 0;
+std::atomic_uint32_t                  gfx_stale_render_config_renderer = 0;
 
 } // namespace
 
@@ -140,6 +142,38 @@ void ReRevvedApplyCombatPaceOverride()
 
     WriteGuestU32Safely(kCombatPaceDivisor,
                         std::bit_cast<uint32_t>(kNativeFast));
+}
+
+void ReRevvedFixRushCostDisplay(PPCRegister& r27,
+                                PPCRegister& r30,
+                                PPCRegister& r31,
+                                PPCRegister& r6,
+                                PPCRegister& r7,
+                                PPCRegister& r11)
+{
+    rush_cost_repair  = {};
+    int32_t corrected = 0;
+    if (r6.s32 > 1 &&
+        rerevved::TryCalculateRushCost(
+            r31.s32, r6.s32, r7.s32, corrected) &&
+        corrected != r11.s32)
+    {
+        r11.s32          = corrected;
+        rush_cost_repair = { true, r27.u32, r30.s32, r7.s32, corrected };
+    }
+}
+
+void ReRevvedFixRushCostApply(PPCRegister& r25,
+                              PPCRegister& r26,
+                              PPCRegister& r28,
+                              PPCRegister& r3,
+                              PPCRegister& r6,
+                              PPCRegister& r8)
+{
+    const rerevved::RushCostRepair repair = rush_cost_repair;
+    rush_cost_repair                      = {};
+    rerevved::TryCoordinateRushProduction(
+        repair, r28.u32, r25.s32, r26.s32, r6.s32, r8.s32, r3.s32);
 }
 
 void ReRevvedCompatNullOptionalDispatch(PPCRegister& r0, PPCRegister& r3)

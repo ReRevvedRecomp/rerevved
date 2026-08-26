@@ -35,6 +35,8 @@ set(REREVVED_SOURCES
     src/presence.h
     src/presence_model.cpp
     src/presence_model.h
+    src/rush_cost.cpp
+    src/rush_cost.h
 )
 
 if(WIN32)
@@ -78,4 +80,13 @@ if(BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
     add_test(NAME presence_model COMMAND presence_model_tests)
+
+    add_executable(rush_cost_tests
+        src/rush_cost.cpp
+        tests/rush_cost_test.cpp
+    )
+    target_include_directories(rush_cost_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    add_test(NAME rush_cost_producer_consumer COMMAND rush_cost_tests)
 endif()

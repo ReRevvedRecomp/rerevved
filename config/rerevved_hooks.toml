@@ -38,3 +38,17 @@ registers = ["r3", "r31"]
 [[midasm_hook]]
 address = 0x82D7F934
 name = "ReRevvedApplyCombatPaceOverride"
+
+# Correct the active rush-cost divisor before the displayed and submitted cost
+# returns, then coordinate the consumer before its production and treasury
+# stores.
+
+[[midasm_hook]]
+address = 0x82CE2938
+name = "ReRevvedFixRushCostDisplay"
+registers = ["r27", "r30", "r31", "r6", "r7", "r11"]
+
+[[midasm_hook]]
+address = 0x82D17A9C
+name = "ReRevvedFixRushCostApply"
+registers = ["r25", "r26", "r28", "r3", "r6", "r8"]

@@ -44,6 +44,23 @@ EXPECTED_HOOKS = [
         "address": 0x82D7F934,
         "name": "ReRevvedApplyCombatPaceOverride",
     },
+    {
+        "address": 0x82CE2938,
+        "name": "ReRevvedFixRushCostDisplay",
+        "registers": ["r27", "r30", "r31", "r6", "r7", "r11"],
+    },
+    {
+        "address": 0x82D17A9C,
+        "name": "ReRevvedFixRushCostApply",
+        "registers": [
+            "r25",
+            "r26",
+            "r28",
+            "r3",
+            "r6",
+            "r8",
+        ],
+    },
 ]
 
 
@@ -121,6 +138,32 @@ class HookContractTests(unittest.TestCase):
             "\tReRevvedApplyCombatPaceOverride();"
         )
         self.assertEqual(generated.count(expected), 1)
+
+    def test_rush_cost_repair_has_no_diagnostic_surface(self) -> None:
+        source = HOOK_SOURCE.read_text(encoding="utf-8")
+        self.assertNotIn("rush_cost_probe", source)
+        self.assertNotIn("Rush-cost probe", source)
+
+    def test_generated_rush_cost_hooks_when_available(self) -> None:
+        paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
+        if not paths:
+            self.skipTest("generated sources are not available")
+
+        generated = "".join(path.read_text(encoding="utf-8") for path in paths)
+        placements = [
+            (
+                "\t// cmpwi cr6,r30,29\n"
+                "\tReRevvedFixRushCostDisplay(ctx.r27, ctx.r30, ctx.r31, "
+                "ctx.r6, ctx.r7, ctx.r11);"
+            ),
+            (
+                "\t// cmpwi cr6,r25,119\n"
+                "\tReRevvedFixRushCostApply(ctx.r25, ctx.r26, ctx.r28, "
+                "ctx.r3, ctx.r6, ctx.r8);"
+            ),
+        ]
+        for placement in placements:
+            self.assertEqual(generated.count(placement), 1)
 
 
 if __name__ == "__main__":
