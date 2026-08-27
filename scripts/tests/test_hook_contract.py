@@ -8,7 +8,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 HOOK_CONFIG = ROOT / "config" / "rerevved_hooks.toml"
-HOOK_SOURCE = ROOT / "src" / "compat_hooks.cpp"
+HOOK_SOURCES = [
+    ROOT / "src" / "compat_hooks.cpp",
+    ROOT / "src" / "great_general_attachment.cpp",
+]
+GENERAL_SOURCE = ROOT / "src" / "great_general_attachment.cpp"
 GENERATED = ROOT / "generated" / "default"
 
 EXPECTED_HOOKS = [
@@ -61,6 +65,20 @@ EXPECTED_HOOKS = [
             "r8",
         ],
     },
+    {
+        "address": 0x82CBF534,
+        "name": "ReRevvedFixGreatGeneralBorderCompletion",
+    },
+    {
+        "address": 0x82CDFA64,
+        "name": "ReRevvedFixGreatGeneralPostCombat",
+        "registers": ["r31", "r15"],
+    },
+    {
+        "address": 0x82CDFCC4,
+        "name": "ReRevvedFixGreatGeneralPostCombat",
+        "registers": ["r31", "r26"],
+    },
 ]
 
 
@@ -74,7 +92,9 @@ class HookContractTests(unittest.TestCase):
     def test_configured_names_match_compat_hook_functions(self) -> None:
         with HOOK_CONFIG.open("rb") as stream:
             config = tomllib.load(stream)
-        source = HOOK_SOURCE.read_text(encoding="utf-8")
+        source = "\n".join(
+            path.read_text(encoding="utf-8") for path in HOOK_SOURCES
+        )
         source_names = set(
             re.findall(r"^void (ReRevved\w+)\s*\(", source, re.MULTILINE)
         )
@@ -102,7 +122,7 @@ class HookContractTests(unittest.TestCase):
         self.assertEqual(generated.count(expected), 1)
 
     def test_combat_speed_contract(self) -> None:
-        source = HOOK_SOURCE.read_text(encoding="utf-8")
+        source = HOOK_SOURCES[0].read_text(encoding="utf-8")
         override = source.split(
             "void ReRevvedApplyCombatPaceOverride", 1
         )[1].split("void ReRevvedCompatNullOptionalDispatch", 1)[0]
@@ -140,9 +160,62 @@ class HookContractTests(unittest.TestCase):
         self.assertEqual(generated.count(expected), 1)
 
     def test_rush_cost_repair_has_no_diagnostic_surface(self) -> None:
-        source = HOOK_SOURCE.read_text(encoding="utf-8")
+        source = HOOK_SOURCES[0].read_text(encoding="utf-8")
         self.assertNotIn("rush_cost_probe", source)
         self.assertNotIn("Rush-cost probe", source)
+
+    def test_great_general_fix_is_bounded_and_always_on(self) -> None:
+        source = GENERAL_SOURCE.read_text(encoding="utf-8")
+        self.assertNotIn("great_general_attachment_fix", source)
+        self.assertNotIn("REXCVAR_", source)
+        self.assertNotIn("FixEnabled", source)
+        self.assertRegex(
+            source,
+            r"void ReRevvedFixGreatGeneralBorderCompletion\(\)\s*"
+            r"\{\s*RepairAllPairs\(\);\s*\}",
+        )
+        self.assertRegex(
+            source,
+            r"void ReRevvedFixGreatGeneralPostCombat\(PPCRegister& player,\s*"
+            r"PPCRegister& unit\)\s*\{\s*"
+            r"RepairPairsForCarrier\(player\.s32, unit\.s32\);\s*\}",
+        )
+        for offset in ["0x00", "0x01", "0x0C", "0x1C", "0x1E", "0x50"]:
+            self.assertIn(offset, source)
+        self.assertNotIn("REX_STORE_", source)
+        self.assertEqual(source.count("TranslateVirtual<uint8_t*>"), 1)
+        self.assertEqual(source.count("WriteCoordinates("), 2)
+        self.assertNotIn("REXLOG_", source)
+        self.assertNotIn("0x26", source)
+        self.assertNotIn("unload", source.lower())
+
+    def test_generated_great_general_fix_placement_when_available(self) -> None:
+        paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
+        if not paths:
+            self.skipTest("generated sources are not available")
+
+        generated = "".join(path.read_text(encoding="utf-8") for path in paths)
+        placements = [
+            (
+                "loc_82CBF534:\n"
+                "\t// lwz r11,112(r1)\n"
+                "\tReRevvedFixGreatGeneralBorderCompletion();"
+            ),
+            (
+                "\tctx.lr = 0x82CDFA64;\n"
+                "\tsub_82CD69B8(ctx, base);\n"
+                "\t// b 0x82ce16ac\n"
+                "\tReRevvedFixGreatGeneralPostCombat(ctx.r31, ctx.r15);"
+            ),
+            (
+                "loc_82CDFCC4:\n"
+                "\t// lbzx r11,r30,r28\n"
+                "\tReRevvedFixGreatGeneralPostCombat(ctx.r31, ctx.r26);"
+            ),
+        ]
+        for placement in placements:
+            self.assertEqual(generated.count(placement), 1)
+        self.assertNotIn("ReRevvedProbeGreatGeneral", generated)
 
     def test_generated_rush_cost_hooks_when_available(self) -> None:
         paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))

@@ -52,3 +52,20 @@ registers = ["r27", "r30", "r31", "r6", "r7", "r11"]
 address = 0x82D17A9C
 name = "ReRevvedFixRushCostApply"
 registers = ["r25", "r26", "r28", "r3", "r6", "r8"]
+
+# Reconcile only live same-player type-30 attachments after forced border
+# relocation and the two verified successful post-combat movement returns.
+# The repair changes only the General's tile coordinates.
+[[midasm_hook]]
+address = 0x82CBF534
+name = "ReRevvedFixGreatGeneralBorderCompletion"
+
+[[midasm_hook]]
+address = 0x82CDFA64
+name = "ReRevvedFixGreatGeneralPostCombat"
+registers = ["r31", "r15"]
+
+[[midasm_hook]]
+address = 0x82CDFCC4
+name = "ReRevvedFixGreatGeneralPostCombat"
+registers = ["r31", "r26"]

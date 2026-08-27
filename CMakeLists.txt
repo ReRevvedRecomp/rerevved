@@ -27,6 +27,8 @@ set(REREVVED_SOURCES
     src/app.cpp
     src/compat_hooks.cpp
     src/game_content.cpp
+    src/great_general_attachment.cpp
+    src/great_general_attachment.h
     src/game_state.cpp
     src/game_state.h
     src/imports.cpp
@@ -89,4 +91,14 @@ if(BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
     add_test(NAME rush_cost_producer_consumer COMMAND rush_cost_tests)
+
+    add_executable(great_general_attachment_tests
+        src/great_general_attachment.cpp
+        tests/great_general_attachment_test.cpp
+    )
+    target_include_directories(great_general_attachment_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    target_link_libraries(great_general_attachment_tests PRIVATE rex::runtime)
+    add_test(NAME great_general_attachment COMMAND great_general_attachment_tests)
 endif()
