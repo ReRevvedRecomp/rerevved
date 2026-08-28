@@ -66,6 +66,14 @@ address = 0x82CF21D8
 name = "ReRevvedApplyUniqueUnitBaseDefense"
 registers = ["r29", "r30", "r31"]
 
+# Replace one unlocked UEA cell only in the shared cumulative lookup. Exact
+# mode branches around this site and remains entirely native.
+
+[[midasm_hook]]
+address = 0x82CF0D6C
+name = "ReRevvedApplyUniqueEraAbilityCell"
+registers = ["r4", "r9", "r11"]
+
 # Reconcile only live same-player type-30 attachments after forced border
 # relocation and the two verified successful post-combat movement returns.
 # The repair changes only the General's tile coordinates.

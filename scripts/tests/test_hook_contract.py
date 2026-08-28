@@ -11,6 +11,7 @@ HOOK_CONFIG = ROOT / "config" / "rerevved_hooks.toml"
 HOOK_SOURCES = [
     ROOT / "src" / "compat_hooks.cpp",
     ROOT / "src" / "great_general_attachment.cpp",
+    ROOT / "src" / "unique_era_abilities_hooks.cpp",
     ROOT / "src" / "unique_unit_rules_hooks.cpp",
 ]
 GENERAL_SOURCE = ROOT / "src" / "great_general_attachment.cpp"
@@ -75,6 +76,11 @@ EXPECTED_HOOKS = [
         "address": 0x82CF21D8,
         "name": "ReRevvedApplyUniqueUnitBaseDefense",
         "registers": ["r29", "r30", "r31"],
+    },
+    {
+        "address": 0x82CF0D6C,
+        "name": "ReRevvedApplyUniqueEraAbilityCell",
+        "registers": ["r4", "r9", "r11"],
     },
     {
         "address": 0x82CBF534,
@@ -273,6 +279,29 @@ class HookContractTests(unittest.TestCase):
             self.assertEqual(generated.count(placement), 1)
         self.assertNotIn("ReRevvedBeginEffective", generated)
         self.assertNotIn("ReRevvedFinishEffective", generated)
+
+    def test_generated_unique_era_ability_hook_when_available(self) -> None:
+        paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
+        if not paths:
+            self.skipTest("generated sources are not available")
+
+        generated = "".join(path.read_text(encoding="utf-8") for path in paths)
+        placement = (
+            "\t// cmpw cr6,r11,r3\n"
+            "\tReRevvedApplyUniqueEraAbilityCell("
+            "ctx.r4, ctx.r9, ctx.r11);\n"
+            "\tctx.cr6.compare<int32_t>(ctx.r11.s32, ctx.r3.s32, ctx.xer);"
+        )
+        self.assertEqual(generated.count(placement), 1)
+
+        function = generated.split("DEFINE_REX_FUNC(sub_82CF0CB0)", 1)[1]
+        function = function.split("DEFINE_REX_FUNC", 1)[0]
+        exact_mode, cumulative_mode = function.split("loc_82CF0D0C:", 1)
+        self.assertNotIn("ReRevvedApplyUniqueEraAbilityCell", exact_mode)
+        self.assertEqual(
+            cumulative_mode.count("ReRevvedApplyUniqueEraAbilityCell"), 1
+        )
+        self.assertIn("if (ctx.cr6.eq) goto loc_82CF0D0C;", exact_mode)
 
 
 if __name__ == "__main__":
