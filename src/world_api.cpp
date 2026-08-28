@@ -202,6 +202,28 @@ int32_t CopySizedOutput(void*       out,
     return REREVVED_WORLD_OK;
 }
 
+bool TryResolveUnitIdentity(ReRevvedCivilizationId  civilization,
+                            ReRevvedUnitTypeId      unit_type,
+                            ReRevvedUnitIdentityId& identity)
+{
+    if (!IsCivilizationIdValid(civilization) ||
+        !IsUnitTypeIdValid(unit_type))
+    {
+        return false;
+    }
+
+    identity = REREVVED_UNIT_IDENTITY_BASE;
+    for (const auto& entry : kUnitIdentities)
+    {
+        if (entry.civilization == civilization && entry.unit_type == unit_type)
+        {
+            identity = entry.identity;
+            break;
+        }
+    }
+    return true;
+}
+
 } // namespace rerevved::world
 
 static_assert(sizeof(ReRevvedCivilizationId) == sizeof(int32_t));
@@ -290,14 +312,10 @@ extern "C" int32_t ReRevvedResolveUnitIdentity(
     }
 
     ReRevvedUnitIdentityId identity = REREVVED_UNIT_IDENTITY_BASE;
-    for (const auto& entry : rerevved::world::kUnitIdentities)
+    if (!rerevved::world::TryResolveUnitIdentity(
+            civilization, base_unit_type, identity))
     {
-        if (entry.civilization == civilization &&
-            entry.unit_type == base_unit_type)
-        {
-            identity = entry.identity;
-            break;
-        }
+        return REREVVED_WORLD_ERR_INVALID_ARGUMENT;
     }
 
     const ReRevvedWorldUnitIdentity result = {

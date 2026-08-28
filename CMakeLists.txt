@@ -33,6 +33,9 @@ set(REREVVED_SOURCES
     src/game_state.h
     src/imports.cpp
     src/main.cpp
+    src/unique_unit_rules.cpp
+    src/unique_unit_rules_hooks.cpp
+    src/unique_unit_rules_registry.h
     src/presence.cpp
     src/presence.h
     src/presence_model.cpp
@@ -65,6 +68,7 @@ target_include_directories(rerevved PRIVATE
 )
 target_compile_definitions(rerevved PRIVATE
     REREVVED_GAMEPLAY_API_EXPORTS
+    REREVVED_UNIQUE_UNIT_RULES_API_EXPORTS
     REREVVED_WORLD_API_EXPORTS
     REREVVED_VERSION="${PROJECT_VERSION}"
 )
@@ -126,4 +130,26 @@ if(BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
     add_test(NAME world_api_c_header COMMAND world_api_c_header_tests)
+
+    add_executable(unique_unit_rules_tests
+        src/unique_unit_rules.cpp
+        src/world_api.cpp
+        tests/unique_unit_rules_test.cpp
+    )
+    target_include_directories(unique_unit_rules_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/api
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    add_test(NAME unique_unit_rules_contract COMMAND unique_unit_rules_tests)
+
+    add_executable(unique_unit_rules_c_header_tests
+        src/unique_unit_rules.cpp
+        src/world_api.cpp
+        tests/unique_unit_rules_c_header_test.c
+    )
+    target_include_directories(unique_unit_rules_c_header_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/api
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    add_test(NAME unique_unit_rules_c_header COMMAND unique_unit_rules_c_header_tests)
 endif()

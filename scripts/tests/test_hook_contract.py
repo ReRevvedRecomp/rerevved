@@ -11,6 +11,7 @@ HOOK_CONFIG = ROOT / "config" / "rerevved_hooks.toml"
 HOOK_SOURCES = [
     ROOT / "src" / "compat_hooks.cpp",
     ROOT / "src" / "great_general_attachment.cpp",
+    ROOT / "src" / "unique_unit_rules_hooks.cpp",
 ]
 GENERAL_SOURCE = ROOT / "src" / "great_general_attachment.cpp"
 GENERATED = ROOT / "generated" / "default"
@@ -64,6 +65,31 @@ EXPECTED_HOOKS = [
             "r6",
             "r8",
         ],
+    },
+    {
+        "address": 0x82CF2230,
+        "name": "ReRevvedBeginEffectiveAttack",
+        "registers": ["r3", "r4"],
+    },
+    {
+        "address": 0x82CF2268,
+        "name": "ReRevvedFinishEffectiveAttack",
+        "registers": ["r3"],
+    },
+    {
+        "address": 0x82CF24E8,
+        "name": "ReRevvedFinishEffectiveAttack",
+        "registers": ["r3"],
+    },
+    {
+        "address": 0x82CF21A0,
+        "name": "ReRevvedBeginEffectiveDefense",
+        "registers": ["r3", "r4"],
+    },
+    {
+        "address": 0x82CF2224,
+        "name": "ReRevvedFinishEffectiveDefense",
+        "registers": ["r3"],
     },
     {
         "address": 0x82CBF534,
@@ -237,6 +263,53 @@ class HookContractTests(unittest.TestCase):
         ]
         for placement in placements:
             self.assertEqual(generated.count(placement), 1)
+
+    def test_generated_unique_unit_rule_hooks_when_available(self) -> None:
+        paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
+        if not paths:
+            self.skipTest("generated sources are not available")
+
+        generated = "".join(path.read_text(encoding="utf-8") for path in paths)
+        placements = [
+            (
+                "DEFINE_REX_FUNC(sub_82CF2230) {\n"
+                "\tREX_FUNC_PROLOGUE();\n"
+                "\tuint32_t ea{};\n"
+                "\t// mflr r12\n"
+                "\tReRevvedBeginEffectiveAttack(ctx.r3, ctx.r4);"
+            ),
+            (
+                "\t// li r3,0\n"
+                "\tctx.r3.s64 = 0;\n"
+                "\t// addi r1,r1,128\n"
+                "\tReRevvedFinishEffectiveAttack(ctx.r3);\n"
+                "\tctx.r1.s64 = ctx.r1.s64 + 128;"
+            ),
+            (
+                "\t// add r3,r11,r27\n"
+                "\tctx.r3.u64 = ctx.r11.u64 + ctx.r27.u64;\n"
+                "\t// addi r1,r1,128\n"
+                "\tReRevvedFinishEffectiveAttack(ctx.r3);\n"
+                "\tctx.r1.s64 = ctx.r1.s64 + 128;"
+            ),
+            (
+                "DEFINE_REX_FUNC(sub_82CF21A0) {\n"
+                "\tREX_FUNC_PROLOGUE();\n"
+                "\tuint32_t ea{};\n"
+                "\t// mflr r12\n"
+                "\tReRevvedBeginEffectiveDefense(ctx.r3, ctx.r4);"
+            ),
+            (
+                "loc_82CF2224:\n"
+                "\t// addi r1,r1,112\n"
+                "\tReRevvedFinishEffectiveDefense(ctx.r3);"
+            ),
+        ]
+        for placement in placements:
+            self.assertEqual(generated.count(placement), 1)
+        self.assertEqual(
+            generated.count("ReRevvedFinishEffectiveAttack(ctx.r3);"), 2
+        )
 
 
 if __name__ == "__main__":

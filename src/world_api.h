@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include <game_ids.h>
+
 namespace rerevved::world
 {
 
@@ -12,5 +14,9 @@ int32_t CopySizedOutput(void*       out,
                         const void* producer,
                         uint32_t    producer_size,
                         uint32_t    minimum_prefix);
+
+bool TryResolveUnitIdentity(ReRevvedCivilizationId  civilization,
+                            ReRevvedUnitTypeId      unit_type,
+                            ReRevvedUnitIdentityId& identity);
 
 } // namespace rerevved::world

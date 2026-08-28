@@ -53,6 +53,36 @@ address = 0x82D17A9C
 name = "ReRevvedFixRushCostApply"
 registers = ["r25", "r26", "r28", "r3", "r6", "r8"]
 
+# Compose unique-unit scalar rules after the native effective attack and defense
+# accessors have applied their built-in unit and civilization modifiers. Entry
+# hooks retain the original semantic arguments; both attack returns and the one
+# defense return pass the final value through the registry.
+
+[[midasm_hook]]
+address = 0x82CF2230
+name = "ReRevvedBeginEffectiveAttack"
+registers = ["r3", "r4"]
+
+[[midasm_hook]]
+address = 0x82CF2268
+name = "ReRevvedFinishEffectiveAttack"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82CF24E8
+name = "ReRevvedFinishEffectiveAttack"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82CF21A0
+name = "ReRevvedBeginEffectiveDefense"
+registers = ["r3", "r4"]
+
+[[midasm_hook]]
+address = 0x82CF2224
+name = "ReRevvedFinishEffectiveDefense"
+registers = ["r3"]
+
 # Reconcile only live same-player type-30 attachments after forced border
 # relocation and the two verified successful post-combat movement returns.
 # The repair changes only the General's tile coordinates.
