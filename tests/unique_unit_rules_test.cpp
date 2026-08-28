@@ -57,7 +57,7 @@ ReRevvedUniqueUnitScalarRule CataphractRule(
                     REREVVED_CIVILIZATION_ROMAN,
                     REREVVED_UNIT_TYPE_KNIGHTS,
                     REREVVED_UNIT_IDENTITY_CATAPHRACT,
-                    REREVVED_UNIQUE_UNIT_SCALAR_EFFECTIVE_ATTACK,
+                    REREVVED_UNIQUE_UNIT_SCALAR_BASE_ATTACK,
                     operation,
                     value);
 }
@@ -238,7 +238,7 @@ void TestComposition()
     auto evaluation = Evaluate(REREVVED_CIVILIZATION_ROMAN,
                                REREVVED_UNIT_TYPE_KNIGHTS,
                                REREVVED_UNIT_IDENTITY_CATAPHRACT,
-                               REREVVED_UNIQUE_UNIT_SCALAR_EFFECTIVE_ATTACK,
+                               REREVVED_UNIQUE_UNIT_SCALAR_BASE_ATTACK,
                                4);
     Require(evaluation.native_value == 4 && evaluation.final_value == 50 &&
                 evaluation.replacement_count == 1 &&
@@ -248,7 +248,7 @@ void TestComposition()
     evaluation = Evaluate(REREVVED_CIVILIZATION_ROMAN,
                           REREVVED_UNIT_TYPE_KNIGHTS,
                           REREVVED_UNIT_IDENTITY_CATAPHRACT,
-                          REREVVED_UNIQUE_UNIT_SCALAR_EFFECTIVE_DEFENSE,
+                          REREVVED_UNIQUE_UNIT_SCALAR_BASE_DEFENSE,
                           2);
     Require(evaluation.final_value == 2 &&
                 evaluation.replacement_count == 0,
@@ -266,7 +266,7 @@ void TestComposition()
     evaluation = Evaluate(REREVVED_CIVILIZATION_ROMAN,
                           REREVVED_UNIT_TYPE_KNIGHTS,
                           REREVVED_UNIT_IDENTITY_CATAPHRACT,
-                          REREVVED_UNIQUE_UNIT_SCALAR_EFFECTIVE_ATTACK,
+                          REREVVED_UNIQUE_UNIT_SCALAR_BASE_ATTACK,
                           4);
     Require(evaluation.final_value == 51 && evaluation.additive_count == 2,
             "replacement plus additions");
@@ -279,7 +279,7 @@ void TestComposition()
     evaluation = Evaluate(REREVVED_CIVILIZATION_ROMAN,
                           REREVVED_UNIT_TYPE_KNIGHTS,
                           REREVVED_UNIT_IDENTITY_CATAPHRACT,
-                          REREVVED_UNIQUE_UNIT_SCALAR_EFFECTIVE_ATTACK,
+                          REREVVED_UNIQUE_UNIT_SCALAR_BASE_ATTACK,
                           4);
     Require(evaluation.final_value == 5 &&
                 evaluation.replacement_count == 2 &&
@@ -318,7 +318,7 @@ void TestRegistrationOrderIndependence()
         REREVVED_CIVILIZATION_ROMAN,
         REREVVED_UNIT_TYPE_KNIGHTS,
         REREVVED_UNIT_IDENTITY_CATAPHRACT,
-        REREVVED_UNIQUE_UNIT_SCALAR_EFFECTIVE_ATTACK,
+        REREVVED_UNIQUE_UNIT_SCALAR_BASE_ATTACK,
         4);
 
     rerevved::unique_unit_rules::ResetForTests();
@@ -333,7 +333,7 @@ void TestRegistrationOrderIndependence()
         REREVVED_CIVILIZATION_ROMAN,
         REREVVED_UNIT_TYPE_KNIGHTS,
         REREVVED_UNIT_IDENTITY_CATAPHRACT,
-        REREVVED_UNIQUE_UNIT_SCALAR_EFFECTIVE_ATTACK,
+        REREVVED_UNIQUE_UNIT_SCALAR_BASE_ATTACK,
         4);
     Require(forward.final_value == 51 &&
                 reverse.final_value == forward.final_value &&
@@ -366,7 +366,7 @@ void TestCopiedInputAndConcurrentAccess()
         REREVVED_CIVILIZATION_ROMAN,
         REREVVED_UNIT_TYPE_KNIGHTS,
         REREVVED_UNIT_IDENTITY_CATAPHRACT,
-        REREVVED_UNIQUE_UNIT_SCALAR_EFFECTIVE_ATTACK,
+        REREVVED_UNIQUE_UNIT_SCALAR_BASE_ATTACK,
         4,
         {},
     };
@@ -428,7 +428,7 @@ void TestCopiedInputAndConcurrentAccess()
     const auto final = Evaluate(REREVVED_CIVILIZATION_ROMAN,
                                 REREVVED_UNIT_TYPE_KNIGHTS,
                                 REREVVED_UNIT_IDENTITY_CATAPHRACT,
-                                REREVVED_UNIQUE_UNIT_SCALAR_EFFECTIVE_ATTACK,
+                                REREVVED_UNIQUE_UNIT_SCALAR_BASE_ATTACK,
                                 4);
     Require(!failed.load(std::memory_order_relaxed) &&
                 final.final_value == 66 && final.additive_count == 16,
@@ -447,7 +447,7 @@ void TestOverflowAndQueryValidation()
         REREVVED_CIVILIZATION_ROMAN,
         REREVVED_UNIT_TYPE_KNIGHTS,
         REREVVED_UNIT_IDENTITY_CATAPHRACT,
-        REREVVED_UNIQUE_UNIT_SCALAR_EFFECTIVE_ATTACK,
+        REREVVED_UNIQUE_UNIT_SCALAR_BASE_ATTACK,
         std::numeric_limits<int32_t>::max());
     Require(evaluation.final_value == std::numeric_limits<int32_t>::max() &&
                 (evaluation.status_flags &
@@ -464,7 +464,7 @@ void TestOverflowAndQueryValidation()
         REREVVED_CIVILIZATION_ROMAN,
         REREVVED_UNIT_TYPE_KNIGHTS,
         REREVVED_UNIT_IDENTITY_CATAPHRACT,
-        REREVVED_UNIQUE_UNIT_SCALAR_EFFECTIVE_ATTACK,
+        REREVVED_UNIQUE_UNIT_SCALAR_BASE_ATTACK,
         std::numeric_limits<int32_t>::min());
     Require(underflow.final_value == std::numeric_limits<int32_t>::min() &&
                 (underflow.status_flags &
@@ -476,7 +476,7 @@ void TestOverflowAndQueryValidation()
     query.civilization   = REREVVED_CIVILIZATION_ROMAN;
     query.base_unit_type = REREVVED_UNIT_TYPE_KNIGHTS;
     query.identity       = REREVVED_UNIT_IDENTITY_CATAPHRACT;
-    query.property       = REREVVED_UNIQUE_UNIT_SCALAR_EFFECTIVE_ATTACK;
+    query.property       = REREVVED_UNIQUE_UNIT_SCALAR_BASE_ATTACK;
     ReRevvedUniqueUnitScalarEvaluation out{};
     Require(ReRevvedEvaluateUniqueUnitScalar(&query, nullptr, sizeof(out)) ==
                 REREVVED_UNIQUE_UNIT_RULES_ERR_INVALID_ARGUMENT,

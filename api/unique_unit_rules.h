@@ -1,4 +1,4 @@
-// Public C ABI for ReRevved unique-unit attack and defense rules.
+// Public C ABI for ReRevved Unique Unit base attack and defense rules.
 //
 // Mods resolve these entry points from the host process and check
 // ReRevvedUniqueUnitRulesAbiVersion before calling them. Registrations are
@@ -34,10 +34,12 @@ enum
 
 typedef int32_t ReRevvedUniqueUnitScalarProperty;
 
+// These values compose the signed base stat before the title applies its
+// civilization, era, unit, army, and earned combat modifiers.
 enum
 {
-    REREVVED_UNIQUE_UNIT_SCALAR_EFFECTIVE_ATTACK  = 0,
-    REREVVED_UNIQUE_UNIT_SCALAR_EFFECTIVE_DEFENSE = 1,
+    REREVVED_UNIQUE_UNIT_SCALAR_BASE_ATTACK  = 0,
+    REREVVED_UNIQUE_UNIT_SCALAR_BASE_DEFENSE = 1,
 };
 
 typedef int32_t ReRevvedUniqueUnitScalarOperation;

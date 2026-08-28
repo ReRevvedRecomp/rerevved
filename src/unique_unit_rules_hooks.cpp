@@ -15,16 +15,6 @@ namespace
 constexpr uint32_t kPlayerCivilizations = 0x830ECD28;
 constexpr int32_t  kPlayerCount         = 6;
 
-struct LookupContext
-{
-    int32_t player;
-    int32_t base_unit_type;
-    bool    active;
-};
-
-thread_local LookupContext attack_context{};
-thread_local LookupContext defense_context{};
-
 bool TryReadCivilization(int32_t player, ReRevvedCivilizationId& civilization)
 {
     if (player < 0 || player >= kPlayerCount)
@@ -58,26 +48,20 @@ bool TryReadCivilization(int32_t player, ReRevvedCivilizationId& civilization)
     return true;
 }
 
-void FinishLookup(LookupContext&                   context,
-                  ReRevvedUniqueUnitScalarProperty property,
-                  PPCRegister&                     value)
+void ApplyBaseValue(PPCRegister&                     player,
+                    PPCRegister&                     unit_type,
+                    PPCRegister&                     value,
+                    ReRevvedUniqueUnitScalarProperty property)
 {
-    const LookupContext current = context;
-    context                     = {};
-    if (!current.active)
-    {
-        return;
-    }
-
     ReRevvedCivilizationId civilization = REREVVED_CIVILIZATION_UNKNOWN;
-    if (!TryReadCivilization(current.player, civilization))
+    if (!TryReadCivilization(player.s32, civilization))
     {
         return;
     }
 
     ReRevvedUnitIdentityId identity = REREVVED_UNIT_IDENTITY_BASE;
     if (!rerevved::world::TryResolveUnitIdentity(
-            civilization, current.base_unit_type, identity) ||
+            civilization, unit_type.s32, identity) ||
         identity == REREVVED_UNIT_IDENTITY_BASE)
     {
         return;
@@ -85,7 +69,7 @@ void FinishLookup(LookupContext&                   context,
 
     ReRevvedUniqueUnitScalarEvaluation evaluation{};
     if (rerevved::unique_unit_rules::TryEvaluate(civilization,
-                                                 current.base_unit_type,
+                                                 unit_type.s32,
                                                  identity,
                                                  property,
                                                  value.s32,
@@ -97,26 +81,22 @@ void FinishLookup(LookupContext&                   context,
 
 } // namespace
 
-void ReRevvedBeginEffectiveAttack(PPCRegister& player, PPCRegister& unit_type)
+void ReRevvedApplyUniqueUnitBaseAttack(PPCRegister& player,
+                                       PPCRegister& unit_type,
+                                       PPCRegister& value)
 {
-    attack_context = { player.s32, unit_type.s32, true };
+    ApplyBaseValue(player,
+                   unit_type,
+                   value,
+                   REREVVED_UNIQUE_UNIT_SCALAR_BASE_ATTACK);
 }
 
-void ReRevvedFinishEffectiveAttack(PPCRegister& value)
+void ReRevvedApplyUniqueUnitBaseDefense(PPCRegister& player,
+                                        PPCRegister& unit_type,
+                                        PPCRegister& value)
 {
-    FinishLookup(attack_context,
-                 REREVVED_UNIQUE_UNIT_SCALAR_EFFECTIVE_ATTACK,
-                 value);
-}
-
-void ReRevvedBeginEffectiveDefense(PPCRegister& player, PPCRegister& unit_type)
-{
-    defense_context = { player.s32, unit_type.s32, true };
-}
-
-void ReRevvedFinishEffectiveDefense(PPCRegister& value)
-{
-    FinishLookup(defense_context,
-                 REREVVED_UNIQUE_UNIT_SCALAR_EFFECTIVE_DEFENSE,
-                 value);
+    ApplyBaseValue(player,
+                   unit_type,
+                   value,
+                   REREVVED_UNIQUE_UNIT_SCALAR_BASE_DEFENSE);
 }

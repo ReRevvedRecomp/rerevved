@@ -67,29 +67,14 @@ EXPECTED_HOOKS = [
         ],
     },
     {
-        "address": 0x82CF2230,
-        "name": "ReRevvedBeginEffectiveAttack",
-        "registers": ["r3", "r4"],
+        "address": 0x82CF225C,
+        "name": "ReRevvedApplyUniqueUnitBaseAttack",
+        "registers": ["r28", "r29", "r27"],
     },
     {
-        "address": 0x82CF2268,
-        "name": "ReRevvedFinishEffectiveAttack",
-        "registers": ["r3"],
-    },
-    {
-        "address": 0x82CF24E8,
-        "name": "ReRevvedFinishEffectiveAttack",
-        "registers": ["r3"],
-    },
-    {
-        "address": 0x82CF21A0,
-        "name": "ReRevvedBeginEffectiveDefense",
-        "registers": ["r3", "r4"],
-    },
-    {
-        "address": 0x82CF2224,
-        "name": "ReRevvedFinishEffectiveDefense",
-        "registers": ["r3"],
+        "address": 0x82CF21D8,
+        "name": "ReRevvedApplyUniqueUnitBaseDefense",
+        "registers": ["r29", "r30", "r31"],
     },
     {
         "address": 0x82CBF534,
@@ -272,44 +257,22 @@ class HookContractTests(unittest.TestCase):
         generated = "".join(path.read_text(encoding="utf-8") for path in paths)
         placements = [
             (
-                "DEFINE_REX_FUNC(sub_82CF2230) {\n"
-                "\tREX_FUNC_PROLOGUE();\n"
-                "\tuint32_t ea{};\n"
-                "\t// mflr r12\n"
-                "\tReRevvedBeginEffectiveAttack(ctx.r3, ctx.r4);"
+                "\t// cmpwi cr6,r27,0\n"
+                "\tReRevvedApplyUniqueUnitBaseAttack("
+                "ctx.r28, ctx.r29, ctx.r27);\n"
+                "\tctx.cr6.compare<int32_t>(ctx.r27.s32, 0, ctx.xer);"
             ),
             (
-                "\t// li r3,0\n"
-                "\tctx.r3.s64 = 0;\n"
-                "\t// addi r1,r1,128\n"
-                "\tReRevvedFinishEffectiveAttack(ctx.r3);\n"
-                "\tctx.r1.s64 = ctx.r1.s64 + 128;"
-            ),
-            (
-                "\t// add r3,r11,r27\n"
-                "\tctx.r3.u64 = ctx.r11.u64 + ctx.r27.u64;\n"
-                "\t// addi r1,r1,128\n"
-                "\tReRevvedFinishEffectiveAttack(ctx.r3);\n"
-                "\tctx.r1.s64 = ctx.r1.s64 + 128;"
-            ),
-            (
-                "DEFINE_REX_FUNC(sub_82CF21A0) {\n"
-                "\tREX_FUNC_PROLOGUE();\n"
-                "\tuint32_t ea{};\n"
-                "\t// mflr r12\n"
-                "\tReRevvedBeginEffectiveDefense(ctx.r3, ctx.r4);"
-            ),
-            (
-                "loc_82CF2224:\n"
-                "\t// addi r1,r1,112\n"
-                "\tReRevvedFinishEffectiveDefense(ctx.r3);"
+                "\t// cmpwi cr6,r5,0\n"
+                "\tReRevvedApplyUniqueUnitBaseDefense("
+                "ctx.r29, ctx.r30, ctx.r31);\n"
+                "\tctx.cr6.compare<int32_t>(ctx.r5.s32, 0, ctx.xer);"
             ),
         ]
         for placement in placements:
             self.assertEqual(generated.count(placement), 1)
-        self.assertEqual(
-            generated.count("ReRevvedFinishEffectiveAttack(ctx.r3);"), 2
-        )
+        self.assertNotIn("ReRevvedBeginEffective", generated)
+        self.assertNotIn("ReRevvedFinishEffective", generated)
 
 
 if __name__ == "__main__":

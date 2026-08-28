@@ -25,8 +25,8 @@ std::vector<ReRevvedUniqueUnitScalarRule> registry;
 
 bool IsPropertyValid(ReRevvedUniqueUnitScalarProperty property)
 {
-    return property == REREVVED_UNIQUE_UNIT_SCALAR_EFFECTIVE_ATTACK ||
-           property == REREVVED_UNIQUE_UNIT_SCALAR_EFFECTIVE_DEFENSE;
+    return property == REREVVED_UNIQUE_UNIT_SCALAR_BASE_ATTACK ||
+           property == REREVVED_UNIQUE_UNIT_SCALAR_BASE_DEFENSE;
 }
 
 bool IsOperationValid(ReRevvedUniqueUnitScalarOperation operation)
