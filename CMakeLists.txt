@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(rerevved VERSION 1.0.0 LANGUAGES CXX)
+project(rerevved VERSION 1.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -39,6 +39,8 @@ set(REREVVED_SOURCES
     src/presence_model.h
     src/rush_cost.cpp
     src/rush_cost.h
+    src/world_api.cpp
+    src/world_api.h
 )
 
 if(WIN32)
@@ -63,9 +65,12 @@ target_include_directories(rerevved PRIVATE
 )
 target_compile_definitions(rerevved PRIVATE
     REREVVED_GAMEPLAY_API_EXPORTS
+    REREVVED_WORLD_API_EXPORTS
     REREVVED_VERSION="${PROJECT_VERSION}"
 )
-if(UNIX)
+if(APPLE)
+    target_link_options(rerevved PRIVATE -Wl,-export_dynamic)
+elseif(UNIX)
     target_link_options(rerevved PRIVATE -Wl,--export-dynamic)
 endif()
 target_link_libraries(rerevved PRIVATE rex::runtime)
@@ -101,4 +106,24 @@ if(BUILD_TESTING)
     )
     target_link_libraries(great_general_attachment_tests PRIVATE rex::runtime)
     add_test(NAME great_general_attachment COMMAND great_general_attachment_tests)
+
+    add_executable(world_api_tests
+        src/world_api.cpp
+        tests/world_api_test.cpp
+    )
+    target_include_directories(world_api_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/api
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    add_test(NAME world_api_contract COMMAND world_api_tests)
+
+    add_executable(world_api_c_header_tests
+        src/world_api.cpp
+        tests/world_api_c_header_test.c
+    )
+    target_include_directories(world_api_c_header_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/api
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    add_test(NAME world_api_c_header COMMAND world_api_c_header_tests)
 endif()

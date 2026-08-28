@@ -12,6 +12,8 @@
 
 #include <stdint.h>
 
+#include <game_ids.h>
+
 #if defined(REREVVED_GAMEPLAY_API_EXPORTS)
 #if defined(_WIN32)
 #define REREVVED_GAMEPLAY_API __declspec(dllexport)
@@ -70,11 +72,11 @@ typedef struct ReRevvedGameplayState
     int32_t  available;
     // These fields describe the active human player. Their validity bits are
     // clear during AI turns, menu/loading transitions, or failed guest reads.
-    int32_t civilization;
-    int32_t era;
-    int32_t year;
-    int32_t turn;
-    int32_t reserved[4];
+    ReRevvedCivilizationId civilization;
+    int32_t                era;
+    int32_t                year;
+    int32_t                turn;
+    int32_t                reserved[4];
 } ReRevvedGameplayState;
 
 typedef uint32_t (*ReRevvedGameplayAbiVersionFn)(void);
