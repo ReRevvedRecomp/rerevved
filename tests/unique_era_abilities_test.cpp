@@ -14,6 +14,12 @@
 void ReRevvedApplyUniqueEraAbilityCell(PPCRegister& cell_offset,
                                        PPCRegister& unlock_era,
                                        PPCRegister& native_ability);
+void ReRevvedApplyBarbarianVillageCityReplacement(
+    PPCRegister& civilization);
+void ReRevvedBeginHorsebackRidingOwnershipCheck(PPCRegister& ownership_base);
+void ReRevvedEndHorsebackRidingOwnershipCheck(PPCRegister& ownership_base);
+void ReRevvedSelectHorsebackRidingAbility(PPCRegister& ability);
+void ReRevvedSelectHorsebackRidingTechnology(PPCRegister& technology);
 
 namespace
 {
@@ -124,7 +130,13 @@ void TestValidation()
     rule.replacement_ability = 11;
     Require(ReRevvedRegisterUniqueEraAbilityReplacement(&rule) ==
                 REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT,
-            "non-retail UEA accepted");
+            "unsupported UEA accepted");
+    rule.replacement_ability =
+        REREVVED_UNIQUE_ERA_ABILITY_KNOWLEDGE_OF_HORSEBACK_RIDING;
+    Require(ReRevvedRegisterUniqueEraAbilityReplacement(&rule) ==
+                REREVVED_UNIQUE_ERA_ABILITIES_OK,
+            "title-owned synthetic UEA rejected");
+    rerevved::unique_era_abilities::ResetForTests();
     rule.replacement_ability =
         REREVVED_UNIQUE_ERA_ABILITY_UNIT_RUSH_HALF_COST;
     rule.reserved[7] = 1;
@@ -208,6 +220,18 @@ void TestAcceptedSemanticRegistry()
                  REREVVED_UNIQUE_ERA_ABILITIES_OK) == expected,
                 "semantic registry accepted the wrong numeric UEA set");
     }
+    ReRevvedUniqueEraAbilityCellQuery synthetic_query{};
+    synthetic_query.struct_size  = sizeof(synthetic_query);
+    synthetic_query.civilization = REREVVED_CIVILIZATION_MONGOLIAN;
+    synthetic_query.unlock_era   = REREVVED_UNIQUE_ERA_ANCIENT;
+    synthetic_query.native_ability =
+        REREVVED_UNIQUE_ERA_ABILITY_KNOWLEDGE_OF_HORSEBACK_RIDING;
+    ReRevvedUniqueEraAbilityCellEvaluation synthetic_result{};
+    Require(ReRevvedEvaluateUniqueEraAbilityCell(&synthetic_query,
+                                                 &synthetic_result,
+                                                 sizeof(synthetic_result)) ==
+                REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT,
+            "synthetic UEA was accepted as a native table value");
     for (int32_t civilization = REREVVED_CIVILIZATION_ROMAN;
          civilization < REREVVED_CIVILIZATION_COUNT;
          ++civilization)
@@ -404,6 +428,83 @@ void TestDuplicateEffectiveAbilityAndBridge()
             "invalid bridge era changed native value");
 }
 
+void TestHorsebackRidingReplacement()
+{
+    rerevved::unique_era_abilities::ResetForTests();
+
+    PPCRegister native_mongolian{};
+    native_mongolian.s64 = REREVVED_CIVILIZATION_MONGOLIAN;
+    ReRevvedApplyBarbarianVillageCityReplacement(native_mongolian);
+    Require(native_mongolian.s32 == REREVVED_CIVILIZATION_MONGOLIAN,
+            "native Mongolian village conversion was suppressed without a rule");
+
+    auto rule = MakeRule(
+        "aeshur.mongol-horseback-riding",
+        "mongol-ancient-horseback-riding",
+        REREVVED_CIVILIZATION_MONGOLIAN,
+        REREVVED_UNIQUE_ERA_ANCIENT,
+        REREVVED_UNIQUE_ERA_ABILITY_KNOWLEDGE_OF_HORSEBACK_RIDING);
+    Require(ReRevvedRegisterUniqueEraAbilityReplacement(&rule) == 0,
+            "Horseback Riding replacement registration failed");
+
+    const auto result = Evaluate(
+        REREVVED_CIVILIZATION_MONGOLIAN,
+        REREVVED_UNIQUE_ERA_ANCIENT,
+        REREVVED_UNIQUE_ERA_ABILITY_BARBARIAN_VILLAGES_BECOME_CITIES);
+    Require(result.native_ability ==
+                    REREVVED_UNIQUE_ERA_ABILITY_BARBARIAN_VILLAGES_BECOME_CITIES &&
+                result.effective_ability ==
+                    REREVVED_UNIQUE_ERA_ABILITY_KNOWLEDGE_OF_HORSEBACK_RIDING &&
+                result.replacement_count == 1 &&
+                result.status_flags ==
+                    REREVVED_UNIQUE_ERA_ABILITY_EVALUATION_REPLACED,
+            "Mongolian Ancient replacement did not produce Horseback Riding");
+
+    PPCRegister replaced_mongolian{};
+    replaced_mongolian.s64 = REREVVED_CIVILIZATION_MONGOLIAN;
+    ReRevvedApplyBarbarianVillageCityReplacement(replaced_mongolian);
+    Require(replaced_mongolian.s32 == REREVVED_CIVILIZATION_UNKNOWN,
+            "Horseback Riding replacement did not suppress village conversion");
+
+    PPCRegister non_mongolian{};
+    non_mongolian.s64 = REREVVED_CIVILIZATION_ROMAN;
+    ReRevvedApplyBarbarianVillageCityReplacement(non_mongolian);
+    Require(non_mongolian.s32 == REREVVED_CIVILIZATION_ROMAN,
+            "village gate changed a non-Mongolian civilization");
+
+    auto conflict = MakeRule(
+        "example.conflicting-provider",
+        "mongol-ancient-conflict",
+        REREVVED_CIVILIZATION_MONGOLIAN,
+        REREVVED_UNIQUE_ERA_ANCIENT,
+        REREVVED_UNIQUE_ERA_ABILITY_UNIT_RUSH_HALF_COST);
+    Require(ReRevvedRegisterUniqueEraAbilityReplacement(&conflict) == 0,
+            "Mongolian Ancient conflict registration failed");
+    PPCRegister conflicted_mongolian{};
+    conflicted_mongolian.s64 = REREVVED_CIVILIZATION_MONGOLIAN;
+    ReRevvedApplyBarbarianVillageCityReplacement(conflicted_mongolian);
+    Require(conflicted_mongolian.s32 == REREVVED_CIVILIZATION_MONGOLIAN,
+            "same-cell conflict did not preserve native village conversion");
+
+    PPCRegister ownership_base{};
+    ownership_base.u64 = 0x1000;
+    ReRevvedBeginHorsebackRidingOwnershipCheck(ownership_base);
+    Require(ownership_base.u32 + 72 == 0x1010,
+            "Horseback Riding ownership check did not select technology 4");
+    ReRevvedEndHorsebackRidingOwnershipCheck(ownership_base);
+    Require(ownership_base.u32 == 0x1000,
+            "Horseback Riding ownership check did not restore its base");
+
+    PPCRegister ability{};
+    PPCRegister technology{};
+    ReRevvedSelectHorsebackRidingAbility(ability);
+    ReRevvedSelectHorsebackRidingTechnology(technology);
+    Require(ability.s32 ==
+                    REREVVED_UNIQUE_ERA_ABILITY_KNOWLEDGE_OF_HORSEBACK_RIDING &&
+                technology.s32 == 4,
+            "Horseback Riding consumer selected the wrong IDs");
+}
+
 void TestQueryErrors()
 {
     rerevved::unique_era_abilities::ResetForTests();
@@ -458,6 +559,7 @@ int main()
     TestRegistrationAndReadback();
     TestCompositionAndConflict();
     TestDuplicateEffectiveAbilityAndBridge();
+    TestHorsebackRidingReplacement();
     TestQueryErrors();
     return 0;
 }

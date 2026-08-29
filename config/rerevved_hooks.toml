@@ -74,6 +74,39 @@ address = 0x82CF0D6C
 name = "ReRevvedApplyUniqueEraAbilityCell"
 registers = ["r4", "r9", "r11"]
 
+# The native Mongolian village-capture effect hard-codes civilization 14 and
+# bypasses the shared UEA lookup. Re-evaluate its Ancient cell at that exact
+# gate so a replacement uses the native ordinary-village reward branch.
+
+[[midasm_hook]]
+address = 0x82D1B758
+name = "ReRevvedApplyBarbarianVillageCityReplacement"
+registers = ["r10"]
+
+# Retarget the unreachable retail UEA 57 technology-grant scaffold to the one
+# title-owned synthetic ability. The surrounding native code retains selector
+# 17 eligibility, cumulative lookup, ownership, and TechnologyAcquire behavior.
+
+[[midasm_hook]]
+address = 0x82D2127C
+name = "ReRevvedBeginHorsebackRidingOwnershipCheck"
+registers = ["r31"]
+
+[[midasm_hook]]
+address = 0x82D21280
+name = "ReRevvedEndHorsebackRidingOwnershipCheck"
+registers = ["r31"]
+
+[[midasm_hook]]
+address = 0x82D212A4
+name = "ReRevvedSelectHorsebackRidingAbility"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82D212C0
+name = "ReRevvedSelectHorsebackRidingTechnology"
+registers = ["r4"]
+
 # Reconcile only live same-player type-30 attachments after forced border
 # relocation and the two verified successful post-combat movement returns.
 # The repair changes only the General's tile coordinates.

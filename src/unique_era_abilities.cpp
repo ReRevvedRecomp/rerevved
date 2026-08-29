@@ -18,7 +18,7 @@ namespace
 constexpr uint32_t kRuleInfoPrefix   = 148;
 constexpr uint32_t kEvaluationPrefix = 20;
 
-constexpr std::array<ReRevvedUniqueEraAbilityId, 45> kAcceptedAbilities = {
+constexpr std::array<ReRevvedUniqueEraAbilityId, 45> kRetailAbilities = {
     1,
     2,
     3,
@@ -118,10 +118,17 @@ bool IsCellValid(ReRevvedCivilizationId     civilization,
            unlock_era <= REREVVED_UNIQUE_ERA_MODERN;
 }
 
-bool IsAbilityValid(ReRevvedUniqueEraAbilityId ability)
+bool IsRetailAbilityValid(ReRevvedUniqueEraAbilityId ability)
 {
     return std::binary_search(
-        kAcceptedAbilities.begin(), kAcceptedAbilities.end(), ability);
+        kRetailAbilities.begin(), kRetailAbilities.end(), ability);
+}
+
+bool IsReplacementAbilityValid(ReRevvedUniqueEraAbilityId ability)
+{
+    return IsRetailAbilityValid(ability) ||
+           ability ==
+               REREVVED_UNIQUE_ERA_ABILITY_KNOWLEDGE_OF_HORSEBACK_RIDING;
 }
 
 bool TargetMatches(const ReRevvedUniqueEraAbilityReplacement& rule,
@@ -196,7 +203,7 @@ bool TryEvaluate(ReRevvedCivilizationId                  civilization,
                  ReRevvedUniqueEraAbilityCellEvaluation& evaluation)
 {
     if (!IsCellValid(civilization, unlock_era) ||
-        !IsAbilityValid(native_ability))
+        !IsRetailAbilityValid(native_ability))
     {
         return false;
     }
@@ -263,7 +270,8 @@ extern "C" int32_t ReRevvedRegisterUniqueEraAbilityReplacement(
         rule->struct_size < sizeof(ReRevvedUniqueEraAbilityReplacement) ||
         !IsRuleIdValid(rule->provider_id) || !IsRuleIdValid(rule->rule_id) ||
         !IsCellValid(rule->civilization, rule->unlock_era) ||
-        !IsAbilityValid(rule->replacement_ability) || !IsZeroed(rule->reserved))
+        !IsReplacementAbilityValid(rule->replacement_ability) ||
+        !IsZeroed(rule->reserved))
     {
         return REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT;
     }

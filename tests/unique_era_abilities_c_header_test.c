@@ -4,6 +4,11 @@
 
 int main(void)
 {
+    if (REREVVED_UNIQUE_ERA_ABILITIES_ABI_VERSION != 2u ||
+        REREVVED_UNIQUE_ERA_ABILITY_KNOWLEDGE_OF_HORSEBACK_RIDING != 0x10000)
+    {
+        return 1;
+    }
     ReRevvedUniqueEraAbilitiesAbiVersionFn version_fn =
         ReRevvedUniqueEraAbilitiesAbiVersion;
     ReRevvedRegisterUniqueEraAbilityReplacementFn register_fn =

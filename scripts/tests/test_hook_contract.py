@@ -83,6 +83,31 @@ EXPECTED_HOOKS = [
         "registers": ["r4", "r9", "r11"],
     },
     {
+        "address": 0x82D1B758,
+        "name": "ReRevvedApplyBarbarianVillageCityReplacement",
+        "registers": ["r10"],
+    },
+    {
+        "address": 0x82D2127C,
+        "name": "ReRevvedBeginHorsebackRidingOwnershipCheck",
+        "registers": ["r31"],
+    },
+    {
+        "address": 0x82D21280,
+        "name": "ReRevvedEndHorsebackRidingOwnershipCheck",
+        "registers": ["r31"],
+    },
+    {
+        "address": 0x82D212A4,
+        "name": "ReRevvedSelectHorsebackRidingAbility",
+        "registers": ["r3"],
+    },
+    {
+        "address": 0x82D212C0,
+        "name": "ReRevvedSelectHorsebackRidingTechnology",
+        "registers": ["r4"],
+    },
+    {
         "address": 0x82CBF534,
         "name": "ReRevvedFixGreatGeneralBorderCompletion",
     },
@@ -302,6 +327,59 @@ class HookContractTests(unittest.TestCase):
             cumulative_mode.count("ReRevvedApplyUniqueEraAbilityCell"), 1
         )
         self.assertIn("if (ctx.cr6.eq) goto loc_82CF0D0C;", exact_mode)
+
+    def test_generated_horseback_riding_consumer_when_available(self) -> None:
+        paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
+        if not paths:
+            self.skipTest("generated sources are not available")
+
+        generated = "".join(path.read_text(encoding="utf-8") for path in paths)
+        function = generated.split("DEFINE_REX_FUNC(sub_82D1EAB0)", 1)[1]
+        function = function.split("DEFINE_REX_FUNC", 1)[0]
+        placements = [
+            (
+                "\t// lwz r11,72(r31)\n"
+                "\tReRevvedBeginHorsebackRidingOwnershipCheck(ctx.r31);\n"
+                "\tctx.r11.u64 = REX_LOAD_U32(ctx.r31.u32 + 72);\n"
+                "\t// slw r10,r10,r26\n"
+                "\tReRevvedEndHorsebackRidingOwnershipCheck(ctx.r31);"
+            ),
+            (
+                "\t// bl 0x82cf0cb0\n"
+                "\tReRevvedSelectHorsebackRidingAbility(ctx.r3);\n"
+                "\tctx.lr = 0x82D212A8;\n"
+                "\tsub_82CF0CB0(ctx, base);"
+            ),
+            (
+                "\t// mr r3,r26\n"
+                "\tReRevvedSelectHorsebackRidingTechnology(ctx.r4);\n"
+                "\tctx.r3.u64 = ctx.r26.u64;\n"
+                "\t// bl 0x82d09208"
+            ),
+        ]
+        for placement in placements:
+            self.assertEqual(function.count(placement), 1)
+        self.assertIn("ctx.r5.s64 = 0;", function)
+        self.assertIn("ctx.r3.s64 = 17;", function)
+        self.assertIn("sub_82D09208(ctx, base);", function)
+
+    def test_generated_mongolian_village_gate_when_available(self) -> None:
+        paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
+        if not paths:
+            self.skipTest("generated sources are not available")
+
+        generated = "".join(path.read_text(encoding="utf-8") for path in paths)
+        function = generated.split("DEFINE_REX_FUNC(sub_82D1B400)", 1)[1]
+        function = function.split("DEFINE_REX_FUNC", 1)[0]
+        placement = (
+            "\t// cmpwi cr6,r10,14\n"
+            "\tReRevvedApplyBarbarianVillageCityReplacement(ctx.r10);\n"
+            "\tctx.cr6.compare<int32_t>(ctx.r10.s32, 14, ctx.xer);"
+        )
+        self.assertEqual(function.count(placement), 1)
+        self.assertIn("if (!ctx.cr6.eq) goto loc_82D1B8BC;", function)
+        fallback = function.split("loc_82D1B8BC:", 1)[1]
+        self.assertIn("ctx.r10.s64 = -2096168960;", fallback)
 
 
 if __name__ == "__main__":

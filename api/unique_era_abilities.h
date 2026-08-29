@@ -2,7 +2,8 @@
 //
 // Mods resolve these entry points from the host process and check
 // ReRevvedUniqueEraAbilitiesAbiVersion before calling them. Registrations are
-// copied by the host and affect only the cumulative era-ability lookup.
+// copied by the host. Retail replacements compose at the cumulative lookup;
+// title-owned synthetic abilities may also have fixed effects documented here.
 
 #pragma once
 
@@ -20,7 +21,7 @@
 #define REREVVED_UNIQUE_ERA_ABILITIES_API
 #endif
 
-#define REREVVED_UNIQUE_ERA_ABILITIES_ABI_VERSION    1u
+#define REREVVED_UNIQUE_ERA_ABILITIES_ABI_VERSION    2u
 #define REREVVED_UNIQUE_ERA_ABILITY_RULE_ID_CAPACITY 64u
 
 enum
@@ -92,6 +93,14 @@ enum
     REREVVED_UNIQUE_ERA_ABILITY_POTTERY                          = 59,
     REREVVED_UNIQUE_ERA_ABILITY_DEMOCRACY                        = 60,
     REREVVED_UNIQUE_ERA_ABILITY_LONGBOW_PLUS_ONE_DEFENSE         = 61,
+};
+
+// Title-owned synthetic abilities. Their fixed effects are part of this ABI;
+// mods cannot define new ability IDs or parameterize these effects.
+enum
+{
+    REREVVED_UNIQUE_ERA_ABILITY_KNOWLEDGE_OF_HORSEBACK_RIDING =
+        0x10000,
 };
 
 enum
