@@ -8,8 +8,9 @@
   never configures, builds, or writes to the SDK checkout.
 
 .PARAMETER Stage
-  Configure, Codegen, Build, Launch, or All. Codegen configures before building
-  the dependency-tracked codegen target. All configures, builds, and launches.
+  Configure, Codegen, Build, Launch, or All. Codegen and Build run the
+  dependency-tracked codegen target between two configure passes so a fresh
+  source list is loaded before compilation. All also launches.
 
 .PARAMETER SelfTest
   Resolve and validate all required paths and print the constructed commands, but
@@ -243,9 +244,13 @@ if ($SelfTest) {
 $cmakeCommands = @()
 switch ($Stage) {
     'Configure' { $cmakeCommands = @($configureCommand) }
-    'Codegen' { $cmakeCommands = @($configureCommand, $codegenCommand) }
-    'Build' { $cmakeCommands = @($buildCommand) }
-    'All' { $cmakeCommands = @($configureCommand, $buildCommand) }
+    'Codegen' { $cmakeCommands = @($configureCommand, $codegenCommand, $configureCommand) }
+    'Build' {
+        $cmakeCommands = @($configureCommand, $codegenCommand, $configureCommand, $buildCommand)
+    }
+    'All' {
+        $cmakeCommands = @($configureCommand, $codegenCommand, $configureCommand, $buildCommand)
+    }
 }
 if ($cmakeCommands.Count -gt 0) {
     Invoke-CmakeStages $cmakeCommands
