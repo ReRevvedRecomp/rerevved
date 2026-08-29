@@ -110,8 +110,9 @@ cd <repo>; .\scripts\verify.ps1
 ```
 
 The driver runs from the repository root, locates Visual Studio 2022, checks the
-sibling checkout and installed package against the lock, and consumes only
-`../rerevved-rexglue-sdk/out/install/win-amd64`. Generated guest code lives
+selected SDK checkout and installed package against the lock, and consumes only
+that package. `-SdkRepo` and `-SdkInstall` select an isolated SDK; their defaults
+remain the sibling checkout and `out/install/win-amd64`. Generated guest code lives
 under `generated/default/`. Build output, development user data, caches, and
 logs are ignored.
 

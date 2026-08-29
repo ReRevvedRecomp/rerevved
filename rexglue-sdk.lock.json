@@ -1,5 +1,7 @@
 {
   "repository": "https://github.com/ReRevvedRecomp/rerevved-rexglue-sdk",
-  "commit": "606079bb64fa2ad4d15dab25547d98f28fb8b49e",
-  "version": "0.10.0.8-dev.g606079b"
+  "commit": "79f97f867caaca4098ce01a3317cdfee2dd3e6aa",
+  "version": "0.10.0.12-dev.g79f97f8",
+  "dirty": "clean",
+  "platform": "win-amd64"
 }

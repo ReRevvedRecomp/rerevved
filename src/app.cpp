@@ -10,6 +10,7 @@
 #include <rex/ui/window.h>
 #include <rex/ui/windowed_app_context.h>
 
+#include "build_provenance.h"
 #include "game_content.h"
 #include "presence.h"
 
@@ -24,6 +25,7 @@ constexpr std::size_t kMaxReportedErrors = 10;
 
 void ReRevvedApp::OnPreSetup(rex::RuntimeConfig& config)
 {
+    REXLOG_INFO("{}", REREVVED_BUILD_PROVENANCE);
     config.game_version = REREVVED_VERSION;
 }
 

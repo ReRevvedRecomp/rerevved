@@ -5,17 +5,20 @@ The supported runtime driver is `rexglue.ps1`:
 | Command | Purpose and output |
 |---|---|
 | `.\scripts\rexglue.ps1 -SelfTest` | Validate required paths and print the configure, codegen, build, and launch commands. It does not run CMake or the game. |
-| `.\scripts\rexglue.ps1 -Stage Configure` | Configure against the installed sibling SDK. |
+| `.\scripts\rexglue.ps1 -Stage Configure` | Configure against the selected installed SDK. |
 | `.\scripts\rexglue.ps1 -Stage Codegen` | Regenerate ignored guest C++ under `generated/default/`. |
 | `.\scripts\rexglue.ps1 -Stage Build` | Build the Release title under `out/build/win-amd64-release/`. |
 | `.\scripts\rexglue.ps1 -Stage Launch` | Launch the existing executable with `xenos` and D3D12 ROV, writing the log to `out/rexglue_boot.log`. |
-| `.\scripts\rexglue.ps1 -Stage All` | Configure, generate, configure again, build, and run the bounded launch check. |
+| `.\scripts\rexglue.ps1 -Stage All` | Configure, build the dependency-tracked graph, and run the bounded launch check. |
 
 `-ProbeSeconds <n>` bounds `Launch` and `All`. The default is 20 seconds. A
 timeout stops the process started by the driver. `-Interactive` waits for normal
 game exit and removes that timeout. `-LaunchArgument --name=value` appends one
 validated game argument. Launch creates the ignored `out/rexglue-user/` and
 `out/rexglue-cache/` directories.
+
+`-SdkRepo` and `-SdkInstall` select an isolated SDK checkout and installed
+package. Omitting them preserves the sibling checkout and package defaults.
 
 ## Release packaging
 

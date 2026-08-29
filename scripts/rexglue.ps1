@@ -4,12 +4,12 @@
 
 .DESCRIPTION
   Initializes a child cmd.exe with Visual Studio and LLVM, then runs one explicit
-  ReXGlue stage. The sibling SDK is consumed only from its installed package; this
-  script never configures, builds, or writes to ../rerevved-rexglue-sdk.
+  ReXGlue stage. The SDK is consumed only from its installed package; this script
+  never configures, builds, or writes to the SDK checkout.
 
 .PARAMETER Stage
-  Configure, Codegen, Build, Launch, or All. All runs configure, codegen,
-  configure again to load generated sources, build, and a bounded launch check.
+  Configure, Codegen, Build, Launch, or All. Codegen configures before building
+  the dependency-tracked codegen target. All configures, builds, and launches.
 
 .PARAMETER SelfTest
   Resolve and validate all required paths and print the constructed commands, but
@@ -40,14 +40,20 @@ param(
     [switch]$Interactive,
     [string[]]$LaunchArgument = @(),
     [switch]$SelfTest,
+    [string]$SdkRepo,
+    [string]$SdkInstall,
     [string]$VcVarsAll,
     [string]$LlvmBin = 'C:\Program Files\LLVM\bin'
 )
 
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$sdkRepo = Join-Path $repo '..\rerevved-rexglue-sdk'
-$sdkInstall = Join-Path $sdkRepo 'out\install\win-amd64'
+if ([string]::IsNullOrWhiteSpace($SdkRepo)) {
+    $SdkRepo = Join-Path $repo '..\rerevved-rexglue-sdk'
+}
+if ([string]::IsNullOrWhiteSpace($SdkInstall)) {
+    $SdkInstall = Join-Path $SdkRepo 'out\install\win-amd64'
+}
 $sdkLock = Join-Path $repo 'rexglue-sdk.lock.json'
 $manifest = Join-Path $repo 'rerevved_manifest.toml'
 $xex = Join-Path $repo 'game\default.xex'
@@ -103,7 +109,7 @@ foreach ($argument in $LaunchArgument) {
 
 function Write-LogSummary {
     if (-not (Test-Path -LiteralPath $log)) {
-        Write-Host "log      : not created ($log)" -ForegroundColor DarkYellow
+        Write-Host 'log      : not created' -ForegroundColor DarkYellow
         return
     }
 
@@ -131,35 +137,43 @@ function Invoke-CmakeStages([string[]]$Commands) {
     & cmd.exe /d /c "`"$batch`""
 }
 
-Require-Path $sdkRepo 'Sibling ReXGlue SDK checkout'
-Require-Path (Join-Path $sdkRepo '.git') 'Sibling ReXGlue SDK Git metadata'
+Require-Path $SdkRepo 'ReXGlue SDK checkout'
+Require-Path (Join-Path $SdkRepo '.git') 'ReXGlue SDK Git metadata'
 Require-Path $sdkLock 'ReXGlue SDK lock'
-Require-Path $sdkInstall 'Installed sibling ReXGlue SDK directory'
-$sdkInstall = (Resolve-Path -LiteralPath $sdkInstall).Path
-$sdkConfig = Join-Path $sdkInstall 'lib\cmake\rexglue'
-Require-Path $sdkConfig 'Installed sibling ReXGlue SDK CMake package'
+Require-Path $SdkInstall 'Installed ReXGlue SDK directory'
+$SdkRepo = (Resolve-Path -LiteralPath $SdkRepo).Path
+$SdkInstall = (Resolve-Path -LiteralPath $SdkInstall).Path
+$sdkConfig = Join-Path $SdkInstall 'lib\cmake\rexglue'
+Require-Path $sdkConfig 'Installed ReXGlue SDK CMake package'
 $sdkConfigFile = Join-Path $sdkConfig 'rexglueConfig.cmake'
-Require-Path $sdkConfigFile 'Installed sibling ReXGlue SDK config'
+Require-Path $sdkConfigFile 'Installed ReXGlue SDK config'
 
 $lock = Get-Content -Raw -LiteralPath $sdkLock | ConvertFrom-Json
-foreach ($property in @('repository', 'commit', 'version')) {
+foreach ($property in @('repository', 'commit', 'version', 'dirty', 'platform')) {
     if ([string]::IsNullOrWhiteSpace($lock.$property)) {
         throw "ReXGlue SDK lock is missing '$property': $sdkLock"
     }
 }
 
-$sdkHead = (& git -C $sdkRepo rev-parse HEAD).Trim()
-if ($LASTEXITCODE -ne 0) { throw 'Could not resolve sibling ReXGlue SDK HEAD.' }
+$sdkHead = (& git -C $SdkRepo rev-parse HEAD).Trim()
+if ($LASTEXITCODE -ne 0) { throw 'Could not resolve ReXGlue SDK HEAD.' }
 if ($sdkHead -ne $lock.commit) {
-    throw "Sibling ReXGlue SDK commit mismatch: expected $($lock.commit), found $sdkHead"
+    throw "ReXGlue SDK commit mismatch: expected $($lock.commit), found $sdkHead"
 }
 
-$sdkOrigin = (& git -C $sdkRepo config --get remote.origin.url).Trim()
+$sdkOrigin = (& git -C $SdkRepo config --get remote.origin.url).Trim()
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($sdkOrigin)) {
-    throw 'Could not resolve sibling ReXGlue SDK origin URL.'
+    throw 'Could not resolve ReXGlue SDK origin URL.'
 }
 if ((Normalize-GitRemote $sdkOrigin) -ne (Normalize-GitRemote $lock.repository)) {
-    throw "Sibling ReXGlue SDK origin mismatch: expected $($lock.repository), found $sdkOrigin"
+    throw "ReXGlue SDK origin mismatch: expected $($lock.repository), found $sdkOrigin"
+}
+
+$sdkTrackedStatus = (& git -C $SdkRepo status --porcelain --untracked-files=no) -join "`n"
+if ($LASTEXITCODE -ne 0) { throw 'Could not inspect ReXGlue SDK tracked state.' }
+$sdkDirty = if ([string]::IsNullOrWhiteSpace($sdkTrackedStatus)) { 'clean' } else { 'dirty' }
+if ($sdkDirty -ne $lock.dirty) {
+    throw "ReXGlue SDK dirty-state mismatch: expected $($lock.dirty), found $sdkDirty"
 }
 
 $sdkConfigText = Get-Content -Raw -LiteralPath $sdkConfigFile
@@ -170,9 +184,28 @@ $sdkVersion = $Matches[1]
 if ($sdkVersion -ne $lock.version) {
     throw "Installed ReXGlue SDK version mismatch: expected $($lock.version), found $sdkVersion"
 }
+foreach ($field in @('GIT_REVISION', 'GIT_DIRTY', 'BUILD_PLATFORM')) {
+    if ($sdkConfigText -notmatch ('set\(REXGLUE_' + $field + ' "([^"]+)"\)')) {
+        throw "Installed ReXGlue SDK $field not found: $sdkConfigFile"
+    }
+    Set-Variable -Name ('installed' + $field) -Value $Matches[1]
+}
+if ($installedGIT_REVISION -ne $lock.commit -or
+    $installedGIT_DIRTY -ne $lock.dirty -or
+    $installedBUILD_PLATFORM -ne $lock.platform) {
+    throw 'Installed ReXGlue SDK provenance does not match the lock.'
+}
+
+$titleHead = (& git -C $repo rev-parse HEAD).Trim()
+if ($LASTEXITCODE -ne 0) { throw 'Could not resolve title HEAD.' }
+$titleTrackedStatus = (& git -C $repo status --porcelain --untracked-files=no) -join "`n"
+if ($LASTEXITCODE -ne 0) { throw 'Could not inspect title tracked state.' }
+$titleDirty = if ([string]::IsNullOrWhiteSpace($titleTrackedStatus)) { 'clean' } else { 'dirty' }
 
 Require-Path $manifest 'ReXGlue manifest'
-Require-Path $xex 'Game default.xex'
+if ($Stage -ne 'Configure') {
+    Require-Path $xex 'Game default.xex'
+}
 Require-Path $VcVarsAll 'vcvarsall.bat'
 Require-Path (Join-Path $LlvmBin 'clang.exe') 'clang.exe'
 Require-Path (Join-Path $LlvmBin 'clang++.exe') 'clang++.exe'
@@ -192,28 +225,27 @@ $launchArguments = @(
 $launchArguments += $LaunchArgument
 $arguments = $launchArguments -join ' '
 
-Write-Host "repo     : $repo" -ForegroundColor DarkGray
-Write-Host "sdk      : $sdkInstall" -ForegroundColor DarkGray
-Write-Host "sdk ref  : $sdkHead ($sdkVersion)" -ForegroundColor DarkGray
-Write-Host "vcvarsall: $VcVarsAll" -ForegroundColor DarkGray
-Write-Host "llvm bin : $LlvmBin" -ForegroundColor DarkGray
+Write-Host "title ref: $titleHead ($titleDirty)" -ForegroundColor DarkGray
+Write-Host "sdk ref  : $sdkHead ($sdkDirty, $sdkVersion)" -ForegroundColor DarkGray
+Write-Host "platform : $installedBUILD_PLATFORM" -ForegroundColor DarkGray
+Write-Host 'config   : Release' -ForegroundColor DarkGray
 Write-Host "stage    : $Stage" -ForegroundColor Cyan
 
 if ($SelfTest) {
     Write-Host 'self-test: resolved paths and constructed commands only; no CMake or game launch.' -ForegroundColor Cyan
-    Write-Host "  $configureCommand"
-    Write-Host "  $codegenCommand"
-    Write-Host "  $buildCommand"
-    Write-Host ('  ' + (Quote-Cmd $exe) + ' ' + $arguments)
+    Write-Host '  cmake --preset win-amd64-release "-Drexglue_DIR=<sdk-package>"'
+    Write-Host '  cmake --build --preset win-amd64-release --target rerevved_codegen'
+    Write-Host '  cmake --build --preset win-amd64-release'
+    Write-Host '  <title-executable> <validated-runtime-arguments>'
     exit 0
 }
 
 $cmakeCommands = @()
 switch ($Stage) {
     'Configure' { $cmakeCommands = @($configureCommand) }
-    'Codegen' { $cmakeCommands = @($codegenCommand) }
+    'Codegen' { $cmakeCommands = @($configureCommand, $codegenCommand) }
     'Build' { $cmakeCommands = @($buildCommand) }
-    'All' { $cmakeCommands = @($configureCommand, $codegenCommand, $configureCommand, $buildCommand) }
+    'All' { $cmakeCommands = @($configureCommand, $buildCommand) }
 }
 if ($cmakeCommands.Count -gt 0) {
     Invoke-CmakeStages $cmakeCommands

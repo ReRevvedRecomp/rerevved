@@ -6,22 +6,42 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(rexglue 0.10.0 REQUIRED CONFIG)
 
-# Consumed by the codegen-emitted dll_targets.cmake to colocate guest DLLs.
-set(REXGLUE_HOST_TARGET rerevved)
-
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/generated/default/sources.cmake")
-    include(generated/default/sources.cmake)
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/rexglue-sdk.lock.json" REREVVED_SDK_LOCK)
+foreach(_property repository commit version dirty platform)
+    string(JSON REREVVED_SDK_LOCK_${_property} ERROR_VARIABLE _json_error
+        GET "${REREVVED_SDK_LOCK}" ${_property})
+    if(_json_error)
+        message(FATAL_ERROR "rexglue-sdk.lock.json is missing '${_property}'")
+    endif()
+endforeach()
+if(NOT REREVVED_SDK_LOCK_commit STREQUAL REXGLUE_GIT_REVISION OR
+   NOT REREVVED_SDK_LOCK_version STREQUAL REXGLUE_VERSION_STRING OR
+   NOT REREVVED_SDK_LOCK_dirty STREQUAL REXGLUE_GIT_DIRTY OR
+   NOT REREVVED_SDK_LOCK_platform STREQUAL REXGLUE_BUILD_PLATFORM)
+    message(FATAL_ERROR
+        "Installed ReXGlue package does not match rexglue-sdk.lock.json")
 endif()
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/generated/default/dll_targets.cmake")
-    include(generated/default/dll_targets.cmake)
-endif()
 
-add_custom_target(rerevved_codegen
-    COMMAND $<TARGET_FILE:rex::rexglue> codegen ${CMAKE_CURRENT_SOURCE_DIR}/rerevved_manifest.toml
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMENT "Generating recompiled code for rerevved"
-    VERBATIM
-)
+find_package(Git REQUIRED)
+execute_process(
+    COMMAND "${GIT_EXECUTABLE}" rev-parse --verify HEAD
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    OUTPUT_VARIABLE REREVVED_GIT_REVISION
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    COMMAND_ERROR_IS_FATAL ANY)
+execute_process(
+    COMMAND "${GIT_EXECUTABLE}" status --porcelain --untracked-files=no
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    OUTPUT_VARIABLE REREVVED_TRACKED_STATUS
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    COMMAND_ERROR_IS_FATAL ANY)
+if(REREVVED_TRACKED_STATUS STREQUAL "")
+    set(REREVVED_GIT_DIRTY clean)
+else()
+    set(REREVVED_GIT_DIRTY dirty)
+endif()
+configure_file(src/build_provenance.h.in
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/build_provenance.h" @ONLY)
 
 set(REREVVED_SOURCES
     src/app.cpp
@@ -62,11 +82,11 @@ else()
     add_executable(rerevved ${REREVVED_SOURCES})
 endif()
 
-target_sources(rerevved PRIVATE ${GENERATED_SOURCES})
 target_include_directories(rerevved PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/api
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_BINARY_DIR}/generated
     ${CMAKE_CURRENT_SOURCE_DIR}/generated/default
 )
 target_compile_definitions(rerevved PRIVATE
@@ -81,8 +101,10 @@ if(APPLE)
 elseif(UNIX)
     target_link_options(rerevved PRIVATE -Wl,--export-dynamic)
 endif()
-target_link_libraries(rerevved PRIVATE rex::runtime)
-rexglue_configure_target(rerevved GPU_PLUGINS xenos)
+rexglue_setup_recompiled_target(rerevved
+    MANIFEST rerevved_manifest.toml
+    OUTPUT_DIR generated/default
+    GPU_PLUGINS xenos)
 
 include(CTest)
 if(BUILD_TESTING)
