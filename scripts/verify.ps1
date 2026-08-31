@@ -3,6 +3,7 @@ $ErrorActionPreference = 'Stop'
 
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $failures = New-Object 'System.Collections.Generic.List[string]'
+$requiredClangFormatMajor = 22
 
 function Add-Failure([string]$Message) {
     [void]$failures.Add($Message)
@@ -73,10 +74,32 @@ $cppFiles = @($trackedPaths | Where-Object {
     $relative -match '^src/' -and
         $_ -match '(?i)\.(c|cc|cpp|cxx|h|hh|hpp|hxx)$'
 })
-$clangFormat = Get-Command clang-format -ErrorAction SilentlyContinue
-$clangFormatStatus = 'skipped'
-if ($clangFormat) {
-    $clangFormatStatus = 'clean'
+$clangFormat = Get-Command clang-format -CommandType Application -ErrorAction SilentlyContinue |
+    Select-Object -First 1
+$clangFormatStatus = 'failed'
+if (-not $clangFormat) {
+    Add-Failure "clang-format $requiredClangFormatMajor.x is required but was not found in PATH"
+} else {
+    $savedErrorAction = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $versionOutput = @(& $clangFormat.Source --version 2>&1)
+        $versionExitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $savedErrorAction
+    }
+    $versionText = ($versionOutput -join ' ').Trim()
+    $versionMatch = [regex]::Match($versionText, '(?i)\bclang-format version (?<version>\d+\.\d+\.\d+)(?=\s|$|\()')
+    if ($versionExitCode -ne 0) {
+        Add-Failure "clang-format $requiredClangFormatMajor.x version query failed at $($clangFormat.Source): $versionText"
+    } elseif (-not $versionMatch.Success -or -not $versionMatch.Groups['version'].Value.StartsWith("$requiredClangFormatMajor.")) {
+        $reportedVersion = if ($versionMatch.Success) { $versionMatch.Groups['version'].Value } else { 'unknown' }
+        Add-Failure "clang-format $requiredClangFormatMajor.x is required; found $reportedVersion at $($clangFormat.Source)"
+    } else {
+        $clangFormatStatus = 'clean'
+    }
+}
+if ($clangFormatStatus -eq 'clean') {
     foreach ($file in $cppFiles) {
         $savedErrorAction = $ErrorActionPreference
         $ErrorActionPreference = 'Continue'
