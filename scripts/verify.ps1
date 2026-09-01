@@ -151,6 +151,21 @@ for name in sys.argv[1:]:
     if ($testExitCode -ne 0) {
         Add-Failure "Python tests failed: $($testOutput -join ' ')"
     }
+
+    $coverageGenerator = Join-Path $repo 'scripts\gen-native-renderer-coverage.py'
+    if (Test-Path -LiteralPath $coverageGenerator -PathType Leaf) {
+        $savedErrorAction = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $generatorOutput = @(& $python.Source -B $coverageGenerator --check 2>&1)
+            $generatorExitCode = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $savedErrorAction
+        }
+        if ($generatorExitCode -ne 0) {
+            Add-Failure "native-renderer coverage generation failed: $($generatorOutput -join ' ')"
+        }
+    }
 }
 
 # Parse every tracked PowerShell file with the native language parser.

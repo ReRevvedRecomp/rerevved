@@ -8,6 +8,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 HOOK_CONFIG = ROOT / "config" / "rerevved_hooks.toml"
+COVERAGE_HOOK_CONFIG = ROOT / "config" / "native_renderer_coverage_hooks.toml"
+COVERAGE_HOOK_SOURCE = ROOT / "src" / "native_renderer_coverage_hooks.inc"
 HOOK_SOURCES = [
     ROOT / "src" / "compat_hooks.cpp",
     ROOT / "src" / "great_general_attachment.cpp",
@@ -30,6 +32,118 @@ EXPECTED_HOOKS = [
     {
         "address": 0x8269CAE4,
         "name": "ReRevvedCompatRingInitializeEnd",
+    },
+    {
+        "address": 0x826A6460,
+        "name": "ReRevvedObserveNativeDevicePublication",
+        "registers": ["r11", "r31"],
+    },
+    {
+        "address": 0x82305104,
+        "name": "ReRevvedObserveNativeTexturePublication",
+        "registers": ["r22", "r3"],
+    },
+    {
+        "address": 0x8250AE84,
+        "name": "ReRevvedObserveNativeResolveProviderIdentity",
+        "registers": ["r3"],
+    },
+    {
+        "address": 0x82518614,
+        "name": "ReRevvedObserveNativeExplicitBufferFactoryStore",
+        "registers": ["r28", "r29", "r30", "r3"],
+    },
+    {
+        "address": 0x8269C7A8,
+        "name": "ReRevvedTraceReservationEnter",
+        "registers": ["r3", "r4"],
+    },
+    {
+        "address": 0x8269C80C,
+        "name": "ReRevvedTraceReservationReturn",
+        "registers": ["r3", "r29", "r31"],
+    },
+    {
+        "address": 0x826A4638,
+        "name": "ReRevvedTraceVdSwapOwnerEnter",
+        "registers": ["r3", "r4"],
+    },
+    {
+        "address": 0x826A4C0C,
+        "name": "ReRevvedTraceVdSwapOwnerReturn",
+        "registers": ["r31"],
+    },
+    {
+        "address": 0x8269E520,
+        "name": "ReRevvedObserveRendererResolve",
+        "registers": ["r4", "r6", "r8", "r9", "lr"],
+    },
+    {
+        "address": 0x8269F360,
+        "name": "ReRevvedTraceResolveReturn",
+    },
+    {
+        "address": 0x826A4884,
+        "name": "ReRevvedObserveRendererSwapSource",
+        "registers": ["r3", "r4", "r30", "r31"],
+    },
+    {
+        "address": 0x826A4888,
+        "name": "ReRevvedTraceVdSwapReturn",
+        "registers": ["r3", "r30", "r31"],
+    },
+    {
+        "address": 0x826A4890,
+        "name": "ReRevvedTraceVdSwapPublished",
+        "registers": ["r30", "r31"],
+    },
+    {
+        "address": 0x826A4150,
+        "name": "ReRevvedTracePreSwapEnter",
+    },
+    {
+        "address": 0x826A4324,
+        "name": "ReRevvedTracePreSwapReturn",
+    },
+    {
+        "address": 0x8269CD20,
+        "name": "ReRevvedTraceEmitterCd20Enter",
+    },
+    {
+        "address": 0x8269CE78,
+        "name": "ReRevvedTraceEmitterCd20Return",
+    },
+    {
+        "address": 0x8269BF40,
+        "name": "ReRevvedTraceEmitterBf40Enter",
+    },
+    {
+        "address": 0x8269C12C,
+        "name": "ReRevvedTraceEmitterBf40Return",
+    },
+    {
+        "address": 0x826A3FB8,
+        "name": "ReRevvedTraceCallbackEnter",
+    },
+    {
+        "address": 0x826A4148,
+        "name": "ReRevvedTraceCallbackReturn",
+    },
+    {
+        "address": 0x826ABEA8,
+        "name": "ReRevvedTraceOrdinaryCallerEnter",
+    },
+    {
+        "address": 0x826AC018,
+        "name": "ReRevvedTraceOrdinaryCallerReturn",
+    },
+    {
+        "address": 0x82517E38,
+        "name": "ReRevvedTraceAlternateCallerEnter",
+    },
+    {
+        "address": 0x82517EB4,
+        "name": "ReRevvedTraceAlternateCallerReturn",
     },
     {
         "address": 0x82245050,
@@ -123,6 +237,19 @@ EXPECTED_HOOKS = [
     },
 ]
 
+COVERAGE_HOOKS = [
+    {
+        "address": 0x82303E3C,
+        "name": "ReRevvedNativeRendererCoverageSite82303E3C",
+        "registers": [],
+    },
+    {
+        "address": 0x82303E8C,
+        "name": "ReRevvedNativeRendererCoverageSite82303E8C",
+        "registers": [],
+    },
+]
+
 
 class HookContractTests(unittest.TestCase):
     def test_only_verified_hooks_are_configured(self) -> None:
@@ -147,12 +274,55 @@ class HookContractTests(unittest.TestCase):
             hook_names,
         )
 
+    def test_coverage_hooks_are_separate_and_collision_free(self) -> None:
+        with HOOK_CONFIG.open("rb") as stream:
+            permanent = tomllib.load(stream)["midasm_hook"]
+        with COVERAGE_HOOK_CONFIG.open("rb") as stream:
+            coverage = tomllib.load(stream)["midasm_hook"]
+
+        self.assertEqual(coverage, COVERAGE_HOOKS)
+        permanent_addresses = {hook["address"] for hook in permanent}
+        coverage_addresses = {hook["address"] for hook in coverage}
+        self.assertTrue(permanent_addresses.isdisjoint(coverage_addresses))
+
+        source = COVERAGE_HOOK_SOURCE.read_text(encoding="ascii")
+        source_names = set(
+            re.findall(r"^void (ReRevved\w+)\s*\(", source, re.MULTILINE)
+        )
+        self.assertEqual(source_names, {hook["name"] for hook in coverage})
+
+    def test_generated_coverage_hook_placement_when_available(self) -> None:
+        paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
+        if not paths:
+            self.skipTest("generated sources are not available")
+
+        generated = "".join(path.read_text(encoding="utf-8") for path in paths)
+        placements = [
+            (
+                "\t// bl 0x826a3568\n"
+                "\tReRevvedNativeRendererCoverageSite82303E3C();\n"
+                "\tctx.lr = 0x82303E40;"
+            ),
+            (
+                "\t// bl 0x826a3568\n"
+                "\tReRevvedNativeRendererCoverageSite82303E8C();\n"
+                "\tctx.lr = 0x82303E90;"
+            ),
+        ]
+        for placement in placements:
+            self.assertEqual(generated.count(placement), 1)
+
     def test_generated_ring_hook_placement_when_available(self) -> None:
         paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
         if not paths:
             self.skipTest("generated sources are not available")
 
         generated = "".join(path.read_text(encoding="utf-8") for path in paths)
+        prototype = (
+            "extern void ReRevvedObserveRendererResolve(PPCRegister& r4, "
+            "PPCRegister& r6, PPCRegister& r8, PPCRegister& r9, uint64_t lr);"
+        )
+        self.assertEqual(generated.count(prototype), 1)
         expected = (
             "// bl 0x82e923e4\n"
             "\tReRevvedCompatRingInitializeBegin(ctx.r3, ctx.r4);\n"
@@ -162,6 +332,164 @@ class HookContractTests(unittest.TestCase):
             "\tReRevvedCompatRingInitializeEnd();"
         )
         self.assertEqual(generated.count(expected), 1)
+
+    def test_generated_native_device_observer_preserves_call(self) -> None:
+        paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
+        if not paths:
+            self.skipTest("generated sources are not available")
+
+        generated = "".join(path.read_text(encoding="utf-8") for path in paths)
+        expected = (
+            "\t// stw r31,0(r11)\n"
+            "\tREX_STORE_U32(ctx.r11.u32 + 0, ctx.r31.u32);\n"
+            "\t// bl 0x82e924c4\n"
+            "\tReRevvedObserveNativeDevicePublication(ctx.r11, ctx.r31);\n"
+            "\tctx.lr = 0x826A6464;\n"
+            "\t__imp__ExGetXConfigSetting(ctx, base);"
+        )
+        self.assertEqual(generated.count(expected), 1)
+
+    def test_native_device_observer_is_read_only_and_native_gated(self) -> None:
+        source = HOOK_SOURCES[0].read_text(encoding="utf-8")
+        observer = source.split(
+            "void ReRevvedObserveNativeDevicePublication", 1
+        )[1].split("void ReRevvedRememberGfxRenderConfig", 1)[0]
+        self.assertIn('REXCVAR_GET(renderer) != "native"', observer)
+        self.assertIn("IsGuestReadableRange", observer)
+        self.assertIn("ReadGuestU32", observer)
+        self.assertIn("PublishGuestDevice", observer)
+        self.assertNotIn("WriteGuest", observer)
+
+    def test_generated_native_texture_observer_preserves_store(self) -> None:
+        paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
+        if not paths:
+            self.skipTest("generated sources are not available")
+
+        generated = "".join(path.read_text(encoding="utf-8") for path in paths)
+        expected = (
+            "\t// stw r3,0(r19)\n"
+            "\tREX_STORE_U32(ctx.r19.u32 + 0, ctx.r3.u32);\n"
+            "\t// cmplwi r3,0\n"
+            "\tReRevvedObserveNativeTexturePublication(ctx.r22, ctx.r3);\n"
+            "\tctx.cr0.compare<uint32_t>(ctx.r3.u32, 0, ctx.xer);"
+        )
+        self.assertEqual(generated.count(expected), 1)
+
+    def test_native_texture_observer_is_read_only_and_native_gated(self) -> None:
+        source = HOOK_SOURCES[0].read_text(encoding="utf-8")
+        observer = source.split(
+            "void ReRevvedObserveNativeTexturePublication", 1
+        )[1].split("void ReRevvedObserveRendererResolve", 1)[0]
+        self.assertIn('REXCVAR_GET(renderer) != "native"', observer)
+        self.assertIn("IsGuestReadableRange", observer)
+        self.assertIn("ReadGuestU32", observer)
+        self.assertIn("ObserveGuestTexture", observer)
+        self.assertNotIn("texture_address, backend_address", observer)
+        self.assertNotIn("WriteGuest", observer)
+
+    def test_generated_native_explicit_buffer_observer_placement_when_available(self) -> None:
+        paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
+        if not paths:
+            self.skipTest("generated sources are not available")
+
+        generated = "".join(path.read_text(encoding="utf-8") for path in paths)
+        provider = (
+            "loc_8250AE84:\n"
+            "\t// stw r27,116(r1)\n"
+            "\tReRevvedObserveNativeResolveProviderIdentity(ctx.r3);\n"
+            "\tREX_STORE_U32(ctx.r1.u32 + 116, ctx.r27.u32);"
+        )
+        factory = (
+            "\t// stw r3,0(r29)\n"
+            "\tREX_STORE_U32(ctx.r29.u32 + 0, ctx.r3.u32);\n"
+            "\t// addi r29,r29,4\n"
+            "\tReRevvedObserveNativeExplicitBufferFactoryStore("
+            "ctx.r28, ctx.r29, ctx.r30, ctx.r3);\n"
+            "\tctx.r29.s64 = ctx.r29.s64 + 4;"
+        )
+        for placement in (provider, factory):
+            self.assertEqual(generated.count(placement), 1)
+
+    def test_native_explicit_buffer_observers_are_read_only_and_bounded(self) -> None:
+        source = HOOK_SOURCES[0].read_text(encoding="utf-8")
+        provider = source.split(
+            "void ReRevvedObserveNativeResolveProviderIdentity", 1
+        )[1].split("void ReRevvedObserveNativeExplicitBufferFactoryStore", 1)[0]
+        factory = source.split(
+            "void ReRevvedObserveNativeExplicitBufferFactoryStore", 1
+        )[1].split("void ReRevvedObserveRendererResolve", 1)[0]
+        for observer in (provider, factory):
+            self.assertIn('REXCVAR_GET(renderer) != "native"', observer)
+            self.assertIn("IsGuestReadableRange", observer)
+            self.assertNotIn("WriteGuest", observer)
+            self.assertNotIn("TranslateVirtual<uint8_t*>", observer)
+        self.assertIn("ReadGuestU32", source)
+        self.assertIn("std::atomic_flag", source)
+        self.assertIn("native_resolve_provider_match_log_count", source)
+        self.assertIn("native_resolve_provider_mismatch_log_count", source)
+        self.assertIn("vptr != kExplicitBuffersVtable", provider)
+        self.assertIn("vptr_matches", factory)
+        self.assertIn("native_explicit_factory_log_count", source)
+
+    def test_generated_resolve_observer_preserves_body_when_available(self) -> None:
+        paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
+        if not paths:
+            self.skipTest("generated sources are not available")
+
+        generated = "".join(path.read_text(encoding="utf-8") for path in paths)
+        expected = (
+            "DEFINE_REX_FUNC(sub_8269E520) {\n"
+            "\tREX_FUNC_PROLOGUE();\n"
+            "\tPPCRegister temp{};\n"
+            "\tuint32_t ea{};\n"
+            "\t// mflr r12\n"
+            "\tReRevvedObserveRendererResolve("
+            "ctx.r4, ctx.r6, ctx.r8, ctx.r9, ctx.lr);\n"
+            "\tctx.r12.u64 = ctx.lr;"
+        )
+        self.assertEqual(generated.count(expected), 1)
+
+    def test_generated_swap_observer_preserves_call_when_available(self) -> None:
+        paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
+        if not paths:
+            self.skipTest("generated sources are not available")
+
+        generated = "".join(path.read_text(encoding="utf-8") for path in paths)
+        expected = (
+            "\t// bl 0x82e92454\n"
+            "\tReRevvedObserveRendererSwapSource("
+            "ctx.r3, ctx.r4, ctx.r30, ctx.r31);\n"
+            "\tctx.lr = 0x826A4888;\n"
+            "\t__imp__VdSwap(ctx, base);"
+        )
+        self.assertEqual(generated.count(expected), 1)
+
+    def test_resolve_swap_observers_are_read_only_and_bounded(self) -> None:
+        source = HOOK_SOURCES[0].read_text(encoding="utf-8")
+        observers = source.split(
+            "void ReRevvedObserveRendererResolve", 1
+        )[1].split("void ReRevvedRememberGfxRenderConfig", 1)[0]
+        state = (
+            ROOT / "src" / "gpu" / "diagnostics" / "native_renderer_guest_state.cpp"
+        ).read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("ReadGuestFetchDescriptor", observers)
+        self.assertIn("ObserveGuestResolve", observers)
+        self.assertIn("ObserveGuestSwap", observers)
+        self.assertNotIn("WriteGuest", observers)
+        self.assertRegex(
+            source,
+            r"void ReRevvedObserveRendererResolve\(PPCRegister& r4,\s*"
+            r"PPCRegister& r6,\s*PPCRegister& r8,\s*PPCRegister& r9,\s*"
+            r"uint64_t\s+lr\)",
+        )
+        self.assertRegex(
+            state,
+            r"constexpr std::size_t\s+kResolveHistorySize\s*=\s*64;",
+        )
+        self.assertIn("std::array<GuestResolveRecord, kResolveHistorySize>", state)
 
     def test_combat_speed_contract(self) -> None:
         source = HOOK_SOURCES[0].read_text(encoding="utf-8")

@@ -22,6 +22,26 @@
 .PARAMETER LaunchArgument
   Additional single-token -- arguments appended to the game command.
 
+.PARAMETER LaunchArgumentJson
+  JSON array transport for launch arguments across a child pwsh -File boundary.
+  It is mutually exclusive with LaunchArgument.
+
+.PARAMETER UserDataRoot
+  Optional user-data root for a validated isolated launch.
+
+.PARAMETER CacheRoot
+  Optional cache root for a validated isolated launch.
+
+.PARAMETER LogPath
+  Optional log file for a validated isolated launch.
+
+.PARAMETER SdkRepo
+  Optional exact SDK checkout. Defaults to the sibling checkout.
+
+.PARAMETER SdkInstall
+  Optional install root produced by the selected exact SDK checkout.
+  SdkInstallRoot remains an accepted compatibility alias.
+
 .EXAMPLE
   cd <repo>; .\scripts\rexglue.ps1 -Stage All
 
@@ -40,29 +60,82 @@ param(
     [int]$ProbeSeconds = 20,
     [switch]$Interactive,
     [string[]]$LaunchArgument = @(),
+    [string]$LaunchArgumentJson,
     [switch]$SelfTest,
     [string]$SdkRepo,
+    [Alias('SdkInstallRoot')]
     [string]$SdkInstall,
     [string]$VcVarsAll,
-    [string]$LlvmBin = 'C:\Program Files\LLVM\bin'
+    [string]$LlvmBin = 'C:\Program Files\LLVM\bin',
+    [string]$UserDataRoot,
+    [string]$CacheRoot,
+    [string]$LogPath
 )
 
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-if ([string]::IsNullOrWhiteSpace($SdkRepo)) {
-    $SdkRepo = Join-Path $repo '..\rerevved-rexglue-sdk'
-}
-if ([string]::IsNullOrWhiteSpace($SdkInstall)) {
-    $SdkInstall = Join-Path $SdkRepo 'out\install\win-amd64'
-}
 $sdkLock = Join-Path $repo 'rexglue-sdk.lock.json'
 $manifest = Join-Path $repo 'rerevved_manifest.toml'
 $xex = Join-Path $repo 'game\default.xex'
 $buildDir = Join-Path $repo 'out\build\win-amd64-release'
 $exe = Join-Path $buildDir 'rerevved.exe'
-$userData = Join-Path $repo 'out\rexglue-user'
-$cache = Join-Path $repo 'out\rexglue-cache'
-$log = Join-Path $repo 'out\rexglue_boot.log'
+foreach ($pathOverride in @(
+    @{ Name = 'UserDataRoot'; Value = $UserDataRoot },
+    @{ Name = 'CacheRoot'; Value = $CacheRoot },
+    @{ Name = 'LogPath'; Value = $LogPath },
+    @{ Name = 'SdkRepo'; Value = $SdkRepo },
+    @{ Name = 'SdkInstall'; Value = $SdkInstall },
+    @{ Name = 'LaunchArgumentJson'; Value = $LaunchArgumentJson }
+)) {
+    if ($PSBoundParameters.ContainsKey($pathOverride.Name) -and
+        [string]::IsNullOrWhiteSpace([string]$pathOverride.Value)) {
+        throw "$($pathOverride.Name) must be a non-empty path when supplied."
+    }
+}
+if ($PSBoundParameters.ContainsKey('LaunchArgumentJson')) {
+    if ($LaunchArgument.Count -ne 0) {
+        throw 'LaunchArgumentJson and LaunchArgument are mutually exclusive.'
+    }
+    try {
+        $decodedLaunchArguments = ConvertFrom-Json -InputObject $LaunchArgumentJson -NoEnumerate
+    } catch {
+        throw "LaunchArgumentJson must be a JSON array of strings: $($_.Exception.Message)"
+    }
+    if ($decodedLaunchArguments -isnot [array]) {
+        throw 'LaunchArgumentJson must be a JSON array of strings.'
+    }
+    $validatedLaunchArguments = [Collections.Generic.List[string]]::new()
+    foreach ($decodedLaunchArgument in $decodedLaunchArguments) {
+        if ($decodedLaunchArgument -isnot [string]) {
+            throw 'LaunchArgumentJson must be a JSON array of strings.'
+        }
+        $validatedLaunchArguments.Add($decodedLaunchArgument)
+    }
+    $LaunchArgument = @($validatedLaunchArguments)
+}
+if ([string]::IsNullOrWhiteSpace($SdkRepo)) {
+    $SdkRepo = Join-Path $repo '..\rerevved-rexglue-sdk'
+}
+$SdkRepo = [IO.Path]::GetFullPath($SdkRepo)
+if ([string]::IsNullOrWhiteSpace($SdkInstall)) {
+    $SdkInstall = Join-Path $SdkRepo 'out\install\win-amd64'
+}
+$SdkInstall = [IO.Path]::GetFullPath($SdkInstall)
+$userData = if ($UserDataRoot) {
+    [IO.Path]::GetFullPath($UserDataRoot)
+} else {
+    Join-Path $repo 'out\rexglue-user'
+}
+$cache = if ($CacheRoot) {
+    [IO.Path]::GetFullPath($CacheRoot)
+} else {
+    Join-Path $repo 'out\rexglue-cache'
+}
+$log = if ($LogPath) {
+    [IO.Path]::GetFullPath($LogPath)
+} else {
+    Join-Path $repo 'out\rexglue_boot.log'
+}
 $batch = Join-Path $repo 'out\_rexglue_spike.bat'
 
 # Visual Studio discovery: prefer the standard VS 2022 Build Tools location,

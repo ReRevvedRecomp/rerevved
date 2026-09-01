@@ -1,0 +1,22 @@
+{
+  "schema": "rerevved.native_renderer.fixture.v1",
+  "fixture_id": "NRD-FIX-0002",
+  "kind": "new-game-recipe",
+  "route": [
+    "Single Player",
+    "New Game",
+    "Warlord",
+    "Romans"
+  ],
+  "saving": "prohibited",
+  "transitions": {
+    "NRD-TRANS-0002": {
+      "checkpoint": "new-game-setup-romans",
+      "stop": "Romans highlighted before confirmation"
+    },
+    "NRD-TRANS-0003": {
+      "checkpoint": "first-settled-human-turn-map",
+      "stop": "first settled human-turn map before gameplay input"
+    }
+  }
+}

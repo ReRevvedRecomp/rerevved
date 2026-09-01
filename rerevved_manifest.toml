@@ -1,9 +1,13 @@
 [project]
 name = "rerevved"
-sdk_version = "0.10.0"
+sdk_version = "0.11.0"
 game_root = "game"
 
 [entrypoint]
 file_path = "game/default.xex"
 out_directory_path = "generated/default"
-includes = ["config/rerevved_functions.toml", "config/rerevved_hooks.toml"]
+includes = [
+    "config/rerevved_functions.toml",
+    "config/rerevved_hooks.toml",
+    "config/native_renderer_coverage_hooks.toml",
+]

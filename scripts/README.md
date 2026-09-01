@@ -20,6 +20,26 @@ validated game argument. Launch creates the ignored `out/rexglue-user/` and
 `-SdkRepo` and `-SdkInstall` select an isolated SDK checkout and installed
 package. Omitting them preserves the sibling checkout and package defaults.
 
+## Native-renderer coverage
+
+The native-renderer observer is default-off and generated from the reviewed
+snapshot in `config/native_renderer_coverage.toml`:
+
+| Command | Purpose and output |
+|---|---|
+| `python .\scripts\gen-native-renderer-coverage.py --check` | Validate the accepted snapshot and fail if the tracked hook config or wrapper include differs from deterministic generation. |
+| `.\scripts\run-native-renderer-coverage.ps1 <inputs>` | Validate the title, locked SDK, executable, retail inputs, fixture, host graphics, and transition, then print one isolated run plan. Plan mode is the default and creates no directory or process. |
+| `python .\scripts\summarize-native-renderer-coverage.py <run-root>` | Fail closed over one completed private run bundle and emit its deterministic summary to standard output. Pass exactly two matching run roots to summarize a repeat series. |
+
+Run mode requires `-Run -OwnerReady -OverlaysClosed`. It creates only
+`out/evidence/native-renderer-d3d/<run-id>/`, delegates one interactive launch
+to `rexglue.ps1`, and records the exact child exit before returning. It does not
+inject input or advance the guest. Save-copy fixtures are staged immutably as
+`user-data/save5.sve`, checked again after exit, and excluded from save-output
+records. Interactive challenges bind owner review to the current run before
+launch and after exit; invalid, stale, blank, or negative answers reject the
+run. Static verification and build work do not authorize a launch.
+
 ## Release packaging
 
 `package.py` stages release binaries, runtime libraries, the player README,
@@ -65,15 +85,15 @@ memory reads at least `0x1000` bytes by default. `--summary-only` suppresses
 individual draw records. `--minimum-read` and `--frame` narrow the report. It rejects
 unsupported versions, truncated packets, and invalid compressed payloads.
 
-Capture the current foreground window as an ignored BMP. The script temporarily
+Capture the current foreground window as an ignored PNG. The script temporarily
 sets the window topmost and removes that temporary state even when capture fails:
 
-    .\scripts\capture-window.ps1 -Out .\out\window_topmost_capture.bmp
+    .\scripts\capture-window.ps1 -Out .\out\window_topmost_capture.png
 
-Compare two BMPs without changing them. Crops are x,y,w,h and must have equal
+Compare two images without changing them. Crops are x,y,w,h and must have equal
 dimensions:
 
-    .\scripts\compare-frames.ps1 .\baseline.bmp .\out\window_topmost_capture.bmp -MeanAbsMax 0.01 -Ssim 0.99
+    .\scripts\compare-frames.ps1 .\baseline.png .\out\window_topmost_capture.png -MeanAbsMax 0.01 -Ssim 0.99
 
 The command reports `mean_abs` and `ssim`. Thresholds apply only to the supplied
 images and crop regions.
@@ -82,7 +102,7 @@ images and crop regions.
 
 `clean-logs.ps1` deletes only repository root `*.log`, `out/*.log`, and the
 known `out/*.txt` dump names. It does not recurse and does not remove `.xtr` or
-BMP files. Review the targets first, then delete only stale files:
+PNG files. Review the targets first, then delete only stale files:
 
     .\scripts\clean-logs.ps1 -WhatIf
     .\scripts\clean-logs.ps1 -Days 7

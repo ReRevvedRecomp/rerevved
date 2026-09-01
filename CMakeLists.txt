@@ -4,7 +4,8 @@ project(rerevved VERSION 1.0.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(rexglue 0.10.0 REQUIRED CONFIG)
+find_package(rexglue 0.11.0 REQUIRED CONFIG)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/rexglue-sdk.lock.json" REREVVED_SDK_LOCK)
 foreach(_property repository commit version dirty platform)
@@ -51,8 +52,21 @@ set(REREVVED_SOURCES
     src/great_general_attachment.h
     src/game_state.cpp
     src/game_state.h
+    src/gpu/guest_gpu_service.cpp
+    src/gpu/guest_gpu_service.h
     src/imports.cpp
     src/main.cpp
+    src/gpu/d3d12/native_renderer_d3d12.cpp
+    src/gpu/d3d12/native_renderer_d3d12.h
+    src/gpu/diagnostics/native_renderer_guest_state.cpp
+    src/gpu/diagnostics/native_renderer_guest_state.h
+    src/gpu/diagnostics/native_renderer_passive_trace.cpp
+    src/gpu/diagnostics/native_renderer_passive_trace.h
+    src/native_renderer_coverage.cpp
+    src/native_renderer_coverage.h
+    src/native_renderer_coverage_hooks.inc
+    src/gpu/renderer_backend.cpp
+    src/gpu/renderer_backend.h
     src/unique_era_abilities.cpp
     src/unique_era_abilities_hooks.cpp
     src/unique_era_abilities_registry.h
@@ -82,6 +96,10 @@ else()
     add_executable(rerevved ${REREVVED_SOURCES})
 endif()
 
+if(WIN32)
+    target_link_libraries(rerevved PRIVATE d3d12 dxgi dxguid)
+endif()
+
 target_include_directories(rerevved PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/api
@@ -105,6 +123,13 @@ rexglue_setup_recompiled_target(rerevved
     MANIFEST rerevved_manifest.toml
     OUTPUT_DIR generated/default
     GPU_PLUGINS xenos)
+add_custom_target(native_renderer_coverage_codegen_check
+    COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/scripts/gen-native-renderer-coverage.py --check
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Checking native renderer coverage generation"
+    VERBATIM)
+add_dependencies(rerevved_codegen native_renderer_coverage_codegen_check)
 
 include(CTest)
 if(BUILD_TESTING)
@@ -200,4 +225,62 @@ if(BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
     add_test(NAME unique_era_abilities_c_header COMMAND unique_era_abilities_c_header_tests)
+
+    add_executable(native_renderer_coverage_tests
+        src/native_renderer_coverage.cpp
+        tests/native_renderer_coverage_test.cpp
+    )
+    target_include_directories(native_renderer_coverage_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    target_compile_definitions(native_renderer_coverage_tests PRIVATE
+        REREVVED_NATIVE_RENDERER_COVERAGE_TESTING=1
+    )
+    add_test(NAME native_renderer_coverage COMMAND native_renderer_coverage_tests)
+
+    add_executable(guest_gpu_service_tests
+        src/gpu/guest_gpu_service.cpp
+        tests/gpu/guest_gpu_service_test.cpp
+    )
+    target_include_directories(guest_gpu_service_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    target_link_libraries(guest_gpu_service_tests PRIVATE rex::runtime)
+    add_test(NAME guest_gpu_service COMMAND guest_gpu_service_tests)
+
+    add_executable(renderer_backend_tests
+        src/gpu/renderer_backend.cpp
+        tests/gpu/renderer_backend_test.cpp
+    )
+    target_include_directories(renderer_backend_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    add_test(NAME renderer_backend COMMAND renderer_backend_tests)
+
+    add_executable(fence_trace_finalization_gate_tests
+        tests/fence_trace_finalization_gate_test.cpp
+    )
+    target_include_directories(fence_trace_finalization_gate_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    add_test(NAME fence_trace_finalization_gate COMMAND fence_trace_finalization_gate_tests)
+
+    add_executable(native_renderer_guest_state_tests
+        src/gpu/diagnostics/native_renderer_guest_state.cpp
+        tests/gpu/diagnostics/native_renderer_guest_state_test.cpp
+    )
+    target_include_directories(native_renderer_guest_state_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    add_test(NAME native_renderer_guest_state COMMAND native_renderer_guest_state_tests)
+
+    add_executable(native_renderer_passive_trace_tests
+        src/gpu/diagnostics/native_renderer_passive_trace.cpp
+        tests/gpu/diagnostics/native_renderer_passive_trace_test.cpp
+    )
+    target_include_directories(native_renderer_passive_trace_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    target_link_libraries(native_renderer_passive_trace_tests PRIVATE rex::runtime)
+    add_test(NAME native_renderer_passive_trace COMMAND native_renderer_passive_trace_tests)
 endif()

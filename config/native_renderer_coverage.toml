@@ -1,0 +1,65 @@
+# Native-renderer coverage snapshot accepted by the Research inventory.
+# The unknown domain intentionally has no `value` key; value_kind makes its
+# null state explicit to consumers that cannot represent TOML null values.
+
+[snapshot]
+schema_version = 1
+published_research_commit = "200e737fd13d9368c86d95ac154cbaf66a34dcc9"
+aggregate_sha256 = "3e2ff06a0dccfaad7f5e64729e40b6255ced051b897f318ba13a0d21344ec6c7"
+image_sha256 = "5C7A8C3AD9B6A9D39CC9BBF3DA5AB23015A568C65C723D298F846086324C4680"
+surface = "partial"
+
+[snapshot.source_pointers]
+schema_version = "#/partialExport/schema_version"
+image_sha256 = "#/partialExport/image_sha256"
+surface = "#/partialExport/surface"
+
+[[snapshot.operations]]
+operation_id = "NRD-OP-0002"
+runtime_join_key = "d3d:0x826A3568"
+roles = ["wrapper", "lowering-boundary"]
+contract_ids = ["NRD-CONTRACT-0001"]
+registers = []
+claim_refs = [
+    "#/surface/1",
+    "#/contracts/0",
+    "#/completenessRoots/0",
+    "RVA-SYM-0255",
+    "RVA-REL-0349",
+    "gfx-draw-producer.json#/drawSubmission/issue",
+    "native-renderer-d3d-draw-lowering-frontier.json#/committedExecutorReferenceReplay17",
+]
+
+[snapshot.operations.source_pointers]
+operation_id = "#/partialExport/operations/0/operation_id"
+runtime_join_key = "#/partialExport/operations/0/runtime_join_key"
+roles = "#/partialExport/operations/0/roles"
+contract_ids = "#/partialExport/operations/0/contract_ids"
+hook_sites = "#/partialExport/operations/0/hook_sites"
+registers = "#/partialExport/operations/0/registers"
+value_domains = "#/partialExport/operations/0/value_domains"
+claim_refs = "#/partialExport/operations/0/claim_refs"
+
+[[snapshot.operations.hook_sites]]
+address = 0x82303E3C
+phase = "value"
+discriminator = "primitive-4"
+
+[[snapshot.operations.hook_sites]]
+address = 0x82303E8C
+phase = "value"
+discriminator = "primitive-4"
+
+[[snapshot.operations.value_domains]]
+id = "primitive-4"
+value_kind = "integer"
+value = 4
+selection = "site-fixed"
+
+[[snapshot.operations.value_domains]]
+id = "unknown"
+value_kind = "null"
+selection = "unmapped-input"
+
+[observer]
+segment_count = 8

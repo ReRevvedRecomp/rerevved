@@ -1,5 +1,5 @@
 param(
-    [string]$Out = 'out\window_topmost_capture.bmp'
+    [string]$Out = 'out\window_topmost_capture.png'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -72,7 +72,7 @@ public static class ReRevvedWindowCapture {
         try {
             $graphics.CopyFromScreen($rect.Left, $rect.Top, 0, 0,
                 (New-Object System.Drawing.Size($width, $height)), [System.Drawing.CopyPixelOperation]::SourceCopy)
-            $bitmap.Save($outPath, [System.Drawing.Imaging.ImageFormat]::Bmp)
+            $bitmap.Save($outPath, [System.Drawing.Imaging.ImageFormat]::Png)
         }
         finally {
             $graphics.Dispose()

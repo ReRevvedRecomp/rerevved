@@ -16,6 +16,137 @@ registers = ["r3", "r4"]
 address = 0x8269CAE4
 name = "ReRevvedCompatRingInitializeEnd"
 
+# Observe the title's device publication after the original indirect store.
+# Native mode validates the stored value without changing guest state.
+
+[[midasm_hook]]
+address = 0x826A6460
+name = "ReRevvedObserveNativeDevicePublication"
+registers = ["r11", "r31"]
+
+# Observe one statically proved renderer-texture backend store site. Native mode
+# validates the completed store without retaining guest pointers or changing
+# guest state. Runtime reachability remains unobserved.
+
+[[midasm_hook]]
+address = 0x82305104
+name = "ReRevvedObserveNativeTexturePublication"
+registers = ["r22", "r3"]
+
+# Observe the resource-manager result immediately before its per-item dispatch.
+# Native mode interprets explicit-buffer slots only after the vptr matches.
+
+[[midasm_hook]]
+address = 0x8250AE84
+name = "ReRevvedObserveNativeResolveProviderIdentity"
+registers = ["r3"]
+
+# Observe each explicit-buffer factory store before the slot pointer advances.
+# Native mode verifies the completed store and reads the container identity.
+
+[[midasm_hook]]
+address = 0x82518614
+name = "ReRevvedObserveNativeExplicitBufferFactoryStore"
+registers = ["r28", "r29", "r30", "r3"]
+
+# Correlate D3DDevice_Resolve destinations with the later VdSwap source. These
+# observers copy only the six fetch dwords and preserve both guest operations.
+
+# The default-off passive trace brackets only the statically accepted producer
+# path. Every hook returns to the original instruction stream.
+
+[[midasm_hook]]
+address = 0x8269C7A8
+name = "ReRevvedTraceReservationEnter"
+registers = ["r3", "r4"]
+
+[[midasm_hook]]
+address = 0x8269C80C
+name = "ReRevvedTraceReservationReturn"
+registers = ["r3", "r29", "r31"]
+
+[[midasm_hook]]
+address = 0x826A4638
+name = "ReRevvedTraceVdSwapOwnerEnter"
+registers = ["r3", "r4"]
+
+[[midasm_hook]]
+address = 0x826A4C0C
+name = "ReRevvedTraceVdSwapOwnerReturn"
+registers = ["r31"]
+
+[[midasm_hook]]
+address = 0x8269E520
+name = "ReRevvedObserveRendererResolve"
+registers = ["r4", "r6", "r8", "r9", "lr"]
+
+[[midasm_hook]]
+address = 0x8269F360
+name = "ReRevvedTraceResolveReturn"
+
+[[midasm_hook]]
+address = 0x826A4884
+name = "ReRevvedObserveRendererSwapSource"
+registers = ["r3", "r4", "r30", "r31"]
+
+[[midasm_hook]]
+address = 0x826A4888
+name = "ReRevvedTraceVdSwapReturn"
+registers = ["r3", "r30", "r31"]
+
+[[midasm_hook]]
+address = 0x826A4890
+name = "ReRevvedTraceVdSwapPublished"
+registers = ["r30", "r31"]
+
+[[midasm_hook]]
+address = 0x826A4150
+name = "ReRevvedTracePreSwapEnter"
+
+[[midasm_hook]]
+address = 0x826A4324
+name = "ReRevvedTracePreSwapReturn"
+
+[[midasm_hook]]
+address = 0x8269CD20
+name = "ReRevvedTraceEmitterCd20Enter"
+
+[[midasm_hook]]
+address = 0x8269CE78
+name = "ReRevvedTraceEmitterCd20Return"
+
+[[midasm_hook]]
+address = 0x8269BF40
+name = "ReRevvedTraceEmitterBf40Enter"
+
+[[midasm_hook]]
+address = 0x8269C12C
+name = "ReRevvedTraceEmitterBf40Return"
+
+[[midasm_hook]]
+address = 0x826A3FB8
+name = "ReRevvedTraceCallbackEnter"
+
+[[midasm_hook]]
+address = 0x826A4148
+name = "ReRevvedTraceCallbackReturn"
+
+[[midasm_hook]]
+address = 0x826ABEA8
+name = "ReRevvedTraceOrdinaryCallerEnter"
+
+[[midasm_hook]]
+address = 0x826AC018
+name = "ReRevvedTraceOrdinaryCallerReturn"
+
+[[midasm_hook]]
+address = 0x82517E38
+name = "ReRevvedTraceAlternateCallerEnter"
+
+[[midasm_hook]]
+address = 0x82517EB4
+name = "ReRevvedTraceAlternateCallerReturn"
+
 # Retain a failed render config until the same renderer supplies valid caps.
 
 [[midasm_hook]]
