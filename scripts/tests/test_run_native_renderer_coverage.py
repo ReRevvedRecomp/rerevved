@@ -61,7 +61,7 @@ class RunnerTests(unittest.TestCase):
         )
         (self.title / "rexglue-sdk.lock.json").write_text(
             '{"repository":"https://example.invalid/synthetic-sdk","commit":"%s",'
-            '"version":"0.11.0-dev.g37dd3f3","dirty":"clean","platform":"win-amd64"}\n'
+            '"version":"0.11.0-dev.g37dd3f3","dirty":"clean"}\n'
             % sdk_commit,
             encoding="ascii",
         )
@@ -538,6 +538,28 @@ exit 0
             result = self.invoke_override(*extra) if isinstance(extra, tuple) else self.invoke(*extra)
             self.assertNotEqual(result.returncode, 0, label)
             self.assertIn("coverage blocked", result.stderr + result.stdout, label)
+
+    def test_non_windows_sdk_install_is_rejected(self) -> None:
+        config = (
+            self.sdk
+            / "out"
+            / "install"
+            / "win-amd64"
+            / "lib"
+            / "cmake"
+            / "rexglue"
+            / "rexglueConfig.cmake"
+        )
+        config.write_text(
+            config.read_text(encoding="ascii").replace(
+                'REXGLUE_BUILD_PLATFORM "win-amd64"',
+                'REXGLUE_BUILD_PLATFORM "linux-amd64"',
+            ),
+            encoding="ascii",
+        )
+        result = self.invoke()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("installed SDK BUILD_PLATFORM", result.stderr + result.stdout)
 
     def test_existing_run_path_escape_and_dirty_tree_are_rejected(self) -> None:
         run_root = self.title / "out" / "evidence" / "native-renderer-d3d" / "NRD-RUN-20260829-0001"

@@ -8,19 +8,35 @@ find_package(rexglue 0.11.0 REQUIRED CONFIG)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/rexglue-sdk.lock.json" REREVVED_SDK_LOCK)
-foreach(_property repository commit version dirty platform)
+foreach(_property repository commit version dirty)
     string(JSON REREVVED_SDK_LOCK_${_property} ERROR_VARIABLE _json_error
         GET "${REREVVED_SDK_LOCK}" ${_property})
     if(_json_error)
         message(FATAL_ERROR "rexglue-sdk.lock.json is missing '${_property}'")
     endif()
 endforeach()
+if(WIN32)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(AMD64|amd64|x86_64)$")
+        set(REREVVED_SDK_PLATFORM "win-amd64")
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$")
+        set(REREVVED_SDK_PLATFORM "win-arm64")
+    endif()
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(AMD64|amd64|x86_64)$")
+        set(REREVVED_SDK_PLATFORM "linux-amd64")
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$")
+        set(REREVVED_SDK_PLATFORM "linux-arm64")
+    endif()
+endif()
+if(NOT DEFINED REREVVED_SDK_PLATFORM)
+    message(FATAL_ERROR "Unsupported ReRevved target platform")
+endif()
 if(NOT REREVVED_SDK_LOCK_commit STREQUAL REXGLUE_GIT_REVISION OR
    NOT REREVVED_SDK_LOCK_version STREQUAL REXGLUE_VERSION_STRING OR
    NOT REREVVED_SDK_LOCK_dirty STREQUAL REXGLUE_GIT_DIRTY OR
-   NOT REREVVED_SDK_LOCK_platform STREQUAL REXGLUE_BUILD_PLATFORM)
+   NOT REREVVED_SDK_PLATFORM STREQUAL REXGLUE_BUILD_PLATFORM)
     message(FATAL_ERROR
-        "Installed ReXGlue package does not match rexglue-sdk.lock.json")
+        "Installed ReXGlue package does not match the SDK lock or target platform")
 endif()
 
 include(cmake/build_info.cmake)

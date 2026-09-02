@@ -73,6 +73,11 @@ class RexGlueDriverContractTests(unittest.TestCase):
         self.assertIn("Join-Path $SdkRepo 'out\\install\\win-amd64'", self.source)
         self.assertIn("git -C $SdkRepo rev-parse HEAD", self.source)
 
+    def test_platform_is_checked_against_the_windows_target(self) -> None:
+        self.assertIn("@('repository', 'commit', 'version', 'dirty')", self.source)
+        self.assertNotIn("'dirty', 'platform'", self.source)
+        self.assertIn("$installedBUILD_PLATFORM -ne 'win-amd64'", self.source)
+
 
 if __name__ == "__main__":
     unittest.main()

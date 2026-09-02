@@ -223,7 +223,7 @@ $sdkConfigFile = Join-Path $sdkConfig 'rexglueConfig.cmake'
 Require-Path $sdkConfigFile 'Installed ReXGlue SDK config'
 
 $lock = Get-Content -Raw -LiteralPath $sdkLock | ConvertFrom-Json
-foreach ($property in @('repository', 'commit', 'version', 'dirty', 'platform')) {
+foreach ($property in @('repository', 'commit', 'version', 'dirty')) {
     if ([string]::IsNullOrWhiteSpace($lock.$property)) {
         throw "ReXGlue SDK lock is missing '$property': $sdkLock"
     }
@@ -265,9 +265,11 @@ foreach ($field in @('GIT_REVISION', 'GIT_DIRTY', 'BUILD_PLATFORM')) {
     Set-Variable -Name ('installed' + $field) -Value $Matches[1]
 }
 if ($installedGIT_REVISION -ne $lock.commit -or
-    $installedGIT_DIRTY -ne $lock.dirty -or
-    $installedBUILD_PLATFORM -ne $lock.platform) {
+    $installedGIT_DIRTY -ne $lock.dirty) {
     throw 'Installed ReXGlue SDK provenance does not match the lock.'
+}
+if ($installedBUILD_PLATFORM -ne 'win-amd64') {
+    throw "Installed ReXGlue SDK platform mismatch: expected win-amd64, found $installedBUILD_PLATFORM"
 }
 
 $titleHead = (& git -C $repo rev-parse HEAD).Trim()

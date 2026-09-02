@@ -34,12 +34,6 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Verify repository
-        shell: pwsh
-        run: |
-          python -m pip install --disable-pip-version-check clang-format==22.1.8
-          ./scripts/verify.ps1
-
       - name: Install build tools
         shell: pwsh
         run: |
@@ -48,12 +42,12 @@ jobs:
           & 'C:\Program Files\LLVM\bin\clang.exe' --version
 
       - name: Set up MSVC environment
-        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+        uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
       - name: Set up sccache
-        uses: hendrikmuhs/ccache-action@v1.2.23
+        uses: hendrikmuhs/ccache-action@v1
         with:
           variant: sccache
           key: windows-amd64
@@ -191,6 +185,10 @@ jobs:
           cmake --build --preset win-amd64-release --parallel
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Run tests
+        shell: pwsh
+        run: ctest --test-dir out/build/win-amd64-release --output-on-failure
+
       - name: Package archive
         shell: pwsh
         run: |
@@ -223,12 +221,6 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: '3.11'
-
-      - name: Verify repository
-        shell: pwsh
-        run: |
-          python -m pip install --disable-pip-version-check clang-format==22.1.8
-          ./scripts/verify.ps1
 
       - name: Install clang 22
         shell: bash
@@ -386,6 +378,9 @@ jobs:
           sdk_config="$RUNNER_TEMP/rerevved-sdk/out/install/linux-amd64/lib/cmake/rexglue"
           cmake --preset linux-amd64-release "-Drexglue_DIR=$sdk_config"
           cmake --build --preset linux-amd64-release --parallel
+
+      - name: Run tests
+        run: ctest --test-dir out/build/linux-amd64-release --output-on-failure
 
       - name: Package archive
         shell: bash

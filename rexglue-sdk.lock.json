@@ -2,6 +2,5 @@
   "repository": "https://github.com/ReRevvedRecomp/rerevved-sdk",
   "commit": "6ae32f375caefc8d2f6a98f7b14015cfce40fbb3",
   "version": "0.11.0-dev.g6ae32f3",
-  "dirty": "clean",
-  "platform": "win-amd64"
+  "dirty": "clean"
 }

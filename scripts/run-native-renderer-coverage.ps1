@@ -351,7 +351,6 @@ $lockRepository = Get-JsonString $lock 'repository'
 $lockCommit = Get-JsonString $lock 'commit'
 $lockVersion = Get-JsonString $lock 'version'
 $lockDirty = Get-JsonString $lock 'dirty'
-$lockPlatform = Get-JsonString $lock 'platform'
 $sdkHead = Git-Text $SdkRepo @('rev-parse', 'HEAD') 'SDK HEAD check'
 Require-Exact $sdkHead.ToLowerInvariant() $lockCommit.ToLowerInvariant() 'SDK lock/HEAD commit'
 $sdkOrigin = Git-Text $SdkRepo @('config', '--get', 'remote.origin.url') 'SDK origin check'
@@ -368,7 +367,7 @@ Require-Exact $versionMatch.Groups[1].Value $lockVersion 'installed SDK version'
 foreach ($field in @(
     @{ Name = 'GIT_REVISION'; Expected = $lockCommit },
     @{ Name = 'GIT_DIRTY'; Expected = $lockDirty },
-    @{ Name = 'BUILD_PLATFORM'; Expected = $lockPlatform }
+    @{ Name = 'BUILD_PLATFORM'; Expected = 'win-amd64' }
 )) {
     $match = [regex]::Match($configText, 'set\(REXGLUE_' + $field.Name + ' "([^"]+)"\)')
     if (-not $match.Success) { Fail "installed SDK $($field.Name) not found: $configPath" }

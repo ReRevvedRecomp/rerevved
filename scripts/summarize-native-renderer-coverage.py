@@ -19,6 +19,7 @@ from typing import Any, Iterable, Mapping, Sequence
 RUN_SCHEMA = "rerevved.native_renderer.run.v2"
 COVERAGE_SCHEMA = "rerevved.native_renderer.coverage.v1"
 SERIES_SCHEMA = "rerevved.native_renderer.series.v1"
+SDK_LOCK_PATH = Path(__file__).resolve().parent.parent / "rexglue-sdk.lock.json"
 OBSERVER_BYTE_BUDGET = 3456
 RUN_ID_RE = re.compile(r"^NRD-RUN-\d{8}-\d{4}$")
 TRANSITION_RE = re.compile(r"^NRD-TRANS-(?:000[1-9]|001[01])$")
@@ -27,8 +28,6 @@ COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 OPERATION_ID = "NRD-OP-0002"
 RUNTIME_JOIN_KEY = "d3d:0x826A3568"
 CONTRACT_ID = "NRD-CONTRACT-0001"
-LOCKED_SDK_COMMIT = "6ae32f375caefc8d2f6a98f7b14015cfce40fbb3"
-LOCKED_SDK_VERSION = "0.11.0-dev.g6ae32f3"
 COMPILED_INPUT_DIGEST = "2d1466cf7a203e123d232cda6a4ab59b9618d3841aaee8f032422e9666c1d303"
 ACCEPTED_FIXTURES = {
     "NRD-TRANS-0001": {"NRD-FIX-0001"},
@@ -92,18 +91,6 @@ U32_MAX = (1 << 32) - 1
 I32_MIN = -(1 << 31)
 I32_MAX = (1 << 31) - 1
 
-DIAGNOSTIC_SOURCE_HASHES = {
-    "src/filesystem/virtual_file_system.cpp":
-        "461fd8f5d9b0077847ac477a6f106556bae4c4af0a3c7f70c4467946966a2d51",
-    "src/graphics/command_processor.cpp":
-        "543898c0f86969fef256c5c267503ff935a74b1f9ec1bd460e949e43f412e3fe",
-    "src/graphics/d3d12/pipeline_cache.cpp":
-        "6a4bc1393947ef6124d0a39f44ab332bb8620a4652d81af233b7186530833a9e",
-    "src/graphics/d3d12/command_processor.cpp":
-        "f2a23b810e123c46c63237bb38303668ec18515450ef2bda95c45cc2ef1710c0",
-}
-
-
 def _diagnostic_entry(
     stable_id: str,
     source: str,
@@ -111,11 +98,9 @@ def _diagnostic_entry(
     *,
     presence_only: bool = False,
 ) -> dict[str, Any]:
-    source_path = source.rsplit(":", 1)[0]
     return {
         "id": stable_id,
         "source": source,
-        "source_sha256": DIAGNOSTIC_SOURCE_HASHES[source_path],
         "pattern": re.compile(pattern),
         "presence_only": presence_only,
     }
@@ -270,6 +255,26 @@ def _commit(value: Any, label: str) -> str:
     if not COMMIT_RE.fullmatch(value):
         raise CoverageError(f"{label} must be lowercase Git commit hex")
     return value
+
+
+def _locked_sdk_identity() -> tuple[str, str]:
+    lock = load_json_unique(SDK_LOCK_PATH)
+    if not isinstance(lock, Mapping):
+        raise CoverageError("SDK lock must be an object")
+    required_fields = ("repository", "commit", "version", "dirty")
+    missing_fields = [field for field in required_fields if field not in lock]
+    if missing_fields:
+        raise CoverageError(f"SDK lock is missing {', '.join(missing_fields)}")
+    if _text(lock["repository"], "SDK lock repository") != (
+        "https://github.com/ReRevvedRecomp/rerevved-sdk"
+    ):
+        raise CoverageError("SDK lock repository differs from the maintained fork")
+    if _text(lock["dirty"], "SDK lock dirty state") != "clean":
+        raise CoverageError("SDK lock must require a clean checkout")
+    return (
+        _commit(lock["commit"], "SDK lock commit"),
+        _text(lock["version"], "SDK lock version"),
+    )
 
 
 def _marks(value: Any, label: str) -> list[str]:
@@ -437,6 +442,7 @@ def _check_log(
         ):
             raise CoverageError("filesystem probe diagnostic exceeds its accepted fixture bound")
     diagnostics = []
+    sdk_commit, sdk_version = _locked_sdk_identity()
     for stable_id in sorted(counts):
         entry = PINNED_DIAGNOSTICS[stable_id]
         diagnostics.append(
@@ -446,9 +452,8 @@ def _check_log(
                 "source": sources[stable_id],
                 "evidence": {
                     "source": entry["source"],
-                    "source_sha256": entry["source_sha256"],
-                    "sdk_commit": LOCKED_SDK_COMMIT,
-                    "sdk_version": LOCKED_SDK_VERSION,
+                    "sdk_commit": sdk_commit,
+                    "sdk_version": sdk_version,
                     "presence_only": entry["presence_only"],
                 },
             }
@@ -543,7 +548,7 @@ def _counter_rows(value: Any) -> tuple[list[dict[str, int | str]], int]:
 def map_sdk_diagnostic(
     message: str,
 ) -> Mapping[str, str] | None:
-    """Return a match from the built-in source-pinned SDK diagnostic registry."""
+    """Return a match from the built-in SDK diagnostic registry."""
 
     if not isinstance(message, str):
         raise TypeError("diagnostic message must be a string")
@@ -820,11 +825,12 @@ def _validate_run(root: Path, raw: Any) -> tuple[Mapping[str, Any], dict[str, An
     _commit(run["title_commit"], "title_commit")
     if run["title_dirty"] is not False:
         raise CoverageError("title checkout must be clean")
-    if _commit(run["sdk_commit"], "sdk_commit") != LOCKED_SDK_COMMIT:
+    sdk_commit, sdk_version = _locked_sdk_identity()
+    if _commit(run["sdk_commit"], "sdk_commit") != sdk_commit:
         raise CoverageError("run SDK commit differs from the accepted lock")
     if run["sdk_dirty"] is not False:
         raise CoverageError("SDK checkout must be clean")
-    if _text(run["sdk_version"], "sdk_version") != LOCKED_SDK_VERSION:
+    if _text(run["sdk_version"], "sdk_version") != sdk_version:
         raise CoverageError("run SDK version differs from the accepted lock")
     input_paths: dict[str, str] = {}
     for field in ("fixture", "executable", "base_xex", "title_update"):

@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  pull_request:
   push:
     branches: [main]
   workflow_dispatch:
@@ -15,6 +16,9 @@ permissions:
 jobs:
   build:
     name: Build
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     uses: ./.github/workflows/build.yml
     with:
       publish_mode: artifact

@@ -18,8 +18,9 @@ DIGEST = "2d1466cf7a203e123d232cda6a4ab59b9618d3841aaee8f032422e9666c1d303"
 BASE_XEX_DIGEST = "b59b8957a3ed9dd90e9296c96d5c7ab1b16078d3f08b015582714a06c7d6a7bd"
 TITLE_UPDATE_DIGEST = "c1fc6149a63550987d991efdbb80e3697845a9a49d3f2ec180ea9817db8d12d4"
 TITLE_COMMIT = "b" * 40
-SDK_COMMIT = "6ae32f375caefc8d2f6a98f7b14015cfce40fbb3"
-SDK_VERSION = "0.11.0-dev.g6ae32f3"
+SDK_LOCK = json.loads((SCRIPT.parents[1] / "rexglue-sdk.lock.json").read_text(encoding="ascii"))
+SDK_COMMIT = SDK_LOCK["commit"]
+SDK_VERSION = SDK_LOCK["version"]
 CONFIG_TEXT = (
     "xenos_enabled=true\nrov_enabled=true\nguest_width=1280\nguest_height=720\n"
     "output_width=1920\noutput_height=1080\nresolution_scale=1\n"
@@ -584,7 +585,7 @@ class SummaryTests(unittest.TestCase):
         with self.assertRaisesRegex(summary.CoverageError, "PNG signature"):
             summary.summarize_run(self.root)
 
-    def test_sdk_diagnostics_use_pinned_registry_and_emit_counts(self) -> None:
+    def test_sdk_diagnostics_use_locked_sdk_and_emit_counts(self) -> None:
         _rewrite_log(
             self.root,
             "NRD-COVERAGE-BEGIN\n**** PRIMARY RINGBUFFER: Failed to execute packet.\n"
@@ -594,8 +595,13 @@ class SummaryTests(unittest.TestCase):
         self.assertEqual(result["diagnostics"][0]["id"], "NRD-SDK-FAIL-0001")
         self.assertEqual(result["diagnostics"][0]["count"], 2)
         self.assertEqual(
-            result["diagnostics"][0]["evidence"]["source_sha256"],
-            "543898c0f86969fef256c5c267503ff935a74b1f9ec1bd460e949e43f412e3fe",
+            result["diagnostics"][0]["evidence"],
+            {
+                "source": "src/graphics/command_processor.cpp:625,645,658",
+                "sdk_commit": SDK_COMMIT,
+                "sdk_version": SDK_VERSION,
+                "presence_only": False,
+            },
         )
         _rewrite_log(self.root, "NRD-COVERAGE-BEGIN\nSDK error literal\nNRD-COVERAGE-END\n")
         with self.assertRaises(summary.CoverageError):
@@ -649,8 +655,8 @@ class SummaryTests(unittest.TestCase):
             [("NRD-SDK-FAIL-0010", 1), ("NRD-SDK-FAIL-0011", 2)],
         )
         self.assertEqual(
-            result["diagnostics"][0]["evidence"]["source_sha256"],
-            "461fd8f5d9b0077847ac477a6f106556bae4c4af0a3c7f70c4467946966a2d51",
+            result["diagnostics"][0]["evidence"]["source"],
+            "src/filesystem/virtual_file_system.cpp:127",
         )
         run = json.loads((self.root / "run.json").read_text(encoding="ascii"))
         _, intro_diagnostics = summary._check_log(
@@ -809,6 +815,48 @@ class SummaryTests(unittest.TestCase):
         run_path.write_text(json.dumps(run), encoding="ascii")
         with self.assertRaises(summary.CoverageError):
             summary.summarize_run(self.root / "sdk")
+
+    def test_sdk_identity_is_loaded_from_the_lock(self) -> None:
+        sdk_commit = "a" * 40
+        sdk_version = "9.8.7-synthetic"
+        run_path = self.root / "run.json"
+        run = json.loads(run_path.read_text(encoding="ascii"))
+        run["sdk_commit"] = sdk_commit
+        run["sdk_version"] = sdk_version
+        run_path.write_text(json.dumps(run), encoding="ascii")
+        with tempfile.TemporaryDirectory() as lock_root:
+            lock_path = Path(lock_root) / "sdk.lock.json"
+            lock_path.write_text(
+                json.dumps(
+                    {
+                        "repository": "https://github.com/ReRevvedRecomp/rerevved-sdk",
+                        "commit": sdk_commit,
+                        "version": sdk_version,
+                        "dirty": "clean",
+                    }
+                ),
+                encoding="ascii",
+            )
+            original_lock_path = summary.SDK_LOCK_PATH
+            try:
+                summary.SDK_LOCK_PATH = lock_path
+                result = summary.summarize_run(self.root)
+            finally:
+                summary.SDK_LOCK_PATH = original_lock_path
+        self.assertEqual(result["series_identity"]["sdk_commit"], sdk_commit)
+        self.assertEqual(result["series_identity"]["sdk_version"], sdk_version)
+
+    def test_sdk_lock_requires_identity_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as lock_root:
+            lock_path = Path(lock_root) / "sdk.lock.json"
+            lock_path.write_text('{"repository":"synthetic"}', encoding="ascii")
+            original_lock_path = summary.SDK_LOCK_PATH
+            try:
+                summary.SDK_LOCK_PATH = lock_path
+                with self.assertRaisesRegex(summary.CoverageError, "missing commit, version, dirty"):
+                    summary._locked_sdk_identity()
+            finally:
+                summary.SDK_LOCK_PATH = original_lock_path
 
     def test_window_close_and_shutdown_block_lifetime_claims(self) -> None:
         for exit_class in ("window_close", "shutdown"):

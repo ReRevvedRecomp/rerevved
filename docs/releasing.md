@@ -1,7 +1,8 @@
 # Release process
 
-This runbook builds and exercises a ReRevved release candidate locally. Pushing a
-`v*` tag triggers the release workflow and publishes the candidate.
+This runbook builds and exercises a ReRevved release candidate locally.
+Pushing a `v*` tag triggers the release workflow and publishes Windows and
+Linux candidates.
 
 ## Set the version
 
@@ -31,8 +32,9 @@ This runbook builds and exercises a ReRevved release candidate locally. Pushing 
    the executable, runtime libraries, licenses, player README, and an empty
    `game/` directory, with no retail content or user files.
 
-Linux packaging produces a `.tar.gz` archive from a Linux Release binary. Linux
-support is experimental, so record the build environment.
+Linux packaging produces a `.tar.gz` archive from a Linux Release binary. The
+release workflow publishes it beside the Windows `.zip`. Linux support is
+experimental, so record the build environment.
 
 ## Accept the standalone archive
 
