@@ -35,10 +35,11 @@ a renderer defect because `SetText` may produce no tessellated glyph geometry.
 GFx retains its stock 512-entry vector glyph cache. ReRevved does not alter the
 guest cache capacity.
 
-Glyph atlas textures rely on ReXGlue's shared memory invalidation. ReXGlue must
-install each texture write watch before requesting or uploading its guest memory
-range. A write during preparation or upload then marks the texture outdated for
-the next request. A failed load removes its provisional watches and restores the
+Glyph atlas textures rely on ReXGlue's shared memory invalidation.
+ReXGlue must install each texture write watch before requesting or uploading
+its guest memory range. A write during preparation or upload then marks
+the texture outdated for the next request.
+A failed load removes its provisional watches and restores the
 outdated state so the texture can be retried. This prevents stale host textures
 from appearing as missing or mangled glyphs.
 
@@ -58,8 +59,8 @@ renderer or synthesize a caps result.
 
 ReRevvedRememberGfxRenderConfig at 0x82245050 remembers the candidate config
 pointer and renderer from the guest call. The render caps begin hook captures
-the query renderer, output identity, and caller. A nested begin is
-ignored. The end hook clears the query state before evaluating the result.
+the query renderer, output identity, and caller. A nested begin is ignored. The
+end hook clears the query state before evaluating the result.
 
 The restoration contract is narrow:
 

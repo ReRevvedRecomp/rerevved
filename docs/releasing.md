@@ -8,8 +8,7 @@ This runbook builds and exercises a ReRevved release candidate locally. Pushing 
 1. Update the version in the root `project(rerevved VERSION ...)` declaration
    in [`CMakeLists.txt`](../CMakeLists.txt).
 2. After building and packaging, confirm that the archive name uses the project
-   version. The window title and Windows executable tooltip intentionally omit
-   it.
+   version. The window title and Windows executable tooltip intentionally omit it.
 
 ## Build the release candidate
 

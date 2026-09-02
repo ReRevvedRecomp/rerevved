@@ -28,5 +28,4 @@ If applicable, attach screenshots or a short clip.
  - CPU: [e.g. Ryzen 7 7800X3D]
 
 **Log file**
-For a crash or freeze, attach the latest
-`Documents\rerevved\logs\rerevved_NNN.log` file.
+For a crash or freeze, attach the latest `Documents\rerevved\logs\rerevved_NNN.log` file.

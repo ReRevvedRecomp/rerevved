@@ -1,9 +1,8 @@
 # Comments and prose
 
-Deletion is the default for comments in host code and driver scripts. Keep a
-comment only when it records a current invariant, a guest or host ABI
-contract, a client quirk, a safety constraint, a source citation, or where a
-manually placed value came from.
+Deletion is the default for comments in host code and driver scripts.
+Keep a comment only when it records a current invariant, a guest or host ABI contract,
+a client quirk, a safety constraint, a source citation, or where a manually placed value came from.
 
 Keep source attributions verbatim. Keep PM4, packet, DAT, wiki, and other source
 locators verbatim. These identifiers are provenance, not work-log prose.

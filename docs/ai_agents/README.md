@@ -1,13 +1,11 @@
 # Automated and AI-assisted contributions
 
-If automated or AI assistance is used, the work follows the same contribution
-and evidence contract as any other work. The contributor owns every submitted
-claim and must be able to explain its source, scope, and supporting evidence.
+If automated or AI assistance is used, the work follows the same contribution and evidence contract as any other work.
+The contributor owns every submitted claim and must be able to explain its source, scope, and supporting evidence.
 
-Automated output is not guest code or runtime evidence. A durable claim starts from
-the generated code, a guest code locator, a reproducible tool result, or a
-captured runtime observation. Read
-[evidence-and-claims.md](evidence-and-claims.md) before promoting an
+Automated output is not guest code or runtime evidence.
+A durable claim starts from the generated code, a guest code locator, a reproducible tool result, or a captured runtime observation.
+Read [evidence-and-claims.md](evidence-and-claims.md) before promoting an
 observation into documentation, configuration, or source.
 
 Commit subjects follow the typed format in
