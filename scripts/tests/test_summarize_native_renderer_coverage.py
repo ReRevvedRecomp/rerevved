@@ -18,8 +18,8 @@ DIGEST = "2d1466cf7a203e123d232cda6a4ab59b9618d3841aaee8f032422e9666c1d303"
 BASE_XEX_DIGEST = "b59b8957a3ed9dd90e9296c96d5c7ab1b16078d3f08b015582714a06c7d6a7bd"
 TITLE_UPDATE_DIGEST = "c1fc6149a63550987d991efdbb80e3697845a9a49d3f2ec180ea9817db8d12d4"
 TITLE_COMMIT = "b" * 40
-SDK_COMMIT = "37dd3f38d2fa6501ca114578c8176a0633e070fc"
-SDK_VERSION = "0.11.0-dev.g37dd3f3"
+SDK_COMMIT = "6ae32f375caefc8d2f6a98f7b14015cfce40fbb3"
+SDK_VERSION = "0.11.0-dev.g6ae32f3"
 CONFIG_TEXT = (
     "xenos_enabled=true\nrov_enabled=true\nguest_width=1280\nguest_height=720\n"
     "output_width=1920\noutput_height=1080\nresolution_scale=1\n"

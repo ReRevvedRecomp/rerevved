@@ -70,13 +70,13 @@ class CoverageIntegrationTests(unittest.TestCase):
     def test_only_generated_coverage_hooks_are_included(self) -> None:
         self.assertEqual(MANIFEST.count("native_renderer_coverage_hooks.toml"), 1)
         self.assertEqual(
-            LOCK["commit"], "37dd3f38d2fa6501ca114578c8176a0633e070fc"
+            LOCK["commit"], "6ae32f375caefc8d2f6a98f7b14015cfce40fbb3"
         )
 
     def test_locked_sdk_dispatches_title_before_guest_mnk(self) -> None:
         sdk = os.environ.get("REREVVED_SDK_SOURCE")
         if not sdk:
-            sibling = ROOT.parent / "rerevved-rexglue-sdk"
+            sibling = ROOT.parent / "rerevved-sdk"
             if sibling.is_dir():
                 sdk = str(sibling)
         if not sdk:

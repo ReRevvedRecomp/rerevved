@@ -114,7 +114,7 @@ if ($PSBoundParameters.ContainsKey('LaunchArgumentJson')) {
     $LaunchArgument = @($validatedLaunchArguments)
 }
 if ([string]::IsNullOrWhiteSpace($SdkRepo)) {
-    $SdkRepo = Join-Path $repo '..\rerevved-rexglue-sdk'
+    $SdkRepo = Join-Path $repo '..\rerevved-sdk'
 }
 $SdkRepo = [IO.Path]::GetFullPath($SdkRepo)
 if ([string]::IsNullOrWhiteSpace($SdkInstall)) {

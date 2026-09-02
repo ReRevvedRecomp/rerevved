@@ -77,7 +77,7 @@ class NativeRendererIntegrationTests(unittest.TestCase):
 
         sdk = os.environ.get("REREVVED_SDK_SOURCE")
         if not sdk:
-            sibling = ROOT.parent / "rerevved-rexglue-sdk"
+            sibling = ROOT.parent / "rerevved-sdk"
             if sibling.is_dir():
                 sdk = str(sibling)
         if not sdk:

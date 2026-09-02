@@ -63,7 +63,7 @@ jobs:
         shell: pwsh
         run: |
           $lock = Get-Content rexglue-sdk.lock.json -Raw | ConvertFrom-Json
-          if ($lock.repository -ne 'https://github.com/ReRevvedRecomp/rerevved-rexglue-sdk') {
+          if ($lock.repository -ne 'https://github.com/ReRevvedRecomp/rerevved-sdk') {
             throw 'Unexpected SDK repository in rexglue-sdk.lock.json'
           }
           if ($lock.commit -notmatch '^[0-9a-f]{40}$') {
@@ -74,9 +74,9 @@ jobs:
       - name: Clone pinned SDK
         shell: pwsh
         run: |
-          $sdkRoot = Join-Path $env:RUNNER_TEMP 'rexglue-sdk'
-          git clone --branch rerevved-sdk --single-branch `
-            https://github.com/ReRevvedRecomp/rerevved-rexglue-sdk $sdkRoot
+          $sdkRoot = Join-Path $env:RUNNER_TEMP 'rerevved-sdk'
+          git clone --branch main --single-branch `
+            https://github.com/ReRevvedRecomp/rerevved-sdk $sdkRoot
           if ($LASTEXITCODE -ne 0) { throw 'SDK clone failed' }
           git -C $sdkRoot checkout --detach '${{ steps.sdk-lock.outputs.commit }}'
           if ($LASTEXITCODE -ne 0) { throw 'SDK checkout failed' }
@@ -87,12 +87,12 @@ jobs:
         id: sdk-cache
         uses: actions/cache@v6
         with:
-          path: ${{ runner.temp }}\rexglue-sdk\out\install\win-amd64
+          path: ${{ runner.temp }}\rerevved-sdk\out\install\win-amd64
           key: rexglue-sdk-windows-${{ steps.sdk-lock.outputs.commit }}
 
       - name: Build and install SDK
         if: steps.sdk-cache.outputs.cache-hit != 'true'
-        working-directory: ${{ runner.temp }}\rexglue-sdk
+        working-directory: ${{ runner.temp }}\rerevved-sdk
         shell: pwsh
         run: |
           cmake --preset win-amd64 `
@@ -169,7 +169,7 @@ jobs:
         shell: pwsh
         run: |
           $sdkConfig = Join-Path $env:RUNNER_TEMP `
-            'rexglue-sdk\out\install\win-amd64\lib\cmake\rexglue'
+            'rerevved-sdk\out\install\win-amd64\lib\cmake\rexglue'
           cmake --preset win-amd64-release "-Drexglue_DIR=$sdkConfig" `
             -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -184,7 +184,7 @@ jobs:
         shell: pwsh
         run: |
           $sdkConfig = Join-Path $env:RUNNER_TEMP `
-            'rexglue-sdk\out\install\win-amd64\lib\cmake\rexglue'
+            'rerevved-sdk\out\install\win-amd64\lib\cmake\rexglue'
           cmake --preset win-amd64-release "-Drexglue_DIR=$sdkConfig" `
             -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -263,7 +263,7 @@ jobs:
           import re
 
           lock = json.loads(pathlib.Path("rexglue-sdk.lock.json").read_text(encoding="ascii"))
-          if lock.get("repository") != "https://github.com/ReRevvedRecomp/rerevved-rexglue-sdk":
+          if lock.get("repository") != "https://github.com/ReRevvedRecomp/rerevved-sdk":
               raise SystemExit("Unexpected SDK repository in rexglue-sdk.lock.json")
           commit = lock.get("commit", "")
           if re.fullmatch(r"[0-9a-f]{40}", commit) is None:
@@ -275,14 +275,14 @@ jobs:
       - name: Clone pinned SDK
         shell: bash
         run: |
-          sdk_root="$RUNNER_TEMP/rexglue-sdk"
-          git clone --branch rerevved-sdk --single-branch \
-            https://github.com/ReRevvedRecomp/rerevved-rexglue-sdk "$sdk_root"
+          sdk_root="$RUNNER_TEMP/rerevved-sdk"
+          git clone --branch main --single-branch \
+            https://github.com/ReRevvedRecomp/rerevved-sdk "$sdk_root"
           git -C "$sdk_root" checkout --detach '${{ steps.sdk-lock-linux.outputs.commit }}'
           git -C "$sdk_root" submodule update --init --recursive --depth 1
 
       - name: Fetch upstream SDK release tags
-        working-directory: ${{ runner.temp }}/rexglue-sdk
+        working-directory: ${{ runner.temp }}/rerevved-sdk
         shell: bash
         run: >-
           git fetch --force --no-tags
@@ -293,12 +293,12 @@ jobs:
         id: sdk-cache-linux
         uses: actions/cache@v6
         with:
-          path: ${{ runner.temp }}/rexglue-sdk/out/install/linux-amd64
+          path: ${{ runner.temp }}/rerevved-sdk/out/install/linux-amd64
           key: rexglue-sdk-linux-${{ steps.sdk-lock-linux.outputs.commit }}
 
       - name: Build and install SDK
         if: steps.sdk-cache-linux.outputs.cache-hit != 'true'
-        working-directory: ${{ runner.temp }}/rexglue-sdk
+        working-directory: ${{ runner.temp }}/rerevved-sdk
         shell: bash
         env:
           CC: clang-22
@@ -373,7 +373,7 @@ jobs:
       - name: Configure for codegen
         shell: bash
         run: |
-          sdk_config="$RUNNER_TEMP/rexglue-sdk/out/install/linux-amd64/lib/cmake/rexglue"
+          sdk_config="$RUNNER_TEMP/rerevved-sdk/out/install/linux-amd64/lib/cmake/rexglue"
           cmake --preset linux-amd64-release "-Drexglue_DIR=$sdk_config"
 
       - name: Generate recompiled sources
@@ -383,7 +383,7 @@ jobs:
       - name: Build ReRevved
         shell: bash
         run: |
-          sdk_config="$RUNNER_TEMP/rexglue-sdk/out/install/linux-amd64/lib/cmake/rexglue"
+          sdk_config="$RUNNER_TEMP/rerevved-sdk/out/install/linux-amd64/lib/cmake/rexglue"
           cmake --preset linux-amd64-release "-Drexglue_DIR=$sdk_config"
           cmake --build --preset linux-amd64-release --parallel
 

@@ -2,7 +2,7 @@
 
 ReRevved uses ReXGlue as its only runtime and GPU foundation. The
 root CMake project consumes the installed package from the sibling
-`rerevved-rexglue-sdk` checkout. The driver never modifies that checkout.
+`rerevved-sdk` checkout. The driver never modifies that checkout.
 
 ## Maintained baseline
 
@@ -99,7 +99,7 @@ Python 3.11 or newer. Keep the maintained SDK as a sibling checkout:
 ```text
 <workspace>/
 |-- rerevved/
-`-- rerevved-rexglue-sdk/
+`-- rerevved-sdk/
 ```
 
 ```powershell

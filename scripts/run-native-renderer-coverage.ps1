@@ -299,7 +299,7 @@ if ($CacheClass -eq 'warm') {
 
 $scriptRepo = Full-Path (Join-Path $PSScriptRoot '..')
 $TitleRepo = if ($TitleRepo) { Full-Path $TitleRepo } else { $scriptRepo }
-$SdkRepo = if ($SdkRepo) { Full-Path $SdkRepo } else { Full-Path (Join-Path $TitleRepo '..\rerevved-rexglue-sdk') }
+$SdkRepo = if ($SdkRepo) { Full-Path $SdkRepo } else { Full-Path (Join-Path $TitleRepo '..\rerevved-sdk') }
 $fixturePath = if ([IO.Path]::IsPathRooted($Fixture)) { Full-Path $Fixture } else { Full-Path (Join-Path $TitleRepo $Fixture) }
 $rexglueScript = Full-Path (Join-Path $TitleRepo 'scripts\rexglue.ps1')
 $exePath = Join-Path $TitleRepo 'out\build\win-amd64-release\rerevved.exe'
