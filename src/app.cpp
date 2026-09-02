@@ -18,7 +18,7 @@
 #include <rex/ui/window.h>
 #include <rex/ui/windowed_app_context.h>
 
-#include "build_provenance.h"
+#include "build_info.h"
 #include "game_content.h"
 #include "gpu/diagnostics/native_renderer_passive_trace.h"
 #include "gpu/guest_gpu_service.h"
@@ -161,7 +161,7 @@ rerevved::native_renderer::SnapshotFields ReadCoverageSnapshot() noexcept
 
 void ReRevvedApp::OnPreSetup(rex::RuntimeConfig& config)
 {
-    REXLOG_INFO("{}", REREVVED_BUILD_PROVENANCE);
+    REXLOG_INFO("{}", REREVVED_BUILD_INFO);
     config.game_version = REREVVED_VERSION;
     if (renderer_backend_ == rerevved::gpu::RendererBackend::Native)
     {

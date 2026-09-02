@@ -23,26 +23,8 @@ if(NOT REREVVED_SDK_LOCK_commit STREQUAL REXGLUE_GIT_REVISION OR
         "Installed ReXGlue package does not match rexglue-sdk.lock.json")
 endif()
 
-find_package(Git REQUIRED)
-execute_process(
-    COMMAND "${GIT_EXECUTABLE}" rev-parse --verify HEAD
-    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    OUTPUT_VARIABLE REREVVED_GIT_REVISION
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    COMMAND_ERROR_IS_FATAL ANY)
-execute_process(
-    COMMAND "${GIT_EXECUTABLE}" status --porcelain --untracked-files=no
-    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    OUTPUT_VARIABLE REREVVED_TRACKED_STATUS
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    COMMAND_ERROR_IS_FATAL ANY)
-if(REREVVED_TRACKED_STATUS STREQUAL "")
-    set(REREVVED_GIT_DIRTY clean)
-else()
-    set(REREVVED_GIT_DIRTY dirty)
-endif()
-configure_file(src/build_provenance.h.in
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/build_provenance.h" @ONLY)
+include(cmake/build_info.cmake)
+rerevved_write_build_info("${CMAKE_CURRENT_BINARY_DIR}/generated/build_info.h")
 
 set(REREVVED_SOURCES
     src/app.cpp
