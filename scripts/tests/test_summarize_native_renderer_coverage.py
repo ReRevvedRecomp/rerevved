@@ -149,7 +149,7 @@ def _write_bundle(
         "schema": "rerevved.native_renderer.run.v2",
         "run_id": run_id,
         "fixture_id": "NRD-FIX-0001",
-        "fixture": "config/native_renderer_coverage.toml",
+        "fixture": "config/native_renderer_fixture_0001.toml",
         "fixture_sha256": fixture_sha256,
         "fixture_staged_path": None,
         "transition_id": "NRD-TRANS-0001",

@@ -23,7 +23,7 @@ package. Omitting them preserves the sibling checkout and package defaults.
 ## Native-renderer coverage
 
 The native-renderer observer is default-off and generated from the reviewed
-snapshot in `config/native_renderer_coverage.toml`:
+snapshot in `config/native_renderer_fixture_0001.toml`:
 
 | Command | Purpose and output |
 |---|---|

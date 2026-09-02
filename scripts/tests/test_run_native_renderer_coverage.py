@@ -27,9 +27,9 @@ class RunnerTests(unittest.TestCase):
         self._git_init(self.title)
         self._git_init(self.sdk)
 
-        fixture = self.title / "config" / "native_renderer_coverage.toml"
+        fixture = self.title / "config" / "native_renderer_fixture_0001.toml"
         fixture.parent.mkdir()
-        fixture.write_bytes((ROOT / "config" / "native_renderer_coverage.toml").read_bytes())
+        fixture.write_bytes((ROOT / "config" / "native_renderer_fixture_0001.toml").read_bytes())
         (self.title / "config" / "native_renderer_fixture_0002.json").write_bytes(
             (ROOT / "config" / "native_renderer_fixture_0002.json").read_bytes()
         )
@@ -73,7 +73,7 @@ class RunnerTests(unittest.TestCase):
         self.base = [
             "-RunId", "NRD-RUN-20260829-0001",
             "-FixtureId", "NRD-FIX-0001", "-TransitionId", "NRD-TRANS-0001",
-            "-Fixture", "config/native_renderer_coverage.toml",
+            "-Fixture", "config/native_renderer_fixture_0001.toml",
             "-FixtureSha256", self.fixture_sha,
             "-InputDigest", DIGEST, "-TitleCommit", self.title_commit,
             "-ExecutableSha256", self.exe_sha,

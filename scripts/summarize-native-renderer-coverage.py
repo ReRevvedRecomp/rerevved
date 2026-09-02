@@ -846,7 +846,7 @@ def _validate_run(root: Path, raw: Any) -> tuple[Mapping[str, Any], dict[str, An
     if any(input_paths[field] != expected for field, expected in expected_input_paths.items()):
         raise CoverageError("fixed title input path differs from the runner")
     expected_fixture_paths = {
-        "NRD-FIX-0001": "config/native_renderer_coverage.toml",
+        "NRD-FIX-0001": "config/native_renderer_fixture_0001.toml",
         "NRD-FIX-0002": "config/native_renderer_fixture_0002.json",
     }
     if (

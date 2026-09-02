@@ -330,7 +330,7 @@ if ($acceptedFixtureSha256.ContainsKey($FixtureId)) {
 $fixtureRelative = [IO.Path]::GetRelativePath($TitleRepo, $fixturePath).Replace('\', '/')
 if ($FixtureId -in 'NRD-FIX-0001', 'NRD-FIX-0002') {
     $expectedFixturePath = if ($FixtureId -eq 'NRD-FIX-0001') {
-        'config/native_renderer_coverage.toml'
+        'config/native_renderer_fixture_0001.toml'
     } else {
         'config/native_renderer_fixture_0002.json'
     }

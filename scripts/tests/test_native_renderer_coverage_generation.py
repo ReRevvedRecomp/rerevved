@@ -12,7 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 GENERATOR_PATH = ROOT / "scripts" / "gen-native-renderer-coverage.py"
-INPUT = ROOT / "config" / "native_renderer_coverage.toml"
+INPUT = ROOT / "config" / "native_renderer_fixture_0001.toml"
 HOOK_OUTPUT = ROOT / "config" / "native_renderer_coverage_hooks.toml"
 INCLUDE_OUTPUT = ROOT / "src" / "native_renderer_coverage_hooks.inc"
 EXISTING_HOOKS = ROOT / "config" / "rerevved_hooks.toml"
