@@ -1,4 +1,4 @@
-#include "world_api.h"
+#include "unit_catalog_api.h"
 
 #include <algorithm>
 #include <array>
@@ -6,9 +6,9 @@
 #include <cstdint>
 #include <cstring>
 
-#include <world.h>
+#include <unit_catalog.h>
 
-namespace rerevved::world
+namespace rerevved::unit_catalog
 {
 
 namespace
@@ -187,19 +187,19 @@ int32_t CopySizedOutput(void*       out,
 {
     if (!out || !producer)
     {
-        return REREVVED_WORLD_ERR_INVALID_ARGUMENT;
+        return REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT;
     }
 
     ClearOutput(out, out_size, producer_size);
     if (out_size < minimum_prefix)
     {
-        return REREVVED_WORLD_ERR_BUFFER_TOO_SMALL;
+        return REREVVED_UNIT_CATALOG_ERR_BUFFER_TOO_SMALL;
     }
 
     uint32_t copy_size = std::min(out_size, producer_size);
     copy_size -= copy_size % sizeof(uint32_t);
     std::memcpy(out, producer, copy_size);
-    return REREVVED_WORLD_OK;
+    return REREVVED_UNIT_CATALOG_OK;
 }
 
 bool TryResolveUnitIdentity(ReRevvedCivilizationId  civilization,
@@ -224,101 +224,101 @@ bool TryResolveUnitIdentity(ReRevvedCivilizationId  civilization,
     return true;
 }
 
-} // namespace rerevved::world
+} // namespace rerevved::unit_catalog
 
 static_assert(sizeof(ReRevvedCivilizationId) == sizeof(int32_t));
 static_assert(sizeof(ReRevvedUnitTypeId) == sizeof(int32_t));
 static_assert(sizeof(ReRevvedUnitIdentityId) == sizeof(int32_t));
 static_assert(sizeof(ReRevvedUnitDisplayForm) == sizeof(int32_t));
-static_assert(sizeof(ReRevvedWorldUnitDefinition) == 32);
-static_assert(offsetof(ReRevvedWorldUnitDefinition, struct_size) == 0);
-static_assert(offsetof(ReRevvedWorldUnitDefinition, unit_type) == 4);
-static_assert(offsetof(ReRevvedWorldUnitDefinition, base_attack) == 8);
-static_assert(offsetof(ReRevvedWorldUnitDefinition, base_defense) == 12);
-static_assert(offsetof(ReRevvedWorldUnitDefinition, reserved) == 16);
-static_assert(sizeof(ReRevvedWorldUnitIdentity) == 32);
-static_assert(offsetof(ReRevvedWorldUnitIdentity, struct_size) == 0);
-static_assert(offsetof(ReRevvedWorldUnitIdentity, civilization) == 4);
-static_assert(offsetof(ReRevvedWorldUnitIdentity, base_unit_type) == 8);
-static_assert(offsetof(ReRevvedWorldUnitIdentity, identity) == 12);
-static_assert(offsetof(ReRevvedWorldUnitIdentity, display_form) == 16);
-static_assert(offsetof(ReRevvedWorldUnitIdentity, reserved) == 20);
+static_assert(sizeof(ReRevvedUnitDefinition) == 32);
+static_assert(offsetof(ReRevvedUnitDefinition, struct_size) == 0);
+static_assert(offsetof(ReRevvedUnitDefinition, unit_type) == 4);
+static_assert(offsetof(ReRevvedUnitDefinition, base_attack) == 8);
+static_assert(offsetof(ReRevvedUnitDefinition, base_defense) == 12);
+static_assert(offsetof(ReRevvedUnitDefinition, reserved) == 16);
+static_assert(sizeof(ReRevvedUnitIdentity) == 32);
+static_assert(offsetof(ReRevvedUnitIdentity, struct_size) == 0);
+static_assert(offsetof(ReRevvedUnitIdentity, civilization) == 4);
+static_assert(offsetof(ReRevvedUnitIdentity, base_unit_type) == 8);
+static_assert(offsetof(ReRevvedUnitIdentity, identity) == 12);
+static_assert(offsetof(ReRevvedUnitIdentity, display_form) == 16);
+static_assert(offsetof(ReRevvedUnitIdentity, reserved) == 20);
 
-extern "C" uint32_t ReRevvedWorldAbiVersion(void)
+extern "C" uint32_t ReRevvedUnitCatalogAbiVersion(void)
 {
-    return REREVVED_WORLD_ABI_VERSION;
+    return REREVVED_UNIT_CATALOG_ABI_VERSION;
 }
 
 extern "C" int32_t ReRevvedGetUnitDefinition(
-    ReRevvedUnitTypeId           unit_type,
-    ReRevvedWorldUnitDefinition* out,
-    uint32_t                     out_size)
+    ReRevvedUnitTypeId      unit_type,
+    ReRevvedUnitDefinition* out,
+    uint32_t                out_size)
 {
-    constexpr uint32_t kProducerSize = sizeof(ReRevvedWorldUnitDefinition);
+    constexpr uint32_t kProducerSize = sizeof(ReRevvedUnitDefinition);
     if (!out)
     {
-        return REREVVED_WORLD_ERR_INVALID_ARGUMENT;
+        return REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT;
     }
 
-    rerevved::world::ClearOutput(out, out_size, kProducerSize);
-    if (out_size < rerevved::world::kDefinitionPrefix)
+    rerevved::unit_catalog::ClearOutput(out, out_size, kProducerSize);
+    if (out_size < rerevved::unit_catalog::kDefinitionPrefix)
     {
-        return REREVVED_WORLD_ERR_BUFFER_TOO_SMALL;
+        return REREVVED_UNIT_CATALOG_ERR_BUFFER_TOO_SMALL;
     }
-    if (!rerevved::world::IsUnitTypeIdValid(unit_type))
+    if (!rerevved::unit_catalog::IsUnitTypeIdValid(unit_type))
     {
-        return REREVVED_WORLD_ERR_INVALID_ARGUMENT;
+        return REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT;
     }
 
-    const auto&                       entry  = rerevved::world::kUnitDefinitions[unit_type];
-    const ReRevvedWorldUnitDefinition result = {
+    const auto&                  entry  = rerevved::unit_catalog::kUnitDefinitions[unit_type];
+    const ReRevvedUnitDefinition result = {
         kProducerSize,
         unit_type,
         entry.attack,
         entry.defense,
         {},
     };
-    return rerevved::world::CopySizedOutput(
+    return rerevved::unit_catalog::CopySizedOutput(
         out,
         out_size,
         &result,
         kProducerSize,
-        rerevved::world::kDefinitionPrefix);
+        rerevved::unit_catalog::kDefinitionPrefix);
 }
 
 extern "C" int32_t ReRevvedResolveUnitIdentity(
-    ReRevvedCivilizationId     civilization,
-    ReRevvedUnitTypeId         base_unit_type,
-    ReRevvedUnitDisplayForm    display_form,
-    ReRevvedWorldUnitIdentity* out,
-    uint32_t                   out_size)
+    ReRevvedCivilizationId  civilization,
+    ReRevvedUnitTypeId      base_unit_type,
+    ReRevvedUnitDisplayForm display_form,
+    ReRevvedUnitIdentity*   out,
+    uint32_t                out_size)
 {
-    constexpr uint32_t kProducerSize = sizeof(ReRevvedWorldUnitIdentity);
+    constexpr uint32_t kProducerSize = sizeof(ReRevvedUnitIdentity);
     if (!out)
     {
-        return REREVVED_WORLD_ERR_INVALID_ARGUMENT;
+        return REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT;
     }
 
-    rerevved::world::ClearOutput(out, out_size, kProducerSize);
-    if (out_size < rerevved::world::kIdentityPrefix)
+    rerevved::unit_catalog::ClearOutput(out, out_size, kProducerSize);
+    if (out_size < rerevved::unit_catalog::kIdentityPrefix)
     {
-        return REREVVED_WORLD_ERR_BUFFER_TOO_SMALL;
+        return REREVVED_UNIT_CATALOG_ERR_BUFFER_TOO_SMALL;
     }
-    if (!rerevved::world::IsCivilizationIdValid(civilization) ||
-        !rerevved::world::IsUnitTypeIdValid(base_unit_type) ||
-        !rerevved::world::IsDisplayFormValid(display_form))
+    if (!rerevved::unit_catalog::IsCivilizationIdValid(civilization) ||
+        !rerevved::unit_catalog::IsUnitTypeIdValid(base_unit_type) ||
+        !rerevved::unit_catalog::IsDisplayFormValid(display_form))
     {
-        return REREVVED_WORLD_ERR_INVALID_ARGUMENT;
+        return REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT;
     }
 
     ReRevvedUnitIdentityId identity = REREVVED_UNIT_IDENTITY_BASE;
-    if (!rerevved::world::TryResolveUnitIdentity(
+    if (!rerevved::unit_catalog::TryResolveUnitIdentity(
             civilization, base_unit_type, identity))
     {
-        return REREVVED_WORLD_ERR_INVALID_ARGUMENT;
+        return REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT;
     }
 
-    const ReRevvedWorldUnitIdentity result = {
+    const ReRevvedUnitIdentity result = {
         kProducerSize,
         civilization,
         base_unit_type,
@@ -326,10 +326,10 @@ extern "C" int32_t ReRevvedResolveUnitIdentity(
         display_form,
         {},
     };
-    return rerevved::world::CopySizedOutput(
+    return rerevved::unit_catalog::CopySizedOutput(
         out,
         out_size,
         &result,
         kProducerSize,
-        rerevved::world::kIdentityPrefix);
+        rerevved::unit_catalog::kIdentityPrefix);
 }

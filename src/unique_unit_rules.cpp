@@ -9,7 +9,7 @@
 #include <shared_mutex>
 #include <vector>
 
-#include "world_api.h"
+#include "unit_catalog_api.h"
 
 namespace rerevved::unique_unit_rules
 {
@@ -112,7 +112,7 @@ bool IsTargetValid(ReRevvedCivilizationId civilization,
 {
     ReRevvedUnitIdentityId resolved = REREVVED_UNIT_IDENTITY_BASE;
     return identity != REREVVED_UNIT_IDENTITY_BASE &&
-           world::TryResolveUnitIdentity(
+           unit_catalog::TryResolveUnitIdentity(
                civilization, base_unit_type, resolved) &&
            resolved == identity;
 }

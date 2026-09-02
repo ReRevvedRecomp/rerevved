@@ -8,7 +8,7 @@
 #include <rex/runtime.h>
 #include <rex/system/xmemory.h>
 
-#include <game_state.h>
+#include <gameplay_state.h>
 
 namespace rerevved::gameplay
 {

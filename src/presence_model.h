@@ -4,7 +4,7 @@
 #include <optional>
 #include <string>
 
-#include <game_state.h>
+#include <gameplay_state.h>
 
 namespace rerevved
 {

@@ -1,7 +1,7 @@
-#include "world_api.h"
+#include "unit_catalog_api.h"
 
-#include <game_state.h>
-#include <world.h>
+#include <gameplay_state.h>
+#include <unit_catalog.h>
 
 #include <algorithm>
 #include <array>
@@ -337,17 +337,17 @@ void TestLayoutsAndIds()
     static_assert(offsetof(ReRevvedGameplayState, turn) == 56);
     static_assert(offsetof(ReRevvedGameplayState, reserved) == 60);
 
-    static_assert(sizeof(ReRevvedWorldUnitDefinition) == 32);
-    static_assert(offsetof(ReRevvedWorldUnitDefinition, unit_type) == 4);
-    static_assert(offsetof(ReRevvedWorldUnitDefinition, base_attack) == 8);
-    static_assert(offsetof(ReRevvedWorldUnitDefinition, base_defense) == 12);
-    static_assert(offsetof(ReRevvedWorldUnitDefinition, reserved) == 16);
-    static_assert(sizeof(ReRevvedWorldUnitIdentity) == 32);
-    static_assert(offsetof(ReRevvedWorldUnitIdentity, civilization) == 4);
-    static_assert(offsetof(ReRevvedWorldUnitIdentity, base_unit_type) == 8);
-    static_assert(offsetof(ReRevvedWorldUnitIdentity, identity) == 12);
-    static_assert(offsetof(ReRevvedWorldUnitIdentity, display_form) == 16);
-    static_assert(offsetof(ReRevvedWorldUnitIdentity, reserved) == 20);
+    static_assert(sizeof(ReRevvedUnitDefinition) == 32);
+    static_assert(offsetof(ReRevvedUnitDefinition, unit_type) == 4);
+    static_assert(offsetof(ReRevvedUnitDefinition, base_attack) == 8);
+    static_assert(offsetof(ReRevvedUnitDefinition, base_defense) == 12);
+    static_assert(offsetof(ReRevvedUnitDefinition, reserved) == 16);
+    static_assert(sizeof(ReRevvedUnitIdentity) == 32);
+    static_assert(offsetof(ReRevvedUnitIdentity, civilization) == 4);
+    static_assert(offsetof(ReRevvedUnitIdentity, base_unit_type) == 8);
+    static_assert(offsetof(ReRevvedUnitIdentity, identity) == 12);
+    static_assert(offsetof(ReRevvedUnitIdentity, display_form) == 16);
+    static_assert(offsetof(ReRevvedUnitIdentity, reserved) == 20);
 
     Require(REREVVED_CIVILIZATION_UNKNOWN == -1,
             "civilization unknown value");
@@ -374,10 +374,10 @@ void TestDefinitions()
     for (int32_t unit_type = 0; unit_type < REREVVED_UNIT_TYPE_COUNT;
          ++unit_type)
     {
-        const auto&                 fixture = kDefinitions[unit_type];
-        ReRevvedWorldUnitDefinition result{};
+        const auto&            fixture = kDefinitions[unit_type];
+        ReRevvedUnitDefinition result{};
         Require(ReRevvedGetUnitDefinition(unit_type, &result, sizeof(result)) ==
-                    REREVVED_WORLD_OK,
+                    REREVVED_UNIT_CATALOG_OK,
                 "definition query succeeds");
         Require(result.struct_size == sizeof(result),
                 "definition producer size");
@@ -396,10 +396,10 @@ void TestDefinitions()
                 "definition reserved words");
     }
 
-    ReRevvedWorldUnitDefinition knights{};
+    ReRevvedUnitDefinition knights{};
     Require(ReRevvedGetUnitDefinition(
                 REREVVED_UNIT_TYPE_KNIGHTS, &knights, sizeof(knights)) ==
-                    REREVVED_WORLD_OK &&
+                    REREVVED_UNIT_CATALOG_OK &&
                 knights.base_attack == 4,
             "first-party Knights base attack readback");
 }
@@ -419,13 +419,13 @@ void TestResolverMatrix()
                  display_form <= REREVVED_UNIT_DISPLAY_FORM_ARMY;
                  ++display_form)
             {
-                ReRevvedWorldUnitIdentity result{};
+                ReRevvedUnitIdentity result{};
                 Require(ReRevvedResolveUnitIdentity(civilization,
                                                     unit_type,
                                                     display_form,
                                                     &result,
                                                     sizeof(result)) ==
-                            REREVVED_WORLD_OK,
+                            REREVVED_UNIT_CATALOG_OK,
                         "identity resolver succeeds");
                 Require(result.struct_size == sizeof(result),
                         "identity producer size");
@@ -479,11 +479,11 @@ void TestDefinitionBufferContract()
         GuardedOutput output;
         const int32_t status = ReRevvedGetUnitDefinition(
             REREVVED_UNIT_TYPE_KNIGHTS,
-            static_cast<ReRevvedWorldUnitDefinition*>(output.Data()),
+            static_cast<ReRevvedUnitDefinition*>(output.Data()),
             out_size);
         Require(status == (out_size < 16
-                               ? REREVVED_WORLD_ERR_BUFFER_TOO_SMALL
-                               : REREVVED_WORLD_OK),
+                               ? REREVVED_UNIT_CATALOG_ERR_BUFFER_TOO_SMALL
+                               : REREVVED_UNIT_CATALOG_OK),
                 "definition prefix status");
         Require(output.OutsideCallerIsIntact(out_size),
                 "definition caller canaries");
@@ -494,7 +494,7 @@ void TestDefinitionBufferContract()
             continue;
         }
 
-        const auto result = output.Read<ReRevvedWorldUnitDefinition>(out_size);
+        const auto result = output.Read<ReRevvedUnitDefinition>(out_size);
         Require(result.struct_size == 32 &&
                     result.unit_type == REREVVED_UNIT_TYPE_KNIGHTS &&
                     result.base_attack == 4 && result.base_defense == 2,
@@ -518,11 +518,11 @@ void TestIdentityBufferContract()
             REREVVED_CIVILIZATION_ROMAN,
             REREVVED_UNIT_TYPE_KNIGHTS,
             REREVVED_UNIT_DISPLAY_FORM_ARMY,
-            static_cast<ReRevvedWorldUnitIdentity*>(output.Data()),
+            static_cast<ReRevvedUnitIdentity*>(output.Data()),
             out_size);
         Require(status == (out_size < 20
-                               ? REREVVED_WORLD_ERR_BUFFER_TOO_SMALL
-                               : REREVVED_WORLD_OK),
+                               ? REREVVED_UNIT_CATALOG_ERR_BUFFER_TOO_SMALL
+                               : REREVVED_UNIT_CATALOG_OK),
                 "identity prefix status");
         Require(output.OutsideCallerIsIntact(out_size),
                 "identity caller canaries");
@@ -533,7 +533,7 @@ void TestIdentityBufferContract()
             continue;
         }
 
-        const auto result = output.Read<ReRevvedWorldUnitIdentity>(out_size);
+        const auto result = output.Read<ReRevvedUnitIdentity>(out_size);
         Require(result.struct_size == 32 &&
                     result.civilization == REREVVED_CIVILIZATION_ROMAN &&
                     result.base_unit_type == REREVVED_UNIT_TYPE_KNIGHTS &&
@@ -555,7 +555,7 @@ void RequireInvalidCallClears(Call call, std::string_view message)
 {
     GuardedOutput output;
     const int32_t status = call(output);
-    Require(status == REREVVED_WORLD_ERR_INVALID_ARGUMENT, message);
+    Require(status == REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT, message);
     Require(output.BytesAre(0, 32, 0), "invalid call clears producer bytes");
     Require(output.BytesAre(32, 40, kCanary),
             "invalid call leaves extended caller bytes untouched");
@@ -567,22 +567,22 @@ void TestInvalidArguments()
     Require(ReRevvedGetUnitDefinition(REREVVED_UNIT_TYPE_KNIGHTS,
                                       nullptr,
                                       32) ==
-                REREVVED_WORLD_ERR_INVALID_ARGUMENT,
+                REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT,
             "definition null output");
     Require(ReRevvedResolveUnitIdentity(REREVVED_CIVILIZATION_ROMAN,
                                         REREVVED_UNIT_TYPE_KNIGHTS,
                                         REREVVED_UNIT_DISPLAY_FORM_UNIT,
                                         nullptr,
                                         32) ==
-                REREVVED_WORLD_ERR_INVALID_ARGUMENT,
+                REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT,
             "identity null output");
 
     GuardedOutput invalid_small_definition;
     Require(ReRevvedGetUnitDefinition(
                 REREVVED_UNIT_TYPE_UNKNOWN,
-                static_cast<ReRevvedWorldUnitDefinition*>(
+                static_cast<ReRevvedUnitDefinition*>(
                     invalid_small_definition.Data()),
-                15) == REREVVED_WORLD_ERR_BUFFER_TOO_SMALL,
+                15) == REREVVED_UNIT_CATALOG_ERR_BUFFER_TOO_SMALL,
             "definition size validation precedes ID validation");
     Require(invalid_small_definition.BytesAre(0, 15, 0) &&
                 invalid_small_definition.OutsideCallerIsIntact(15),
@@ -593,9 +593,9 @@ void TestInvalidArguments()
                 REREVVED_CIVILIZATION_UNKNOWN,
                 REREVVED_UNIT_TYPE_UNKNOWN,
                 -1,
-                static_cast<ReRevvedWorldUnitIdentity*>(
+                static_cast<ReRevvedUnitIdentity*>(
                     invalid_small_identity.Data()),
-                19) == REREVVED_WORLD_ERR_BUFFER_TOO_SMALL,
+                19) == REREVVED_UNIT_CATALOG_ERR_BUFFER_TOO_SMALL,
             "identity size validation precedes ID validation");
     Require(invalid_small_identity.BytesAre(0, 19, 0) &&
                 invalid_small_identity.OutsideCallerIsIntact(19),
@@ -614,7 +614,7 @@ void TestInvalidArguments()
             {
                 return ReRevvedGetUnitDefinition(
                     unit_type,
-                    static_cast<ReRevvedWorldUnitDefinition*>(output.Data()),
+                    static_cast<ReRevvedUnitDefinition*>(output.Data()),
                     40);
             },
             "invalid definition unit type");
@@ -635,7 +635,7 @@ void TestInvalidArguments()
                     civilization,
                     REREVVED_UNIT_TYPE_KNIGHTS,
                     REREVVED_UNIT_DISPLAY_FORM_UNIT,
-                    static_cast<ReRevvedWorldUnitIdentity*>(output.Data()),
+                    static_cast<ReRevvedUnitIdentity*>(output.Data()),
                     40);
             },
             "invalid identity civilization");
@@ -649,7 +649,7 @@ void TestInvalidArguments()
                     REREVVED_CIVILIZATION_ROMAN,
                     unit_type,
                     REREVVED_UNIT_DISPLAY_FORM_UNIT,
-                    static_cast<ReRevvedWorldUnitIdentity*>(output.Data()),
+                    static_cast<ReRevvedUnitIdentity*>(output.Data()),
                     40);
             },
             "invalid identity unit type");
@@ -670,7 +670,7 @@ void TestInvalidArguments()
                     REREVVED_CIVILIZATION_ROMAN,
                     REREVVED_UNIT_TYPE_KNIGHTS,
                     display_form,
-                    static_cast<ReRevvedWorldUnitIdentity*>(output.Data()),
+                    static_cast<ReRevvedUnitIdentity*>(output.Data()),
                     40);
             },
             "invalid identity display form");
@@ -699,9 +699,9 @@ void TestEnlargedProducerContract()
     };
 
     GuardedOutput prefix;
-    Require(rerevved::world::CopySizedOutput(
+    Require(rerevved::unit_catalog::CopySizedOutput(
                 prefix.Data(), 16, &producer, sizeof(producer), 16) ==
-                REREVVED_WORLD_OK,
+                REREVVED_UNIT_CATALOG_OK,
             "enlarged producer accepts ABI 1 prefix");
     const auto prefix_result = prefix.Read<FutureOutput>(16);
     Require(prefix_result.struct_size == 36 && prefix_result.first == 11 &&
@@ -711,11 +711,11 @@ void TestEnlargedProducerContract()
             "enlarged producer prefix canaries");
 
     GuardedOutput partial_field;
-    Require(rerevved::world::CopySizedOutput(partial_field.Data(),
-                                             17,
-                                             &producer,
-                                             sizeof(producer),
-                                             16) == REREVVED_WORLD_OK,
+    Require(rerevved::unit_catalog::CopySizedOutput(partial_field.Data(),
+                                                    17,
+                                                    &producer,
+                                                    sizeof(producer),
+                                                    16) == REREVVED_UNIT_CATALOG_OK,
             "enlarged producer accepts partial trailing storage");
     Require(partial_field.BytesAre(16, 17, 0),
             "enlarged producer writes only complete fields");
@@ -723,9 +723,9 @@ void TestEnlargedProducerContract()
             "partial field caller canaries");
 
     GuardedOutput extended;
-    Require(rerevved::world::CopySizedOutput(
+    Require(rerevved::unit_catalog::CopySizedOutput(
                 extended.Data(), 40, &producer, sizeof(producer), 16) ==
-                REREVVED_WORLD_OK,
+                REREVVED_UNIT_CATALOG_OK,
             "enlarged producer writes its full record");
     Require(extended.BytesAre(36, 40, kCanary),
             "enlarged producer leaves later bytes untouched");
@@ -737,8 +737,8 @@ void TestEnlargedProducerContract()
 
 int main()
 {
-    Require(ReRevvedWorldAbiVersion() == REREVVED_WORLD_ABI_VERSION,
-            "World ABI version");
+    Require(ReRevvedUnitCatalogAbiVersion() == REREVVED_UNIT_CATALOG_ABI_VERSION,
+            "Unit Catalog ABI version");
     TestLayoutsAndIds();
     TestDefinitions();
     TestResolverMatrix();

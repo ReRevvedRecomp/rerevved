@@ -4,7 +4,7 @@
 
 #include <game_ids.h>
 
-namespace rerevved::world
+namespace rerevved::unit_catalog
 {
 
 // Copies complete 32-bit fields from a producer record into caller storage.
@@ -19,4 +19,4 @@ bool TryResolveUnitIdentity(ReRevvedCivilizationId  civilization,
                             ReRevvedUnitTypeId      unit_type,
                             ReRevvedUnitIdentityId& identity);
 
-} // namespace rerevved::world
+} // namespace rerevved::unit_catalog

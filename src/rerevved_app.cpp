@@ -7,7 +7,7 @@
 #include <string>
 #include <string_view>
 
-#include <api/game_state.h>
+#include <api/gameplay_state.h>
 #include <fmt/format.h>
 #include <rex/cvar.h>
 #include <rex/graphics/xenos_fence_trace.h>

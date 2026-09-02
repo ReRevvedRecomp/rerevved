@@ -7,7 +7,7 @@
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
 
-#include "world_api.h"
+#include "unit_catalog_api.h"
 
 namespace
 {
@@ -60,7 +60,7 @@ void ApplyBaseValue(PPCRegister&                     player,
     }
 
     ReRevvedUnitIdentityId identity = REREVVED_UNIT_IDENTITY_BASE;
-    if (!rerevved::world::TryResolveUnitIdentity(
+    if (!rerevved::unit_catalog::TryResolveUnitIdentity(
             civilization, unit_type.s32, identity) ||
         identity == REREVVED_UNIT_IDENTITY_BASE)
     {

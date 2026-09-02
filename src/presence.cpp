@@ -7,7 +7,7 @@
 
 #include <rex/discord_rpc.h>
 
-#include <game_state.h>
+#include <gameplay_state.h>
 
 #include "presence_model.h"
 

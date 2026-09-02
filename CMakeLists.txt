@@ -61,8 +61,8 @@ set(REREVVED_SOURCES
     src/presence_model.h
     src/rush_cost.cpp
     src/rush_cost.h
-    src/world_api.cpp
-    src/world_api.h
+    src/unit_catalog_api.cpp
+    src/unit_catalog_api.h
 )
 
 if(WIN32)
@@ -93,7 +93,7 @@ target_compile_definitions(rerevved PRIVATE
     REREVVED_GAMEPLAY_API_EXPORTS
     REREVVED_UNIQUE_ERA_ABILITIES_API_EXPORTS
     REREVVED_UNIQUE_UNIT_RULES_API_EXPORTS
-    REREVVED_WORLD_API_EXPORTS
+    REREVVED_UNIT_CATALOG_API_EXPORTS
     REREVVED_VERSION="${PROJECT_VERSION}"
 )
 if(APPLE)
@@ -144,29 +144,29 @@ if(BUILD_TESTING)
     target_link_libraries(great_general_attachment_tests PRIVATE rex::runtime)
     add_test(NAME great_general_attachment COMMAND great_general_attachment_tests)
 
-    add_executable(world_api_tests
-        src/world_api.cpp
-        tests/world_api_test.cpp
+    add_executable(unit_catalog_api_tests
+        src/unit_catalog_api.cpp
+        tests/unit_catalog_api_test.cpp
     )
-    target_include_directories(world_api_tests PRIVATE
+    target_include_directories(unit_catalog_api_tests PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/api
         ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
-    add_test(NAME world_api_contract COMMAND world_api_tests)
+    add_test(NAME unit_catalog_api_contract COMMAND unit_catalog_api_tests)
 
-    add_executable(world_api_c_header_tests
-        src/world_api.cpp
-        tests/world_api_c_header_test.c
+    add_executable(unit_catalog_api_c_header_tests
+        src/unit_catalog_api.cpp
+        tests/unit_catalog_api_c_header_test.c
     )
-    target_include_directories(world_api_c_header_tests PRIVATE
+    target_include_directories(unit_catalog_api_c_header_tests PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/api
         ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
-    add_test(NAME world_api_c_header COMMAND world_api_c_header_tests)
+    add_test(NAME unit_catalog_api_c_header COMMAND unit_catalog_api_c_header_tests)
 
     add_executable(unique_unit_rules_tests
         src/unique_unit_rules.cpp
-        src/world_api.cpp
+        src/unit_catalog_api.cpp
         tests/unique_unit_rules_test.cpp
     )
     target_include_directories(unique_unit_rules_tests PRIVATE
@@ -177,7 +177,7 @@ if(BUILD_TESTING)
 
     add_executable(unique_unit_rules_c_header_tests
         src/unique_unit_rules.cpp
-        src/world_api.cpp
+        src/unit_catalog_api.cpp
         tests/unique_unit_rules_c_header_test.c
     )
     target_include_directories(unique_unit_rules_c_header_tests PRIVATE

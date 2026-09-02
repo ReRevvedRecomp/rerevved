@@ -2,7 +2,7 @@
 //
 // Mods resolve these entry points from the host process and check
 // ReRevvedUniqueUnitRulesAbiVersion before calling them. Registrations are
-// copied by the host and target identities exposed by World ABI 1.
+// copied by the host and target identities exposed by Unit Catalog ABI 1.
 
 #pragma once
 

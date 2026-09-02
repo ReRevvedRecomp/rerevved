@@ -1,5 +1,5 @@
-#include <game_state.h>
-#include <world.h>
+#include <gameplay_state.h>
+#include <unit_catalog.h>
 
 #include <stddef.h>
 
@@ -9,30 +9,30 @@
 
 int main(void)
 {
-    ReRevvedWorldAbiVersionFn     version_fn    = ReRevvedWorldAbiVersion;
-    ReRevvedGetUnitDefinitionFn   definition_fn = ReRevvedGetUnitDefinition;
-    ReRevvedResolveUnitIdentityFn identity_fn   = ReRevvedResolveUnitIdentity;
-    ReRevvedWorldUnitDefinition   definition    = { 0 };
-    ReRevvedWorldUnitIdentity     identity      = { 0 };
+    ReRevvedUnitCatalogAbiVersionFn version_fn    = ReRevvedUnitCatalogAbiVersion;
+    ReRevvedGetUnitDefinitionFn     definition_fn = ReRevvedGetUnitDefinition;
+    ReRevvedResolveUnitIdentityFn   identity_fn   = ReRevvedResolveUnitIdentity;
+    ReRevvedUnitDefinition          definition    = { 0 };
+    ReRevvedUnitIdentity            identity      = { 0 };
 
     if (sizeof(ReRevvedGameplayState) != 80 ||
         offsetof(ReRevvedGameplayState, civilization) != 44 ||
-        sizeof(ReRevvedWorldUnitDefinition) != 32 ||
-        sizeof(ReRevvedWorldUnitIdentity) != 32 ||
+        sizeof(ReRevvedUnitDefinition) != 32 ||
+        sizeof(ReRevvedUnitIdentity) != 32 ||
         REREVVED_GAMEPLAY_CIVILIZATION_UNKNOWN !=
             REREVVED_CIVILIZATION_UNKNOWN)
     {
         return 1;
     }
-    if (version_fn() != REREVVED_WORLD_ABI_VERSION ||
+    if (version_fn() != REREVVED_UNIT_CATALOG_ABI_VERSION ||
         definition_fn(REREVVED_UNIT_TYPE_KNIGHTS,
                       &definition,
-                      sizeof(definition)) != REREVVED_WORLD_OK ||
+                      sizeof(definition)) != REREVVED_UNIT_CATALOG_OK ||
         identity_fn(REREVVED_CIVILIZATION_ROMAN,
                     REREVVED_UNIT_TYPE_KNIGHTS,
                     REREVVED_UNIT_DISPLAY_FORM_UNIT,
                     &identity,
-                    sizeof(identity)) != REREVVED_WORLD_OK)
+                    sizeof(identity)) != REREVVED_UNIT_CATALOG_OK)
     {
         return 1;
     }
