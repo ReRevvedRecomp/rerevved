@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-APP_CPP = (ROOT / "src" / "app.cpp").read_text(encoding="ascii")
+APP_CPP = (ROOT / "src" / "rerevved_app.cpp").read_text(encoding="ascii")
 CAPTURE = (ROOT / "scripts" / "capture-window.ps1").read_text(encoding="ascii")
 MANIFEST = (ROOT / "rerevved_manifest.toml").read_text(encoding="ascii")
 LOCK = json.loads((ROOT / "rexglue-sdk.lock.json").read_text(encoding="ascii"))

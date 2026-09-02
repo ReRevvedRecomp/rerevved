@@ -23,7 +23,7 @@ struct ContentCheckResult
 // Checks required files before runtime construction and ignores unknown extras.
 ContentCheckResult VerifyContentRoot(const std::filesystem::path& root, ContentDepth depth);
 
-// Shared with the game data selector configuration in app.cpp.
+// Shared with the game data selector configuration in rerevved_app.cpp.
 extern const char* const kBaseXexSha256;
 extern const char* const kUpdateXexpSha256;
 

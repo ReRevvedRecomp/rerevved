@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-APP_CPP = (ROOT / "src" / "app.cpp").read_text(encoding="ascii")
+APP_CPP = (ROOT / "src" / "rerevved_app.cpp").read_text(encoding="ascii")
 NATIVE_CPP = (
     ROOT / "src" / "gpu" / "d3d12" / "native_renderer_d3d12.cpp"
 ).read_text(
@@ -19,7 +19,7 @@ NATIVE_CPP = (
 GUEST_SERVICE_CPP = (ROOT / "src" / "gpu" / "guest_gpu_service.cpp").read_text(
     encoding="ascii"
 )
-COMPAT_CPP = (ROOT / "src" / "compat_hooks.cpp").read_text(encoding="ascii")
+COMPAT_CPP = (ROOT / "src" / "rerevved_hooks.cpp").read_text(encoding="ascii")
 PASSIVE_TRACE_CPP = (
     ROOT / "src" / "gpu" / "diagnostics" / "native_renderer_passive_trace.cpp"
 ).read_text(encoding="ascii")
@@ -56,7 +56,7 @@ class NativeRendererIntegrationTests(unittest.TestCase):
                 continue
             if "NativeGuestGpuService" in source.read_text(encoding="ascii"):
                 consumers.append(source.relative_to(ROOT).as_posix())
-        self.assertEqual(consumers, ["src/app.cpp"])
+        self.assertEqual(consumers, ["src/rerevved_app.cpp"])
 
         pre_setup = APP_CPP[
             APP_CPP.index("void ReRevvedApp::OnPreSetup") :

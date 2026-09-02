@@ -11,7 +11,7 @@ HOOK_CONFIG = ROOT / "config" / "rerevved_hooks.toml"
 COVERAGE_HOOK_CONFIG = ROOT / "config" / "native_renderer_coverage_hooks.toml"
 COVERAGE_HOOK_SOURCE = ROOT / "src" / "native_renderer_coverage_hooks.inc"
 HOOK_SOURCES = [
-    ROOT / "src" / "compat_hooks.cpp",
+    ROOT / "src" / "rerevved_hooks.cpp",
     ROOT / "src" / "great_general_attachment.cpp",
     ROOT / "src" / "unique_era_abilities_hooks.cpp",
     ROOT / "src" / "unique_unit_rules_hooks.cpp",

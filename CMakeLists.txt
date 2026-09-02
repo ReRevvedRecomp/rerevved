@@ -27,16 +27,16 @@ include(cmake/build_info.cmake)
 rerevved_write_build_info("${CMAKE_CURRENT_BINARY_DIR}/generated/build_info.h")
 
 set(REREVVED_SOURCES
-    src/app.cpp
-    src/compat_hooks.cpp
+    src/rerevved_app.cpp
+    src/rerevved_hooks.cpp
     src/game_content.cpp
     src/great_general_attachment.cpp
     src/great_general_attachment.h
-    src/game_state.cpp
-    src/game_state.h
+    src/gameplay_state.cpp
+    src/gameplay_state.h
     src/gpu/guest_gpu_service.cpp
     src/gpu/guest_gpu_service.h
-    src/imports.cpp
+    src/usb_camera_stubs.cpp
     src/main.cpp
     src/gpu/d3d12/native_renderer_d3d12.cpp
     src/gpu/d3d12/native_renderer_d3d12.h

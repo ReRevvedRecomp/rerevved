@@ -1,4 +1,4 @@
-"""Static contract for the city UI label dispatch reached by worker updates."""
+"""Static contract for the title function-root configuration."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ FUNCTION_CONFIG = ROOT / "config" / "rerevved_functions.toml"
 GENERATED = ROOT / "generated" / "default"
 
 
-class CityLabelDispatchContractTests(unittest.TestCase):
+class RerevvedFunctionsContractTests(unittest.TestCase):
     def test_switch_table_uses_the_guest_index_register(self) -> None:
         with FUNCTION_CONFIG.open("rb") as stream:
             config = tomllib.load(stream)

@@ -14,7 +14,7 @@
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
 
-#include "game_state.h"
+#include "gameplay_state.h"
 #include "gpu/diagnostics/native_renderer_guest_state.h"
 #include "gpu/diagnostics/native_renderer_passive_trace.h"
 #include "rush_cost.h"
