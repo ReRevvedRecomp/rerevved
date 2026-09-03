@@ -11,6 +11,3 @@ A clear and concise description of the problem or limitation.
 
 **Describe the feature you would like**
 A clear and concise description of what you want.
-
-**Reverse-engineering evidence**
-Include any useful guest addresses, function names, or save-layout findings.
