@@ -77,6 +77,14 @@ jobs:
           git -C $sdkRoot submodule update --init --recursive --depth 1
           if ($LASTEXITCODE -ne 0) { throw 'SDK submodule init failed' }
 
+      - name: Fetch upstream SDK release tags
+        working-directory: ${{ runner.temp }}\rerevved-sdk
+        shell: pwsh
+        run: >-
+          git fetch --force --no-tags
+          https://github.com/rexglue/rexglue-sdk.git
+          'refs/tags/v*:refs/tags/v*'
+
       - name: Restore SDK install
         id: sdk-cache
         uses: actions/cache@v6

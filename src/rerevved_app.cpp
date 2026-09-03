@@ -1,6 +1,8 @@
 #include "rerevved_app.h"
 
+#if defined(_WIN32)
 #include <Windows.h>
+#endif
 
 #include <filesystem>
 #include <memory>
@@ -62,6 +64,7 @@ bool IsContainedPath(const std::filesystem::path& root,
 bool ContainsExistingReparsePoint(const std::filesystem::path& root,
                                   const std::filesystem::path& path)
 {
+#if defined(_WIN32)
     if (!IsContainedPath(root, path))
     {
         return true;
@@ -93,6 +96,38 @@ bool ContainsExistingReparsePoint(const std::filesystem::path& root,
         }
     }
     return false;
+#else
+    if (!IsContainedPath(root, path))
+    {
+        return true;
+    }
+
+    auto is_symlink = [](const std::filesystem::path& candidate)
+    {
+        std::error_code error;
+        const auto      status = std::filesystem::symlink_status(candidate, error);
+        if (error)
+        {
+            return true;
+        }
+        return status.type() == std::filesystem::file_type::symlink;
+    };
+
+    if (is_symlink(root))
+    {
+        return true;
+    }
+    std::filesystem::path current = root;
+    for (const auto& component : path.lexically_relative(root))
+    {
+        current /= component;
+        if (is_symlink(current))
+        {
+            return true;
+        }
+    }
+    return false;
+#endif
 }
 
 bool ResolvePassiveTracePath(std::string_view       configured,
