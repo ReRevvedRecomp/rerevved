@@ -8,7 +8,9 @@ Linux candidates.
 
 1. Update the version in the root `project(rerevved VERSION ...)` declaration
    in [`CMakeLists.txt`](../CMakeLists.txt).
-2. After building and packaging, confirm that the archive name uses the project
+2. Use `v<version>` for a stable release or `v<version>-<suffix>` for a
+   prerelease. The release workflow rejects a tag for another project version.
+3. After building and packaging, confirm that the archive name uses the project
    version. The window title and Windows executable tooltip intentionally omit it.
 
 ## Build the release candidate
