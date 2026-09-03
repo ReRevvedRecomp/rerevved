@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   verify:
     name: Verify Release Source
@@ -28,8 +32,18 @@ jobs:
         env:
           TAG: ${{ github.ref_name }}
         run: |
-          $prerelease = python .\scripts\check_release_tag.py $env:TAG
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $project = Get-Content -LiteralPath CMakeLists.txt -Raw
+          $match = [regex]::Match($project, '(?m)^project\(rerevved VERSION (?<version>\d+\.\d+\.\d+) ')
+          if (-not $match.Success) { throw 'project version not found in CMakeLists.txt' }
+          $version = $match.Groups['version'].Value
+          $releaseTag = "v$version"
+          if ($env:TAG -eq $releaseTag) {
+            $prerelease = 'false'
+          } elseif ($env:TAG.StartsWith("$releaseTag-") -and $env:TAG.Length -gt $releaseTag.Length + 1) {
+            $prerelease = 'true'
+          } else {
+            throw "tag $env:TAG does not match project version $version; expected $releaseTag or $releaseTag-<suffix>"
+          }
           "prerelease=$prerelease" >> $env:GITHUB_OUTPUT
       - name: Install formatting tool
         run: python -m pip install --disable-pip-version-check clang-format
