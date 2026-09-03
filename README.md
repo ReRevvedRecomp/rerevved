@@ -37,6 +37,11 @@ available, but Linux support is experimental.
 See the [packaged player guide](scripts/packaging/README.txt) for detailed
 setup, backup, restore, and automation instructions.
 
+## Support
+
+Read the [support and log-sharing guide](docs/support.md) before reporting a
+bug or attaching a runtime log.
+
 ## Development
 
 - [Mod APIs](docs/modding-api.md) - public title interfaces and ownership

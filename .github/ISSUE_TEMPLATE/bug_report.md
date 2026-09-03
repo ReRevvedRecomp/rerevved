@@ -28,4 +28,6 @@ If applicable, attach screenshots or a short clip.
  - CPU: [e.g. Ryzen 7 7800X3D]
 
 **Log file**
-For a crash or freeze, attach the latest `Documents\rerevved\logs\rerevved_NNN.log` file.
+For a crash or freeze, attach the latest
+`Documents\rerevved\logs\rerevved_NNN.log` file. Review it first using the
+[log-sharing checklist](https://github.com/ReRevvedRecomp/rerevved/blob/main/docs/support.md#sharing-a-log).
