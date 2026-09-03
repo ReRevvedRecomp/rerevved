@@ -13,6 +13,8 @@ ROOT = Path(__file__).resolve().parents[2]
 RUNNER = ROOT / "scripts" / "run-native-renderer-coverage.ps1"
 DIGEST = "2d1466cf7a203e123d232cda6a4ab59b9618d3841aaee8f032422e9666c1d303"
 FIXTURE_0002_SHA = "a1bcefa50427ec719fe4d5721cb9438ee3f44ec7c09db48fdc73c3d326e9d684"
+RETAIL_BASE_XEX_SHA = "b59b8957a3ed9dd90e9296c96d5c7ab1b16078d3f08b015582714a06c7d6a7bd"
+RETAIL_TITLE_UPDATE_SHA = "c1fc6149a63550987d991efdbb80e3697845a9a49d3f2ec180ea9817db8d12d4"
 
 
 @unittest.skipUnless(shutil.which("pwsh"), "PowerShell is required")
@@ -38,8 +40,10 @@ class RunnerTests(unittest.TestCase):
         exe.write_bytes(b"synthetic executable")
         game = self.title / "game"
         game.mkdir()
-        (game / "default.xex").write_bytes((ROOT / "game" / "default.xex").read_bytes())
-        (game / "default.xexp").write_bytes((ROOT / "game" / "default.xexp").read_bytes())
+        base_xex = game / "default.xex"
+        title_update = game / "default.xexp"
+        base_xex.write_bytes(b"synthetic base XEX\n")
+        title_update.write_bytes(b"synthetic title update\n")
         launcher = self.title / "scripts" / "rexglue.ps1"
         launcher.parent.mkdir()
         launcher.write_text(self._mock_launcher(), encoding="ascii")
@@ -67,6 +71,15 @@ class RunnerTests(unittest.TestCase):
         )
         self._git_add_commit(self.title)
         self.title_commit = self._git(self.title, "rev-parse", "HEAD")
+        self.runner = self.root / RUNNER.name
+        runner_source = RUNNER.read_text(encoding="ascii")
+        for retail_sha, synthetic_sha in (
+            (RETAIL_BASE_XEX_SHA, hashlib.sha256(base_xex.read_bytes()).hexdigest()),
+            (RETAIL_TITLE_UPDATE_SHA, hashlib.sha256(title_update.read_bytes()).hexdigest()),
+        ):
+            self.assertEqual(runner_source.count(retail_sha), 1)
+            runner_source = runner_source.replace(retail_sha, synthetic_sha, 1)
+        self.runner.write_text(runner_source, encoding="ascii")
         self.fixture = fixture
         self.fixture_sha = hashlib.sha256(fixture.read_bytes()).hexdigest()
         self.exe_sha = hashlib.sha256(exe.read_bytes()).hexdigest()
@@ -135,7 +148,7 @@ exit 0
 
     def invoke(self, *extra: str, input_text: str | None = None) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            ["pwsh", "-NoProfile", "-NonInteractive", "-File", str(RUNNER), *self.base, *extra],
+            ["pwsh", "-NoProfile", "-NonInteractive", "-File", str(self.runner), *self.base, *extra],
             text=True,
             input=input_text,
             capture_output=True,
@@ -146,7 +159,7 @@ exit 0
         index = args.index(name)
         args[index + 1] = value
         return subprocess.run(
-            ["pwsh", "-NoProfile", "-NonInteractive", "-File", str(RUNNER), *args],
+            ["pwsh", "-NoProfile", "-NonInteractive", "-File", str(self.runner), *args],
             text=True,
             capture_output=True,
         )
@@ -173,7 +186,7 @@ exit 0
             entries.append(f"{name}={rendered}")
         command = (
             "$parameters=@{" + ";".join(entries) + "}; & "
-            + literal(str(RUNNER))
+            + literal(str(self.runner))
             + " @parameters"
         )
         return subprocess.run(
@@ -190,7 +203,7 @@ exit 0
         stop_confirmation: str = "exact",
     ) -> subprocess.CompletedProcess[str]:
         command = [
-            "pwsh", "-NoProfile", "-NonInteractive", "-File", str(RUNNER),
+            "pwsh", "-NoProfile", "-NonInteractive", "-File", str(self.runner),
             *self.base, *extra, "-Run", "-OwnerReady", "-OverlaysClosed",
         ]
         process = subprocess.Popen(
@@ -240,7 +253,7 @@ exit 0
     def test_plan_is_default_and_creates_nothing(self) -> None:
         before = set(self.root.rglob("*"))
         result = subprocess.run(
-            ["pwsh", "-NoProfile", "-NonInteractive", "-File", str(RUNNER), *self.base],
+            ["pwsh", "-NoProfile", "-NonInteractive", "-File", str(self.runner), *self.base],
             text=True,
             capture_output=True,
         )
@@ -538,6 +551,15 @@ exit 0
             result = self.invoke_override(*extra) if isinstance(extra, tuple) else self.invoke(*extra)
             self.assertNotEqual(result.returncode, 0, label)
             self.assertIn("coverage blocked", result.stderr + result.stdout, label)
+
+    def test_changed_synthetic_input_is_rejected(self) -> None:
+        base_xex = self.title / "game" / "default.xex"
+        base_xex.write_bytes(b"changed synthetic base XEX\n")
+        self._git_add_commit(self.title)
+        changed_title_commit = self._git(self.title, "rev-parse", "HEAD")
+        result = self.invoke_override("-TitleCommit", changed_title_commit)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("base XEX SHA-256 mismatch", result.stderr + result.stdout)
 
     def test_non_windows_sdk_install_is_rejected(self) -> None:
         config = (

@@ -20,6 +20,7 @@
 #include "rush_cost.h"
 
 REXCVAR_DECLARE(std::string, renderer);
+REXCVAR_DECLARE(std::string, gpu_plugin);
 REXCVAR_DEFINE_STRING(combat_speed, "normal", "ReRevved/Combat", "Combat presentation speed")
     .allowed({ "normal", "fast" });
 
@@ -231,8 +232,13 @@ void ReadRingObservation(uint32_t device, PassiveTraceEvent& event)
             rerevved::gpu::diagnostics::kTraceReadPointerWriteback;
     }
 
-    auto* graphics_system = dynamic_cast<rex::graphics::GraphicsSystem*>(
-        GetGraphicsSystem());
+    rex::graphics::GraphicsSystem* graphics_system = nullptr;
+    if (REXCVAR_GET(renderer) == "xenos" &&
+        REXCVAR_GET(gpu_plugin) == "xenos")
+    {
+        graphics_system = static_cast<rex::graphics::GraphicsSystem*>(
+            GetGraphicsSystem());
+    }
     if (graphics_system)
     {
         event.published_write_pointer =

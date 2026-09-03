@@ -248,6 +248,24 @@ class NativeRendererIntegrationTests(unittest.TestCase):
         self.assertIn("GetPassiveTraceBuffer().enabled()", COMPAT_CPP)
         self.assertIn("if (!PassiveTraceEnabled())", COMPAT_CPP)
 
+    def test_published_write_observation_requires_xenos_plugin(self) -> None:
+        observation = COMPAT_CPP[
+            COMPAT_CPP.index("void ReadRingObservation") :
+            COMPAT_CPP.index("void RecordTracePoint")
+        ]
+        self.assertNotIn("dynamic_cast", observation)
+        cast = observation.index(
+            "static_cast<rex::graphics::GraphicsSystem*>("
+        )
+        self.assertLess(
+            observation.index('REXCVAR_GET(renderer) == "xenos"'),
+            cast,
+        )
+        self.assertLess(
+            observation.index('REXCVAR_GET(gpu_plugin) == "xenos"'),
+            cast,
+        )
+
     def test_passive_trace_is_scoped_to_the_known_swap_callers(self) -> None:
         reservation = COMPAT_CPP[
             COMPAT_CPP.index("void ReRevvedTraceReservationEnter") :
