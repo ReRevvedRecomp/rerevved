@@ -39,6 +39,7 @@ setup, backup, restore, and automation instructions.
 
 ## Development
 
+- [Mod APIs](docs/modding-api.md) - public title interfaces and ownership
 - [ReXGlue runtime and build](docs/rexglue-runtime.md) - prerequisites,
   workspace setup, and the full build workflow
 - [Scaleform/GFx behavior](docs/scaleform-gfx.md)
