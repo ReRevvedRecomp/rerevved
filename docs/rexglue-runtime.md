@@ -36,9 +36,10 @@ The development driver bypasses selection with
 `--game_data_root=<path>` for the current session.
 
 Packages store config, logs, saves, and caches under `Documents\rerevved` on
-Windows. Linux uses the XDG documents directory, usually
-`~/Documents/rerevved`. The development driver redirects user data, caches, and
-logs to ignored `out/` paths instead of packaged player state.
+Windows. On Linux, logs are under `$XDG_DATA_HOME/rerevved/logs`, or
+`~/.local/share/rerevved/logs` when `XDG_DATA_HOME` is not set. Other writable
+state uses the same `rerevved` data root. The development driver redirects user
+data, caches, and logs to ignored `out/` paths instead of packaged player state.
 
 ## Display settings
 

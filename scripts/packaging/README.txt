@@ -29,10 +29,11 @@ normally appears only once.
 
 USER FILES AND BACKUPS
 
-Config, logs, saves, and caches are stored in the user's data folder:
-
-  Documents\rerevved        Windows
-  ~/Documents/rerevved      Linux, or the XDG documents directory
+On Windows, config, logs, saves, and caches are stored under
+Documents\rerevved. On Linux, logs are under
+$XDG_DATA_HOME/rerevved/logs, or ~/.local/share/rerevved/logs when
+XDG_DATA_HOME is not set. Other writable state uses the same rerevved data
+root.
 
 To back up progress and settings, exit ReRevved and copy the user data folder.
 To restore it, exit ReRevved and copy the backup to the same location. The
