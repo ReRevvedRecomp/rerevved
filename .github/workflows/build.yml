@@ -47,7 +47,7 @@ jobs:
           arch: x64
 
       - name: Set up sccache
-        uses: hendrikmuhs/ccache-action@v1
+        uses: hendrikmuhs/ccache-action@v1.2.24
         with:
           variant: sccache
           key: windows-amd64
