@@ -29,6 +29,8 @@ public:
 protected:
     void OnPreSetup(rex::RuntimeConfig& config) override;
 
+    std::filesystem::path GetDefaultUserDataRoot() const override;
+
     void OnConfigurePaths(rex::PathConfig& paths) override;
 
     std::optional<rex::system::ProfileCopySpecification> GetProfileCopySpecification() const override;

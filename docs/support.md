@@ -13,9 +13,9 @@ content.
 ## Sharing a log
 
 For a crash or freeze, the latest default-profile packaged-player log is
-normally `Documents\rerevved\logs\rerevved_NNN.log` on Windows. Without an
+normally `Documents\My Games\ReRevved\logs\rerevved_NNN.log` on Windows. Without an
 explicit `log_file` override, a named profile stores its log under
-`Documents\rerevved\profiles\<id>\logs`.
+`Documents\My Games\ReRevved\profiles\<id>\logs`.
 On Linux, the default-profile log is under
 `$XDG_DATA_HOME/rerevved/logs`, or `~/.local/share/rerevved/logs` when
 `XDG_DATA_HOME` is not set.

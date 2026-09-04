@@ -30,7 +30,7 @@ normally appears only once.
 USER FILES AND BACKUPS
 
 On Windows, config, logs, saves, and caches are stored under
-Documents\rerevved. On Linux, logs are under
+Documents\My Games\ReRevved. On Linux, logs are under
 $XDG_DATA_HOME/rerevved/logs, or ~/.local/share/rerevved/logs when
 XDG_DATA_HOME is not set. Other writable state uses the same rerevved data
 root.

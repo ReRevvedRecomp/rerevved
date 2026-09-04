@@ -29,5 +29,5 @@ If applicable, attach screenshots or a short clip.
 
 **Log file**
 For a crash or freeze, attach the latest
-`Documents\rerevved\logs\rerevved_NNN.log` file. Review it first using the
+`Documents\My Games\ReRevved\logs\rerevved_NNN.log` file. Review it first using the
 [log-sharing checklist](https://github.com/ReRevvedRecomp/rerevved/blob/main/docs/support.md#sharing-a-log).

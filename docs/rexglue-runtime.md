@@ -35,7 +35,7 @@ The development driver bypasses selection with
 `--game_data_root=<repo>/game`. Other launches can use
 `--game_data_root=<path>` for the current session.
 
-Packages store config, logs, saves, and caches under `Documents\rerevved` on
+Packages store config, logs, saves, and caches under `Documents\My Games\ReRevved` on
 Windows. On Linux, logs are under `$XDG_DATA_HOME/rerevved/logs`, or
 `~/.local/share/rerevved/logs` when `XDG_DATA_HOME` is not set. Other writable
 state uses the same `rerevved` data root. The development driver redirects user
@@ -46,7 +46,7 @@ data, caches, and logs to ignored `out/` paths instead of packaged player state.
 ReXGlue calls the shared user-data root `B` and the active profile root `P`.
 The established default is unchanged: a bare launch, an omitted profile, or
 `--profile=default` selects the default environment with `P=B`. On Windows,
-`B` is normally `Documents\rerevved`; on Linux, it is normally
+`B` is normally `Documents\My Games\ReRevved`; on Linux, it is normally
 `$XDG_DATA_HOME/rerevved` or `~/.local/share/rerevved` when
 `XDG_DATA_HOME` is not set.
 

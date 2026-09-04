@@ -12,6 +12,7 @@
 #include <api/gameplay_state.h>
 #include <fmt/format.h>
 #include <rex/cvar.h>
+#include <rex/filesystem.h>
 #include <rex/graphics/xenos_fence_trace.h>
 #include <rex/logging.h>
 #include <rex/system.h>
@@ -203,6 +204,16 @@ void ReRevvedApp::OnPreSetup(rex::RuntimeConfig& config)
         config.graphics = std::make_unique<rerevved::gpu::NativeGuestGpuService>();
         config.gpu_plugin.clear();
     }
+}
+
+std::filesystem::path ReRevvedApp::GetDefaultUserDataRoot() const
+{
+    const auto user_folder = rex::filesystem::GetUserFolder();
+#if defined(_WIN32)
+    return user_folder / "My Games" / "ReRevved";
+#else
+    return user_folder / "rerevved";
+#endif
 }
 
 void ReRevvedApp::OnConfigurePaths(rex::PathConfig& paths)
@@ -443,7 +454,7 @@ void ReRevvedApp::OnPostSetup()
 
     rerevved::StartPresence();
 
-    // GetName() remains lowercase because it also names user data paths.
+    // Keep the internal app name lowercase and brand the window title separately.
     window()->SetTitle(renderer_backend_ == rerevved::gpu::RendererBackend::Native
                            ? "ReRevved - Native D3D12"
                            : "ReRevved");
