@@ -11,8 +11,9 @@
 namespace rerevved
 {
 
-const char* const kBaseXexSha256    = "b59b8957a3ed9dd90e9296c96d5c7ab1b16078d3f08b015582714a06c7d6a7bd";
-const char* const kUpdateXexpSha256 = "c1fc6149a63550987d991efdbb80e3697845a9a49d3f2ec180ea9817db8d12d4";
+const char* const   kBaseXexSha256    = "b59b8957a3ed9dd90e9296c96d5c7ab1b16078d3f08b015582714a06c7d6a7bd";
+const char* const   kUpdateXexpSha256 = "c1fc6149a63550987d991efdbb80e3697845a9a49d3f2ec180ea9817db8d12d4";
+const std::uint32_t kTitleId          = 0x545407E5u;
 
 namespace
 {
@@ -29,7 +30,6 @@ constexpr ManifestEntry kResourceManifest[] = {
 };
 
 // Header fields explain mismatches against the exact pinned hashes.
-constexpr std::uint32_t kTitleId           = 0x545407E5u;
 constexpr std::uint32_t kMediaId           = 0x7DC1293Bu;
 constexpr std::uint32_t kBaseVersionValue  = 0x00000002u; // 0.0.0.2
 constexpr std::uint32_t kUpdateTargetValue = 0x00000302u; // 0.0.3.2, game version 1.3

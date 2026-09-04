@@ -39,6 +39,25 @@ To back up progress and settings, exit ReRevved and copy the user data folder.
 To restore it, exit ReRevved and copy the backup to the same location. The
 application folder remains separate from writable user files.
 
+STORAGE PROFILES
+
+Bare launch uses the default storage profile (P=B). To use an isolated named
+profile for a session, restart ReRevved with:
+
+  --profile=<id>
+
+Named profiles use B\profiles\<id>; their config, default logs, default cache,
+saves, and achievements are isolated. Explicit log or cache overrides keep
+their existing meanings. Marketplace content remains shared from B. To
+initialize a new named profile from the default environment once, add:
+
+  --profile_copy_from_default=true
+
+Use --profile=default, or omit --profile, to return to the default profile;
+use a prior --profile=<id> to return to that profile. Selection is read at
+startup and is not persisted. See docs\rexglue-runtime.md, "Storage profiles",
+for the canonical contract.
+
 CONTROLS AND SETTINGS
 
 Press F4 in game for video settings, keyboard mode, and live keyboard or

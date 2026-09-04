@@ -31,6 +31,8 @@ protected:
 
     void OnConfigurePaths(rex::PathConfig& paths) override;
 
+    std::optional<rex::system::ProfileCopySpecification> GetProfileCopySpecification() const override;
+
     bool SetupEnvironment() override;
 
     bool SetupPresentation() override;

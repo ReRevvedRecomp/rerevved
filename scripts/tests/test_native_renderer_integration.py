@@ -10,7 +10,10 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
+APP_H = (ROOT / "src" / "rerevved_app.h").read_text(encoding="ascii")
 APP_CPP = (ROOT / "src" / "rerevved_app.cpp").read_text(encoding="ascii")
+GAME_CONTENT_H = (ROOT / "src" / "game_content.h").read_text(encoding="ascii")
+GAME_CONTENT_CPP = (ROOT / "src" / "game_content.cpp").read_text(encoding="ascii")
 NATIVE_CPP = (
     ROOT / "src" / "gpu" / "d3d12" / "native_renderer_d3d12.cpp"
 ).read_text(
@@ -29,6 +32,7 @@ PASSIVE_TRACE_H = (
 HOOKS = (ROOT / "config" / "rerevved_hooks.toml").read_text(encoding="ascii")
 CMAKE = (ROOT / "CMakeLists.txt").read_text(encoding="ascii")
 LOCK = json.loads((ROOT / "rexglue-sdk.lock.json").read_text(encoding="ascii"))
+ACCEPTED_SDK_COMMIT = "ed4ba3f51e8f7686e2489a57a816494b59b0f7e6"
 GUEST_SERVICE_FILES = {
     ROOT / "src" / "gpu" / "guest_gpu_service.cpp",
     ROOT / "src" / "gpu" / "guest_gpu_service.h",
@@ -36,6 +40,67 @@ GUEST_SERVICE_FILES = {
 
 
 class NativeRendererIntegrationTests(unittest.TestCase):
+    def test_title_adapter_profile_copy_and_content_identity(self) -> None:
+        self.assertEqual(LOCK["commit"], ACCEPTED_SDK_COMMIT)
+        self.assertIn(
+            "GetProfileCopySpecification() const override", APP_H
+        )
+        self.assertIn(
+            '.config_relative_path = "rerevved.toml"', APP_CPP
+        )
+        self.assertIn(".title_id             = rerevved::kTitleId", APP_CPP)
+        self.assertIn("extern const std::uint32_t kTitleId;", GAME_CONTENT_H)
+        self.assertRegex(
+            GAME_CONTENT_CPP,
+            r"const\s+std::uint32_t\s+kTitleId\s*=\s*0x545407E5u;",
+        )
+
+    def test_title_adapter_defaults_preserve_source_precedence(self) -> None:
+        self.assertIn(
+            'paths.config_path = paths.user_data_root / "rerevved.toml"',
+            APP_CPP,
+        )
+        self.assertIn(
+            'rex::cvar::SetFlagAsApplicationDefault("gpu_plugin", "xenos")',
+            APP_CPP,
+        )
+        self.assertIn(
+            'rex::cvar::SetFlagAsApplicationDefault("render_target_path_d3d12", "rov")',
+            APP_CPP,
+        )
+        self.assertNotIn(
+            'rex::cvar::SetFlagByName("gpu_plugin", "xenos")', APP_CPP
+        )
+        self.assertNotIn(
+            'rex::cvar::SetFlagByName("render_target_path_d3d12", "rov")',
+            APP_CPP,
+        )
+
+        environment = APP_CPP.index("bool ReRevvedApp::SetupEnvironment()")
+        base_environment = APP_CPP.index(
+            "rex::ReXApp::SetupEnvironment()", environment
+        )
+        selection = APP_CPP.index(
+            "ParseRendererBackend(REXCVAR_GET(renderer))", environment
+        )
+        gpu_default = APP_CPP.index(
+            'SetFlagAsApplicationDefault("gpu_plugin", "xenos")', environment
+        )
+        presentation = APP_CPP.index(
+            "bool ReRevvedApp::SetupPresentation()"
+        )
+        base_presentation = APP_CPP.index(
+            "rex::ReXApp::SetupPresentation()", presentation
+        )
+        rov_default = APP_CPP.index(
+            'SetFlagAsApplicationDefault("render_target_path_d3d12", "rov")',
+            presentation,
+        )
+        self.assertLess(base_environment, selection)
+        self.assertLess(selection, gpu_default)
+        self.assertLess(gpu_default, presentation)
+        self.assertLess(base_presentation, rov_default)
+
     def test_renderer_is_init_only_opt_in(self) -> None:
         self.assertIn('REXCVAR_DEFINE_STRING(renderer, "xenos"', APP_CPP)
         self.assertIn('.allowed({ "xenos", "native" })', APP_CPP)
@@ -70,7 +135,7 @@ class NativeRendererIntegrationTests(unittest.TestCase):
         base_setup = APP_CPP.index("rex::ReXApp::SetupEnvironment()")
         selection = APP_CPP.index("ParseRendererBackend(REXCVAR_GET(renderer))")
         xenos_default = APP_CPP.index(
-            'rex::cvar::SetFlagByName("gpu_plugin", "xenos")'
+            'rex::cvar::SetFlagAsApplicationDefault("gpu_plugin", "xenos")'
         )
         self.assertLess(base_setup, selection)
         self.assertLess(selection, xenos_default)

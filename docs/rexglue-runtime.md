@@ -41,6 +41,63 @@ Windows. On Linux, logs are under `$XDG_DATA_HOME/rerevved/logs`, or
 state uses the same `rerevved` data root. The development driver redirects user
 data, caches, and logs to ignored `out/` paths instead of packaged player state.
 
+## Storage profiles
+
+ReXGlue calls the shared user-data root `B` and the active profile root `P`.
+The established default is unchanged: a bare launch, an omitted profile, or
+`--profile=default` selects the default environment with `P=B`. On Windows,
+`B` is normally `Documents\rerevved`; on Linux, it is normally
+`$XDG_DATA_HOME/rerevved` or `~/.local/share/rerevved` when
+`XDG_DATA_HOME` is not set.
+
+Use `--profile=<id>` to select a named profile:
+
+```text
+rerevved.exe --profile=alpha
+```
+
+The active root for this launch is `P=B/profiles/<id>`. Profile IDs are
+lowercase path-safe names: 1 to 32 characters, beginning with a lowercase
+letter or digit, followed by lowercase letters, digits, `_`, or `-`.
+`default` and Windows device names are reserved. Profile selection is
+restart-only and session-only: it is read during startup, applies to that
+process, and is not written to `rerevved.toml`. Stop and restart ReRevved to
+switch profiles.
+
+The active profile owns its writable state. In particular, config is
+`P/rerevved.toml`, default logs are under `P/logs`, the default cache is
+`P/cache`, save content is under `P`'s per-user and per-title content roots,
+and achievements are under `P/achievements`. This keeps config, default logs,
+default cache, saves, and achievement state isolated between named profiles.
+Explicit `log_file` and `cache_root` overrides retain their existing meanings
+and may select locations outside `P`.
+
+Marketplace content is shared. Marketplace packages and their headers remain
+in the base root's XUID-zero namespace, such as
+`B/0000000000000000/<title-id>/00000002` and
+`B/0000000000000000/<title-id>/Headers/00000002`; every profile sees that
+content. Other title content and headers are profile-local under `P`.
+
+To create a new named profile from the default environment, pass both options
+on the first launch of an otherwise absent profile:
+
+```text
+rerevved.exe --profile=alpha --profile_copy_from_default=true
+```
+
+`--profile_copy_from_default=true` is a one-shot, session-only request. It
+requires a named profile and an absent target. The copy uses the title's
+allowlist: config, ordinary title content and headers, title profile data,
+the title's achievement record, and the mod loadout when present. It does not
+copy marketplace content, logs, cache, unrelated files, or another profile.
+After the copy succeeds, launch with `--profile=alpha` alone. An existing
+profile is never overwritten by this operation.
+
+To roll back or switch environments, omit `--profile` or select
+`--profile=default` for the default `P=B` environment, or select a prior
+named profile with `--profile=<id>`. Each profile's state remains in its own
+root while it is not selected.
+
 ## Display settings
 
 Press F4 in a packaged or development build to open the settings overlay. The

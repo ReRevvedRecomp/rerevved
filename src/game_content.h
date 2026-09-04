@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -24,7 +25,8 @@ struct ContentCheckResult
 ContentCheckResult VerifyContentRoot(const std::filesystem::path& root, ContentDepth depth);
 
 // Shared with the game data selector configuration in rerevved_app.cpp.
-extern const char* const kBaseXexSha256;
-extern const char* const kUpdateXexpSha256;
+extern const std::uint32_t kTitleId;
+extern const char* const   kBaseXexSha256;
+extern const char* const   kUpdateXexpSha256;
 
 } // namespace rerevved

@@ -211,6 +211,14 @@ void ReRevvedApp::OnConfigurePaths(rex::PathConfig& paths)
     paths.config_path = paths.user_data_root / "rerevved.toml";
 }
 
+std::optional<rex::system::ProfileCopySpecification> ReRevvedApp::GetProfileCopySpecification() const
+{
+    return rex::system::ProfileCopySpecification{
+        .config_relative_path = "rerevved.toml",
+        .title_id             = rerevved::kTitleId,
+    };
+}
+
 bool ReRevvedApp::SetupEnvironment()
 {
     if (!rex::ReXApp::SetupEnvironment())
@@ -229,11 +237,10 @@ bool ReRevvedApp::SetupEnvironment()
     {
         rex::cvar::SetFlagByName("gpu_plugin", "");
     }
-    else if (rex::cvar::GetFlagByName("gpu_plugin").empty())
+    else if (renderer_backend_ == rerevved::gpu::RendererBackend::Xenos)
     {
-        // Preserve the established bare-launch default after config and CLI
-        // values have had the opportunity to select an explicit backend.
-        rex::cvar::SetFlagByName("gpu_plugin", "xenos");
+        // Apply the title default below config, environment, and CLI values.
+        rex::cvar::SetFlagAsApplicationDefault("gpu_plugin", "xenos");
     }
     REXLOG_INFO("ReRevved renderer selected: {}",
                 rerevved::gpu::RendererBackendName(renderer_backend_));
@@ -306,9 +313,9 @@ bool ReRevvedApp::SetupPresentation()
     }
     // The Xenos plugin owns this cvar, so it is not registered until the base
     // presentation setup loads the plugin.
-    else if (rex::cvar::GetFlagByName("render_target_path_d3d12").empty())
+    else
     {
-        rex::cvar::SetFlagByName("render_target_path_d3d12", "rov");
+        rex::cvar::SetFlagAsApplicationDefault("render_target_path_d3d12", "rov");
     }
 
     const std::string run_id = REXCVAR_GET(native_renderer_coverage_run);
