@@ -25,7 +25,8 @@ version 1.3 title update. All trademarks belong to their respective owners.
 - On first run, select a legally owned ISO or extracted version 1.3 content
   folder.
 - Config and saves are stored under `Documents\My Games\ReRevved`.
-- Press F1 to open the mod manager. The optional State Inspector mod uses F6.
+- Press F1 to enable, disable, or order installed mods. Restart to apply native changes.
+  The optional State Inspector mod uses F6.
 - Press F4 in game for settings and keyboard or controller rebinding.
 - See [display settings](docs/rexglue-runtime.md#display-settings) for window,
   fullscreen, and rendering quality options.

@@ -67,10 +67,17 @@ switch profiles.
 The active profile owns its writable state. In particular, config is
 `P/rerevved.toml`, default logs are under `P/logs`, the default cache is
 `P/cache`, save content is under `P`'s per-user and per-title content roots,
-and achievements are under `P/achievements`. This keeps config, default logs,
-default cache, saves, and achievement state isolated between named profiles.
+achievements are under `P/achievements`, and the native mod loadout is
+`P/mod_order.txt`. This keeps config, default logs, default cache, saves,
+achievements, and mod selection isolated between named profiles.
 Explicit `log_file` and `cache_root` overrides retain their existing meanings
 and may select locations outside `P`.
+
+F1 discovers packages installed under `mods/` beside the executable and stages
+enable, disable, and load-order changes for the active profile. Apply writes the
+profile loadout atomically; native changes take effect after restarting the
+game. Missing or invalid enabled packages block all native mods for that launch
+while leaving the game and F1 repair flow available.
 
 Marketplace content is shared. Marketplace packages and their headers remain
 in the base root's XUID-zero namespace, such as

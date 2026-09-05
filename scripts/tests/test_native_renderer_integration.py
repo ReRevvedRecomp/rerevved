@@ -32,7 +32,7 @@ PASSIVE_TRACE_H = (
 HOOKS = (ROOT / "config" / "rerevved_hooks.toml").read_text(encoding="ascii")
 CMAKE = (ROOT / "CMakeLists.txt").read_text(encoding="ascii")
 LOCK = json.loads((ROOT / "rexglue-sdk.lock.json").read_text(encoding="ascii"))
-ACCEPTED_SDK_COMMIT = "556dad503f8638fd4ff66bffa471685e7db6039a"
+ACCEPTED_SDK_COMMIT = "0165c11a0931d4e28d0ecb22bb6a2c7d7fb204cf"
 GUEST_SERVICE_FILES = {
     ROOT / "src" / "gpu" / "guest_gpu_service.cpp",
     ROOT / "src" / "gpu" / "guest_gpu_service.h",
