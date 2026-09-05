@@ -15,6 +15,7 @@ HOOK_SOURCES = [
     ROOT / "src" / "great_general_attachment.cpp",
     ROOT / "src" / "unique_era_abilities_hooks.cpp",
     ROOT / "src" / "unique_unit_rules_hooks.cpp",
+    ROOT / "src" / "terrain_yield_rules_hooks.cpp",
 ]
 GENERAL_SOURCE = ROOT / "src" / "great_general_attachment.cpp"
 GENERATED = ROOT / "generated" / "default"
@@ -235,6 +236,21 @@ EXPECTED_HOOKS = [
         "name": "ReRevvedFixGreatGeneralPostCombat",
         "registers": ["r31", "r26"],
     },
+    {
+        "address": 0x82CF18B4,
+        "name": "ReRevvedApplyTerrainTradeBase",
+        "registers": ["r9", "r29"],
+    },
+    {
+        "address": 0x82CF1BAC,
+        "name": "ReRevvedApplyTerrainProductionBase",
+        "registers": ["r10", "r31"],
+    },
+    {
+        "address": 0x82CF1D9C,
+        "name": "ReRevvedApplyTerrainFoodBase",
+        "registers": ["r10", "r30"],
+    },
 ]
 
 COVERAGE_HOOKS = [
@@ -247,6 +263,54 @@ COVERAGE_HOOKS = [
         "address": 0x82303E8C,
         "name": "ReRevvedNativeRendererCoverageSite82303E8C",
         "registers": [],
+    },
+]
+
+TERRAIN_YIELD_HOOK_SITES = [
+    {
+        "file": "rerevved_recomp.158.cpp",
+        "function": "sub_82CF17C8",
+        "name": "ReRevvedApplyTerrainTradeBase",
+        "registers": ["r9", "r29"],
+        "sequence": (
+            "\t// lbzx r7,r10,r8\n"
+            "\tctx.r7.u64 = REX_LOAD_U8(ctx.r10.u32 + ctx.r8.u32);\n"
+            "\t// extsb r29,r7\n"
+            "\tctx.r29.s64 = ctx.r7.s8;\n"
+            "\t// beq cr6,0x82cf18e4\n"
+            "\tReRevvedApplyTerrainTradeBase(ctx.r9, ctx.r29);\n"
+            "\tif (ctx.cr6.eq) goto loc_82CF18E4;"
+        ),
+    },
+    {
+        "file": "rerevved_recomp.71.cpp",
+        "function": "sub_82CF1AF0",
+        "name": "ReRevvedApplyTerrainProductionBase",
+        "registers": ["r10", "r31"],
+        "sequence": (
+            "\t// lbzx r6,r8,r7\n"
+            "\tctx.r6.u64 = REX_LOAD_U8(ctx.r8.u32 + ctx.r7.u32);\n"
+            "\t// extsb r31,r6\n"
+            "\tctx.r31.s64 = ctx.r6.s8;\n"
+            "\t// beq cr6,0x82cf1bfc\n"
+            "\tReRevvedApplyTerrainProductionBase(ctx.r10, ctx.r31);\n"
+            "\tif (ctx.cr6.eq) goto loc_82CF1BFC;"
+        ),
+    },
+    {
+        "file": "rerevved_recomp.109.cpp",
+        "function": "sub_82CF1CE8",
+        "name": "ReRevvedApplyTerrainFoodBase",
+        "registers": ["r10", "r30"],
+        "sequence": (
+            "\t// lbzx r6,r8,r7\n"
+            "\tctx.r6.u64 = REX_LOAD_U8(ctx.r8.u32 + ctx.r7.u32);\n"
+            "\t// extsb r30,r6\n"
+            "\tctx.r30.s64 = ctx.r6.s8;\n"
+            "\t// beq cr6,0x82cf1dec\n"
+            "\tReRevvedApplyTerrainFoodBase(ctx.r10, ctx.r30);\n"
+            "\tif (ctx.cr6.eq) goto loc_82CF1DEC;"
+        ),
     },
 ]
 
@@ -283,6 +347,7 @@ class HookContractTests(unittest.TestCase):
         self.assertEqual(coverage, COVERAGE_HOOKS)
         permanent_addresses = {hook["address"] for hook in permanent}
         coverage_addresses = {hook["address"] for hook in coverage}
+        self.assertEqual(len(permanent_addresses), len(permanent))
         self.assertTrue(permanent_addresses.isdisjoint(coverage_addresses))
 
         source = COVERAGE_HOOK_SOURCE.read_text(encoding="ascii")
@@ -632,6 +697,53 @@ class HookContractTests(unittest.TestCase):
             self.assertEqual(generated.count(placement), 1)
         self.assertNotIn("ReRevvedBeginEffective", generated)
         self.assertNotIn("ReRevvedFinishEffective", generated)
+
+    def test_terrain_yield_hook_addresses_are_collision_free(self) -> None:
+        with HOOK_CONFIG.open("rb") as stream:
+            hooks = tomllib.load(stream)["midasm_hook"]
+
+        terrain_names = {site["name"] for site in TERRAIN_YIELD_HOOK_SITES}
+        terrain_hooks = [hook for hook in hooks if hook["name"] in terrain_names]
+        expected = [
+            {
+                "address": 0x82CF18B4,
+                "name": "ReRevvedApplyTerrainTradeBase",
+                "registers": ["r9", "r29"],
+            },
+            {
+                "address": 0x82CF1BAC,
+                "name": "ReRevvedApplyTerrainProductionBase",
+                "registers": ["r10", "r31"],
+            },
+            {
+                "address": 0x82CF1D9C,
+                "name": "ReRevvedApplyTerrainFoodBase",
+                "registers": ["r10", "r30"],
+            },
+        ]
+        self.assertEqual(terrain_hooks, expected)
+
+    def test_generated_terrain_yield_hook_placements_when_available(self) -> None:
+        paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
+        if not paths:
+            self.skipTest("generated sources are not available")
+
+        for site in TERRAIN_YIELD_HOOK_SITES:
+            path = GENERATED / site["file"]
+            self.assertTrue(path.is_file(), f"missing generated map row: {path}")
+            source = path.read_text(encoding="utf-8")
+            function_marker = f"DEFINE_REX_FUNC({site['function']})"
+            self.assertEqual(source.count(function_marker), 1)
+            function = source.split(function_marker, 1)[1].split(
+                "DEFINE_REX_FUNC", 1
+            )[0]
+            self.assertEqual(function.count(site["sequence"]), 1)
+
+            registers = ", ".join(
+                f"PPCRegister& {register}" for register in site["registers"]
+            )
+            prototype = f"extern void {site['name']}({registers});"
+            self.assertEqual(source.count(prototype), 1)
 
     def test_generated_unique_era_ability_hook_when_available(self) -> None:
         paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))

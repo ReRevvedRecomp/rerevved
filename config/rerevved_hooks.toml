@@ -254,3 +254,21 @@ registers = ["r31", "r15"]
 address = 0x82CDFCC4
 name = "ReRevvedFixGreatGeneralPostCombat"
 registers = ["r31", "r26"]
+
+# Compose the terrain component's base value before native civilization and
+# tile modifiers continue from the original accessor branch.
+
+[[midasm_hook]]
+address = 0x82CF18B4
+name = "ReRevvedApplyTerrainTradeBase"
+registers = ["r9", "r29"]
+
+[[midasm_hook]]
+address = 0x82CF1BAC
+name = "ReRevvedApplyTerrainProductionBase"
+registers = ["r10", "r31"]
+
+[[midasm_hook]]
+address = 0x82CF1D9C
+name = "ReRevvedApplyTerrainFoodBase"
+registers = ["r10", "r30"]

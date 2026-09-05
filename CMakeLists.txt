@@ -71,6 +71,9 @@ set(REREVVED_SOURCES
     src/unique_unit_rules.cpp
     src/unique_unit_rules_hooks.cpp
     src/unique_unit_rules_registry.h
+    src/terrain_yield_rules.cpp
+    src/terrain_yield_rules_hooks.cpp
+    src/terrain_yield_rules_registry.h
     src/presence.cpp
     src/presence.h
     src/presence_model.cpp
@@ -109,6 +112,7 @@ target_compile_definitions(rerevved PRIVATE
     REREVVED_GAMEPLAY_API_EXPORTS
     REREVVED_UNIQUE_ERA_ABILITIES_API_EXPORTS
     REREVVED_UNIQUE_UNIT_RULES_API_EXPORTS
+    REREVVED_TERRAIN_YIELD_RULES_API_EXPORTS
     REREVVED_UNIT_CATALOG_API_EXPORTS
     REREVVED_VERSION="${PROJECT_VERSION}"
 )
@@ -201,6 +205,28 @@ if(BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
     add_test(NAME unique_unit_rules_c_header COMMAND unique_unit_rules_c_header_tests)
+
+    add_executable(terrain_yield_rules_tests
+        src/terrain_yield_rules.cpp
+        src/terrain_yield_rules_hooks.cpp
+        tests/terrain_yield_rules_test.cpp
+    )
+    target_include_directories(terrain_yield_rules_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/api
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    target_link_libraries(terrain_yield_rules_tests PRIVATE rex::runtime)
+    add_test(NAME terrain_yield_rules_contract COMMAND terrain_yield_rules_tests)
+
+    add_executable(terrain_yield_rules_c_header_tests
+        src/terrain_yield_rules.cpp
+        tests/terrain_yield_rules_c_header_test.c
+    )
+    target_include_directories(terrain_yield_rules_c_header_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/api
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    add_test(NAME terrain_yield_rules_c_header COMMAND terrain_yield_rules_c_header_tests)
 
     add_executable(unique_era_abilities_tests
         src/unique_era_abilities.cpp

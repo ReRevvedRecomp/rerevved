@@ -8,6 +8,19 @@ typedef int32_t ReRevvedCivilizationId;
 typedef int32_t ReRevvedUnitTypeId;
 typedef int32_t ReRevvedUnitIdentityId;
 typedef int32_t ReRevvedUnitDisplayForm;
+typedef int32_t ReRevvedTerrainId;
+
+enum
+{
+    REREVVED_TERRAIN_UNKNOWN  = -1,
+    REREVVED_TERRAIN_SEA      = 0,
+    REREVVED_TERRAIN_PLAINS   = 1,
+    REREVVED_TERRAIN_FOREST   = 2,
+    REREVVED_TERRAIN_HILL     = 3,
+    REREVVED_TERRAIN_DESERT   = 4,
+    REREVVED_TERRAIN_MOUNTAIN = 5,
+    REREVVED_TERRAIN_COUNT    = 6,
+};
 
 enum
 {
