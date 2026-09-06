@@ -214,15 +214,7 @@ bool TryReplaceEraLines(const char*                          native_text,
         size_t                             length      = lengths[index];
         ReRevvedPresentationTextEvaluation presentation{};
         bool                               replaced = false;
-        if (index == 0)
-        {
-            replaced = TryEvaluateText(
-                REREVVED_PRESENTATION_SURFACE_ERA_SECTION_HEADING,
-                REREVVED_PRESENTATION_SELECTOR_UNUSED,
-                REREVVED_PRESENTATION_SELECTOR_UNUSED,
-                presentation);
-        }
-        else if ((index & 1u) != 0)
+        if (index != 0 && (index & 1u) != 0)
         {
             replaced = TryEvaluateText(
                 REREVVED_PRESENTATION_SURFACE_ERA_HEADING,
@@ -230,7 +222,8 @@ bool TryReplaceEraLines(const char*                          native_text,
                 static_cast<ReRevvedUniqueEraUnlockEra>((index - 1) / 2),
                 presentation);
         }
-        else if (TryEvaluateEraText(
+        else if (index != 0 &&
+                 TryEvaluateEraText(
                      civilization,
                      static_cast<ReRevvedUniqueEraUnlockEra>((index - 2) / 2),
                      presentation))

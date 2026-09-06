@@ -109,9 +109,7 @@ bool IsQueryValid(const ReRevvedPresentationTextQuery& query)
                HasUnusedSelectors(query);
     }
     if (query.surface ==
-            REREVVED_PRESENTATION_SURFACE_ERA_SECTION_HEADING ||
-        query.surface ==
-            REREVVED_PRESENTATION_SURFACE_UNIQUE_UNIT_SECTION_HEADING)
+        REREVVED_PRESENTATION_SURFACE_UNIQUE_UNIT_SECTION_HEADING)
     {
         return query.civilization == REREVVED_PRESENTATION_SELECTOR_UNUSED &&
                HasUnusedSelectors(query);

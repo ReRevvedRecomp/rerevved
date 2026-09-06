@@ -249,17 +249,6 @@ void TestAdditionalSurfaces()
         unused,
         unused,
         "Horse Lords");
-    auto era_section = MakeFieldRule(
-        "test.provider",
-        "era-section",
-        REREVVED_PRESENTATION_SURFACE_ERA_SECTION_HEADING,
-        unused,
-        unused,
-        unused,
-        unused,
-        unused,
-        unused,
-        "Unique Era Abilities");
     auto era_heading = MakeFieldRule(
         "test.provider",
         "era-heading",
@@ -286,7 +275,6 @@ void TestAdditionalSurfaces()
     for (const auto* rule : { &leader,
                               &civilization,
                               &trait,
-                              &era_section,
                               &era_heading,
                               &unit_section })
     {
@@ -311,11 +299,11 @@ void TestAdditionalSurfaces()
     Require(ReRevvedRegisterPresentationTextRule(&invalid) ==
                 REREVVED_PRESENTATION_TEXT_ERR_INVALID_ARGUMENT,
             "global era heading accepted a civilization selector");
-    invalid         = era_section;
-    invalid.ability = 0;
+    invalid         = unit_section;
+    invalid.surface = REREVVED_PRESENTATION_SURFACE_RESERVED_5;
     Require(ReRevvedRegisterPresentationTextRule(&invalid) ==
                 REREVVED_PRESENTATION_TEXT_ERR_INVALID_ARGUMENT,
-            "global era heading accepted an unrelated selector");
+            "reserved presentation surface was accepted");
 
     auto conflict = leader;
     std::memcpy(conflict.provider_id, "other.provider", 15);

@@ -47,9 +47,11 @@ enum
     REREVVED_PRESENTATION_SURFACE_LEADER_NAME        = 2,
     REREVVED_PRESENTATION_SURFACE_CIVILIZATION_NAME  = 3,
     REREVVED_PRESENTATION_SURFACE_CIVILIZATION_TRAIT = 4,
+    // Surface 5 was reserved after runtime testing proved the internal era
+    // block prefix is not rendered by the civilization information panel.
+    REREVVED_PRESENTATION_SURFACE_RESERVED_5                  = 5,
     // Global headings use civilization UNUSED. ERA_HEADING additionally uses
     // unlock_era; every other selector is UNUSED.
-    REREVVED_PRESENTATION_SURFACE_ERA_SECTION_HEADING         = 5,
     REREVVED_PRESENTATION_SURFACE_ERA_HEADING                 = 6,
     REREVVED_PRESENTATION_SURFACE_UNIQUE_UNIT_SECTION_HEADING = 7,
 };

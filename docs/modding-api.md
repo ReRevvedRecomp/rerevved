@@ -89,7 +89,7 @@ Game-specific IDs and behavior remain in this repository.
 - Unique Era Ability rules cover only the IDs and effects documented by that ABI.
 - Presentation Text rules replace complete printable ASCII fields on the
   civilization information screen. ABI 1 supports civilization-specific
-  leader, civilization, and trait fields; global era headings and
+  leader, civilization, and trait fields; the four global era labels and
   civilization/effective-ability rows; the global unique-unit heading; and
   civilization/identity-specific unique-unit rows. Multiple matching rules
   preserve native text.

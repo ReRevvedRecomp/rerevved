@@ -897,10 +897,8 @@ class HookContractTests(unittest.TestCase):
             "} // namespace", 1
         )[0]
         self.assertIn("std::array<const char*, 9>", parser)
-        self.assertIn("if (index == 0)", parser)
-        self.assertIn(
-            "REREVVED_PRESENTATION_SURFACE_ERA_SECTION_HEADING", parser
-        )
+        self.assertIn("if (index != 0", parser)
+        self.assertNotIn("REREVVED_PRESENTATION_SURFACE_RESERVED_5", parser)
         self.assertIn("REREVVED_PRESENTATION_SURFACE_ERA_HEADING", parser)
         self.assertIn("(index - 1) / 2", parser)
         self.assertIn("(index - 2) / 2", parser)
