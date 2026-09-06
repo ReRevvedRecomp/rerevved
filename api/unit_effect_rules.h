@@ -1,8 +1,8 @@
 // Public C ABI for creation-time grant-only unit effects.
 //
-// ABI 1 exposes the proved Veteran creation grant. Registrations are copied
-// by the host and match a civilization, base unit type, and accepted Unit
-// Catalog identity.
+// ABI 2 exposes the Veteran creation grant and the nine named native special
+// upgrade effects. Registrations are copied by the host and match a
+// civilization, base unit type, and accepted Unit Catalog identity.
 
 #pragma once
 
@@ -20,7 +20,7 @@
 #define REREVVED_UNIT_EFFECT_RULES_API
 #endif
 
-#define REREVVED_UNIT_EFFECT_RULES_ABI_VERSION 1u
+#define REREVVED_UNIT_EFFECT_RULES_ABI_VERSION 2u
 #define REREVVED_UNIT_EFFECT_RULE_ID_CAPACITY  64u
 
 enum
@@ -36,7 +36,16 @@ typedef int32_t ReRevvedUnitEffectId;
 
 enum
 {
-    REREVVED_UNIT_EFFECT_CREATION_VETERAN = 1,
+    REREVVED_UNIT_EFFECT_CREATION_VETERAN      = 1,
+    REREVVED_UNIT_EFFECT_CREATION_GUERILLA     = 2,
+    REREVVED_UNIT_EFFECT_CREATION_BLITZ        = 3,
+    REREVVED_UNIT_EFFECT_CREATION_INFILTRATION = 4,
+    REREVVED_UNIT_EFFECT_CREATION_LOYALTY      = 5,
+    REREVVED_UNIT_EFFECT_CREATION_ENGINEER     = 6,
+    REREVVED_UNIT_EFFECT_CREATION_LEADERSHIP   = 7,
+    REREVVED_UNIT_EFFECT_CREATION_MARCH        = 8,
+    REREVVED_UNIT_EFFECT_CREATION_MEDIC        = 9,
+    REREVVED_UNIT_EFFECT_CREATION_SCOUT        = 10,
 };
 
 enum

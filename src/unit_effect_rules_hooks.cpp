@@ -1,5 +1,6 @@
 #include "unit_effect_rules_registry.h"
 
+#include <array>
 #include <cstdint>
 
 #include <rex/ppc.h>
@@ -15,6 +16,18 @@ namespace
 constexpr uint32_t kPlayerCivilizations = 0x830ECD28;
 constexpr int32_t  kPlayerCount         = 6;
 constexpr uint32_t kUnitRecordSize      = 0x54;
+
+constexpr std::array<ReRevvedUnitEffectId, 9> kSpecialUpgradeEffects = {
+    REREVVED_UNIT_EFFECT_CREATION_BLITZ,
+    REREVVED_UNIT_EFFECT_CREATION_INFILTRATION,
+    REREVVED_UNIT_EFFECT_CREATION_GUERILLA,
+    REREVVED_UNIT_EFFECT_CREATION_LOYALTY,
+    REREVVED_UNIT_EFFECT_CREATION_ENGINEER,
+    REREVVED_UNIT_EFFECT_CREATION_LEADERSHIP,
+    REREVVED_UNIT_EFFECT_CREATION_MARCH,
+    REREVVED_UNIT_EFFECT_CREATION_MEDIC,
+    REREVVED_UNIT_EFFECT_CREATION_SCOUT,
+};
 
 bool IsGuestReadableRange(uint32_t address, uint32_t extent)
 {
@@ -57,6 +70,33 @@ bool TryWriteU8(uint32_t address, uint8_t value)
     return true;
 }
 
+bool TryReadU32(uint32_t address, uint32_t& value)
+{
+    if (!IsGuestReadableRange(address, sizeof(uint32_t)))
+    {
+        return false;
+    }
+    const auto* source =
+        REX_KERNEL_MEMORY()->TranslateVirtual<const uint8_t*>(address);
+    value = (uint32_t{ source[0] } << 24) | (uint32_t{ source[1] } << 16) |
+            (uint32_t{ source[2] } << 8) | uint32_t{ source[3] };
+    return true;
+}
+
+bool TryWriteU32(uint32_t address, uint32_t value)
+{
+    if (!IsGuestReadableRange(address, sizeof(uint32_t)))
+    {
+        return false;
+    }
+    auto* target = REX_KERNEL_MEMORY()->TranslateVirtual<uint8_t*>(address);
+    target[0]    = static_cast<uint8_t>(value >> 24);
+    target[1]    = static_cast<uint8_t>(value >> 16);
+    target[2]    = static_cast<uint8_t>(value >> 8);
+    target[3]    = static_cast<uint8_t>(value);
+    return true;
+}
+
 bool TryReadCivilization(int32_t player, ReRevvedCivilizationId& civilization)
 {
     if (player < 0 || player >= kPlayerCount ||
@@ -83,9 +123,9 @@ bool TryReadCivilization(int32_t player, ReRevvedCivilizationId& civilization)
 
 } // namespace
 
-void ReRevvedApplyUnitEffectVeteranGrant(PPCRegister& player,
-                                         PPCRegister& unit_table,
-                                         PPCRegister& record_offset)
+void ReRevvedApplyUnitEffectCreationGrants(PPCRegister& player,
+                                           PPCRegister& unit_table,
+                                           PPCRegister& record_offset)
 {
     if (unit_table.u32 > UINT32_MAX - record_offset.u32)
     {
@@ -119,22 +159,71 @@ void ReRevvedApplyUnitEffectVeteranGrant(PPCRegister& player,
         return;
     }
 
-    ReRevvedUnitEffectEvaluation evaluation{};
-    if (!rerevved::unit_effect_rules::TryEvaluate(
+    ReRevvedUnitEffectEvaluation veteran_evaluation{};
+    if (rerevved::unit_effect_rules::TryEvaluate(
             civilization,
             runtime_base_type,
             identity,
             REREVVED_UNIT_EFFECT_CREATION_VETERAN,
             native_level,
-            evaluation) ||
-        (evaluation.status_flags & REREVVED_UNIT_EFFECT_EVALUATION_GRANTED) == 0 ||
-        evaluation.final_level <= native_level)
+            veteran_evaluation) &&
+        (veteran_evaluation.status_flags &
+         REREVVED_UNIT_EFFECT_EVALUATION_GRANTED) != 0 &&
+        veteran_evaluation.final_level > native_level)
+    {
+        // The native +0x3C gate, UEA 50 route, and maximum-two saturation
+        // remain immediately after this hook.
+        TryWriteU8(record + 0x05,
+                   static_cast<uint8_t>(veteran_evaluation.final_level));
+    }
+
+    uint32_t native_upgrades = 0;
+    if (!TryReadU32(record + 0x10, native_upgrades))
     {
         return;
     }
 
-    // The native +0x3C gate, UEA 50 route, and maximum-two saturation remain
-    // immediately after this hook. Only a proved grant can raise the rank.
-    TryWriteU8(record + 0x05,
-               static_cast<uint8_t>(evaluation.final_level));
+    uint32_t granted_upgrades = 0;
+    for (ReRevvedUnitEffectId effect : kSpecialUpgradeEffects)
+    {
+        uint32_t mask = 0;
+        if (!rerevved::unit_effect_rules::TryGetNativeSpecialUpgradeMask(
+                effect, mask))
+        {
+            continue;
+        }
+
+        ReRevvedUnitEffectEvaluation evaluation{};
+        if (rerevved::unit_effect_rules::TryEvaluate(
+                civilization,
+                runtime_base_type,
+                identity,
+                effect,
+                (native_upgrades & mask) != 0 ? 1 : 0,
+                evaluation) &&
+            (evaluation.status_flags &
+             REREVVED_UNIT_EFFECT_EVALUATION_GRANTED) != 0 &&
+            (native_upgrades & mask) == 0)
+        {
+            granted_upgrades |= mask;
+        }
+    }
+
+    if (granted_upgrades == 0 ||
+        !TryWriteU32(record + 0x10, native_upgrades | granted_upgrades))
+    {
+        return;
+    }
+
+    uint32_t march_mask = 0;
+    if (rerevved::unit_effect_rules::TryGetNativeSpecialUpgradeMask(
+            REREVVED_UNIT_EFFECT_CREATION_MARCH, march_mask) &&
+        (granted_upgrades & march_mask) != 0)
+    {
+        uint8_t movement = 0;
+        if (TryReadU8(record + 0x02, movement))
+        {
+            TryWriteU8(record + 0x02, static_cast<uint8_t>(movement + 3));
+        }
+    }
 }

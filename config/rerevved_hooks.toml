@@ -213,12 +213,12 @@ address = 0x82CF2198
 name = "ReRevvedApplyUnitMovementBase"
 registers = ["r30", "r28", "r3"]
 
-# Apply only the creation-time Veteran grant for a matching runtime base type.
-# The native +0x3C gate, UEA 50 route, increment, and saturation follow this
-# site unchanged.
+# Apply creation-time Veteran and native special-upgrade grants for a matching
+# runtime base type. The native +0x3C gate, UEA 50 route, increment, and
+# saturation follow this site unchanged.
 [[midasm_hook]]
 address = 0x82D15B84
-name = "ReRevvedApplyUnitEffectVeteranGrant"
+name = "ReRevvedApplyUnitEffectCreationGrants"
 registers = ["r26", "r28", "r30"]
 
 # The native Mongolian village-capture effect hard-codes civilization 14 and

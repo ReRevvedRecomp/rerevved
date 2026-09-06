@@ -13,7 +13,7 @@ guest addresses, or borrowed strings.
 | [`gameplay_state.h`](../api/gameplay_state.h) | Read-only gameplay availability and active-player snapshot. |
 | [`unit_catalog.h`](../api/unit_catalog.h) | Static unit definitions and civilization-specific unit identity resolution. |
 | [`unit_movement_rules.h`](../api/unit_movement_rules.h) | Registration and evaluation of identity-targeted additive base movement rules. |
-| [`unit_effect_rules.h`](../api/unit_effect_rules.h) | Registration and evaluation of the proved creation-time Veteran grant. |
+| [`unit_effect_rules.h`](../api/unit_effect_rules.h) | Registration and evaluation of named creation-time unit effects. |
 | [`unique_unit_rules.h`](../api/unique_unit_rules.h) | Registration and evaluation of Unique Unit base attack and defense rules. |
 | [`unique_era_abilities.h`](../api/unique_era_abilities.h) | Registration and evaluation of supported Unique Era Ability replacements. |
 
@@ -45,13 +45,20 @@ Game-specific IDs and behavior remain in this repository.
   ordinary `EffectiveUnitMovementLookup` return path. They match civilization,
   base type, and the accepted Unit Catalog identity. The special return,
   movement budget and command cost, AI, and presentation coverage are unproved.
-- Unit effect rules expose only a creation-time Veteran grant. They match
-  civilization, base type, and the accepted Unit Catalog identity, raise a
-  lower creation rank to level two, and preserve a higher native rank. The
-  accepted hook preserves the native
-  `+0x3C` gate, UEA 50 route, and maximum-two saturation; combat promotion,
-  presentation, AI, save, scenario, multiplayer, and persistence coverage are
-  unproved.
+- Unit effect rules use ABI 2 and expose the creation-time Veteran grant plus
+  the nine named native special upgrade effects: Blitz, Infiltration, Guerilla,
+  Loyalty, Engineer, Leadership, March, Medic, and Scout. They match
+  civilization, base type, and the accepted Unit Catalog identity. Veteran
+  raises a lower creation rank to level two and preserves a higher native rank;
+  the named special effects report a grant while preserving the queried native
+  rank. The ABI 1 record layouts and Veteran effect ID remain unchanged. At
+  creation, the title ORs granted special upgrades into the native upgrade word
+  without spending rank; March also adds one movement point. The Veteran path
+  preserves the native `+0x3C` gate, UEA 50 route, and maximum-two saturation.
+  A Windows x64 runtime check confirmed that a newly created Jaguar Warrior
+  received and displayed a registered Guerilla grant. Guerilla combat behavior
+  and runtime coverage for the other named effects, combat promotion, AI, save,
+  scenario, multiplayer, and persistence remain unproved.
 - Unique Unit rules compose at the documented base-stat boundary before the title applies its native modifiers.
 - Unique Era Ability rules cover only the IDs and effects documented by that ABI.
 - Registration records are copied by the host. Provider and rule identifiers must obey their header's capacities and validation rules.

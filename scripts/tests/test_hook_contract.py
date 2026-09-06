@@ -206,7 +206,7 @@ EXPECTED_HOOKS = [
     },
     {
         "address": 0x82D15B84,
-        "name": "ReRevvedApplyUnitEffectVeteranGrant",
+        "name": "ReRevvedApplyUnitEffectCreationGrants",
         "registers": ["r26", "r28", "r30"],
     },
     {
@@ -819,13 +819,13 @@ class HookContractTests(unittest.TestCase):
 
         generated = "".join(path.read_text(encoding="utf-8") for path in paths)
         prototype = (
-            "extern void ReRevvedApplyUnitEffectVeteranGrant("
+            "extern void ReRevvedApplyUnitEffectCreationGrants("
             "PPCRegister& r26, PPCRegister& r28, PPCRegister& r30);"
         )
         placement = (
             "loc_82D15B84:\n"
             "\t// lwz r11,116(r1)\n"
-            "\tReRevvedApplyUnitEffectVeteranGrant(ctx.r26, ctx.r28, ctx.r30);\n"
+            "\tReRevvedApplyUnitEffectCreationGrants(ctx.r26, ctx.r28, ctx.r30);\n"
             "\tctx.r11.u64 = REX_LOAD_U32(ctx.r1.u32 + 116);"
         )
         if prototype not in generated:
@@ -835,7 +835,7 @@ class HookContractTests(unittest.TestCase):
 
         function = generated.split("DEFINE_REX_FUNC(sub_82D13978)", 1)[1]
         function = function.split("DEFINE_REX_FUNC", 1)[0]
-        self.assertEqual(function.count("ReRevvedApplyUnitEffectVeteranGrant"), 1)
+        self.assertEqual(function.count("ReRevvedApplyUnitEffectCreationGrants"), 1)
         self.assertIn("ctx.r3.s64 = 50;", function)
         self.assertIn("cmpwi cr6,r8,0", function)
         self.assertIn("cmpwi cr6,r10,2", function)

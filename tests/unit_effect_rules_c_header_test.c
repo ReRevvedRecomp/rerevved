@@ -27,7 +27,16 @@ int main(void)
         offsetof(ReRevvedUnitEffectQuery, identity) != 12 ||
         offsetof(ReRevvedUnitEffectQuery, native_level) != 20 ||
         offsetof(ReRevvedUnitEffectEvaluation, final_level) != 8 ||
-        REREVVED_UNIT_EFFECT_CREATION_VETERAN != 1)
+        REREVVED_UNIT_EFFECT_CREATION_VETERAN != 1 ||
+        REREVVED_UNIT_EFFECT_CREATION_GUERILLA != 2 ||
+        REREVVED_UNIT_EFFECT_CREATION_BLITZ != 3 ||
+        REREVVED_UNIT_EFFECT_CREATION_INFILTRATION != 4 ||
+        REREVVED_UNIT_EFFECT_CREATION_LOYALTY != 5 ||
+        REREVVED_UNIT_EFFECT_CREATION_ENGINEER != 6 ||
+        REREVVED_UNIT_EFFECT_CREATION_LEADERSHIP != 7 ||
+        REREVVED_UNIT_EFFECT_CREATION_MARCH != 8 ||
+        REREVVED_UNIT_EFFECT_CREATION_MEDIC != 9 ||
+        REREVVED_UNIT_EFFECT_CREATION_SCOUT != 10)
     {
         return 1;
     }

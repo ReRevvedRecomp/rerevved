@@ -1,6 +1,7 @@
 #include "unit_effect_rules_registry.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -19,6 +20,25 @@ namespace
 constexpr uint32_t kRuleInfoPrefix   = 152;
 constexpr uint32_t kEvaluationPrefix = 20;
 constexpr int32_t  kVeteranLevel     = 2;
+
+struct NativeSpecialUpgradeMapping
+{
+    ReRevvedUnitEffectId effect;
+    uint32_t             mask;
+};
+
+constexpr std::array<NativeSpecialUpgradeMapping, 9>
+    kNativeSpecialUpgradeMappings = { {
+        { REREVVED_UNIT_EFFECT_CREATION_GUERILLA, 1u << 2 },
+        { REREVVED_UNIT_EFFECT_CREATION_BLITZ, 1u << 0 },
+        { REREVVED_UNIT_EFFECT_CREATION_INFILTRATION, 1u << 1 },
+        { REREVVED_UNIT_EFFECT_CREATION_LOYALTY, 1u << 3 },
+        { REREVVED_UNIT_EFFECT_CREATION_ENGINEER, 1u << 4 },
+        { REREVVED_UNIT_EFFECT_CREATION_LEADERSHIP, 1u << 5 },
+        { REREVVED_UNIT_EFFECT_CREATION_MARCH, 1u << 6 },
+        { REREVVED_UNIT_EFFECT_CREATION_MEDIC, 1u << 7 },
+        { REREVVED_UNIT_EFFECT_CREATION_SCOUT, 1u << 8 },
+    } };
 
 std::shared_mutex                   registry_mutex;
 std::vector<ReRevvedUnitEffectRule> registry;
@@ -79,7 +99,18 @@ bool IsUnitTypeValid(ReRevvedUnitTypeId unit_type)
 
 bool IsEffectValid(ReRevvedUnitEffectId effect)
 {
-    return effect == REREVVED_UNIT_EFFECT_CREATION_VETERAN;
+    if (effect == REREVVED_UNIT_EFFECT_CREATION_VETERAN)
+    {
+        return true;
+    }
+
+    return std::any_of(
+        kNativeSpecialUpgradeMappings.begin(),
+        kNativeSpecialUpgradeMappings.end(),
+        [effect](const NativeSpecialUpgradeMapping& mapping)
+        {
+            return mapping.effect == effect;
+        });
 }
 
 bool IsTargetValid(ReRevvedCivilizationId civilization,
@@ -147,6 +178,25 @@ int32_t CopyOutput(Record* out, uint32_t out_size, const Record& producer)
 
 } // namespace
 
+bool TryGetNativeSpecialUpgradeMask(ReRevvedUnitEffectId effect,
+                                    uint32_t&            mask)
+{
+    const auto mapping = std::find_if(
+        kNativeSpecialUpgradeMappings.begin(),
+        kNativeSpecialUpgradeMappings.end(),
+        [effect](const NativeSpecialUpgradeMapping& candidate)
+        {
+            return candidate.effect == effect;
+        });
+    if (mapping == kNativeSpecialUpgradeMappings.end())
+    {
+        return false;
+    }
+
+    mask = mapping->mask;
+    return true;
+}
+
 bool TryEvaluate(ReRevvedCivilizationId        civilization,
                  ReRevvedUnitTypeId            base_unit_type,
                  ReRevvedUnitIdentityId        identity,
@@ -185,7 +235,8 @@ bool TryEvaluate(ReRevvedCivilizationId        civilization,
     if (evaluation.grant_count != 0)
     {
         evaluation.status_flags |= REREVVED_UNIT_EFFECT_EVALUATION_GRANTED;
-        if (evaluation.final_level < kVeteranLevel)
+        if (effect == REREVVED_UNIT_EFFECT_CREATION_VETERAN &&
+            evaluation.final_level < kVeteranLevel)
         {
             evaluation.final_level = kVeteranLevel;
         }

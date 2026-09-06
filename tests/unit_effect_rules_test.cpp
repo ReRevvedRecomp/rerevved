@@ -1,5 +1,6 @@
 #include "unit_effect_rules_registry.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -23,7 +24,9 @@ ReRevvedUnitEffectRule MakeRule(const char*            provider,
                                 const char*            rule_id,
                                 ReRevvedCivilizationId civilization,
                                 ReRevvedUnitTypeId     base_unit_type,
-                                ReRevvedUnitIdentityId identity)
+                                ReRevvedUnitIdentityId identity,
+                                ReRevvedUnitEffectId   effect =
+                                    REREVVED_UNIT_EFFECT_CREATION_VETERAN)
 {
     ReRevvedUnitEffectRule rule{};
     rule.struct_size = sizeof(rule);
@@ -32,21 +35,23 @@ ReRevvedUnitEffectRule MakeRule(const char*            provider,
     rule.civilization   = civilization;
     rule.base_unit_type = base_unit_type;
     rule.identity       = identity;
-    rule.effect         = REREVVED_UNIT_EFFECT_CREATION_VETERAN;
+    rule.effect         = effect;
     return rule;
 }
 
 ReRevvedUnitEffectEvaluation Evaluate(ReRevvedCivilizationId civilization,
                                       ReRevvedUnitTypeId     base_unit_type,
                                       ReRevvedUnitIdentityId identity,
-                                      int32_t                native_level)
+                                      int32_t                native_level,
+                                      ReRevvedUnitEffectId   effect =
+                                          REREVVED_UNIT_EFFECT_CREATION_VETERAN)
 {
     const ReRevvedUnitEffectQuery query = {
         sizeof(ReRevvedUnitEffectQuery),
         civilization,
         base_unit_type,
         identity,
-        REREVVED_UNIT_EFFECT_CREATION_VETERAN,
+        effect,
         native_level,
         {},
     };
@@ -82,7 +87,7 @@ void TestLayoutAndValidation()
                               REREVVED_CIVILIZATION_AZTEC,
                               REREVVED_UNIT_TYPE_WARRIOR,
                               REREVVED_UNIT_IDENTITY_JAGUAR_WARRIOR);
-    invalid.effect = 2;
+    invalid.effect = 11;
     Require(ReRevvedRegisterUnitEffectRule(&invalid) ==
                 REREVVED_UNIT_EFFECT_RULES_ERR_INVALID_ARGUMENT,
             "unsupported unit effect accepted");
@@ -106,6 +111,77 @@ void TestLayoutAndValidation()
     Require(ReRevvedRegisterUnitEffectRule(&invalid) ==
                 REREVVED_UNIT_EFFECT_RULES_ERR_INVALID_ARGUMENT,
             "mismatched identity unit effect accepted");
+}
+
+void TestNamedSpecialEffects()
+{
+    struct ExpectedEffect
+    {
+        ReRevvedUnitEffectId effect;
+        uint32_t             mask;
+    };
+
+    constexpr std::array<ExpectedEffect, 9> expected = { {
+        { REREVVED_UNIT_EFFECT_CREATION_GUERILLA, 1u << 2 },
+        { REREVVED_UNIT_EFFECT_CREATION_BLITZ, 1u << 0 },
+        { REREVVED_UNIT_EFFECT_CREATION_INFILTRATION, 1u << 1 },
+        { REREVVED_UNIT_EFFECT_CREATION_LOYALTY, 1u << 3 },
+        { REREVVED_UNIT_EFFECT_CREATION_ENGINEER, 1u << 4 },
+        { REREVVED_UNIT_EFFECT_CREATION_LEADERSHIP, 1u << 5 },
+        { REREVVED_UNIT_EFFECT_CREATION_MARCH, 1u << 6 },
+        { REREVVED_UNIT_EFFECT_CREATION_MEDIC, 1u << 7 },
+        { REREVVED_UNIT_EFFECT_CREATION_SCOUT, 1u << 8 },
+    } };
+
+    rerevved::unit_effect_rules::ResetForTests();
+    constexpr std::array<const char*, 9> rule_ids = { {
+        "guerilla",
+        "blitz",
+        "infiltration",
+        "loyalty",
+        "engineer",
+        "leadership",
+        "march",
+        "medic",
+        "scout",
+    } };
+
+    uint32_t veteran_mask = 0;
+    Require(!rerevved::unit_effect_rules::TryGetNativeSpecialUpgradeMask(
+                REREVVED_UNIT_EFFECT_CREATION_VETERAN,
+                veteran_mask),
+            "Veteran was treated as a native special upgrade");
+
+    for (size_t index = 0; index < expected.size(); ++index)
+    {
+        uint32_t mask = 0;
+        Require(rerevved::unit_effect_rules::TryGetNativeSpecialUpgradeMask(
+                    expected[index].effect,
+                    mask) &&
+                    mask == expected[index].mask,
+                "named special effect mapped to the wrong native mask");
+
+        const auto rule = MakeRule("test.special",
+                                   rule_ids[index],
+                                   REREVVED_CIVILIZATION_AZTEC,
+                                   REREVVED_UNIT_TYPE_WARRIOR,
+                                   REREVVED_UNIT_IDENTITY_JAGUAR_WARRIOR,
+                                   expected[index].effect);
+        Require(ReRevvedRegisterUnitEffectRule(&rule) ==
+                    REREVVED_UNIT_EFFECT_RULES_OK,
+                "named special effect registration failed");
+
+        const auto evaluation = Evaluate(REREVVED_CIVILIZATION_AZTEC,
+                                         REREVVED_UNIT_TYPE_WARRIOR,
+                                         REREVVED_UNIT_IDENTITY_JAGUAR_WARRIOR,
+                                         1,
+                                         expected[index].effect);
+        Require(evaluation.final_level == 1 &&
+                    evaluation.grant_count == 1 &&
+                    (evaluation.status_flags &
+                     REREVVED_UNIT_EFFECT_EVALUATION_GRANTED) != 0,
+                "special effect changed the native rank");
+    }
 }
 
 void TestRegistrationAndGrant()
@@ -207,6 +283,7 @@ void TestSizedOutput()
 int main()
 {
     TestLayoutAndValidation();
+    TestNamedSpecialEffects();
     TestRegistrationAndGrant();
     TestSizedOutput();
     return 0;
