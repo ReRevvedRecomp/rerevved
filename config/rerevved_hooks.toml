@@ -205,6 +205,22 @@ address = 0x82CF0D6C
 name = "ReRevvedApplyUniqueEraAbilityCell"
 registers = ["r4", "r9", "r11"]
 
+# Add identity-targeted movement deltas to the completed native result on the
+# ordinary EffectiveUnitMovementLookup return. The special return bypasses
+# this site and remains native.
+[[midasm_hook]]
+address = 0x82CF2198
+name = "ReRevvedApplyUnitMovementBase"
+registers = ["r30", "r28", "r3"]
+
+# Apply only the creation-time Veteran grant for a matching runtime base type.
+# The native +0x3C gate, UEA 50 route, increment, and saturation follow this
+# site unchanged.
+[[midasm_hook]]
+address = 0x82D15B84
+name = "ReRevvedApplyUnitEffectVeteranGrant"
+registers = ["r26", "r28", "r30"]
+
 # The native Mongolian village-capture effect hard-codes civilization 14 and
 # bypasses the shared UEA lookup. Re-evaluate its Ancient cell at that exact
 # gate so a replacement uses the native ordinary-village reward branch.

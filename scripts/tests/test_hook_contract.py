@@ -15,6 +15,8 @@ HOOK_SOURCES = [
     ROOT / "src" / "great_general_attachment.cpp",
     ROOT / "src" / "unique_era_abilities_hooks.cpp",
     ROOT / "src" / "unique_unit_rules_hooks.cpp",
+    ROOT / "src" / "unit_movement_rules_hooks.cpp",
+    ROOT / "src" / "unit_effect_rules_hooks.cpp",
     ROOT / "src" / "terrain_yield_rules_hooks.cpp",
 ]
 GENERAL_SOURCE = ROOT / "src" / "great_general_attachment.cpp"
@@ -196,6 +198,16 @@ EXPECTED_HOOKS = [
         "address": 0x82CF0D6C,
         "name": "ReRevvedApplyUniqueEraAbilityCell",
         "registers": ["r4", "r9", "r11"],
+    },
+    {
+        "address": 0x82CF2198,
+        "name": "ReRevvedApplyUnitMovementBase",
+        "registers": ["r30", "r28", "r3"],
+    },
+    {
+        "address": 0x82D15B84,
+        "name": "ReRevvedApplyUnitEffectVeteranGrant",
+        "registers": ["r26", "r28", "r30"],
     },
     {
         "address": 0x82D1B758,
@@ -767,6 +779,73 @@ class HookContractTests(unittest.TestCase):
             cumulative_mode.count("ReRevvedApplyUniqueEraAbilityCell"), 1
         )
         self.assertIn("if (ctx.cr6.eq) goto loc_82CF0D0C;", exact_mode)
+
+    def test_generated_unit_movement_hook_preserves_ordinary_return_when_available(
+        self,
+    ) -> None:
+        paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
+        if not paths:
+            self.skipTest("generated sources are not available")
+
+        generated = "".join(path.read_text(encoding="utf-8") for path in paths)
+        prototype = (
+            "extern void ReRevvedApplyUnitMovementBase(PPCRegister& r30, "
+            "PPCRegister& r28, PPCRegister& r3);"
+        )
+        placement = (
+            "\t// add r3,r11,r26\n"
+            "\tctx.r3.u64 = ctx.r11.u64 + ctx.r26.u64;\n"
+            "\t// addi r1,r1,160\n"
+            "\tReRevvedApplyUnitMovementBase(ctx.r30, ctx.r28, ctx.r3);"
+        )
+        if prototype not in generated:
+            self.skipTest("generated movement hook is not available")
+        self.assertEqual(generated.count(prototype), 1)
+        self.assertEqual(generated.count(placement), 1)
+
+        function = generated.split("DEFINE_REX_FUNC(sub_82CF1F70)", 1)[1]
+        function = function.split("DEFINE_REX_FUNC", 1)[0]
+        self.assertEqual(function.count("ReRevvedApplyUnitMovementBase"), 1)
+        special_return, ordinary_return = function.split("loc_82CF218C:", 1)
+        self.assertNotIn("ReRevvedApplyUnitMovementBase", special_return)
+        self.assertIn("ReRevvedApplyUnitMovementBase", ordinary_return)
+
+    def test_generated_unit_effect_hook_preserves_native_creation_gate_when_available(
+        self,
+    ) -> None:
+        paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
+        if not paths:
+            self.skipTest("generated sources are not available")
+
+        generated = "".join(path.read_text(encoding="utf-8") for path in paths)
+        prototype = (
+            "extern void ReRevvedApplyUnitEffectVeteranGrant("
+            "PPCRegister& r26, PPCRegister& r28, PPCRegister& r30);"
+        )
+        placement = (
+            "loc_82D15B84:\n"
+            "\t// lwz r11,116(r1)\n"
+            "\tReRevvedApplyUnitEffectVeteranGrant(ctx.r26, ctx.r28, ctx.r30);\n"
+            "\tctx.r11.u64 = REX_LOAD_U32(ctx.r1.u32 + 116);"
+        )
+        if prototype not in generated:
+            self.skipTest("generated unit effect hook is not available")
+        self.assertEqual(generated.count(prototype), 1)
+        self.assertEqual(generated.count(placement), 1)
+
+        function = generated.split("DEFINE_REX_FUNC(sub_82D13978)", 1)[1]
+        function = function.split("DEFINE_REX_FUNC", 1)[0]
+        self.assertEqual(function.count("ReRevvedApplyUnitEffectVeteranGrant"), 1)
+        self.assertIn("ctx.r3.s64 = 50;", function)
+        self.assertIn("cmpwi cr6,r8,0", function)
+        self.assertIn("cmpwi cr6,r10,2", function)
+
+    def test_unit_effect_hook_resolves_catalog_identity(self) -> None:
+        source = (ROOT / "src" / "unit_effect_rules_hooks.cpp").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("unit_catalog::TryResolveUnitIdentity(", source)
+        self.assertIn("identity == REREVVED_UNIT_IDENTITY_BASE", source)
 
     def test_generated_horseback_riding_consumer_when_available(self) -> None:
         paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))

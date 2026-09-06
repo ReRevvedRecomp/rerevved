@@ -12,6 +12,8 @@ guest addresses, or borrowed strings.
 | [`game_ids.h`](../api/game_ids.h) | Shared civilization, unit type, unit identity, and display-form IDs. |
 | [`gameplay_state.h`](../api/gameplay_state.h) | Read-only gameplay availability and active-player snapshot. |
 | [`unit_catalog.h`](../api/unit_catalog.h) | Static unit definitions and civilization-specific unit identity resolution. |
+| [`unit_movement_rules.h`](../api/unit_movement_rules.h) | Registration and evaluation of identity-targeted additive base movement rules. |
+| [`unit_effect_rules.h`](../api/unit_effect_rules.h) | Registration and evaluation of the proved creation-time Veteran grant. |
 | [`unique_unit_rules.h`](../api/unique_unit_rules.h) | Registration and evaluation of Unique Unit base attack and defense rules. |
 | [`unique_era_abilities.h`](../api/unique_era_abilities.h) | Registration and evaluation of supported Unique Era Ability replacements. |
 
@@ -39,6 +41,17 @@ Game-specific IDs and behavior remain in this repository.
 
 - Gameplay state is a read-only snapshot. Validity bits identify meaningful fields.
 - The unit catalog is static and does not enumerate live game objects.
+- Unit movement rules add signed values to the completed native result on the
+  ordinary `EffectiveUnitMovementLookup` return path. They match civilization,
+  base type, and the accepted Unit Catalog identity. The special return,
+  movement budget and command cost, AI, and presentation coverage are unproved.
+- Unit effect rules expose only a creation-time Veteran grant. They match
+  civilization, base type, and the accepted Unit Catalog identity, raise a
+  lower creation rank to level two, and preserve a higher native rank. The
+  accepted hook preserves the native
+  `+0x3C` gate, UEA 50 route, and maximum-two saturation; combat promotion,
+  presentation, AI, save, scenario, multiplayer, and persistence coverage are
+  unproved.
 - Unique Unit rules compose at the documented base-stat boundary before the title applies its native modifiers.
 - Unique Era Ability rules cover only the IDs and effects documented by that ABI.
 - Registration records are copied by the host. Provider and rule identifiers must obey their header's capacities and validation rules.
