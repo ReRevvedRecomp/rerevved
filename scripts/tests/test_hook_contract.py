@@ -14,6 +14,7 @@ HOOK_SOURCES = [
     ROOT / "src" / "rerevved_hooks.cpp",
     ROOT / "src" / "great_general_attachment.cpp",
     ROOT / "src" / "unique_era_abilities_hooks.cpp",
+    ROOT / "src" / "presentation_text_hooks.cpp",
     ROOT / "src" / "unique_unit_rules_hooks.cpp",
     ROOT / "src" / "unit_movement_rules_hooks.cpp",
     ROOT / "src" / "unit_production_cost_rules_hooks.cpp",
@@ -22,6 +23,7 @@ HOOK_SOURCES = [
     ROOT / "src" / "terrain_yield_rules_hooks.cpp",
 ]
 GENERAL_SOURCE = ROOT / "src" / "great_general_attachment.cpp"
+PRESENTATION_SOURCE = ROOT / "src" / "presentation_text_hooks.cpp"
 GENERATED = ROOT / "generated" / "default"
 
 EXPECTED_HOOKS = [
@@ -200,6 +202,16 @@ EXPECTED_HOOKS = [
         "address": 0x82CF0D6C,
         "name": "ReRevvedApplyUniqueEraAbilityCell",
         "registers": ["r4", "r9", "r11"],
+    },
+    {
+        "address": 0x82D7807C,
+        "name": "ReRevvedApplyEraAbilityPresentationText",
+        "registers": ["r31", "r20"],
+    },
+    {
+        "address": 0x82D783B4,
+        "name": "ReRevvedApplyUniqueUnitPresentationText",
+        "registers": ["r3", "r27", "r20"],
     },
     {
         "address": 0x82CF2198,
@@ -858,6 +870,55 @@ class HookContractTests(unittest.TestCase):
             cumulative_mode.count("ReRevvedApplyUniqueEraAbilityCell"), 1
         )
         self.assertIn("if (ctx.cr6.eq) goto loc_82CF0D0C;", exact_mode)
+
+    def test_era_presentation_buffer_has_native_length_header(self) -> None:
+        source = PRESENTATION_SOURCE.read_text(encoding="ascii")
+        parser = source.split("bool TryReplaceEraLines", 1)[1].split(
+            "} // namespace", 1
+        )[0]
+        self.assertIn("std::array<const char*, 9>", parser)
+        self.assertIn("index >= 2 && (index & 1u) == 0", parser)
+        self.assertIn("(index - 2) / 2", parser)
+        publish = source.split("bool TryPublishText", 1)[1].split(
+            "bool TryEvaluateEraText", 1
+        )[0]
+        self.assertIn("include_length_header", publish)
+        self.assertIn("WriteBigEndianU32", publish)
+        self.assertRegex(
+            publish,
+            r"out\.u64\s*=\s*text_address;",
+        )
+        era_hook = source.split(
+            "void ReRevvedApplyEraAbilityPresentationText", 1
+        )[1].split("void ReRevvedApplyUniqueUnitPresentationText", 1)[0]
+        self.assertRegex(
+            era_hook,
+            r"TryPublishText\(replacement\.data\(\),\s*"
+            r"replacement\.size\(\),\s*true,",
+        )
+
+    def test_generated_presentation_hooks_when_available(self) -> None:
+        paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
+        if not paths:
+            self.skipTest("generated sources are not available")
+
+        generated = "".join(path.read_text(encoding="utf-8") for path in paths)
+        unit_placement = (
+            "\tctx.lr = 0x82D783B4;\n"
+            "\tsub_82E6A430(ctx, base);\n"
+            "\t// mr r4,r3\n"
+            "\tReRevvedApplyUniqueUnitPresentationText("
+            "ctx.r3, ctx.r27, ctx.r20);\n"
+            "\tctx.r4.u64 = ctx.r3.u64;"
+        )
+        era_placement = (
+            "\tctx.r31.u64 = REX_LOAD_U32(ctx.r3.u32 + 0);\n"
+            "\t// addi r29,r25,16\n"
+            "\tReRevvedApplyEraAbilityPresentationText(ctx.r31, ctx.r20);\n"
+            "\tctx.r29.s64 = ctx.r25.s64 + 16;"
+        )
+        self.assertEqual(generated.count(unit_placement), 1)
+        self.assertEqual(generated.count(era_placement), 1)
 
     def test_generated_unit_movement_hook_preserves_ordinary_return_when_available(
         self,

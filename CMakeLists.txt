@@ -63,6 +63,9 @@ set(REREVVED_SOURCES
     src/native_renderer_coverage.cpp
     src/native_renderer_coverage.h
     src/native_renderer_coverage_hooks.inc
+    src/presentation_text.cpp
+    src/presentation_text_hooks.cpp
+    src/presentation_text_registry.h
     src/gpu/renderer_backend.cpp
     src/gpu/renderer_backend.h
     src/unique_era_abilities.cpp
@@ -122,6 +125,7 @@ target_include_directories(rerevved PRIVATE
 )
 target_compile_definitions(rerevved PRIVATE
     REREVVED_GAMEPLAY_API_EXPORTS
+    REREVVED_PRESENTATION_TEXT_API_EXPORTS
     REREVVED_UNIQUE_ERA_ABILITIES_API_EXPORTS
     REREVVED_UNIQUE_UNIT_RULES_API_EXPORTS
     REREVVED_UNIT_MOVEMENT_RULES_API_EXPORTS
@@ -199,6 +203,28 @@ if(BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
     add_test(NAME unit_catalog_api_c_header COMMAND unit_catalog_api_c_header_tests)
+
+    add_executable(presentation_text_tests
+        src/presentation_text.cpp
+        src/unit_catalog_api.cpp
+        tests/presentation_text_test.cpp
+    )
+    target_include_directories(presentation_text_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/api
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    add_test(NAME presentation_text_contract COMMAND presentation_text_tests)
+
+    add_executable(presentation_text_c_header_tests
+        src/presentation_text.cpp
+        src/unit_catalog_api.cpp
+        tests/presentation_text_c_header_test.c
+    )
+    target_include_directories(presentation_text_c_header_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/api
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    add_test(NAME presentation_text_c_header COMMAND presentation_text_c_header_tests)
 
     add_executable(unique_unit_rules_tests
         src/unique_unit_rules.cpp

@@ -205,6 +205,21 @@ address = 0x82CF0D6C
 name = "ReRevvedApplyUniqueEraAbilityCell"
 registers = ["r4", "r9", "r11"]
 
+# Replace the completed era block while the civilization-selection
+# builder still carries its civilization selector.
+
+[[midasm_hook]]
+address = 0x82D7807C
+name = "ReRevvedApplyEraAbilityPresentationText"
+registers = ["r31", "r20"]
+
+# Replace each localized Special Units name before the builder joins names.
+
+[[midasm_hook]]
+address = 0x82D783B4
+name = "ReRevvedApplyUniqueUnitPresentationText"
+registers = ["r3", "r27", "r20"]
+
 # Add identity-targeted movement deltas to the completed native result on the
 # ordinary EffectiveUnitMovementLookup return. The special return bypasses
 # this site and remains native.

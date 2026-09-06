@@ -11,6 +11,7 @@ guest addresses, or borrowed strings.
 |---|---|
 | [`game_ids.h`](../api/game_ids.h) | Shared civilization, unit type, unit identity, and display-form IDs. |
 | [`gameplay_state.h`](../api/gameplay_state.h) | Read-only gameplay availability and active-player snapshot. |
+| [`presentation_text.h`](../api/presentation_text.h) | Civilization information screen era and unique-unit text replacements. |
 | [`unit_catalog.h`](../api/unit_catalog.h) | Static unit definitions and civilization-specific unit identity resolution. |
 | [`unit_movement_rules.h`](../api/unit_movement_rules.h) | Registration and evaluation of identity-targeted additive base movement rules. |
 | [`unit_production_cost_rules.h`](../api/unit_production_cost_rules.h) | Registration and evaluation of identity-targeted additive production cost percentages. |
@@ -86,6 +87,9 @@ Game-specific IDs and behavior remain in this repository.
   scenario, multiplayer, and persistence remain unproved.
 - Unique Unit rules compose at the documented base-stat boundary before the title applies its native modifiers.
 - Unique Era Ability rules cover only the IDs and effects documented by that ABI.
+- Presentation Text rules replace complete printable ASCII lines on the
+  civilization information screen. ABI 1 supports era-ability rows and
+  unique-unit rows. Multiple matching rules preserve native text.
 - Registration records are copied by the host. Provider and rule identifiers must obey their header's capacities and validation rules.
 
 These interfaces do not provide raw guest-memory access, asset replacement,
