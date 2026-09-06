@@ -18,6 +18,33 @@ void Require(bool condition, std::string_view message)
     }
 }
 
+ReRevvedPresentationTextRule MakeFieldRule(
+    const char*                 provider,
+    const char*                 rule_id,
+    ReRevvedPresentationSurface surface,
+    ReRevvedCivilizationId      civilization,
+    ReRevvedUniqueEraUnlockEra  unlock_era,
+    ReRevvedUniqueEraAbilityId  ability,
+    ReRevvedUnitTypeId          base_unit_type,
+    ReRevvedUnitIdentityId      identity,
+    ReRevvedUnitDisplayForm     display_form,
+    const char*                 text)
+{
+    ReRevvedPresentationTextRule rule{};
+    rule.struct_size    = sizeof(rule);
+    rule.surface        = surface;
+    rule.civilization   = civilization;
+    rule.unlock_era     = unlock_era;
+    rule.ability        = ability;
+    rule.base_unit_type = base_unit_type;
+    rule.identity       = identity;
+    rule.display_form   = display_form;
+    std::memcpy(rule.provider_id, provider, std::strlen(provider) + 1);
+    std::memcpy(rule.rule_id, rule_id, std::strlen(rule_id) + 1);
+    std::memcpy(rule.text, text, std::strlen(text) + 1);
+    return rule;
+}
+
 ReRevvedPresentationTextRule MakeEraRule(const char* provider,
                                          const char* rule_id,
                                          const char* text)
@@ -184,6 +211,127 @@ void TestReadbackAndSizedOutput()
             "short presentation evaluation accepted");
 }
 
+void TestAdditionalSurfaces()
+{
+    rerevved::presentation_text::ResetForTests();
+    constexpr auto unused = REREVVED_PRESENTATION_SELECTOR_UNUSED;
+
+    auto leader = MakeFieldRule(
+        "test.provider",
+        "leader",
+        REREVVED_PRESENTATION_SURFACE_LEADER_NAME,
+        REREVVED_CIVILIZATION_MONGOLIAN,
+        unused,
+        unused,
+        unused,
+        unused,
+        unused,
+        "Genghis Khan");
+    auto civilization = MakeFieldRule(
+        "test.provider",
+        "civilization",
+        REREVVED_PRESENTATION_SURFACE_CIVILIZATION_NAME,
+        REREVVED_CIVILIZATION_MONGOLIAN,
+        unused,
+        unused,
+        unused,
+        unused,
+        unused,
+        "Mongolia");
+    auto trait = MakeFieldRule(
+        "test.provider",
+        "trait",
+        REREVVED_PRESENTATION_SURFACE_CIVILIZATION_TRAIT,
+        REREVVED_CIVILIZATION_MONGOLIAN,
+        unused,
+        unused,
+        unused,
+        unused,
+        unused,
+        "Horse Lords");
+    auto era_section = MakeFieldRule(
+        "test.provider",
+        "era-section",
+        REREVVED_PRESENTATION_SURFACE_ERA_SECTION_HEADING,
+        unused,
+        unused,
+        unused,
+        unused,
+        unused,
+        unused,
+        "Unique Era Abilities");
+    auto era_heading = MakeFieldRule(
+        "test.provider",
+        "era-heading",
+        REREVVED_PRESENTATION_SURFACE_ERA_HEADING,
+        unused,
+        REREVVED_UNIQUE_ERA_MEDIEVAL,
+        unused,
+        unused,
+        unused,
+        unused,
+        "Medieval");
+    auto unit_section = MakeFieldRule(
+        "test.provider",
+        "unit-section",
+        REREVVED_PRESENTATION_SURFACE_UNIQUE_UNIT_SECTION_HEADING,
+        unused,
+        unused,
+        unused,
+        unused,
+        unused,
+        unused,
+        "Special Units");
+
+    for (const auto* rule : { &leader,
+                              &civilization,
+                              &trait,
+                              &era_section,
+                              &era_heading,
+                              &unit_section })
+    {
+        Require(ReRevvedRegisterPresentationTextRule(rule) ==
+                    REREVVED_PRESENTATION_TEXT_OK,
+                "additional presentation surface registration failed");
+        const auto evaluation = Evaluate(*rule);
+        Require(evaluation.replacement_count == 1 &&
+                    std::string_view(evaluation.text) == rule->text &&
+                    (evaluation.status_flags &
+                     REREVVED_PRESENTATION_TEXT_EVALUATION_REPLACED) != 0,
+                "additional presentation surface was not selected");
+    }
+
+    auto invalid       = leader;
+    invalid.unlock_era = REREVVED_UNIQUE_ERA_ANCIENT;
+    Require(ReRevvedRegisterPresentationTextRule(&invalid) ==
+                REREVVED_PRESENTATION_TEXT_ERR_INVALID_ARGUMENT,
+            "leader selector accepted an unrelated era");
+    invalid              = era_heading;
+    invalid.civilization = REREVVED_CIVILIZATION_MONGOLIAN;
+    Require(ReRevvedRegisterPresentationTextRule(&invalid) ==
+                REREVVED_PRESENTATION_TEXT_ERR_INVALID_ARGUMENT,
+            "global era heading accepted a civilization selector");
+    invalid         = era_section;
+    invalid.ability = 0;
+    Require(ReRevvedRegisterPresentationTextRule(&invalid) ==
+                REREVVED_PRESENTATION_TEXT_ERR_INVALID_ARGUMENT,
+            "global era heading accepted an unrelated selector");
+
+    auto conflict = leader;
+    std::memcpy(conflict.provider_id, "other.provider", 15);
+    std::memcpy(conflict.rule_id, "leader-conflict", 16);
+    std::memcpy(conflict.text, "Temujin", 8);
+    Require(ReRevvedRegisterPresentationTextRule(&conflict) ==
+                REREVVED_PRESENTATION_TEXT_OK,
+            "leader conflict registration failed");
+    const auto evaluation = Evaluate(leader);
+    Require(evaluation.replacement_count == 2 && evaluation.text[0] == '\0' &&
+                (evaluation.status_flags &
+                 REREVVED_PRESENTATION_TEXT_EVALUATION_REPLACEMENT_CONFLICT) !=
+                    0,
+            "global presentation conflict did not preserve native fallback");
+}
+
 } // namespace
 
 int main()
@@ -191,5 +339,6 @@ int main()
     TestLayoutAndValidation();
     TestRegistrationEvaluationAndConflict();
     TestReadbackAndSizedOutput();
+    TestAdditionalSurfaces();
     return 0;
 }

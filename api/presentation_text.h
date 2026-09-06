@@ -2,7 +2,8 @@
 //
 // Mods resolve these entry points from the host process and check
 // ReRevvedPresentationTextAbiVersion before calling them. Registrations are
-// copied by the host. ABI 1 accepts complete printable ASCII replacement lines.
+// copied by the host. ABI 1 accepts complete printable ASCII replacement
+// fields and lines.
 
 #pragma once
 
@@ -38,8 +39,19 @@ typedef int32_t ReRevvedPresentationSurface;
 
 enum
 {
+    // Civilization, unlock_era, and ability select one effective era value.
     REREVVED_PRESENTATION_SURFACE_ERA_ABILITY = 0,
+    // Civilization, base_unit_type, identity, and display_form select one unit.
     REREVVED_PRESENTATION_SURFACE_UNIQUE_UNIT = 1,
+    // These three fields use civilization; every other selector is UNUSED.
+    REREVVED_PRESENTATION_SURFACE_LEADER_NAME        = 2,
+    REREVVED_PRESENTATION_SURFACE_CIVILIZATION_NAME  = 3,
+    REREVVED_PRESENTATION_SURFACE_CIVILIZATION_TRAIT = 4,
+    // Global headings use civilization UNUSED. ERA_HEADING additionally uses
+    // unlock_era; every other selector is UNUSED.
+    REREVVED_PRESENTATION_SURFACE_ERA_SECTION_HEADING         = 5,
+    REREVVED_PRESENTATION_SURFACE_ERA_HEADING                 = 6,
+    REREVVED_PRESENTATION_SURFACE_UNIQUE_UNIT_SECTION_HEADING = 7,
 };
 
 enum

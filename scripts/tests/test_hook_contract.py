@@ -204,9 +204,29 @@ EXPECTED_HOOKS = [
         "registers": ["r4", "r9", "r11"],
     },
     {
+        "address": 0x82D77F0C,
+        "name": "ReRevvedApplyLeaderNamePresentationText",
+        "registers": ["r3", "r20"],
+    },
+    {
+        "address": 0x82D77FD0,
+        "name": "ReRevvedApplyCivilizationNamePresentationText",
+        "registers": ["r3", "r20"],
+    },
+    {
         "address": 0x82D7807C,
         "name": "ReRevvedApplyEraAbilityPresentationText",
         "registers": ["r31", "r20"],
+    },
+    {
+        "address": 0x82D781AC,
+        "name": "ReRevvedApplyCivilizationTraitPresentationText",
+        "registers": ["r30", "r20"],
+    },
+    {
+        "address": 0x82D78228,
+        "name": "ReRevvedApplyUniqueUnitSectionHeadingPresentationText",
+        "registers": ["r3"],
     },
     {
         "address": 0x82D783B4,
@@ -877,7 +897,12 @@ class HookContractTests(unittest.TestCase):
             "} // namespace", 1
         )[0]
         self.assertIn("std::array<const char*, 9>", parser)
-        self.assertIn("index >= 2 && (index & 1u) == 0", parser)
+        self.assertIn("if (index == 0)", parser)
+        self.assertIn(
+            "REREVVED_PRESENTATION_SURFACE_ERA_SECTION_HEADING", parser
+        )
+        self.assertIn("REREVVED_PRESENTATION_SURFACE_ERA_HEADING", parser)
+        self.assertIn("(index - 1) / 2", parser)
         self.assertIn("(index - 2) / 2", parser)
         publish = source.split("bool TryPublishText", 1)[1].split(
             "bool TryEvaluateEraText", 1
@@ -896,6 +921,36 @@ class HookContractTests(unittest.TestCase):
             r"TryPublishText\(replacement\.data\(\),\s*"
             r"replacement\.size\(\),\s*true,",
         )
+
+    def test_additional_presentation_hooks_preserve_native_forms(self) -> None:
+        source = PRESENTATION_SOURCE.read_text(encoding="ascii")
+        for name in [
+            "ReRevvedApplyLeaderNamePresentationText",
+            "ReRevvedApplyCivilizationNamePresentationText",
+            "ReRevvedApplyCivilizationTraitPresentationText",
+            "ReRevvedApplyUniqueUnitSectionHeadingPresentationText",
+        ]:
+            self.assertEqual(source.count(f"void {name}"), 1)
+        self.assertIn(
+            "REREVVED_PRESENTATION_SURFACE_LEADER_NAME", source
+        )
+        self.assertIn(
+            "REREVVED_PRESENTATION_SURFACE_CIVILIZATION_NAME", source
+        )
+        self.assertIn(
+            "REREVVED_PRESENTATION_SURFACE_CIVILIZATION_TRAIT", source
+        )
+        self.assertIn(
+            "REREVVED_PRESENTATION_SURFACE_UNIQUE_UNIT_SECTION_HEADING",
+            source,
+        )
+        trait_hook = source.split(
+            "void ReRevvedApplyCivilizationTraitPresentationText", 1
+        )[1].split(
+            "void ReRevvedApplyUniqueUnitSectionHeadingPresentationText", 1
+        )[0]
+        self.assertIn("TryReplaceText(trait_text", trait_hook)
+        self.assertIn("true,\n                   trait_text_buffer", trait_hook)
 
     def test_generated_presentation_hooks_when_available(self) -> None:
         paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))

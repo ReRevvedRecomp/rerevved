@@ -205,13 +205,33 @@ address = 0x82CF0D6C
 name = "ReRevvedApplyUniqueEraAbilityCell"
 registers = ["r4", "r9", "r11"]
 
-# Replace the completed era block while the civilization-selection
-# builder still carries its civilization selector.
+# Replace the civilization information fields while their selectors remain
+# live in the builder.
+
+[[midasm_hook]]
+address = 0x82D77F0C
+name = "ReRevvedApplyLeaderNamePresentationText"
+registers = ["r3", "r20"]
+
+[[midasm_hook]]
+address = 0x82D77FD0
+name = "ReRevvedApplyCivilizationNamePresentationText"
+registers = ["r3", "r20"]
 
 [[midasm_hook]]
 address = 0x82D7807C
 name = "ReRevvedApplyEraAbilityPresentationText"
 registers = ["r31", "r20"]
+
+[[midasm_hook]]
+address = 0x82D781AC
+name = "ReRevvedApplyCivilizationTraitPresentationText"
+registers = ["r30", "r20"]
+
+[[midasm_hook]]
+address = 0x82D78228
+name = "ReRevvedApplyUniqueUnitSectionHeadingPresentationText"
+registers = ["r3"]
 
 # Replace each localized Special Units name before the builder joins names.
 

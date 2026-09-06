@@ -18,8 +18,12 @@ namespace
 constexpr uint32_t kUniqueEraAbilityTable = 0x82F6F950;
 constexpr size_t   kEraBlockCapacity      = 512;
 
-thread_local uint32_t era_text_buffer  = 0;
-thread_local uint32_t unit_text_buffer = 0;
+thread_local uint32_t era_text_buffer                 = 0;
+thread_local uint32_t leader_text_buffer              = 0;
+thread_local uint32_t civilization_text_buffer        = 0;
+thread_local uint32_t trait_text_buffer               = 0;
+thread_local uint32_t unique_unit_heading_text_buffer = 0;
+thread_local uint32_t unit_text_buffer                = 0;
 
 uint32_t ReadBigEndianU32(const uint8_t* value)
 {
@@ -86,6 +90,48 @@ bool TryPublishText(const char*  text,
     std::memcpy(destination, text, length + 1);
     out.u64 = text_address;
     return true;
+}
+
+bool TryEvaluateText(ReRevvedPresentationSurface         surface,
+                     ReRevvedCivilizationId              civilization,
+                     ReRevvedUniqueEraUnlockEra          unlock_era,
+                     ReRevvedPresentationTextEvaluation& presentation)
+{
+    const ReRevvedPresentationTextQuery query = {
+        sizeof(ReRevvedPresentationTextQuery),
+        surface,
+        civilization,
+        unlock_era,
+        REREVVED_PRESENTATION_SELECTOR_UNUSED,
+        REREVVED_PRESENTATION_SELECTOR_UNUSED,
+        REREVVED_PRESENTATION_SELECTOR_UNUSED,
+        REREVVED_PRESENTATION_SELECTOR_UNUSED,
+        {},
+    };
+    return rerevved::presentation_text::TryEvaluate(query, presentation) &&
+           (presentation.status_flags &
+            REREVVED_PRESENTATION_TEXT_EVALUATION_REPLACED) != 0;
+}
+
+bool TryReplaceText(PPCRegister&                localized_text,
+                    ReRevvedCivilizationId      civilization,
+                    ReRevvedPresentationSurface surface,
+                    bool                        include_length_header,
+                    uint32_t&                   guest_buffer)
+{
+    ReRevvedPresentationTextEvaluation presentation{};
+    if (!TryEvaluateText(surface,
+                         civilization,
+                         REREVVED_PRESENTATION_SELECTOR_UNUSED,
+                         presentation))
+    {
+        return false;
+    }
+    return TryPublishText(presentation.text,
+                          REREVVED_PRESENTATION_TEXT_CAPACITY,
+                          include_length_header,
+                          guest_buffer,
+                          localized_text);
 }
 
 bool TryEvaluateEraText(ReRevvedCivilizationId              civilization,
@@ -167,11 +213,31 @@ bool TryReplaceEraLines(const char*                          native_text,
         const char*                        replacement = starts[index];
         size_t                             length      = lengths[index];
         ReRevvedPresentationTextEvaluation presentation{};
-        if (index >= 2 && (index & 1u) == 0 &&
-            TryEvaluateEraText(
-                civilization,
-                static_cast<ReRevvedUniqueEraUnlockEra>((index - 2) / 2),
-                presentation))
+        bool                               replaced = false;
+        if (index == 0)
+        {
+            replaced = TryEvaluateText(
+                REREVVED_PRESENTATION_SURFACE_ERA_SECTION_HEADING,
+                REREVVED_PRESENTATION_SELECTOR_UNUSED,
+                REREVVED_PRESENTATION_SELECTOR_UNUSED,
+                presentation);
+        }
+        else if ((index & 1u) != 0)
+        {
+            replaced = TryEvaluateText(
+                REREVVED_PRESENTATION_SURFACE_ERA_HEADING,
+                REREVVED_PRESENTATION_SELECTOR_UNUSED,
+                static_cast<ReRevvedUniqueEraUnlockEra>((index - 1) / 2),
+                presentation);
+        }
+        else if (TryEvaluateEraText(
+                     civilization,
+                     static_cast<ReRevvedUniqueEraUnlockEra>((index - 2) / 2),
+                     presentation))
+        {
+            replaced = true;
+        }
+        if (replaced)
         {
             replacement = presentation.text;
             length      = std::strlen(replacement);
@@ -196,7 +262,8 @@ bool TryReplaceEraLines(const char*                          native_text,
 } // namespace
 
 // The civilization-selection builder stores one heading followed by four
-// label/value pairs. Replace only the four values and preserve the headings.
+// label/value pairs. Global headings and civilization-specific values each
+// replace only when exactly one matching rule is registered.
 void ReRevvedApplyEraAbilityPresentationText(PPCRegister& era_block,
                                              PPCRegister& civilization)
 {
@@ -218,6 +285,63 @@ void ReRevvedApplyEraAbilityPresentationText(PPCRegister& era_block,
                        era_text_buffer,
                        era_block);
     }
+}
+
+void ReRevvedApplyLeaderNamePresentationText(PPCRegister& localized_text,
+                                             PPCRegister& civilization)
+{
+    if (civilization.s32 < 0 ||
+        civilization.s32 >= REREVVED_CIVILIZATION_COUNT)
+    {
+        return;
+    }
+    TryReplaceText(localized_text,
+                   civilization.s32,
+                   REREVVED_PRESENTATION_SURFACE_LEADER_NAME,
+                   false,
+                   leader_text_buffer);
+}
+
+void ReRevvedApplyCivilizationNamePresentationText(
+    PPCRegister& localized_text,
+    PPCRegister& civilization)
+{
+    if (civilization.s32 < 0 ||
+        civilization.s32 >= REREVVED_CIVILIZATION_COUNT)
+    {
+        return;
+    }
+    TryReplaceText(localized_text,
+                   civilization.s32,
+                   REREVVED_PRESENTATION_SURFACE_CIVILIZATION_NAME,
+                   false,
+                   civilization_text_buffer);
+}
+
+void ReRevvedApplyCivilizationTraitPresentationText(
+    PPCRegister& trait_text,
+    PPCRegister& civilization)
+{
+    if (civilization.s32 < 0 ||
+        civilization.s32 >= REREVVED_CIVILIZATION_COUNT)
+    {
+        return;
+    }
+    TryReplaceText(trait_text,
+                   civilization.s32,
+                   REREVVED_PRESENTATION_SURFACE_CIVILIZATION_TRAIT,
+                   true,
+                   trait_text_buffer);
+}
+
+void ReRevvedApplyUniqueUnitSectionHeadingPresentationText(
+    PPCRegister& heading)
+{
+    TryReplaceText(heading,
+                   REREVVED_PRESENTATION_SELECTOR_UNUSED,
+                   REREVVED_PRESENTATION_SURFACE_UNIQUE_UNIT_SECTION_HEADING,
+                   false,
+                   unique_unit_heading_text_buffer);
 }
 
 // The live Special Units loop carries both selectors while each localized unit

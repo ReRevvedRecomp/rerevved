@@ -85,17 +85,51 @@ bool IsCivilizationValid(ReRevvedCivilizationId civilization)
     return civilization >= 0 && civilization < REREVVED_CIVILIZATION_COUNT;
 }
 
+bool HasUnusedSelectors(const ReRevvedPresentationTextQuery& query)
+{
+    return query.unlock_era == REREVVED_PRESENTATION_SELECTOR_UNUSED &&
+           query.ability == REREVVED_PRESENTATION_SELECTOR_UNUSED &&
+           query.base_unit_type == REREVVED_PRESENTATION_SELECTOR_UNUSED &&
+           query.identity == REREVVED_PRESENTATION_SELECTOR_UNUSED &&
+           query.display_form == REREVVED_PRESENTATION_SELECTOR_UNUSED;
+}
+
 bool IsQueryValid(const ReRevvedPresentationTextQuery& query)
 {
-    if (!IsCivilizationValid(query.civilization) ||
-        !IsZeroed(query.reserved))
+    if (!IsZeroed(query.reserved))
     {
         return false;
     }
 
+    if (query.surface == REREVVED_PRESENTATION_SURFACE_LEADER_NAME ||
+        query.surface == REREVVED_PRESENTATION_SURFACE_CIVILIZATION_NAME ||
+        query.surface == REREVVED_PRESENTATION_SURFACE_CIVILIZATION_TRAIT)
+    {
+        return IsCivilizationValid(query.civilization) &&
+               HasUnusedSelectors(query);
+    }
+    if (query.surface ==
+            REREVVED_PRESENTATION_SURFACE_ERA_SECTION_HEADING ||
+        query.surface ==
+            REREVVED_PRESENTATION_SURFACE_UNIQUE_UNIT_SECTION_HEADING)
+    {
+        return query.civilization == REREVVED_PRESENTATION_SELECTOR_UNUSED &&
+               HasUnusedSelectors(query);
+    }
+    if (query.surface == REREVVED_PRESENTATION_SURFACE_ERA_HEADING)
+    {
+        return query.civilization == REREVVED_PRESENTATION_SELECTOR_UNUSED &&
+               query.unlock_era >= REREVVED_UNIQUE_ERA_ANCIENT &&
+               query.unlock_era <= REREVVED_UNIQUE_ERA_MODERN &&
+               query.ability == REREVVED_PRESENTATION_SELECTOR_UNUSED &&
+               query.base_unit_type == REREVVED_PRESENTATION_SELECTOR_UNUSED &&
+               query.identity == REREVVED_PRESENTATION_SELECTOR_UNUSED &&
+               query.display_form == REREVVED_PRESENTATION_SELECTOR_UNUSED;
+    }
     if (query.surface == REREVVED_PRESENTATION_SURFACE_ERA_ABILITY)
     {
-        return query.unlock_era >= REREVVED_UNIQUE_ERA_ANCIENT &&
+        return IsCivilizationValid(query.civilization) &&
+               query.unlock_era >= REREVVED_UNIQUE_ERA_ANCIENT &&
                query.unlock_era <= REREVVED_UNIQUE_ERA_MODERN &&
                query.ability > 0 &&
                query.base_unit_type == REREVVED_PRESENTATION_SELECTOR_UNUSED &&
