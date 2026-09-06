@@ -1,5 +1,14 @@
 # Publish the conservative read-only title state once per guest frame.
 
+# Replace the exact main-menu logo File Data payload after ResLoadByName and
+# before the native output load. Invalid guest memory, allocation failure, and
+# unmatched filenames preserve the original path.
+
+[[midasm_hook]]
+address = 0x82E87B90
+name = "ReRevvedApplyAssetFileOverride"
+registers = ["r1", "r11", "r30"]
+
 [[midasm_hook]]
 address = 0x82C7DF58
 name = "ReRevvedPublishGameplayState"

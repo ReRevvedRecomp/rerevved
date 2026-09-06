@@ -12,6 +12,7 @@ guest addresses, or borrowed strings.
 | [`game_ids.h`](../api/game_ids.h) | Shared civilization, unit type, unit identity, and display-form IDs. |
 | [`gameplay_state.h`](../api/gameplay_state.h) | Read-only gameplay availability and active-player snapshot. |
 | [`presentation_text.h`](../api/presentation_text.h) | Civilization information screen text replacements. |
+| [`asset_file_overrides.h`](../api/asset_file_overrides.h) | Validated main-menu logo DDS replacement at the type-11 File Data opener. |
 | [`unit_catalog.h`](../api/unit_catalog.h) | Static unit definitions and civilization-specific unit identity resolution. |
 | [`unit_movement_rules.h`](../api/unit_movement_rules.h) | Registration and evaluation of identity-targeted additive base movement rules. |
 | [`unit_production_cost_rules.h`](../api/unit_production_cost_rules.h) | Registration and evaluation of identity-targeted additive production cost percentages. |
@@ -93,7 +94,17 @@ Game-specific IDs and behavior remain in this repository.
   civilization/effective-ability rows; the global unique-unit heading; and
   civilization/identity-specific unique-unit rows. Multiple matching rules
   preserve native text.
+- Asset File Override ABI 1 accepts only the exact printable ASCII path
+  `GFX_MainMenu_logo.dds` and a 1,048,704-byte legacy DDS with a 1024x256
+  uncompressed 32-bit A8R8G8B8 pixel format, no mipmaps, and no DX10 header.
+  Registration copies the caller's bytes synchronously. The first successful
+  registration for a path wins, so top-to-bottom mod order has highest
+  priority; a later registration returns
+  `REREVVED_ASSET_FILE_OVERRIDES_ERR_DUPLICATE_PATH`. The title applies the
+  copied payload at the type-11 opener after `ResLoadByName` and before native
+  memory-file construction. Invalid guest pointers, allocation failure, and
+  unmatched filenames preserve native behavior.
 - Registration records are copied by the host. Provider and rule identifiers must obey their header's capacities and validation rules.
 
-These interfaces do not provide raw guest-memory access, asset replacement,
-save modification, scripting, or a general live-object API.
+These interfaces do not provide raw guest-memory access, save modification,
+scripting, or a general live-object API.

@@ -66,6 +66,9 @@ set(REREVVED_SOURCES
     src/presentation_text.cpp
     src/presentation_text_hooks.cpp
     src/presentation_text_registry.h
+    src/asset_file_overrides.cpp
+    src/asset_file_overrides_hooks.cpp
+    src/asset_file_overrides_registry.h
     src/gpu/renderer_backend.cpp
     src/gpu/renderer_backend.h
     src/unique_era_abilities.cpp
@@ -126,6 +129,7 @@ target_include_directories(rerevved PRIVATE
 target_compile_definitions(rerevved PRIVATE
     REREVVED_GAMEPLAY_API_EXPORTS
     REREVVED_PRESENTATION_TEXT_API_EXPORTS
+    REREVVED_ASSET_FILE_OVERRIDES_API_EXPORTS
     REREVVED_UNIQUE_ERA_ABILITIES_API_EXPORTS
     REREVVED_UNIQUE_UNIT_RULES_API_EXPORTS
     REREVVED_UNIT_MOVEMENT_RULES_API_EXPORTS
@@ -225,6 +229,26 @@ if(BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
     add_test(NAME presentation_text_c_header COMMAND presentation_text_c_header_tests)
+
+    add_executable(asset_file_overrides_tests
+        src/asset_file_overrides.cpp
+        tests/asset_file_overrides_test.cpp
+    )
+    target_include_directories(asset_file_overrides_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/api
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    add_test(NAME asset_file_overrides_contract COMMAND asset_file_overrides_tests)
+
+    add_executable(asset_file_overrides_c_header_tests
+        src/asset_file_overrides.cpp
+        tests/asset_file_overrides_c_header_test.c
+    )
+    target_include_directories(asset_file_overrides_c_header_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/api
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    add_test(NAME asset_file_overrides_c_header COMMAND asset_file_overrides_c_header_tests)
 
     add_executable(unique_unit_rules_tests
         src/unique_unit_rules.cpp

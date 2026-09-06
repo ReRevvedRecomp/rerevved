@@ -21,12 +21,18 @@ HOOK_SOURCES = [
     ROOT / "src" / "unit_combat_rules_hooks.cpp",
     ROOT / "src" / "unit_effect_rules_hooks.cpp",
     ROOT / "src" / "terrain_yield_rules_hooks.cpp",
+    ROOT / "src" / "asset_file_overrides_hooks.cpp",
 ]
 GENERAL_SOURCE = ROOT / "src" / "great_general_attachment.cpp"
 PRESENTATION_SOURCE = ROOT / "src" / "presentation_text_hooks.cpp"
 GENERATED = ROOT / "generated" / "default"
 
 EXPECTED_HOOKS = [
+    {
+        "address": 0x82E87B90,
+        "name": "ReRevvedApplyAssetFileOverride",
+        "registers": ["r1", "r11", "r30"],
+    },
     {
         "address": 0x82C7DF58,
         "name": "ReRevvedPublishGameplayState",
@@ -468,6 +474,40 @@ class HookContractTests(unittest.TestCase):
         ]
         for placement in placements:
             self.assertEqual(generated.count(placement), 1)
+
+    def test_generated_asset_file_override_hook_placement_when_available(self) -> None:
+        paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
+        if not paths:
+            self.skipTest("generated sources are not available")
+
+        generated = "".join(path.read_text(encoding="utf-8") for path in paths)
+        prototype = (
+            "extern void ReRevvedApplyAssetFileOverride(PPCRegister& r1, "
+            "PPCRegister& r11, "
+            "PPCRegister& r30);"
+        )
+        if prototype not in generated:
+            self.skipTest("generated sources do not include the current hook configuration")
+        placement = (
+            "\t// lwz r11,84(r1)\n"
+            "\tctx.r11.u64 = REX_LOAD_U32(ctx.r1.u32 + 84);\n"
+            "\t// cmplwi cr6,r11,0\n"
+            "\tReRevvedApplyAssetFileOverride(ctx.r1, ctx.r11, ctx.r30);\n"
+            "\tctx.cr6.compare<uint32_t>(ctx.r11.u32, 0, ctx.xer);"
+        )
+        self.assertEqual(generated.count(prototype), 1)
+        self.assertEqual(generated.count(placement), 1)
+
+    def test_asset_file_override_preserves_native_fallback(self) -> None:
+        source = (
+            ROOT / "src" / "asset_file_overrides_hooks.cpp"
+        ).read_text(encoding="ascii")
+        self.assertIn("stack_pointer.u32 == 0", source)
+        self.assertIn("requested_name.u32 == 0", source)
+        self.assertIn("TryGetPayload(kLogoPath, payload)", source)
+        self.assertIn("SystemHeapAlloc(allocation_size)", source)
+        self.assertIn("std::memcmp(", source)
+        self.assertGreaterEqual(source.count("return;"), 4)
 
     def test_generated_ring_hook_placement_when_available(self) -> None:
         paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
