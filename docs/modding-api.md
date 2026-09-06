@@ -13,6 +13,7 @@ guest addresses, or borrowed strings.
 | [`gameplay_state.h`](../api/gameplay_state.h) | Read-only gameplay availability and active-player snapshot. |
 | [`unit_catalog.h`](../api/unit_catalog.h) | Static unit definitions and civilization-specific unit identity resolution. |
 | [`unit_movement_rules.h`](../api/unit_movement_rules.h) | Registration and evaluation of identity-targeted additive base movement rules. |
+| [`unit_production_cost_rules.h`](../api/unit_production_cost_rules.h) | Registration and evaluation of identity-targeted additive production cost percentages. |
 | [`unit_effect_rules.h`](../api/unit_effect_rules.h) | Registration and evaluation of named creation-time unit effects. |
 | [`unique_unit_rules.h`](../api/unique_unit_rules.h) | Registration and evaluation of Unique Unit base attack and defense rules. |
 | [`unique_era_abilities.h`](../api/unique_era_abilities.h) | Registration and evaluation of supported Unique Era Ability replacements. |
@@ -45,6 +46,16 @@ Game-specific IDs and behavior remain in this repository.
   ordinary `EffectiveUnitMovementLookup` return path. They match civilization,
   base type, and the accepted Unit Catalog identity. The special return,
   movement budget and command cost, AI, and presentation coverage are unproved.
+- Unit production cost rules add signed percentage points to the native 100
+  percent cost for an accepted civilization, base type, and Unit Catalog
+  identity. The title applies the resulting positive percentage to its shared
+  effective unit-cost scalar after native discounts. Static code establishes
+  that the recovered completion, rush, network-state, and AI unit-cost
+  consumers use this helper. A Windows x64 runtime check confirmed that an
+  Aztec Jaguar rule of -50 percentage points changed its displayed production
+  cost from 10 to 5 and made a +2 Production queue report three turns.
+  Completion, rush application, AI, network, save, and multiplayer behavior
+  remain unproved.
 - Unit effect rules use ABI 2 and expose the creation-time Veteran grant plus
   the nine named native special upgrade effects: Blitz, Infiltration, Guerilla,
   Loyalty, Engineer, Leadership, March, Medic, and Scout. They match

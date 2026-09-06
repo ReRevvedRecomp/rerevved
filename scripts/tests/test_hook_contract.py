@@ -16,6 +16,7 @@ HOOK_SOURCES = [
     ROOT / "src" / "unique_era_abilities_hooks.cpp",
     ROOT / "src" / "unique_unit_rules_hooks.cpp",
     ROOT / "src" / "unit_movement_rules_hooks.cpp",
+    ROOT / "src" / "unit_production_cost_rules_hooks.cpp",
     ROOT / "src" / "unit_effect_rules_hooks.cpp",
     ROOT / "src" / "terrain_yield_rules_hooks.cpp",
 ]
@@ -203,6 +204,11 @@ EXPECTED_HOOKS = [
         "address": 0x82CF2198,
         "name": "ReRevvedApplyUnitMovementBase",
         "registers": ["r30", "r28", "r3"],
+    },
+    {
+        "address": 0x82CF1268,
+        "name": "ReRevvedApplyUnitProductionCostPercent",
+        "registers": ["r30", "r29", "r28"],
     },
     {
         "address": 0x82D15B84,
@@ -809,6 +815,39 @@ class HookContractTests(unittest.TestCase):
         special_return, ordinary_return = function.split("loc_82CF218C:", 1)
         self.assertNotIn("ReRevvedApplyUnitMovementBase", special_return)
         self.assertIn("ReRevvedApplyUnitMovementBase", ordinary_return)
+
+    def test_generated_unit_cost_hook_uses_shared_scalar_when_available(
+        self,
+    ) -> None:
+        paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
+        if not paths:
+            self.skipTest("generated sources are not available")
+
+        generated = "".join(path.read_text(encoding="utf-8") for path in paths)
+        prototype = (
+            "extern void ReRevvedApplyUnitProductionCostPercent("
+            "PPCRegister& r30, PPCRegister& r29, PPCRegister& r28);"
+        )
+        placement = (
+            "loc_82CF1268:\n"
+            "\t// mr r3,r28\n"
+            "\tReRevvedApplyUnitProductionCostPercent("
+            "ctx.r30, ctx.r29, ctx.r28);\n"
+            "\tctx.r3.u64 = ctx.r28.u64;"
+        )
+        if prototype not in generated:
+            self.skipTest("generated unit production cost hook is not available")
+        self.assertEqual(generated.count(prototype), 1)
+        self.assertEqual(generated.count(placement), 1)
+
+        function = generated.split("DEFINE_REX_FUNC(sub_82CF1148)", 1)[1]
+        function = function.split("DEFINE_REX_FUNC", 1)[0]
+        self.assertEqual(
+            function.count("ReRevvedApplyUnitProductionCostPercent"), 1
+        )
+        self.assertIn("ctx.r30.s64 = static_cast<int64_t>", function)
+        self.assertIn("ctx.r29.u64 = ctx.r10.u64;", function)
+        self.assertIn("ctx.r3.u64 = ctx.r28.u64;", function)
 
     def test_generated_unit_effect_hook_preserves_native_creation_gate_when_available(
         self,

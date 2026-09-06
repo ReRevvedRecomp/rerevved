@@ -74,6 +74,9 @@ set(REREVVED_SOURCES
     src/unit_movement_rules.cpp
     src/unit_movement_rules_hooks.cpp
     src/unit_movement_rules_registry.h
+    src/unit_production_cost_rules.cpp
+    src/unit_production_cost_rules_hooks.cpp
+    src/unit_production_cost_rules_registry.h
     src/unit_effect_rules.cpp
     src/unit_effect_rules_hooks.cpp
     src/unit_effect_rules_registry.h
@@ -119,6 +122,7 @@ target_compile_definitions(rerevved PRIVATE
     REREVVED_UNIQUE_ERA_ABILITIES_API_EXPORTS
     REREVVED_UNIQUE_UNIT_RULES_API_EXPORTS
     REREVVED_UNIT_MOVEMENT_RULES_API_EXPORTS
+    REREVVED_UNIT_PRODUCTION_COST_RULES_API_EXPORTS
     REREVVED_UNIT_EFFECT_RULES_API_EXPORTS
     REREVVED_TERRAIN_YIELD_RULES_API_EXPORTS
     REREVVED_UNIT_CATALOG_API_EXPORTS
@@ -235,6 +239,30 @@ if(BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
     add_test(NAME unit_movement_rules_c_header COMMAND unit_movement_rules_c_header_tests)
+
+    add_executable(unit_production_cost_rules_tests
+        src/unit_production_cost_rules.cpp
+        src/unit_catalog_api.cpp
+        tests/unit_production_cost_rules_test.cpp
+    )
+    target_include_directories(unit_production_cost_rules_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/api
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    add_test(NAME unit_production_cost_rules_contract
+        COMMAND unit_production_cost_rules_tests)
+
+    add_executable(unit_production_cost_rules_c_header_tests
+        src/unit_production_cost_rules.cpp
+        src/unit_catalog_api.cpp
+        tests/unit_production_cost_rules_c_header_test.c
+    )
+    target_include_directories(unit_production_cost_rules_c_header_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/api
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    add_test(NAME unit_production_cost_rules_c_header
+        COMMAND unit_production_cost_rules_c_header_tests)
 
     add_executable(unit_effect_rules_tests
         src/unit_effect_rules.cpp

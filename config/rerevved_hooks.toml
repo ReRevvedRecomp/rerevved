@@ -213,6 +213,13 @@ address = 0x82CF2198
 name = "ReRevvedApplyUnitMovementBase"
 registers = ["r30", "r28", "r3"]
 
+# Apply identity-targeted production cost percentages to the shared effective
+# unit cost scalar after all native discounts have been composed.
+[[midasm_hook]]
+address = 0x82CF1268
+name = "ReRevvedApplyUnitProductionCostPercent"
+registers = ["r30", "r29", "r28"]
+
 # Apply creation-time Veteran and native special-upgrade grants for a matching
 # runtime base type. The native +0x3C gate, UEA 50 route, increment, and
 # saturation follow this site unchanged.
