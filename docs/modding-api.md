@@ -14,6 +14,7 @@ guest addresses, or borrowed strings.
 | [`unit_catalog.h`](../api/unit_catalog.h) | Static unit definitions and civilization-specific unit identity resolution. |
 | [`unit_movement_rules.h`](../api/unit_movement_rules.h) | Registration and evaluation of identity-targeted additive base movement rules. |
 | [`unit_production_cost_rules.h`](../api/unit_production_cost_rules.h) | Registration and evaluation of identity-targeted additive production cost percentages. |
+| [`unit_combat_rules.h`](../api/unit_combat_rules.h) | Registration and evaluation of identity-targeted Forest attack and defense percentages. |
 | [`unit_effect_rules.h`](../api/unit_effect_rules.h) | Registration and evaluation of named creation-time unit effects. |
 | [`unique_unit_rules.h`](../api/unique_unit_rules.h) | Registration and evaluation of Unique Unit base attack and defense rules. |
 | [`unique_era_abilities.h`](../api/unique_era_abilities.h) | Registration and evaluation of supported Unique Era Ability replacements. |
@@ -56,6 +57,19 @@ Game-specific IDs and behavior remain in this repository.
   cost from 10 to 5 and made a +2 Production queue report three turns.
   Completion, rush application, AI, network, save, and multiplayer behavior
   remain unproved.
+- Unit combat rules add signed percentage points to the native attack or defense
+  accumulator for an accepted civilization, base type, Unit Catalog identity,
+  semantic Forest terrain, and ATTACK or DEFENSE property. ABI 1 accepts only
+  Forest. The attack callback joins the native modifier call at `0x82CDABBC`
+  using the initialized `r16` accumulator, and defense joins at `0x82CDAC10`
+  using `r17`; native call ordering and Guerilla behavior remain in the guest
+  path. A nonzero rule also appends `Woodsman {signed}%` to the native
+  attack text buffer at `r1+336` or defense buffer at `r1+592` when the full
+  256-byte guest range, existing NUL, and formatted line fit checks succeed.
+  Checked evaluation and accumulator arithmetic preserve native fallback. The
+  exact runtime acceptance of ordinary attack and defense CombatResolve
+  consumers, including combat promotions, AI, network, save, scenario, and
+  multiplayer paths, remains required.
 - Unit effect rules use ABI 2 and expose the creation-time Veteran grant plus
   the nine named native special upgrade effects: Blitz, Infiltration, Guerilla,
   Loyalty, Engineer, Leadership, March, Medic, and Scout. They match

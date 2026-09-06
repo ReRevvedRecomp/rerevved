@@ -295,3 +295,15 @@ registers = ["r10", "r31"]
 address = 0x82CF1D9C
 name = "ReRevvedApplyTerrainFoodBase"
 registers = ["r10", "r30"]
+
+# Join identity-targeted Forest combat percentages immediately before native
+# CombatResolve modifier calls; codegen preserves each displaced call.
+[[midasm_hook]]
+address = 0x82CDABBC
+name = "ReRevvedApplyUnitCombatAttackPercent"
+registers = ["r1", "r16"]
+
+[[midasm_hook]]
+address = 0x82CDAC10
+name = "ReRevvedApplyUnitCombatDefensePercent"
+registers = ["r1", "r17"]

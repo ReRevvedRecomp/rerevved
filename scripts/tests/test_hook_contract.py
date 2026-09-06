@@ -17,6 +17,7 @@ HOOK_SOURCES = [
     ROOT / "src" / "unique_unit_rules_hooks.cpp",
     ROOT / "src" / "unit_movement_rules_hooks.cpp",
     ROOT / "src" / "unit_production_cost_rules_hooks.cpp",
+    ROOT / "src" / "unit_combat_rules_hooks.cpp",
     ROOT / "src" / "unit_effect_rules_hooks.cpp",
     ROOT / "src" / "terrain_yield_rules_hooks.cpp",
 ]
@@ -269,6 +270,16 @@ EXPECTED_HOOKS = [
         "name": "ReRevvedApplyTerrainFoodBase",
         "registers": ["r10", "r30"],
     },
+    {
+        "address": 0x82CDABBC,
+        "name": "ReRevvedApplyUnitCombatAttackPercent",
+        "registers": ["r1", "r16"],
+    },
+    {
+        "address": 0x82CDAC10,
+        "name": "ReRevvedApplyUnitCombatDefensePercent",
+        "registers": ["r1", "r17"],
+    },
 ]
 
 COVERAGE_HOOKS = [
@@ -355,6 +366,37 @@ class HookContractTests(unittest.TestCase):
             source_names - {"ReRevvedCompatNullOptionalDispatch"},
             hook_names,
         )
+
+    def test_combat_identity_uses_record_base_type(self) -> None:
+        source = (
+            ROOT / "src" / "unit_combat_rules_hooks.cpp"
+        ).read_text(encoding="ascii")
+        identity = source.split("bool TryResolveIdentity", 1)[1].split(
+            "bool TryAppendForestCombatLine", 1
+        )[0]
+        self.assertRegex(
+            identity,
+            r"TryReadUnitBaseType\(player,\s*unit,\s*base_unit_type\)",
+        )
+        self.assertRegex(
+            identity,
+            r"TryResolveUnitIdentity\(\s*"
+            r"civilization,\s*base_unit_type,\s*identity\)",
+        )
+        self.assertIn("unit_type = base_unit_type;", identity)
+        self.assertNotRegex(
+            identity,
+            r"TryResolveUnitIdentity\(\s*civilization,\s*unit,\s*identity\)",
+        )
+
+    def test_combat_hooks_use_saved_participant_offsets(self) -> None:
+        source = (
+            ROOT / "src" / "unit_combat_rules_hooks.cpp"
+        ).read_text(encoding="ascii")
+        self.assertIn("kAttackerPlayerOffset = 1572;", source)
+        self.assertIn("kAttackerUnitOffset   = 1580;", source)
+        self.assertIn("kDefenderPlayerOffset = 1596;", source)
+        self.assertIn("kDefenderUnitOffset   = 1604;", source)
 
     def test_coverage_hooks_are_separate_and_collision_free(self) -> None:
         with HOOK_CONFIG.open("rb") as stream:
@@ -715,6 +757,37 @@ class HookContractTests(unittest.TestCase):
             self.assertEqual(generated.count(placement), 1)
         self.assertNotIn("ReRevvedBeginEffective", generated)
         self.assertNotIn("ReRevvedFinishEffective", generated)
+
+    def test_generated_unit_combat_rule_hooks_join_native_calls_when_available(
+        self,
+    ) -> None:
+        paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
+        if not paths:
+            self.skipTest("generated sources are not available")
+
+        generated = "".join(path.read_text(encoding="utf-8") for path in paths)
+        placements = [
+            (
+                "\t// bl 0x82cfc0a8\n"
+                "\tReRevvedApplyUnitCombatAttackPercent(ctx.r1, ctx.r16);\n"
+                "\tctx.lr = 0x82CDABC0;\n"
+                "\tsub_82CFC0A8(ctx, base);"
+            ),
+            (
+                "\t// bl 0x82cfbed0\n"
+                "\tReRevvedApplyUnitCombatDefensePercent(ctx.r1, ctx.r17);\n"
+                "\tctx.lr = 0x82CDAC14;\n"
+                "\tsub_82CFBED0(ctx, base);"
+            ),
+        ]
+        for placement in placements:
+            self.assertEqual(generated.count(placement), 1)
+        self.assertNotIn(
+            "ReRevvedApplyUnitCombatAttackPercent(ctx.r1, ctx.r26)", generated
+        )
+        self.assertNotIn(
+            "ReRevvedApplyUnitCombatDefensePercent(ctx.r1, ctx.r23)", generated
+        )
 
     def test_terrain_yield_hook_addresses_are_collision_free(self) -> None:
         with HOOK_CONFIG.open("rb") as stream:
