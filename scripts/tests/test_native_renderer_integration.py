@@ -113,6 +113,27 @@ class NativeRendererIntegrationTests(unittest.TestCase):
         )
         self.assertIn("config.gpu_plugin.clear();", APP_CPP)
 
+    def test_rerevved_cvars_share_one_settings_page(self) -> None:
+        declarations = (
+            'REXCVAR_DEFINE_STRING(renderer, "xenos", "ReRevved",',
+            'REXCVAR_DEFINE_STRING(native_renderer_coverage_run, "", "ReRevved",',
+            'REXCVAR_DEFINE_STRING(native_renderer_coverage_transition, "", "ReRevved",',
+            'REXCVAR_DEFINE_STRING(native_renderer_coverage_input_digest, "", "ReRevved",',
+            'REXCVAR_DEFINE_STRING(native_renderer_coverage_output, "", "ReRevved",',
+            'REXCVAR_DEFINE_STRING(native_renderer_passive_trace_output, "", "ReRevved",',
+            'REXCVAR_DEFINE_STRING(native_renderer_fence_trace_output, "", "ReRevved",',
+        )
+        for declaration in declarations:
+            self.assertIn(declaration, APP_CPP)
+
+        self.assertIn(
+            'REXCVAR_DEFINE_STRING(combat_speed, "normal", "ReRevved",',
+            COMPAT_CPP,
+        )
+        for category in ("ReRevved/Combat", "ReRevved/Diagnostics", "ReRevved/Video"):
+            self.assertNotIn(category, APP_CPP)
+            self.assertNotIn(category, COMPAT_CPP)
+
     def test_native_guest_gpu_service_is_native_only(self) -> None:
         consumers = []
         source_suffixes = {".c", ".cc", ".cpp", ".cxx", ".h", ".hpp", ".inc"}

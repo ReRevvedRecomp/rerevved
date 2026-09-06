@@ -624,7 +624,7 @@ class HookContractTests(unittest.TestCase):
 
         definitions = re.findall(
             r'REXCVAR_DEFINE_STRING\(combat_speed,\s*"normal",\s*'
-            r'"ReRevved/Combat",\s*"Combat presentation speed"\)\s*'
+            r'"ReRevved",\s*"Combat presentation speed"\)\s*'
             r'\.allowed\(\{\s*"normal",\s*"fast"\s*\}\);',
             source,
         )

@@ -28,20 +28,20 @@
 #include "presence.h"
 
 REXCVAR_DECLARE(std::string, game_data_root);
-REXCVAR_DEFINE_STRING(renderer, "xenos", "ReRevved/Video", "Renderer backend: xenos or native")
+REXCVAR_DEFINE_STRING(renderer, "xenos", "ReRevved", "Renderer backend: xenos or native")
     .allowed({ "xenos", "native" })
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
-REXCVAR_DEFINE_STRING(native_renderer_coverage_run, "", "ReRevved/Diagnostics", "native-renderer observer run ID")
+REXCVAR_DEFINE_STRING(native_renderer_coverage_run, "", "ReRevved", "native-renderer observer run ID")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
-REXCVAR_DEFINE_STRING(native_renderer_coverage_transition, "", "ReRevved/Diagnostics", "native-renderer observer transition ID")
+REXCVAR_DEFINE_STRING(native_renderer_coverage_transition, "", "ReRevved", "native-renderer observer transition ID")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
-REXCVAR_DEFINE_STRING(native_renderer_coverage_input_digest, "", "ReRevved/Diagnostics", "native-renderer observer input digest")
+REXCVAR_DEFINE_STRING(native_renderer_coverage_input_digest, "", "ReRevved", "native-renderer observer input digest")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
-REXCVAR_DEFINE_STRING(native_renderer_coverage_output, "", "ReRevved/Diagnostics", "native-renderer observer output directory")
+REXCVAR_DEFINE_STRING(native_renderer_coverage_output, "", "ReRevved", "native-renderer observer output directory")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
-REXCVAR_DEFINE_STRING(native_renderer_passive_trace_output, "", "ReRevved/Diagnostics", "Ignored local CSV path for the passive Resolve/VdSwap trace")
+REXCVAR_DEFINE_STRING(native_renderer_passive_trace_output, "", "ReRevved", "Ignored local CSV path for the passive Resolve/VdSwap trace")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
-REXCVAR_DEFINE_STRING(native_renderer_fence_trace_output, "", "ReRevved/Diagnostics", "Ignored local CSV path for the bounded Xenos consumer/fence trace")
+REXCVAR_DEFINE_STRING(native_renderer_fence_trace_output, "", "ReRevved", "Ignored local CSV path for the bounded Xenos consumer/fence trace")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 namespace
