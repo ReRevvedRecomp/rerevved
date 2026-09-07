@@ -45,6 +45,7 @@ bug or attaching a runtime log.
 
 ## Development
 
+- [Style guide](docs/style-guide.md) - code, headers, and tooling conventions
 - [Mod APIs](docs/modding-api.md) - public title interfaces and ownership
 - [ReXGlue runtime and build](docs/rexglue-runtime.md) - prerequisites,
   workspace setup, and the full build workflow

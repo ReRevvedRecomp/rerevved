@@ -7,6 +7,8 @@ private evidence files.
 
 ## Before a change
 
+Follow the [style guide](docs/style-guide.md) for authored code and tooling.
+
 If automated or AI assistance is used, read
 [`docs/ai_agents/README.md`](docs/ai_agents/README.md) for the contribution and
 evidence policies. Base runtime work on the SDK commit pinned by
