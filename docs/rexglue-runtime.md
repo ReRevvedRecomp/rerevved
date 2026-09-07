@@ -67,9 +67,10 @@ switch profiles.
 The active profile owns its writable state. In particular, config is
 `P/rerevved.toml`, default logs are under `P/logs`, the default cache is
 `P/cache`, save content is under `P`'s per-user and per-title content roots,
-achievements are under `P/achievements`, and the native mod loadout is
-`P/mod_order.txt`. This keeps config, default logs, default cache, saves,
-achievements, and mod selection isolated between named profiles.
+achievements are under `P/achievements`, and the native mod and asset
+override orders are `P/mod_order.txt` and `P/asset_order.txt`. This keeps
+config, default logs, default cache, saves, achievements, and package
+selection isolated between named profiles.
 Explicit `log_file` and `cache_root` overrides retain their existing meanings
 and may select locations outside `P`.
 
@@ -93,9 +94,10 @@ rerevved.exe --profile=alpha --profile_copy_from_default=true
 ```
 
 `--profile_copy_from_default=true` is a one-shot, session-only request. It
-requires a named profile and an absent target. The copy uses the title's
-allowlist: config, ordinary title content and headers, title profile data,
-the title's achievement record, and the mod loadout when present. It does not
+requires a named profile and an absent target. The SDK copies config,
+ordinary title content and headers, title profile data, the title's
+achievement record, and both package order files when present. An empty
+saved order stays empty. It does not
 copy marketplace content, logs, cache, unrelated files, or another profile.
 After the copy succeeds, launch with `--profile=alpha` alone. An existing
 profile is never overwritten by this operation.
