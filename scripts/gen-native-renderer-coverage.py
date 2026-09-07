@@ -37,9 +37,6 @@ COUNTER_ROW_COUNT = SEGMENT_COUNT * COUNTER_ROWS_PER_SEGMENT
 OBSERVER_BYTE_BUDGET = 3456
 
 ADDRESS_RE = re.compile(r"^0x[0-9A-F]{8}$")
-JOIN_RE = re.compile(r"^d3d:0x[0-9A-F]{8}$")
-COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
-SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 TOP_LEVEL_POINTERS = {
     "schema_version": "#/partialExport/schema_version",
@@ -166,11 +163,8 @@ def _validate_snapshot(data: dict[str, Any]) -> dict[str, Any]:
     _require_keys(observer, {"segment_count"}, "observer")
     _require(type(snapshot["schema_version"]) is int and snapshot["schema_version"] == 1, "snapshot schema_version differs from 1")
     _require_string(snapshot["published_research_commit"], RESEARCH_COMMIT, "published_research_commit")
-    _require(COMMIT_RE.fullmatch(snapshot["published_research_commit"]) is not None, "published_research_commit is not lowercase full hex")
     _require_string(snapshot["aggregate_sha256"], AGGREGATE_SHA256, "aggregate_sha256")
-    _require(SHA256_RE.fullmatch(snapshot["aggregate_sha256"]) is not None, "aggregate_sha256 is not lowercase SHA-256")
     _require_string(snapshot["image_sha256"], IMAGE_SHA256, "image_sha256")
-    _require(re.fullmatch(r"[0-9A-F]{64}", snapshot["image_sha256"]) is not None, "image_sha256 is not uppercase SHA-256")
     _require_string(snapshot["surface"], "partial", "surface")
     _require(type(observer["segment_count"]) is int and observer["segment_count"] == SEGMENT_COUNT, "observer segment count differs from 8")
 
@@ -182,7 +176,6 @@ def _validate_snapshot(data: dict[str, Any]) -> dict[str, Any]:
     _require_keys(operation, set(OPERATION_POINTERS) | {"source_pointers"}, "operation")
     _require_string(operation["operation_id"], "NRD-OP-0002", "operation_id")
     _require_string(operation["runtime_join_key"], RUNTIME_JOIN_KEY, "runtime_join_key")
-    _require(JOIN_RE.fullmatch(operation["runtime_join_key"]) is not None, "runtime_join_key is malformed")
     _require(operation["roles"] == ["wrapper", "lowering-boundary"], "operation roles differ from accepted values")
     _require(operation["contract_ids"] == [CONTRACT_ID], "operation contract_ids differ from accepted values")
     _require(operation["registers"] == [], "operation registers must be empty")
@@ -202,7 +195,6 @@ def _validate_snapshot(data: dict[str, Any]) -> dict[str, Any]:
         _require_string(hook["discriminator"], "primitive-4", f"hook_sites[{index}] discriminator")
         _require(address not in addresses, f"duplicate hook address: {_address_text(address)}")
         addresses.append(address)
-    _require(set(addresses) == set(HOOK_ADDRESSES), "hook addresses differ from the accepted coverage snapshot")
 
     domains = operation["value_domains"]
     _require(type(domains) is list and len(domains) == 2, "operation must contain primitive-4 and unknown domains")

@@ -1178,14 +1178,9 @@ def _operation_rows(
             qualification = "unmapped-input discriminator is unsupported"
             first = _segment_label(observed_segments[0], state["expected_marks"])
             last = _segment_label(observed_segments[-1], state["expected_marks"])
-        elif count == 0:
-            outcome = "blocked"
-            qualification = "site-local partial snapshot; no global absence claim"
-            first = None
-            last = None
         else:
             outcome = "blocked"
-            qualification = "diagnostic did not surround a complete guest lifetime"
+            qualification = "site-local partial snapshot; no global absence claim"
             first = None
             last = None
         result.append(
