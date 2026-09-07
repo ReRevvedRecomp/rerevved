@@ -25,6 +25,7 @@ HOOK_SOURCES = [
 ]
 GENERAL_SOURCE = ROOT / "src" / "great_general_attachment.cpp"
 PRESENTATION_SOURCE = ROOT / "src" / "presentation_text_hooks.cpp"
+APP_SOURCE = ROOT / "src" / "rerevved_app.cpp"
 GENERATED = ROOT / "generated" / "default"
 
 EXPECTED_HOOKS = [
@@ -692,6 +693,7 @@ class HookContractTests(unittest.TestCase):
 
     def test_combat_speed_contract(self) -> None:
         source = HOOK_SOURCES[0].read_text(encoding="utf-8")
+        app_source = APP_SOURCE.read_text(encoding="utf-8")
         override = source.split(
             "void ReRevvedApplyCombatPaceOverride", 1
         )[1].split("void ReRevvedCompatNullOptionalDispatch", 1)[0]
@@ -700,7 +702,7 @@ class HookContractTests(unittest.TestCase):
             r'REXCVAR_DEFINE_STRING\(combat_speed,\s*"normal",\s*'
             r'"ReRevved",\s*"Combat presentation speed"\)\s*'
             r'\.allowed\(\{\s*"normal",\s*"fast"\s*\}\);',
-            source,
+            app_source,
         )
         self.assertEqual(len(definitions), 1)
         self.assertIn('REXCVAR_GET(combat_speed) != "fast"', override)

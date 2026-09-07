@@ -32,7 +32,7 @@ PASSIVE_TRACE_H = (
 HOOKS = (ROOT / "config" / "rerevved_hooks.toml").read_text(encoding="ascii")
 CMAKE = (ROOT / "CMakeLists.txt").read_text(encoding="ascii")
 LOCK = json.loads((ROOT / "rexglue-sdk.lock.json").read_text(encoding="ascii"))
-ACCEPTED_SDK_COMMIT = "8f499f3e7e90c9f5c993bb3a483848748cc3544c"
+ACCEPTED_SDK_COMMIT = "b01927485ef3b8f0ab143ca6fbec70d30d3b2bee"
 GUEST_SERVICE_FILES = {
     ROOT / "src" / "gpu" / "guest_gpu_service.cpp",
     ROOT / "src" / "gpu" / "guest_gpu_service.h",
@@ -115,6 +115,7 @@ class NativeRendererIntegrationTests(unittest.TestCase):
 
     def test_rerevved_cvars_share_one_settings_page(self) -> None:
         declarations = (
+            'REXCVAR_DEFINE_STRING(combat_speed, "normal", "ReRevved",',
             'REXCVAR_DEFINE_STRING(renderer, "xenos", "ReRevved",',
             'REXCVAR_DEFINE_STRING(native_renderer_coverage_run, "", "ReRevved",',
             'REXCVAR_DEFINE_STRING(native_renderer_coverage_transition, "", "ReRevved",',
@@ -126,10 +127,8 @@ class NativeRendererIntegrationTests(unittest.TestCase):
         for declaration in declarations:
             self.assertIn(declaration, APP_CPP)
 
-        self.assertIn(
-            'REXCVAR_DEFINE_STRING(combat_speed, "normal", "ReRevved",',
-            COMPAT_CPP,
-        )
+        self.assertLess(APP_CPP.index(declarations[0]), APP_CPP.index(declarations[1]))
+        self.assertIn("REXCVAR_DECLARE(std::string, combat_speed);", COMPAT_CPP)
         for category in ("ReRevved/Combat", "ReRevved/Diagnostics", "ReRevved/Video"):
             self.assertNotIn(category, APP_CPP)
             self.assertNotIn(category, COMPAT_CPP)

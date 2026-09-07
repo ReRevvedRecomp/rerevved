@@ -29,6 +29,8 @@
 #include "presence.h"
 
 REXCVAR_DECLARE(std::string, game_data_root);
+REXCVAR_DEFINE_STRING(combat_speed, "normal", "ReRevved", "Combat presentation speed")
+    .allowed({ "normal", "fast" });
 REXCVAR_DEFINE_STRING(renderer, "xenos", "ReRevved", "Renderer backend: xenos or native")
     .allowed({ "xenos", "native" })
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);

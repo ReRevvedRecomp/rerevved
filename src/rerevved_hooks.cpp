@@ -21,8 +21,7 @@
 
 REXCVAR_DECLARE(std::string, renderer);
 REXCVAR_DECLARE(std::string, gpu_plugin);
-REXCVAR_DEFINE_STRING(combat_speed, "normal", "ReRevved", "Combat presentation speed")
-    .allowed({ "normal", "fast" });
+REXCVAR_DECLARE(std::string, combat_speed);
 
 namespace
 {
