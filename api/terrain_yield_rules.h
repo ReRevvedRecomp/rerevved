@@ -70,8 +70,7 @@ typedef struct ReRevvedTerrainYieldRule
 
 typedef struct ReRevvedTerrainYieldRuleInfo
 {
-    // Current producer size. Callers may pass any buffer at least 152 bytes.
-    uint32_t                      struct_size;
+    uint32_t                      struct_size; // Current producer size. Callers may pass any buffer at least 152 bytes.
     char                          provider_id[REREVVED_TERRAIN_YIELD_RULE_ID_CAPACITY];
     char                          rule_id[REREVVED_TERRAIN_YIELD_RULE_ID_CAPACITY];
     ReRevvedTerrainId             terrain;
@@ -93,8 +92,7 @@ typedef struct ReRevvedTerrainYieldQuery
 
 typedef struct ReRevvedTerrainYieldEvaluation
 {
-    // Current producer size. Callers may pass any buffer at least 24 bytes.
-    uint32_t struct_size;
+    uint32_t struct_size; // Current producer size. Callers may pass any buffer at least 24 bytes.
     int32_t  native_value;
     int32_t  final_value;
     uint32_t status_flags;

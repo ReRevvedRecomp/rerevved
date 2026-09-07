@@ -31,8 +31,7 @@ enum
 
 typedef struct ReRevvedUnitDefinition
 {
-    // Current producer size. Callers may pass any buffer at least 16 bytes.
-    uint32_t           struct_size;
+    uint32_t           struct_size; // Current producer size. Callers may pass any buffer at least 16 bytes.
     ReRevvedUnitTypeId unit_type;
     int32_t            base_attack;
     int32_t            base_defense;
@@ -41,8 +40,7 @@ typedef struct ReRevvedUnitDefinition
 
 typedef struct ReRevvedUnitIdentity
 {
-    // Current producer size. Callers may pass any buffer at least 20 bytes.
-    uint32_t                struct_size;
+    uint32_t                struct_size; // Current producer size. Callers may pass any buffer at least 20 bytes.
     ReRevvedCivilizationId  civilization;
     ReRevvedUnitTypeId      base_unit_type;
     ReRevvedUnitIdentityId  identity;

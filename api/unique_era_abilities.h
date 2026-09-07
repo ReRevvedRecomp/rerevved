@@ -127,8 +127,7 @@ typedef struct ReRevvedUniqueEraAbilityReplacement
 
 typedef struct ReRevvedUniqueEraAbilityRuleInfo
 {
-    // Current producer size. Callers may pass any buffer at least 148 bytes.
-    uint32_t                   struct_size;
+    uint32_t                   struct_size; // Current producer size. Callers may pass any buffer at least 148 bytes.
     char                       provider_id[REREVVED_UNIQUE_ERA_ABILITY_RULE_ID_CAPACITY];
     char                       rule_id[REREVVED_UNIQUE_ERA_ABILITY_RULE_ID_CAPACITY];
     ReRevvedCivilizationId     civilization;
@@ -149,8 +148,7 @@ typedef struct ReRevvedUniqueEraAbilityCellQuery
 
 typedef struct ReRevvedUniqueEraAbilityCellEvaluation
 {
-    // Current producer size. Callers may pass any buffer at least 20 bytes.
-    uint32_t                   struct_size;
+    uint32_t                   struct_size; // Current producer size. Callers may pass any buffer at least 20 bytes.
     ReRevvedUniqueEraAbilityId native_ability;
     ReRevvedUniqueEraAbilityId effective_ability;
     uint32_t                   replacement_count;

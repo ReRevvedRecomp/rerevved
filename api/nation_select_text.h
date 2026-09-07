@@ -76,16 +76,14 @@ typedef struct ReRevvedNationSelectTextRule
     ReRevvedUniqueEraAbilityId  ability;
     ReRevvedUnitTypeId          base_unit_type;
     ReRevvedUnitIdentityId      identity;
-    // ABI 1 accepts UNIT for the civilization information screen.
-    ReRevvedUnitDisplayForm display_form;
+    ReRevvedUnitDisplayForm display_form; // ABI 1 accepts UNIT for the civilization information screen.
     char                    text[REREVVED_NATION_SELECT_TEXT_CAPACITY];
     int32_t                 reserved[8];
 } ReRevvedNationSelectTextRule;
 
 typedef struct ReRevvedNationSelectTextRuleInfo
 {
-    // Current producer size. Callers may pass any buffer at least 420 bytes.
-    uint32_t                    struct_size;
+    uint32_t                    struct_size; // Current producer size. Callers may pass any buffer at least 420 bytes.
     char                        provider_id[REREVVED_NATION_SELECT_TEXT_RULE_ID_CAPACITY];
     char                        rule_id[REREVVED_NATION_SELECT_TEXT_RULE_ID_CAPACITY];
     ReRevvedNationSelectTextSurface surface;
@@ -115,8 +113,7 @@ typedef struct ReRevvedNationSelectTextQuery
 
 typedef struct ReRevvedNationSelectTextEvaluation
 {
-    // Current producer size. Callers may pass any buffer at least 268 bytes.
-    uint32_t struct_size;
+    uint32_t struct_size; // Current producer size. Callers may pass any buffer at least 268 bytes.
     uint32_t replacement_count;
     uint32_t status_flags;
     char     text[REREVVED_NATION_SELECT_TEXT_CAPACITY];

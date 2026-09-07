@@ -45,15 +45,13 @@ typedef struct ReRevvedUnitProductionCostRule
     ReRevvedCivilizationId civilization;
     ReRevvedUnitTypeId     base_unit_type;
     ReRevvedUnitIdentityId identity;
-    // Additive percentage points relative to the native cost (100 percent).
-    int32_t percentage_delta;
+    int32_t percentage_delta; // Additive percentage points relative to the native cost (100 percent).
     int32_t reserved[5];
 } ReRevvedUnitProductionCostRule;
 
 typedef struct ReRevvedUnitProductionCostRuleInfo
 {
-    // Current producer size. Callers may pass any buffer at least 152 bytes.
-    uint32_t               struct_size;
+    uint32_t               struct_size; // Current producer size. Callers may pass any buffer at least 152 bytes.
     char                   provider_id[REREVVED_UNIT_PRODUCTION_COST_RULE_ID_CAPACITY];
     char                   rule_id[REREVVED_UNIT_PRODUCTION_COST_RULE_ID_CAPACITY];
     ReRevvedCivilizationId civilization;
@@ -75,8 +73,7 @@ typedef struct ReRevvedUnitProductionCostQuery
 
 typedef struct ReRevvedUnitProductionCostEvaluation
 {
-    // Current producer size. Callers may pass any buffer at least 20 bytes.
-    uint32_t struct_size;
+    uint32_t struct_size; // Current producer size. Callers may pass any buffer at least 20 bytes.
     int32_t  native_percent;
     int32_t  final_percent;
     uint32_t status_flags;

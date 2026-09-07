@@ -51,8 +51,7 @@ typedef struct ReRevvedUnitMovementRule
 
 typedef struct ReRevvedUnitMovementRuleInfo
 {
-    // Current producer size. Callers may pass any buffer at least 152 bytes.
-    uint32_t                 struct_size;
+    uint32_t                 struct_size; // Current producer size. Callers may pass any buffer at least 152 bytes.
     char                     provider_id[REREVVED_UNIT_MOVEMENT_RULE_ID_CAPACITY];
     char                     rule_id[REREVVED_UNIT_MOVEMENT_RULE_ID_CAPACITY];
     ReRevvedCivilizationId   civilization;
@@ -75,8 +74,7 @@ typedef struct ReRevvedUnitMovementQuery
 
 typedef struct ReRevvedUnitMovementEvaluation
 {
-    // Current producer size. Callers may pass any buffer at least 20 bytes.
-    uint32_t struct_size;
+    uint32_t struct_size; // Current producer size. Callers may pass any buffer at least 20 bytes.
     int32_t  native_value;
     int32_t  final_value;
     uint32_t status_flags;

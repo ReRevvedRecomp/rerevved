@@ -55,15 +55,13 @@ typedef struct ReRevvedUnitCombatRule
     ReRevvedUnitIdentityId     identity;
     ReRevvedTerrainId          terrain;
     ReRevvedUnitCombatProperty property;
-    // Additive percentage points relative to the native 100 percent scalar.
-    int32_t percentage_delta;
+    int32_t percentage_delta; // Additive percentage points relative to the native 100 percent scalar.
     int32_t reserved[3];
 } ReRevvedUnitCombatRule;
 
 typedef struct ReRevvedUnitCombatRuleInfo
 {
-    // Current producer size. Callers may pass any buffer at least 160 bytes.
-    uint32_t                   struct_size;
+    uint32_t                   struct_size; // Current producer size. Callers may pass any buffer at least 160 bytes.
     char                       provider_id[REREVVED_UNIT_COMBAT_RULE_ID_CAPACITY];
     char                       rule_id[REREVVED_UNIT_COMBAT_RULE_ID_CAPACITY];
     ReRevvedCivilizationId     civilization;
@@ -89,8 +87,7 @@ typedef struct ReRevvedUnitCombatQuery
 
 typedef struct ReRevvedUnitCombatEvaluation
 {
-    // Current producer size. Callers may pass any buffer at least 20 bytes.
-    uint32_t struct_size;
+    uint32_t struct_size; // Current producer size. Callers may pass any buffer at least 20 bytes.
     int32_t  native_percent;
     int32_t  final_percent;
     uint32_t status_flags;
