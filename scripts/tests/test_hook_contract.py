@@ -14,7 +14,7 @@ HOOK_SOURCES = [
     ROOT / "src" / "rerevved_hooks.cpp",
     ROOT / "src" / "great_general_attachment.cpp",
     ROOT / "src" / "unique_era_abilities_hooks.cpp",
-    ROOT / "src" / "presentation_text_hooks.cpp",
+    ROOT / "src" / "nation_select_text_hooks.cpp",
     ROOT / "src" / "unique_unit_rules_hooks.cpp",
     ROOT / "src" / "unit_movement_rules_hooks.cpp",
     ROOT / "src" / "unit_production_cost_rules_hooks.cpp",
@@ -24,7 +24,7 @@ HOOK_SOURCES = [
     ROOT / "src" / "main_menu_logo_hooks.cpp",
 ]
 GENERAL_SOURCE = ROOT / "src" / "great_general_attachment.cpp"
-PRESENTATION_SOURCE = ROOT / "src" / "presentation_text_hooks.cpp"
+NATION_SELECT_TEXT_SOURCE = ROOT / "src" / "nation_select_text_hooks.cpp"
 APP_SOURCE = ROOT / "src" / "rerevved_app.cpp"
 GENERATED = ROOT / "generated" / "default"
 
@@ -212,32 +212,32 @@ EXPECTED_HOOKS = [
     },
     {
         "address": 0x82D77F0C,
-        "name": "ReRevvedApplyLeaderNamePresentationText",
+        "name": "ReRevvedApplyLeaderNameNationSelectText",
         "registers": ["r3", "r20"],
     },
     {
         "address": 0x82D77FD0,
-        "name": "ReRevvedApplyCivilizationNamePresentationText",
+        "name": "ReRevvedApplyCivilizationNameNationSelectText",
         "registers": ["r3", "r20"],
     },
     {
         "address": 0x82D7807C,
-        "name": "ReRevvedApplyEraAbilityPresentationText",
+        "name": "ReRevvedApplyEraAbilityNationSelectText",
         "registers": ["r31", "r20"],
     },
     {
         "address": 0x82D781AC,
-        "name": "ReRevvedApplyCivilizationTraitPresentationText",
+        "name": "ReRevvedApplyCivilizationTraitNationSelectText",
         "registers": ["r30", "r20"],
     },
     {
         "address": 0x82D78228,
-        "name": "ReRevvedApplyUniqueUnitSectionHeadingPresentationText",
+        "name": "ReRevvedApplyUniqueUnitSectionHeadingNationSelectText",
         "registers": ["r3"],
     },
     {
         "address": 0x82D783B4,
-        "name": "ReRevvedApplyUniqueUnitPresentationText",
+        "name": "ReRevvedApplyUniqueUnitNationSelectText",
         "registers": ["r3", "r27", "r20"],
     },
     {
@@ -936,14 +936,14 @@ class HookContractTests(unittest.TestCase):
         self.assertIn("if (ctx.cr6.eq) goto loc_82CF0D0C;", exact_mode)
 
     def test_era_presentation_buffer_has_native_length_header(self) -> None:
-        source = PRESENTATION_SOURCE.read_text(encoding="ascii")
+        source = NATION_SELECT_TEXT_SOURCE.read_text(encoding="ascii")
         parser = source.split("bool TryReplaceEraLines", 1)[1].split(
             "} // namespace", 1
         )[0]
         self.assertIn("std::array<const char*, 9>", parser)
         self.assertIn("if (index != 0", parser)
-        self.assertNotIn("REREVVED_PRESENTATION_SURFACE_RESERVED_5", parser)
-        self.assertIn("REREVVED_PRESENTATION_SURFACE_ERA_HEADING", parser)
+        self.assertNotIn("REREVVED_NATION_SELECT_TEXT_SURFACE_RESERVED_5", parser)
+        self.assertIn("REREVVED_NATION_SELECT_TEXT_SURFACE_ERA_HEADING", parser)
         self.assertIn("(index - 1) / 2", parser)
         self.assertIn("(index - 2) / 2", parser)
         publish = source.split("bool TryPublishText", 1)[1].split(
@@ -956,8 +956,8 @@ class HookContractTests(unittest.TestCase):
             r"out\.u64\s*=\s*text_address;",
         )
         era_hook = source.split(
-            "void ReRevvedApplyEraAbilityPresentationText", 1
-        )[1].split("void ReRevvedApplyUniqueUnitPresentationText", 1)[0]
+            "void ReRevvedApplyEraAbilityNationSelectText", 1
+        )[1].split("void ReRevvedApplyUniqueUnitNationSelectText", 1)[0]
         self.assertRegex(
             era_hook,
             r"TryPublishText\(replacement\.data\(\),\s*"
@@ -965,31 +965,31 @@ class HookContractTests(unittest.TestCase):
         )
 
     def test_additional_presentation_hooks_preserve_native_forms(self) -> None:
-        source = PRESENTATION_SOURCE.read_text(encoding="ascii")
+        source = NATION_SELECT_TEXT_SOURCE.read_text(encoding="ascii")
         for name in [
-            "ReRevvedApplyLeaderNamePresentationText",
-            "ReRevvedApplyCivilizationNamePresentationText",
-            "ReRevvedApplyCivilizationTraitPresentationText",
-            "ReRevvedApplyUniqueUnitSectionHeadingPresentationText",
+            "ReRevvedApplyLeaderNameNationSelectText",
+            "ReRevvedApplyCivilizationNameNationSelectText",
+            "ReRevvedApplyCivilizationTraitNationSelectText",
+            "ReRevvedApplyUniqueUnitSectionHeadingNationSelectText",
         ]:
             self.assertEqual(source.count(f"void {name}"), 1)
         self.assertIn(
-            "REREVVED_PRESENTATION_SURFACE_LEADER_NAME", source
+            "REREVVED_NATION_SELECT_TEXT_SURFACE_LEADER_NAME", source
         )
         self.assertIn(
-            "REREVVED_PRESENTATION_SURFACE_CIVILIZATION_NAME", source
+            "REREVVED_NATION_SELECT_TEXT_SURFACE_CIVILIZATION_NAME", source
         )
         self.assertIn(
-            "REREVVED_PRESENTATION_SURFACE_CIVILIZATION_TRAIT", source
+            "REREVVED_NATION_SELECT_TEXT_SURFACE_CIVILIZATION_TRAIT", source
         )
         self.assertIn(
-            "REREVVED_PRESENTATION_SURFACE_UNIQUE_UNIT_SECTION_HEADING",
+            "REREVVED_NATION_SELECT_TEXT_SURFACE_UNIQUE_UNIT_SECTION_HEADING",
             source,
         )
         trait_hook = source.split(
-            "void ReRevvedApplyCivilizationTraitPresentationText", 1
+            "void ReRevvedApplyCivilizationTraitNationSelectText", 1
         )[1].split(
-            "void ReRevvedApplyUniqueUnitSectionHeadingPresentationText", 1
+            "void ReRevvedApplyUniqueUnitSectionHeadingNationSelectText", 1
         )[0]
         self.assertIn("TryReplaceText(trait_text", trait_hook)
         self.assertIn("true,\n                   trait_text_buffer", trait_hook)
@@ -1004,14 +1004,14 @@ class HookContractTests(unittest.TestCase):
             "\tctx.lr = 0x82D783B4;\n"
             "\tsub_82E6A430(ctx, base);\n"
             "\t// mr r4,r3\n"
-            "\tReRevvedApplyUniqueUnitPresentationText("
+            "\tReRevvedApplyUniqueUnitNationSelectText("
             "ctx.r3, ctx.r27, ctx.r20);\n"
             "\tctx.r4.u64 = ctx.r3.u64;"
         )
         era_placement = (
             "\tctx.r31.u64 = REX_LOAD_U32(ctx.r3.u32 + 0);\n"
             "\t// addi r29,r25,16\n"
-            "\tReRevvedApplyEraAbilityPresentationText(ctx.r31, ctx.r20);\n"
+            "\tReRevvedApplyEraAbilityNationSelectText(ctx.r31, ctx.r20);\n"
             "\tctx.r29.s64 = ctx.r25.s64 + 16;"
         )
         self.assertEqual(generated.count(unit_placement), 1)

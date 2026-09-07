@@ -219,34 +219,34 @@ registers = ["r4", "r9", "r11"]
 
 [[midasm_hook]]
 address = 0x82D77F0C
-name = "ReRevvedApplyLeaderNamePresentationText"
+name = "ReRevvedApplyLeaderNameNationSelectText"
 registers = ["r3", "r20"]
 
 [[midasm_hook]]
 address = 0x82D77FD0
-name = "ReRevvedApplyCivilizationNamePresentationText"
+name = "ReRevvedApplyCivilizationNameNationSelectText"
 registers = ["r3", "r20"]
 
 [[midasm_hook]]
 address = 0x82D7807C
-name = "ReRevvedApplyEraAbilityPresentationText"
+name = "ReRevvedApplyEraAbilityNationSelectText"
 registers = ["r31", "r20"]
 
 [[midasm_hook]]
 address = 0x82D781AC
-name = "ReRevvedApplyCivilizationTraitPresentationText"
+name = "ReRevvedApplyCivilizationTraitNationSelectText"
 registers = ["r30", "r20"]
 
 [[midasm_hook]]
 address = 0x82D78228
-name = "ReRevvedApplyUniqueUnitSectionHeadingPresentationText"
+name = "ReRevvedApplyUniqueUnitSectionHeadingNationSelectText"
 registers = ["r3"]
 
 # Replace each localized Special Units name before the builder joins names.
 
 [[midasm_hook]]
 address = 0x82D783B4
-name = "ReRevvedApplyUniqueUnitPresentationText"
+name = "ReRevvedApplyUniqueUnitNationSelectText"
 registers = ["r3", "r27", "r20"]
 
 # Add identity-targeted movement deltas to the completed native result on the

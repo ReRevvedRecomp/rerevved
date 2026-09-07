@@ -11,7 +11,7 @@ guest addresses, or borrowed strings.
 |---|---|
 | [`game_ids.h`](../api/game_ids.h) | Shared civilization, unit type, unit identity, and display-form IDs. |
 | [`gameplay_state.h`](../api/gameplay_state.h) | Read-only gameplay availability and active-player snapshot. |
-| [`presentation_text.h`](../api/presentation_text.h) | Civilization information screen text replacements. |
+| [`nation_select_text.h`](../api/nation_select_text.h) | Civilization information screen text replacements. |
 | [`unit_catalog.h`](../api/unit_catalog.h) | Static unit definitions and civilization-specific unit identity resolution. |
 | [`unit_movement_rules.h`](../api/unit_movement_rules.h) | Registration and evaluation of identity-targeted additive base movement rules. |
 | [`unit_production_cost_rules.h`](../api/unit_production_cost_rules.h) | Registration and evaluation of identity-targeted additive production cost percentages. |
@@ -87,7 +87,7 @@ Game-specific IDs and behavior remain in this repository.
   scenario, multiplayer, and persistence remain unproved.
 - Unique Unit rules compose at the documented base-stat boundary before the title applies its native modifiers.
 - Unique Era Ability rules cover only the IDs and effects documented by that ABI.
-- Presentation Text rules replace complete printable ASCII fields on the
+- Nation Select Text rules replace complete printable ASCII fields on the
   civilization information screen. ABI 1 supports civilization-specific
   leader, civilization, and trait fields; the four global era labels and
   civilization/effective-ability rows; the global unique-unit heading; and

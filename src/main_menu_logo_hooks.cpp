@@ -75,9 +75,7 @@ void ReRevvedApplyAssetFileOverride(PPCRegister& stack_pointer,
 
     rerevved::main_menu_logo::Payload payload;
     if (!rerevved::main_menu_logo::TryGetPayload(payload) ||
-        !payload || payload->size() != rerevved::main_menu_logo::kLogoDdsSize ||
-        payload->size() > std::numeric_limits<uint32_t>::max() -
-                              kLengthPrefixSize ||
+        payload->size() != rerevved::main_menu_logo::kLogoDdsSize ||
         stack_pointer.u32 > std::numeric_limits<uint32_t>::max() - 84 ||
         !IsGuestRangeAccessible(
             memory, stack_pointer.u32 + 84, sizeof(uint32_t), true))

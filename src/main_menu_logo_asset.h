@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <memory>
 #include <span>
-#include <string>
 #include <string_view>
 #include <vector>
 
@@ -26,13 +25,6 @@ using Resolver = rex::Result<rex::system::AssetOverlayResolution> (*)(
     std::string_view                                  asset_key,
     size_t                                            max_bytes);
 
-struct Selection
-{
-    Payload                  payload;
-    std::string              package_id;
-    std::vector<std::string> shadowed_package_ids;
-};
-
 bool IsValidLogoDds(std::span<const uint8_t> data);
 
 // Resolve the selected package asset once before guest execution begins. The
@@ -42,7 +34,6 @@ bool ResolveSelectedLogo(
     Resolver                                          resolver = nullptr);
 
 bool TryGetPayload(Payload& payload);
-bool TryGetSelection(Selection& selection);
 void ResetForTests();
 
 } // namespace rerevved::main_menu_logo

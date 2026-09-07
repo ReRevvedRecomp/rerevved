@@ -1,4 +1,4 @@
-#include "presentation_text_registry.h"
+#include "nation_select_text_registry.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -10,7 +10,7 @@
 
 #include "unit_catalog_api.h"
 
-namespace rerevved::presentation_text
+namespace rerevved::nation_select_text
 {
 
 namespace
@@ -20,12 +20,12 @@ constexpr uint32_t kRuleInfoPrefix   = 420;
 constexpr uint32_t kEvaluationPrefix = 268;
 
 std::shared_mutex                         registry_mutex;
-std::vector<ReRevvedPresentationTextRule> registry;
+std::vector<ReRevvedNationSelectTextRule> registry;
 
 bool IsIdentifierValid(const char* value)
 {
     const void* terminator = std::memchr(
-        value, '\0', REREVVED_PRESENTATION_TEXT_RULE_ID_CAPACITY);
+        value, '\0', REREVVED_NATION_SELECT_TEXT_RULE_ID_CAPACITY);
     if (!terminator || value[0] == '\0')
     {
         return false;
@@ -47,7 +47,7 @@ bool IsIdentifierValid(const char* value)
 bool IsTextValid(const char* value)
 {
     const void* terminator =
-        std::memchr(value, '\0', REREVVED_PRESENTATION_TEXT_CAPACITY);
+        std::memchr(value, '\0', REREVVED_NATION_SELECT_TEXT_CAPACITY);
     if (!terminator || value[0] == '\0')
     {
         return false;
@@ -85,59 +85,59 @@ bool IsCivilizationValid(ReRevvedCivilizationId civilization)
     return civilization >= 0 && civilization < REREVVED_CIVILIZATION_COUNT;
 }
 
-bool HasUnusedSelectors(const ReRevvedPresentationTextQuery& query)
+bool HasUnusedSelectors(const ReRevvedNationSelectTextQuery& query)
 {
-    return query.unlock_era == REREVVED_PRESENTATION_SELECTOR_UNUSED &&
-           query.ability == REREVVED_PRESENTATION_SELECTOR_UNUSED &&
-           query.base_unit_type == REREVVED_PRESENTATION_SELECTOR_UNUSED &&
-           query.identity == REREVVED_PRESENTATION_SELECTOR_UNUSED &&
-           query.display_form == REREVVED_PRESENTATION_SELECTOR_UNUSED;
+    return query.unlock_era == REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED &&
+           query.ability == REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED &&
+           query.base_unit_type == REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED &&
+           query.identity == REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED &&
+           query.display_form == REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED;
 }
 
-bool IsQueryValid(const ReRevvedPresentationTextQuery& query)
+bool IsQueryValid(const ReRevvedNationSelectTextQuery& query)
 {
     if (!IsZeroed(query.reserved))
     {
         return false;
     }
 
-    if (query.surface == REREVVED_PRESENTATION_SURFACE_LEADER_NAME ||
-        query.surface == REREVVED_PRESENTATION_SURFACE_CIVILIZATION_NAME ||
-        query.surface == REREVVED_PRESENTATION_SURFACE_CIVILIZATION_TRAIT)
+    if (query.surface == REREVVED_NATION_SELECT_TEXT_SURFACE_LEADER_NAME ||
+        query.surface == REREVVED_NATION_SELECT_TEXT_SURFACE_CIVILIZATION_NAME ||
+        query.surface == REREVVED_NATION_SELECT_TEXT_SURFACE_CIVILIZATION_TRAIT)
     {
         return IsCivilizationValid(query.civilization) &&
                HasUnusedSelectors(query);
     }
     if (query.surface ==
-        REREVVED_PRESENTATION_SURFACE_UNIQUE_UNIT_SECTION_HEADING)
+        REREVVED_NATION_SELECT_TEXT_SURFACE_UNIQUE_UNIT_SECTION_HEADING)
     {
-        return query.civilization == REREVVED_PRESENTATION_SELECTOR_UNUSED &&
+        return query.civilization == REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED &&
                HasUnusedSelectors(query);
     }
-    if (query.surface == REREVVED_PRESENTATION_SURFACE_ERA_HEADING)
+    if (query.surface == REREVVED_NATION_SELECT_TEXT_SURFACE_ERA_HEADING)
     {
-        return query.civilization == REREVVED_PRESENTATION_SELECTOR_UNUSED &&
+        return query.civilization == REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED &&
                query.unlock_era >= REREVVED_UNIQUE_ERA_ANCIENT &&
                query.unlock_era <= REREVVED_UNIQUE_ERA_MODERN &&
-               query.ability == REREVVED_PRESENTATION_SELECTOR_UNUSED &&
-               query.base_unit_type == REREVVED_PRESENTATION_SELECTOR_UNUSED &&
-               query.identity == REREVVED_PRESENTATION_SELECTOR_UNUSED &&
-               query.display_form == REREVVED_PRESENTATION_SELECTOR_UNUSED;
+               query.ability == REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED &&
+               query.base_unit_type == REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED &&
+               query.identity == REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED &&
+               query.display_form == REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED;
     }
-    if (query.surface == REREVVED_PRESENTATION_SURFACE_ERA_ABILITY)
+    if (query.surface == REREVVED_NATION_SELECT_TEXT_SURFACE_ERA_ABILITY)
     {
         return IsCivilizationValid(query.civilization) &&
                query.unlock_era >= REREVVED_UNIQUE_ERA_ANCIENT &&
                query.unlock_era <= REREVVED_UNIQUE_ERA_MODERN &&
                query.ability > 0 &&
-               query.base_unit_type == REREVVED_PRESENTATION_SELECTOR_UNUSED &&
-               query.identity == REREVVED_PRESENTATION_SELECTOR_UNUSED &&
-               query.display_form == REREVVED_PRESENTATION_SELECTOR_UNUSED;
+               query.base_unit_type == REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED &&
+               query.identity == REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED &&
+               query.display_form == REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED;
     }
-    if (query.surface == REREVVED_PRESENTATION_SURFACE_UNIQUE_UNIT)
+    if (query.surface == REREVVED_NATION_SELECT_TEXT_SURFACE_UNIQUE_UNIT)
     {
         ReRevvedUnitIdentityId resolved = REREVVED_UNIT_IDENTITY_BASE;
-        return query.unlock_era == REREVVED_PRESENTATION_SELECTOR_UNUSED &&
+        return query.unlock_era == REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED &&
                query.ability == 0 && query.base_unit_type >= 0 &&
                query.base_unit_type < REREVVED_UNIT_TYPE_COUNT &&
                query.identity > REREVVED_UNIT_IDENTITY_BASE &&
@@ -151,11 +151,11 @@ bool IsQueryValid(const ReRevvedPresentationTextQuery& query)
     return false;
 }
 
-ReRevvedPresentationTextQuery QueryFromRule(
-    const ReRevvedPresentationTextRule& rule)
+ReRevvedNationSelectTextQuery QueryFromRule(
+    const ReRevvedNationSelectTextRule& rule)
 {
     return {
-        sizeof(ReRevvedPresentationTextQuery),
+        sizeof(ReRevvedNationSelectTextQuery),
         rule.surface,
         rule.civilization,
         rule.unlock_era,
@@ -167,8 +167,8 @@ ReRevvedPresentationTextQuery QueryFromRule(
     };
 }
 
-bool TargetMatches(const ReRevvedPresentationTextRule&  rule,
-                   const ReRevvedPresentationTextQuery& query)
+bool TargetMatches(const ReRevvedNationSelectTextRule&  rule,
+                   const ReRevvedNationSelectTextQuery& query)
 {
     return rule.surface == query.surface &&
            rule.civilization == query.civilization &&
@@ -179,15 +179,15 @@ bool TargetMatches(const ReRevvedPresentationTextRule&  rule,
            rule.display_form == query.display_form;
 }
 
-bool RuleKeyMatches(const ReRevvedPresentationTextRule& left,
-                    const ReRevvedPresentationTextRule& right)
+bool RuleKeyMatches(const ReRevvedNationSelectTextRule& left,
+                    const ReRevvedNationSelectTextRule& right)
 {
     return std::strcmp(left.provider_id, right.provider_id) == 0 &&
            std::strcmp(left.rule_id, right.rule_id) == 0;
 }
 
-bool RuleKeyLess(const ReRevvedPresentationTextRule& left,
-                 const ReRevvedPresentationTextRule& right)
+bool RuleKeyLess(const ReRevvedNationSelectTextRule& left,
+                 const ReRevvedNationSelectTextRule& right)
 {
     const int provider_order = std::strcmp(left.provider_id, right.provider_id);
     return provider_order < 0 ||
@@ -195,7 +195,7 @@ bool RuleKeyLess(const ReRevvedPresentationTextRule& left,
             std::strcmp(left.rule_id, right.rule_id) < 0);
 }
 
-uint32_t ReplacementCount(const ReRevvedPresentationTextRule& target)
+uint32_t ReplacementCount(const ReRevvedNationSelectTextRule& target)
 {
     const auto query = QueryFromRule(target);
     return static_cast<uint32_t>(std::count_if(
@@ -222,13 +222,13 @@ int32_t CopyOutput(Record*       out,
     uint32_t copy_size = std::min<uint32_t>(out_size, sizeof(Record));
     copy_size -= copy_size % sizeof(uint32_t);
     std::memcpy(out, &producer, copy_size);
-    return REREVVED_PRESENTATION_TEXT_OK;
+    return REREVVED_NATION_SELECT_TEXT_OK;
 }
 
 } // namespace
 
-bool TryEvaluate(const ReRevvedPresentationTextQuery& query,
-                 ReRevvedPresentationTextEvaluation&  evaluation)
+bool TryEvaluate(const ReRevvedNationSelectTextQuery& query,
+                 ReRevvedNationSelectTextEvaluation&  evaluation)
 {
     if (!IsQueryValid(query))
     {
@@ -252,12 +252,12 @@ bool TryEvaluate(const ReRevvedPresentationTextQuery& query,
     if (evaluation.replacement_count == 1)
     {
         evaluation.status_flags |=
-            REREVVED_PRESENTATION_TEXT_EVALUATION_REPLACED;
+            REREVVED_NATION_SELECT_TEXT_EVALUATION_REPLACED;
     }
     else if (evaluation.replacement_count > 1)
     {
         evaluation.status_flags |=
-            REREVVED_PRESENTATION_TEXT_EVALUATION_REPLACEMENT_CONFLICT;
+            REREVVED_NATION_SELECT_TEXT_EVALUATION_REPLACEMENT_CONFLICT;
         std::memset(evaluation.text, 0, sizeof(evaluation.text));
     }
     return true;
@@ -269,31 +269,31 @@ void ResetForTests()
     registry.clear();
 }
 
-} // namespace rerevved::presentation_text
+} // namespace rerevved::nation_select_text
 
-static_assert(sizeof(ReRevvedPresentationTextRule) == 448);
-static_assert(sizeof(ReRevvedPresentationTextRuleInfo) == 452);
-static_assert(sizeof(ReRevvedPresentationTextQuery) == 64);
-static_assert(sizeof(ReRevvedPresentationTextEvaluation) == 300);
+static_assert(sizeof(ReRevvedNationSelectTextRule) == 448);
+static_assert(sizeof(ReRevvedNationSelectTextRuleInfo) == 452);
+static_assert(sizeof(ReRevvedNationSelectTextQuery) == 64);
+static_assert(sizeof(ReRevvedNationSelectTextEvaluation) == 300);
 
-extern "C" uint32_t ReRevvedPresentationTextAbiVersion(void)
+extern "C" uint32_t ReRevvedNationSelectTextAbiVersion(void)
 {
-    return REREVVED_PRESENTATION_TEXT_ABI_VERSION;
+    return REREVVED_NATION_SELECT_TEXT_ABI_VERSION;
 }
 
-extern "C" int32_t ReRevvedRegisterPresentationTextRule(
-    const ReRevvedPresentationTextRule* rule)
+extern "C" int32_t ReRevvedRegisterNationSelectTextRule(
+    const ReRevvedNationSelectTextRule* rule)
 {
-    using namespace rerevved::presentation_text;
+    using namespace rerevved::nation_select_text;
     if (!rule || rule->struct_size < sizeof(*rule) ||
         !IsIdentifierValid(rule->provider_id) ||
         !IsIdentifierValid(rule->rule_id) || !IsTextValid(rule->text) ||
         !IsZeroed(rule->reserved) || !IsQueryValid(QueryFromRule(*rule)))
     {
-        return REREVVED_PRESENTATION_TEXT_ERR_INVALID_ARGUMENT;
+        return REREVVED_NATION_SELECT_TEXT_ERR_INVALID_ARGUMENT;
     }
 
-    ReRevvedPresentationTextRule normalized = *rule;
+    ReRevvedNationSelectTextRule normalized = *rule;
     normalized.struct_size                  = sizeof(normalized);
     NormalizeString(normalized.provider_id, sizeof(normalized.provider_id));
     NormalizeString(normalized.rule_id, sizeof(normalized.rule_id));
@@ -310,54 +310,54 @@ extern "C" int32_t ReRevvedRegisterPresentationTextRule(
         if (duplicate != registry.end())
         {
             return std::memcmp(&*duplicate, &normalized, sizeof(normalized)) == 0
-                       ? REREVVED_PRESENTATION_TEXT_OK
-                       : REREVVED_PRESENTATION_TEXT_ERR_DUPLICATE_RULE_ID;
+                       ? REREVVED_NATION_SELECT_TEXT_OK
+                       : REREVVED_NATION_SELECT_TEXT_ERR_DUPLICATE_RULE_ID;
         }
         registry.push_back(normalized);
         std::sort(registry.begin(), registry.end(), RuleKeyLess);
     }
     catch (...)
     {
-        return REREVVED_PRESENTATION_TEXT_ERR_INTERNAL;
+        return REREVVED_NATION_SELECT_TEXT_ERR_INTERNAL;
     }
-    return REREVVED_PRESENTATION_TEXT_OK;
+    return REREVVED_NATION_SELECT_TEXT_OK;
 }
 
-extern "C" int32_t ReRevvedGetPresentationTextRuleCount(uint32_t* out_count)
+extern "C" int32_t ReRevvedGetNationSelectTextRuleCount(uint32_t* out_count)
 {
     if (!out_count)
     {
-        return REREVVED_PRESENTATION_TEXT_ERR_INVALID_ARGUMENT;
+        return REREVVED_NATION_SELECT_TEXT_ERR_INVALID_ARGUMENT;
     }
-    std::shared_lock lock(rerevved::presentation_text::registry_mutex);
+    std::shared_lock lock(rerevved::nation_select_text::registry_mutex);
     *out_count = static_cast<uint32_t>(
-        rerevved::presentation_text::registry.size());
-    return REREVVED_PRESENTATION_TEXT_OK;
+        rerevved::nation_select_text::registry.size());
+    return REREVVED_NATION_SELECT_TEXT_OK;
 }
 
-extern "C" int32_t ReRevvedGetPresentationTextRule(
+extern "C" int32_t ReRevvedGetNationSelectTextRule(
     uint32_t                          index,
-    ReRevvedPresentationTextRuleInfo* out,
+    ReRevvedNationSelectTextRuleInfo* out,
     uint32_t                          out_size)
 {
-    using namespace rerevved::presentation_text;
+    using namespace rerevved::nation_select_text;
     if (!out)
     {
-        return REREVVED_PRESENTATION_TEXT_ERR_INVALID_ARGUMENT;
+        return REREVVED_NATION_SELECT_TEXT_ERR_INVALID_ARGUMENT;
     }
     ClearOutput(out, out_size);
     if (out_size < kRuleInfoPrefix)
     {
-        return REREVVED_PRESENTATION_TEXT_ERR_BUFFER_TOO_SMALL;
+        return REREVVED_NATION_SELECT_TEXT_ERR_BUFFER_TOO_SMALL;
     }
     std::shared_lock lock(registry_mutex);
     if (index >= registry.size())
     {
-        return REREVVED_PRESENTATION_TEXT_ERR_INVALID_ARGUMENT;
+        return REREVVED_NATION_SELECT_TEXT_ERR_INVALID_ARGUMENT;
     }
 
     const auto&                      rule = registry[index];
-    ReRevvedPresentationTextRuleInfo result{};
+    ReRevvedNationSelectTextRuleInfo result{};
     result.struct_size    = sizeof(result);
     result.surface        = rule.surface;
     result.civilization   = rule.civilization;
@@ -372,34 +372,34 @@ extern "C" int32_t ReRevvedGetPresentationTextRule(
     if (ReplacementCount(rule) > 1)
     {
         result.status_flags |=
-            REREVVED_PRESENTATION_TEXT_RULE_REPLACEMENT_CONFLICT;
+            REREVVED_NATION_SELECT_TEXT_RULE_REPLACEMENT_CONFLICT;
     }
     return CopyOutput(out, out_size, result);
 }
 
-extern "C" int32_t ReRevvedEvaluatePresentationText(
-    const ReRevvedPresentationTextQuery* query,
-    ReRevvedPresentationTextEvaluation*  out,
+extern "C" int32_t ReRevvedEvaluateNationSelectText(
+    const ReRevvedNationSelectTextQuery* query,
+    ReRevvedNationSelectTextEvaluation*  out,
     uint32_t                             out_size)
 {
-    using namespace rerevved::presentation_text;
+    using namespace rerevved::nation_select_text;
     if (!out)
     {
-        return REREVVED_PRESENTATION_TEXT_ERR_INVALID_ARGUMENT;
+        return REREVVED_NATION_SELECT_TEXT_ERR_INVALID_ARGUMENT;
     }
     ClearOutput(out, out_size);
     if (out_size < kEvaluationPrefix)
     {
-        return REREVVED_PRESENTATION_TEXT_ERR_BUFFER_TOO_SMALL;
+        return REREVVED_NATION_SELECT_TEXT_ERR_BUFFER_TOO_SMALL;
     }
     if (!query || query->struct_size < sizeof(*query))
     {
-        return REREVVED_PRESENTATION_TEXT_ERR_INVALID_ARGUMENT;
+        return REREVVED_NATION_SELECT_TEXT_ERR_INVALID_ARGUMENT;
     }
-    ReRevvedPresentationTextEvaluation result{};
+    ReRevvedNationSelectTextEvaluation result{};
     if (!TryEvaluate(*query, result))
     {
-        return REREVVED_PRESENTATION_TEXT_ERR_INVALID_ARGUMENT;
+        return REREVVED_NATION_SELECT_TEXT_ERR_INVALID_ARGUMENT;
     }
     return CopyOutput(out, out_size, result);
 }

@@ -63,9 +63,9 @@ set(REREVVED_SOURCES
     src/native_renderer_coverage.cpp
     src/native_renderer_coverage.h
     src/native_renderer_coverage_hooks.inc
-    src/presentation_text.cpp
-    src/presentation_text_hooks.cpp
-    src/presentation_text_registry.h
+    src/nation_select_text.cpp
+    src/nation_select_text_hooks.cpp
+    src/nation_select_text_registry.h
     src/main_menu_logo_asset.cpp
     src/main_menu_logo_hooks.cpp
     src/gpu/renderer_backend.cpp
@@ -127,7 +127,7 @@ target_include_directories(rerevved PRIVATE
 )
 target_compile_definitions(rerevved PRIVATE
     REREVVED_GAMEPLAY_API_EXPORTS
-    REREVVED_PRESENTATION_TEXT_API_EXPORTS
+    REREVVED_NATION_SELECT_TEXT_API_EXPORTS
     REREVVED_UNIQUE_ERA_ABILITIES_API_EXPORTS
     REREVVED_UNIQUE_UNIT_RULES_API_EXPORTS
     REREVVED_UNIT_MOVEMENT_RULES_API_EXPORTS
@@ -220,27 +220,27 @@ if(BUILD_TESTING)
     )
     add_test(NAME unit_catalog_api_c_header COMMAND unit_catalog_api_c_header_tests)
 
-    add_executable(presentation_text_tests
-        src/presentation_text.cpp
+    add_executable(nation_select_text_tests
+        src/nation_select_text.cpp
         src/unit_catalog_api.cpp
-        tests/presentation_text_test.cpp
+        tests/nation_select_text_test.cpp
     )
-    target_include_directories(presentation_text_tests PRIVATE
+    target_include_directories(nation_select_text_tests PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/api
         ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
-    add_test(NAME presentation_text_contract COMMAND presentation_text_tests)
+    add_test(NAME nation_select_text_contract COMMAND nation_select_text_tests)
 
-    add_executable(presentation_text_c_header_tests
-        src/presentation_text.cpp
+    add_executable(nation_select_text_c_header_tests
+        src/nation_select_text.cpp
         src/unit_catalog_api.cpp
-        tests/presentation_text_c_header_test.c
+        tests/nation_select_text_c_header_test.c
     )
-    target_include_directories(presentation_text_c_header_tests PRIVATE
+    target_include_directories(nation_select_text_c_header_tests PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/api
         ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
-    add_test(NAME presentation_text_c_header COMMAND presentation_text_c_header_tests)
+    add_test(NAME nation_select_text_c_header COMMAND nation_select_text_c_header_tests)
 
     add_executable(main_menu_logo_asset_tests
         src/main_menu_logo_asset.cpp

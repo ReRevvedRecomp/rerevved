@@ -13,10 +13,10 @@ native format, or that the resource has a stable public loader name.
 
 ## Runtime overlay status
 
-The planned asset-only packages are separate from native code mods. Their files
-will be keyed by the original runtime resource path and participate in the
-selected asset load order. The first matching package at the top of that order
-will win. The previously proven main-menu logo adapter supports one key:
+Asset override packs are separate from native code mods. Their files use
+original runtime resource paths and participate in the selected asset load
+order. The first matching package at the top of that order wins. The
+main-menu logo adapter supports one key:
 
 | Catalog reference | Runtime overlay key | Status |
 |---|---|---|

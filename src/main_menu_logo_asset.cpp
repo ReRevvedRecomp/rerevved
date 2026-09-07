@@ -5,7 +5,6 @@
 #include <cstring>
 #include <mutex>
 #include <shared_mutex>
-#include <string>
 #include <utility>
 
 #include <rex/logging.h>
@@ -20,20 +19,12 @@ constexpr uint32_t kDdsWidth  = 1024;
 constexpr uint32_t kDdsHeight = 256;
 
 std::shared_mutex selection_mutex;
-Selection         selected_logo;
+Payload           selected_logo;
 
 uint32_t ReadLittleEndianU32(const uint8_t* value)
 {
     return uint32_t{ value[0] } | (uint32_t{ value[1] } << 8) |
            (uint32_t{ value[2] } << 16) | (uint32_t{ value[3] } << 24);
-}
-
-rex::Result<rex::system::AssetOverlayResolution> ResolveFromSdk(
-    std::span<const rex::system::AssetOverlayPackage> packages,
-    std::string_view                                  asset_key,
-    size_t                                            max_bytes)
-{
-    return rex::system::ResolveAssetOverlay(packages, asset_key, max_bytes);
 }
 
 void ClearSelection()
@@ -100,7 +91,7 @@ bool ResolveSelectedLogo(
     ClearSelection();
     if (!resolver)
     {
-        resolver = &ResolveFromSdk;
+        resolver = &rex::system::ResolveAssetOverlay;
     }
 
     const auto result = resolver(packages, kAssetKey, kLogoDdsSize);
@@ -122,34 +113,19 @@ bool ResolveSelectedLogo(
         return false;
     }
 
-    Selection selection;
-    selection.payload              = std::make_shared<const std::vector<uint8_t>>(resolved.bytes);
-    selection.package_id           = resolved.package_id;
-    selection.shadowed_package_ids = resolved.shadowed_package_ids;
+    auto payload = std::make_shared<const std::vector<uint8_t>>(resolved.bytes);
     {
         std::unique_lock lock(selection_mutex);
-        selected_logo = std::move(selection);
+        selected_logo = std::move(payload);
     }
 
-    return true;
-}
-
-bool TryGetSelection(Selection& selection)
-{
-    std::shared_lock lock(selection_mutex);
-    if (!selected_logo.payload)
-    {
-        selection = {};
-        return false;
-    }
-    selection = selected_logo;
     return true;
 }
 
 bool TryGetPayload(Payload& payload)
 {
     std::shared_lock lock(selection_mutex);
-    payload = selected_logo.payload;
+    payload = selected_logo;
     return static_cast<bool>(payload);
 }
 

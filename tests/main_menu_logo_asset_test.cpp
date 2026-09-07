@@ -107,8 +107,8 @@ void TestMissingFallsBack()
     Require(!rerevved::main_menu_logo::ResolveSelectedLogo(
                 packages, &FakeResolver),
             "missing asset selected");
-    rerevved::main_menu_logo::Selection selection;
-    Require(!rerevved::main_menu_logo::TryGetSelection(selection),
+    rerevved::main_menu_logo::Payload payload;
+    Require(!rerevved::main_menu_logo::TryGetPayload(payload),
             "missing asset retained a payload");
     Require(resolver_state.key == rerevved::main_menu_logo::kAssetKey &&
                 resolver_state.max_bytes == rerevved::main_menu_logo::kLogoDdsSize &&
@@ -130,8 +130,8 @@ void TestMalformedWinnerDoesNotFallThrough()
     Require(!rerevved::main_menu_logo::ResolveSelectedLogo(
                 packages, &FakeResolver),
             "malformed winner accepted");
-    rerevved::main_menu_logo::Selection selection;
-    Require(!rerevved::main_menu_logo::TryGetSelection(selection),
+    rerevved::main_menu_logo::Payload payload;
+    Require(!rerevved::main_menu_logo::TryGetPayload(payload),
             "malformed winner retained a payload");
 }
 
@@ -149,12 +149,10 @@ void TestValidWinnerIsRetained()
                 packages, &FakeResolver),
             "valid winner was rejected");
 
-    rerevved::main_menu_logo::Selection selection;
-    Require(rerevved::main_menu_logo::TryGetSelection(selection) &&
-                selection.payload && selection.payload->at(128) == 0x42 &&
-                selection.package_id == "top.mod" &&
-                selection.shadowed_package_ids.size() == 2,
-            "valid winner was not retained with provenance");
+    rerevved::main_menu_logo::Payload payload;
+    Require(rerevved::main_menu_logo::TryGetPayload(payload) &&
+                payload && payload->at(128) == 0x42,
+            "valid winner payload was not retained");
 }
 
 } // namespace
