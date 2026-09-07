@@ -125,9 +125,10 @@ resolution and completion.
 ## Runtime boundary
 
 The supported launch uses the `xenos` plugin and the D3D12 ROV render-target
-path. That path reaches a usable game menu. Some GFx-composed content, including
-the title logo and some menu graphics, is absent. This is a runtime correctness
-boundary, not a build failure.
+path. That path reaches a usable game menu. Some GFx-composed menu graphics
+remain absent. The main-menu logo is supplied through the bundled
+`rerevved-logo` asset override. This is a runtime correctness boundary, not a
+build failure.
 
 The settled guest behavior belongs in [`scaleform-gfx.md`](scaleform-gfx.md).
 

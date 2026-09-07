@@ -412,10 +412,21 @@ jobs:
           if re.fullmatch(r"rerevved-v\d+\.\d+\.\d+-linux-x64\.tar\.gz", archive_path.name) is None:
               raise SystemExit("Unexpected Linux archive name")
           root = archive_path.name.removesuffix(".tar.gz")
-          expected_dirs = {root, f"{root}/game", f"{root}/licenses"}
+          expected_dirs = {
+              root,
+              f"{root}/asset-overrides",
+              f"{root}/asset-overrides/rerevved-logo",
+              f"{root}/asset-overrides/rerevved-logo/assets",
+              f"{root}/asset-overrides/rerevved-logo/assets/file-data",
+              f"{root}/game",
+              f"{root}/licenses",
+          }
           expected_files = {
               f"{root}/LICENSE.txt",
               f"{root}/README.txt",
+              f"{root}/asset-overrides/default_order.txt",
+              f"{root}/asset-overrides/rerevved-logo/asset-pack.toml",
+              f"{root}/asset-overrides/rerevved-logo/assets/file-data/GFX_MainMenu_logo.dds",
               f"{root}/librexgpu-xenos.so",
               f"{root}/librexruntime.so",
               f"{root}/licenses/REXGLUE-LICENSE.txt",

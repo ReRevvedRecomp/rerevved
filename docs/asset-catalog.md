@@ -27,6 +27,10 @@ original game asset as the fallback. Every other catalog row is
 **reference-only/unmapped**. A row must not be treated as replaceable merely
 because an exported PNG exists.
 
+ReRevved releases include `rerevved-logo` as an ordinary asset override pack.
+It appears in the Asset Overrides tab and is selected by the bundled default
+order until the player saves a profile-specific asset order.
+
 The catalog currently contains these category counts:
 
 | Category | Entries |

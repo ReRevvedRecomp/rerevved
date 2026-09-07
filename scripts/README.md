@@ -43,7 +43,7 @@ run. Static verification and build work do not authorize a launch.
 ## Release packaging
 
 `package.py` stages release binaries, runtime libraries, the player README,
-licenses, and an empty `game/` directory.
+licenses, the bundled default logo asset pack, and an empty `game/` directory.
 It rejects retail and writable runtime file types. The root CMake `project()`
 declaration supplies the version.
 

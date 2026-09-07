@@ -31,8 +31,9 @@ Linux candidates.
    ```
 
 3. Inspect `out/rerevved-v<version>-windows-x64.zip`. Confirm that it contains
-   the executable, runtime libraries, licenses, player README, and an empty
-   `game/` directory, with no retail content or user files.
+   the executable, runtime libraries, licenses, player README, the bundled
+   default logo asset pack, and an empty `game/` directory, with no retail
+   content or user files.
 
 Linux packaging produces a `.tar.gz` archive from a Linux Release binary. The
 release workflow publishes it beside the Windows `.zip`. Linux support is

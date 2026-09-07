@@ -17,6 +17,12 @@ BINARIES = {
 
 FORBIDDEN_SUFFIXES = {".xex", ".xexp", ".iso", ".sve", ".log", ".trace"}
 
+BUNDLED_ASSET_FILES = (
+    "default_order.txt",
+    "rerevved-logo/asset-pack.toml",
+    "rerevved-logo/assets/file-data/GFX_MainMenu_logo.dds",
+)
+
 
 def read_version():
     text = (REPO / "CMakeLists.txt").read_text(encoding="ascii")
@@ -72,6 +78,15 @@ def main():
 
     # Preserve the selector's target without staging retail content.
     (stage / "game").mkdir()
+
+    bundled_assets = stage / "asset-overrides"
+    for relative in BUNDLED_ASSET_FILES:
+        source = REPO / "assets" / "asset-overrides" / relative
+        if not source.is_file():
+            raise SystemExit(f"error: missing bundled asset file: {source}")
+        destination = bundled_assets / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
 
     for staged in stage.rglob("*"):
         if staged.suffix.lower() in FORBIDDEN_SUFFIXES:

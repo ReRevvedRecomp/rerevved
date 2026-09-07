@@ -64,6 +64,10 @@ Press F4 in game for video settings, keyboard mode, and live keyboard or
 controller rebinding. Conflict warnings identify overlapping bindings. Choose
 "Save to config" to keep changes.
 
+Press F1 in game to manage code mods and asset overrides. ReRevved includes its
+logo as an enabled asset override by default. Saving the Asset Overrides list
+creates a profile-specific selection and priority order.
+
 AUTOMATION
 
 Use this launch argument to select content for one session without changing the

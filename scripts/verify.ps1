@@ -204,7 +204,7 @@ foreach ($file in $markdownFiles) {
 
 # Tracked text is intentionally ASCII so byte-oriented tools remain deterministic.
 # Binary release artwork is validated by its consuming build tools instead.
-$asciiFiles = @($trackedPaths | Where-Object { $_ -notmatch '(?i)\.(ico|png)$' })
+$asciiFiles = @($trackedPaths | Where-Object { $_ -notmatch '(?i)\.(dds|ico|png)$' })
 foreach ($file in $asciiFiles) {
     try {
         foreach ($byte in [IO.File]::ReadAllBytes($file)) {

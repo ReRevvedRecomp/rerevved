@@ -147,6 +147,20 @@ rexglue_setup_recompiled_target(rerevved
     MANIFEST rerevved_manifest.toml
     OUTPUT_DIR generated/default
     GPU_PLUGINS xenos)
+
+set(REREVVED_BUNDLED_ASSET_ROOT
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/asset-overrides")
+add_custom_command(TARGET rerevved POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "$<TARGET_FILE_DIR:rerevved>/asset-overrides"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${REREVVED_BUNDLED_ASSET_ROOT}/default_order.txt"
+        "$<TARGET_FILE_DIR:rerevved>/asset-overrides/default_order.txt"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${REREVVED_BUNDLED_ASSET_ROOT}/rerevved-logo"
+        "$<TARGET_FILE_DIR:rerevved>/asset-overrides/rerevved-logo"
+    COMMENT "Staging bundled asset overrides"
+    VERBATIM)
 add_custom_target(native_renderer_coverage_codegen_check
     COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/scripts/gen-native-renderer-coverage.py --check
