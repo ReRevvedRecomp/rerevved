@@ -20,9 +20,9 @@ int main(void)
     ReRevvedEvaluateUniqueEraAbilityCellFn evaluate_fn =
         ReRevvedEvaluateUniqueEraAbilityCell;
 
-    ReRevvedUniqueEraAbilityReplacement    rule       = { 0 };
-    ReRevvedUniqueEraAbilityRuleInfo       info       = { 0 };
-    ReRevvedUniqueEraAbilityCellQuery      query      = { 0 };
+    ReRevvedUniqueEraAbilityReplacement rule          = { 0 };
+    ReRevvedUniqueEraAbilityRuleInfo info             = { 0 };
+    ReRevvedUniqueEraAbilityCellQuery query           = { 0 };
     ReRevvedUniqueEraAbilityCellEvaluation evaluation = { 0 };
 
     if (version_fn() != REREVVED_UNIQUE_ERA_ABILITIES_ABI_VERSION ||

@@ -45,7 +45,7 @@ bool IsGuestPointer(uint32_t address)
 struct CheckedAddressRange
 {
     uint32_t end;
-    bool     valid;
+    bool valid;
 };
 
 constexpr CheckedAddressRange MakeCheckedAddressRange(uint32_t base,
@@ -85,7 +85,7 @@ uint32_t ReadGuestU32(uint32_t address)
 }
 
 bool ReadGuestFetchDescriptor(
-    uint32_t                             address,
+    uint32_t address,
     rerevved::gpu::GuestFetchDescriptor& descriptor)
 {
     constexpr uint32_t kDescriptorSize =
@@ -124,20 +124,20 @@ struct GfxRenderCapsState
     uint32_t renderer;
     uint32_t output;
     uint32_t caller;
-    bool     observing;
+    bool observing;
 };
 
-thread_local GfxRenderCapsState       gfx_render_caps{};
-thread_local uint32_t                 gfx_render_config_candidate = 0;
-thread_local uint32_t                 gfx_render_config_renderer  = 0;
+thread_local GfxRenderCapsState gfx_render_caps{};
+thread_local uint32_t gfx_render_config_candidate = 0;
+thread_local uint32_t gfx_render_config_renderer  = 0;
 thread_local rerevved::RushCostRepair rush_cost_repair{};
-std::atomic_uint32_t                  gfx_stale_render_config                    = 0;
-std::atomic_uint32_t                  gfx_stale_render_config_renderer           = 0;
-std::atomic_uint32_t                  native_resolve_provider_match_log_count    = 0;
-std::atomic_uint32_t                  native_resolve_provider_mismatch_log_count = 0;
-std::atomic_flag                      native_resolve_provider_error_log          = ATOMIC_FLAG_INIT;
-std::atomic_uint32_t                  native_explicit_factory_log_count          = 0;
-std::atomic_flag                      native_explicit_factory_error_log          = ATOMIC_FLAG_INIT;
+std::atomic_uint32_t gfx_stale_render_config                    = 0;
+std::atomic_uint32_t gfx_stale_render_config_renderer           = 0;
+std::atomic_uint32_t native_resolve_provider_match_log_count    = 0;
+std::atomic_uint32_t native_resolve_provider_mismatch_log_count = 0;
+std::atomic_flag native_resolve_provider_error_log              = ATOMIC_FLAG_INIT;
+std::atomic_uint32_t native_explicit_factory_log_count          = 0;
+std::atomic_flag native_explicit_factory_error_log              = ATOMIC_FLAG_INIT;
 
 bool ClaimBoundedLog(std::atomic_uint32_t& count, uint32_t limit) noexcept
 {
@@ -267,11 +267,11 @@ enum class TracedCaller : uint8_t
 
 void RecordCallerTracePoint(PassiveTracePoint point) noexcept;
 
-thread_local bool         traced_exact_resolve_active = false;
-thread_local bool         traced_reservation_active   = false;
-thread_local bool         traced_vdswap_owner_active  = false;
-thread_local bool         traced_vdswap_active        = false;
-thread_local TracedCaller traced_caller               = TracedCaller::kNone;
+thread_local bool traced_exact_resolve_active = false;
+thread_local bool traced_reservation_active   = false;
+thread_local bool traced_vdswap_owner_active  = false;
+thread_local bool traced_vdswap_active        = false;
+thread_local TracedCaller traced_caller       = TracedCaller::kNone;
 
 void RecordCallerTracePoint(PassiveTracePoint point) noexcept
 {
@@ -296,9 +296,9 @@ void ReRevvedApplyCombatPaceOverride()
     }
 
     constexpr uint32_t kCombatPaceDivisor = 0x82F79FBC;
-    constexpr float    kNativeStandard    = 2.0f;
-    constexpr float    kNativeAlternate   = 1.5f;
-    constexpr float    kNativeFast        = 0.5f;
+    constexpr float kNativeStandard       = 2.0f;
+    constexpr float kNativeAlternate      = 1.5f;
+    constexpr float kNativeFast           = 0.5f;
     if (!IsGuestReadableRange(kCombatPaceDivisor, sizeof(uint32_t)))
     {
         return;
@@ -438,11 +438,11 @@ void ReRevvedObserveNativeTexturePublication(PPCRegister& r22,
         return;
     }
 
-    const uint32_t     texture_address = r22.u32;
-    const uint32_t     backend_address = r3.u32;
-    constexpr uint32_t width_offset    = 0x20;
-    constexpr uint32_t height_offset   = 0x24;
-    constexpr uint32_t backend_offset  = 0x28;
+    const uint32_t texture_address    = r22.u32;
+    const uint32_t backend_address    = r3.u32;
+    constexpr uint32_t width_offset   = 0x20;
+    constexpr uint32_t height_offset  = 0x24;
+    constexpr uint32_t backend_offset = 0x28;
     if (!IsGuestPointer(texture_address) ||
         !IsGuestReadableRange(texture_address + width_offset,
                               sizeof(uint32_t) * 3) ||
@@ -520,9 +520,9 @@ void ReRevvedObserveNativeResolveProviderIdentity(PPCRegister& r3)
         return;
     }
 
-    uint32_t   slot0           = 0;
-    uint32_t   slot1           = 0;
-    uint32_t   active          = 0;
+    uint32_t slot0             = 0;
+    uint32_t slot1             = 0;
+    uint32_t active            = 0;
     const bool slot0_readable  = ReadGuestWordAt(object, 0x90, slot0);
     const bool slot1_readable  = ReadGuestWordAt(object, 0x94, slot1);
     const bool active_readable = ReadGuestWordAt(object, 0x98, active);
@@ -541,9 +541,9 @@ void ReRevvedObserveNativeResolveProviderIdentity(PPCRegister& r3)
         return;
     }
 
-    const bool     selected_index_valid = active < 2;
-    const uint32_t selected             = active == 0 ? slot0 : slot1;
-    const bool     selected_valid =
+    const bool selected_index_valid = active < 2;
+    const uint32_t selected         = active == 0 ? slot0 : slot1;
+    const bool selected_valid =
         selected_index_valid && selected != 0 &&
         IsGuestReadableRange(selected, sizeof(uint32_t));
     if (!ClaimBoundedLog(native_resolve_provider_match_log_count, 8))
@@ -588,27 +588,27 @@ void ReRevvedObserveNativeExplicitBufferFactoryStore(PPCRegister& r28,
         return;
     }
 
-    const uint32_t container       = r28.u32;
-    const uint32_t slot            = r29.u32;
-    const uint32_t result          = r3.u32;
-    uint32_t       vptr            = 0;
-    uint32_t       active          = 0;
-    const bool     container_valid = IsGuestPointer(container);
-    const bool     vptr_readable =
+    const uint32_t container   = r28.u32;
+    const uint32_t slot        = r29.u32;
+    const uint32_t result      = r3.u32;
+    uint32_t vptr              = 0;
+    uint32_t active            = 0;
+    const bool container_valid = IsGuestPointer(container);
+    const bool vptr_readable =
         container_valid && ReadGuestWordAt(container, 0x00, vptr);
     constexpr uint32_t kExplicitBuffersVtable = 0x8204767C;
-    const bool         vptr_matches           = vptr_readable && vptr == kExplicitBuffersVtable;
-    const bool         active_readable =
+    const bool vptr_matches                   = vptr_readable && vptr == kExplicitBuffersVtable;
+    const bool active_readable =
         vptr_matches && ReadGuestWordAt(container, 0x98, active);
     const bool slot_readable =
         IsGuestReadableRange(slot, sizeof(uint32_t));
-    const bool     store_matches    = slot_readable && ReadGuestU32(slot) == result;
-    const bool     slot0            = container_valid && container <= UINT32_MAX - 0x90 &&
-                                      slot == container + 0x90;
-    const bool     slot1            = container_valid && container <= UINT32_MAX - 0x94 &&
-                                      slot == container + 0x94;
-    const bool     slot_index_valid = slot0 || slot1;
-    const uint32_t slot_index       = slot1 ? 1 : 0;
+    const bool store_matches    = slot_readable && ReadGuestU32(slot) == result;
+    const bool slot0            = container_valid && container <= UINT32_MAX - 0x90 &&
+                                  slot == container + 0x90;
+    const bool slot1            = container_valid && container <= UINT32_MAX - 0x94 &&
+                                  slot == container + 0x94;
+    const bool slot_index_valid = slot0 || slot1;
+    const uint32_t slot_index   = slot1 ? 1 : 0;
     if (!container_valid || !vptr_matches || !active_readable ||
         !slot_readable || !store_matches || !slot_index_valid)
     {
@@ -731,12 +731,12 @@ void ReRevvedObserveRendererResolve(PPCRegister& r4,
                                     PPCRegister& r6,
                                     PPCRegister& r8,
                                     PPCRegister& r9,
-                                    uint64_t     lr)
+                                    uint64_t lr)
 {
     constexpr uint32_t kFetchDescriptorOffset = 0x1C;
     constexpr uint32_t kExactResolveCallsite  = 0x8250AFEC;
-    const uint32_t     return_address         = static_cast<uint32_t>(lr);
-    const uint32_t     call_address =
+    const uint32_t return_address             = static_cast<uint32_t>(lr);
+    const uint32_t call_address =
         return_address >= 4 ? return_address - 4 : 0;
     const bool descriptor_address_valid =
         r6.u32 <= UINT32_MAX - kFetchDescriptorOffset;
@@ -750,7 +750,7 @@ void ReRevvedObserveRendererResolve(PPCRegister& r4,
     }
     traced_exact_resolve_active = static_cast<bool>(trace_lease);
     rerevved::gpu::GuestFetchDescriptor descriptor{};
-    const bool                          descriptor_valid =
+    const bool descriptor_valid =
         descriptor_address_valid &&
         ReadGuestFetchDescriptor(descriptor_address, descriptor);
 
@@ -814,8 +814,8 @@ void ReRevvedObserveRendererSwapSource(PPCRegister& r3,
             rerevved::gpu::diagnostics::GetPassiveTraceBuffer().BeginRecord();
     }
     rerevved::gpu::GuestFetchDescriptor descriptor{};
-    const bool                          descriptor_valid = ReadGuestFetchDescriptor(r4.u32, descriptor);
-    traced_vdswap_active                                 = static_cast<bool>(trace_lease);
+    const bool descriptor_valid = ReadGuestFetchDescriptor(r4.u32, descriptor);
+    traced_vdswap_active        = static_cast<bool>(trace_lease);
     if (traced_vdswap_active)
     {
         PassiveTraceEvent event{};
@@ -1045,7 +1045,7 @@ void ReRevvedRememberGfxRenderConfig(PPCRegister& r3, PPCRegister& r4)
 
 void ReRevvedHandleGfxRenderCapsBegin(PPCRegister& r3,
                                       PPCRegister& r4,
-                                      uint64_t     lr)
+                                      uint64_t lr)
 {
     if (gfx_render_caps.observing)
     {

@@ -19,9 +19,9 @@ namespace
 
 constexpr uint32_t kRuleInfoPrefix   = 152;
 constexpr uint32_t kEvaluationPrefix = 20;
-constexpr int32_t  kNativePercent    = 100;
+constexpr int32_t kNativePercent     = 100;
 
-std::shared_mutex                           registry_mutex;
+std::shared_mutex registry_mutex;
 std::vector<ReRevvedUnitProductionCostRule> registry;
 
 bool IsRuleIdValid(const char* value)
@@ -79,7 +79,7 @@ bool IsUnitTypeValid(ReRevvedUnitTypeId unit_type)
 }
 
 bool IsTargetValid(ReRevvedCivilizationId civilization,
-                   ReRevvedUnitTypeId     base_unit_type,
+                   ReRevvedUnitTypeId base_unit_type,
                    ReRevvedUnitIdentityId identity)
 {
     if (!IsCivilizationValid(civilization) || !IsUnitTypeValid(base_unit_type) ||
@@ -97,9 +97,9 @@ bool IsTargetValid(ReRevvedCivilizationId civilization,
 }
 
 bool TargetMatches(const ReRevvedUnitProductionCostRule& rule,
-                   ReRevvedCivilizationId                civilization,
-                   ReRevvedUnitTypeId                    base_unit_type,
-                   ReRevvedUnitIdentityId                identity)
+                   ReRevvedCivilizationId civilization,
+                   ReRevvedUnitTypeId base_unit_type,
+                   ReRevvedUnitIdentityId identity)
 {
     return rule.civilization == civilization &&
            rule.base_unit_type == base_unit_type && rule.identity == identity;
@@ -141,9 +141,9 @@ int32_t CopyOutput(Record* out, uint32_t out_size, const Record& producer)
 
 } // namespace
 
-bool TryEvaluate(ReRevvedCivilizationId                civilization,
-                 ReRevvedUnitTypeId                    base_unit_type,
-                 ReRevvedUnitIdentityId                identity,
+bool TryEvaluate(ReRevvedCivilizationId civilization,
+                 ReRevvedUnitTypeId base_unit_type,
+                 ReRevvedUnitIdentityId identity,
                  ReRevvedUnitProductionCostEvaluation& evaluation)
 {
     if (!IsTargetValid(civilization, base_unit_type, identity))
@@ -161,8 +161,8 @@ bool TryEvaluate(ReRevvedCivilizationId                civilization,
     };
 
     std::shared_lock lock(registry_mutex);
-    int64_t          additive_sum      = 0;
-    bool             additive_overflow = false;
+    int64_t additive_sum   = 0;
+    bool additive_overflow = false;
     for (const auto& rule : registry)
     {
         if (!TargetMatches(rule, civilization, base_unit_type, identity))
@@ -238,7 +238,7 @@ extern "C" int32_t ReRevvedRegisterUnitProductionCostRule(
     try
     {
         std::unique_lock lock(registry_mutex);
-        const auto       duplicate = std::find_if(
+        const auto duplicate = std::find_if(
             registry.begin(), registry.end(), [&](const auto& candidate)
             {
                 return RuleKeyMatches(candidate, normalized);
@@ -274,9 +274,9 @@ extern "C" int32_t ReRevvedGetUnitProductionCostRuleCount(uint32_t* out_count)
 }
 
 extern "C" int32_t ReRevvedGetUnitProductionCostRule(
-    uint32_t                            index,
+    uint32_t index,
     ReRevvedUnitProductionCostRuleInfo* out,
-    uint32_t                            out_size)
+    uint32_t out_size)
 {
     using namespace rerevved::unit_production_cost_rules;
     if (!out)
@@ -295,7 +295,7 @@ extern "C" int32_t ReRevvedGetUnitProductionCostRule(
         return REREVVED_UNIT_PRODUCTION_COST_RULES_ERR_INVALID_ARGUMENT;
     }
 
-    const auto&                        rule = registry[index];
+    const auto& rule = registry[index];
     ReRevvedUnitProductionCostRuleInfo result{};
     result.struct_size      = sizeof(result);
     result.civilization     = rule.civilization;
@@ -309,8 +309,8 @@ extern "C" int32_t ReRevvedGetUnitProductionCostRule(
 
 extern "C" int32_t ReRevvedEvaluateUnitProductionCost(
     const ReRevvedUnitProductionCostQuery* query,
-    ReRevvedUnitProductionCostEvaluation*  out,
-    uint32_t                               out_size)
+    ReRevvedUnitProductionCostEvaluation* out,
+    uint32_t out_size)
 {
     using namespace rerevved::unit_production_cost_rules;
     if (!out)

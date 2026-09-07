@@ -706,9 +706,9 @@ class HookContractTests(unittest.TestCase):
         )
         self.assertEqual(len(definitions), 1)
         self.assertIn('REXCVAR_GET(combat_speed) != "fast"', override)
-        self.assertIn("constexpr float    kNativeStandard    = 2.0f;", override)
-        self.assertIn("constexpr float    kNativeAlternate   = 1.5f;", override)
-        self.assertIn("constexpr float    kNativeFast        = 0.5f;", override)
+        self.assertRegex(override, r"constexpr\s+float\s+kNativeStandard\s*=\s*2\.0f;")
+        self.assertRegex(override, r"constexpr\s+float\s+kNativeAlternate\s*=\s*1\.5f;")
+        self.assertRegex(override, r"constexpr\s+float\s+kNativeFast\s*=\s*0\.5f;")
         self.assertIn(
             "selected != kNativeStandard && selected != kNativeAlternate",
             override,

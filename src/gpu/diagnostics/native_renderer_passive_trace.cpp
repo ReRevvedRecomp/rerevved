@@ -16,8 +16,8 @@ namespace rerevved::gpu::diagnostics
 namespace
 {
 
-constexpr std::uint64_t kSequenceMask     = 0xFFFFFFFFull;
-constexpr auto          kWriterDrainLimit = std::chrono::milliseconds(100);
+constexpr std::uint64_t kSequenceMask = 0xFFFFFFFFull;
+constexpr auto kWriterDrainLimit      = std::chrono::milliseconds(100);
 
 std::string_view PointName(PassiveTracePoint point) noexcept
 {
@@ -91,7 +91,7 @@ void SaturatingIncrement(std::atomic<std::uint32_t>& value) noexcept
 
 PassiveTraceRecordLease::PassiveTraceRecordLease(
     PassiveTraceBuffer* buffer,
-    std::uint64_t       ticket) noexcept
+    std::uint64_t ticket) noexcept
 : buffer_(buffer)
 , ticket_(ticket)
 {
@@ -159,7 +159,7 @@ bool PassiveTraceBuffer::Start(const std::filesystem::path& output_path)
         return false;
     }
 
-    std::error_code       error;
+    std::error_code error;
     std::filesystem::path partial_path = output_path;
     partial_path += ".partial";
     if (std::filesystem::exists(output_path, error) || error ||
@@ -288,7 +288,7 @@ PassiveTraceRecordLease PassiveTraceBuffer::BeginRecord() noexcept
 }
 
 bool PassiveTraceBuffer::Store(PassiveTraceEvent event,
-                               std::uint64_t     ticket) noexcept
+                               std::uint64_t ticket) noexcept
 {
     std::uint32_t slot_index = next_slot_.load(std::memory_order_relaxed);
     while (slot_index < kPassiveTraceCapacity &&
@@ -325,8 +325,8 @@ bool PassiveTraceBuffer::Record(PassiveTraceEvent event) noexcept
 bool PassiveTraceBuffer::BeginObservationEpoch(
     PassiveTraceEvent event) noexcept
 {
-    std::uint32_t state           = gate_.load(std::memory_order_acquire);
-    bool          owns_transition = false;
+    std::uint32_t state  = gate_.load(std::memory_order_acquire);
+    bool owns_transition = false;
     while ((state & kGateClosed) == 0)
     {
         if ((state & kGateWritersMask) == kGateWritersMask)
@@ -371,7 +371,7 @@ bool PassiveTraceBuffer::BeginObservationEpoch(
         return false;
     }
 
-    const bool    stored   = Store(event, NextEpochTicket());
+    const bool stored      = Store(event, NextEpochTicket());
     std::uint32_t expected = kGateClosed | kGateEpoch | 1;
     if (!gate_.compare_exchange_strong(expected,
                                        0,

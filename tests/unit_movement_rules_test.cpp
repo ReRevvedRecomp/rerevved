@@ -22,7 +22,7 @@ void Require(bool condition, std::string_view message)
 
 ReRevvedUnitMovementRule MakeRule(const char* provider,
                                   const char* rule_id,
-                                  int32_t     value)
+                                  int32_t value)
 {
     ReRevvedUnitMovementRule rule{};
     rule.struct_size = sizeof(rule);
@@ -71,12 +71,12 @@ void TestLayoutAndValidation()
     Require(ReRevvedRegisterUnitMovementRule(nullptr) ==
                 REREVVED_UNIT_MOVEMENT_RULES_ERR_INVALID_ARGUMENT,
             "null movement rule accepted");
-    auto invalid = MakeRule("test.provider", "invalid", 1);
+    auto invalid     = MakeRule("test.provider", "invalid", 1);
     invalid.identity = REREVVED_UNIT_IDENTITY_BASE;
     Require(ReRevvedRegisterUnitMovementRule(&invalid) ==
                 REREVVED_UNIT_MOVEMENT_RULES_ERR_INVALID_ARGUMENT,
             "base identity movement rule accepted");
-    invalid = MakeRule("test.provider", "invalid", 1);
+    invalid             = MakeRule("test.provider", "invalid", 1);
     invalid.reserved[0] = 1;
     Require(ReRevvedRegisterUnitMovementRule(&invalid) ==
                 REREVVED_UNIT_MOVEMENT_RULES_ERR_INVALID_ARGUMENT,
@@ -86,10 +86,10 @@ void TestLayoutAndValidation()
 void TestRegistrationReadbackAndEvaluation()
 {
     rerevved::unit_movement_rules::ResetForTests();
-    auto later  = MakeRule("z.provider", "late", -2);
+    auto later   = MakeRule("z.provider", "late", -2);
     auto earlier = MakeRule("a.provider", "early", 3);
     Require(ReRevvedRegisterUnitMovementRule(&later) ==
-                REREVVED_UNIT_MOVEMENT_RULES_OK &&
+                    REREVVED_UNIT_MOVEMENT_RULES_OK &&
                 ReRevvedRegisterUnitMovementRule(&earlier) ==
                     REREVVED_UNIT_MOVEMENT_RULES_OK,
             "movement rules did not register");
@@ -103,11 +103,12 @@ void TestRegistrationReadbackAndEvaluation()
 
     uint32_t count = 0;
     Require(ReRevvedGetUnitMovementRuleCount(&count) ==
-                REREVVED_UNIT_MOVEMENT_RULES_OK && count == 2,
+                    REREVVED_UNIT_MOVEMENT_RULES_OK &&
+                count == 2,
             "movement rule count mismatch");
     ReRevvedUnitMovementRuleInfo info{};
     Require(ReRevvedGetUnitMovementRule(0, &info, sizeof(info)) ==
-                REREVVED_UNIT_MOVEMENT_RULES_OK &&
+                    REREVVED_UNIT_MOVEMENT_RULES_OK &&
                 std::string_view(info.provider_id) == "a.provider" &&
                 info.value == 3,
             "movement readback ordering mismatch");
@@ -128,7 +129,7 @@ void TestRegistrationReadbackAndEvaluation()
     ReRevvedUnitMovementEvaluation impi{};
     Require(ReRevvedEvaluateUnitMovement(
                 &impi_query, &impi, sizeof(impi)) ==
-                REREVVED_UNIT_MOVEMENT_RULES_OK &&
+                    REREVVED_UNIT_MOVEMENT_RULES_OK &&
                 impi.final_value == 10 && impi.additive_count == 0,
             "movement identity target leaked to control unit");
 }
@@ -160,7 +161,8 @@ void TestOverflowAndSizedOutput()
             "short movement evaluation output accepted");
     std::memset(&output, 0x5a, sizeof(output));
     Require(ReRevvedEvaluateUnitMovement(&query, &output, 20) ==
-                REREVVED_UNIT_MOVEMENT_RULES_OK && output.struct_size ==
+                    REREVVED_UNIT_MOVEMENT_RULES_OK &&
+                output.struct_size ==
                     sizeof(output),
             "movement minimum evaluation prefix rejected");
     const auto* bytes = reinterpret_cast<const unsigned char*>(&output);

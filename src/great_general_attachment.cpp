@@ -26,8 +26,8 @@ bool IsLive(const GreatGeneralUnitState& unit)
 bool TryPlanGreatGeneralCoordinateRepair(
     const GreatGeneralUnitState& carrier,
     const GreatGeneralUnitState& general,
-    int16_t&                     repaired_x,
-    int16_t&                     repaired_y)
+    int16_t& repaired_x,
+    int16_t& repaired_y)
 {
     if (!IsLive(carrier) || !IsLive(general) ||
         general.type != kGreatGeneralType ||
@@ -50,8 +50,8 @@ namespace
 
 constexpr uint32_t kUnitTable      = 0x830F2BF0;
 constexpr uint32_t kUnitRecordSize = 0x54;
-constexpr int32_t  kPlayerCount    = 6;
-constexpr int32_t  kUnitsPerPlayer = 256;
+constexpr int32_t kPlayerCount     = 6;
+constexpr int32_t kUnitsPerPlayer  = 256;
 
 bool IsGuestPointer(uint32_t address)
 {
@@ -103,8 +103,8 @@ bool TryGetUnitAddress(int32_t player, int32_t unit, uint32_t& address)
     return true;
 }
 
-bool CaptureUnit(int32_t                          player,
-                 int32_t                          unit,
+bool CaptureUnit(int32_t player,
+                 int32_t unit,
                  rerevved::GreatGeneralUnitState& state)
 {
     uint32_t address = 0;
@@ -132,7 +132,7 @@ bool CaptureUnit(int32_t                          player,
 void WriteCoordinates(int32_t player, int32_t unit, int16_t x, int16_t y)
 {
     constexpr uint32_t kCoordinatesOffset = 0x1C;
-    uint32_t           address            = 0;
+    uint32_t address                      = 0;
     if (!TryGetUnitAddress(player, unit, address) ||
         !IsGuestReadableRange(address + kCoordinatesOffset,
                               sizeof(uint32_t)))
@@ -140,10 +140,10 @@ void WriteCoordinates(int32_t player, int32_t unit, int16_t x, int16_t y)
         return;
     }
 
-    const uint16_t x_bits      = std::bit_cast<uint16_t>(x);
-    const uint16_t y_bits      = std::bit_cast<uint16_t>(y);
-    auto*          memory      = REX_KERNEL_MEMORY();
-    auto*          destination = memory->TranslateVirtual<uint8_t*>(
+    const uint16_t x_bits = std::bit_cast<uint16_t>(x);
+    const uint16_t y_bits = std::bit_cast<uint16_t>(y);
+    auto* memory          = REX_KERNEL_MEMORY();
+    auto* destination     = memory->TranslateVirtual<uint8_t*>(
         address + kCoordinatesOffset);
     destination[0] = static_cast<uint8_t>(x_bits >> 8);
     destination[1] = static_cast<uint8_t>(x_bits);

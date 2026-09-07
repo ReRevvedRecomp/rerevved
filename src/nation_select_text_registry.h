@@ -6,7 +6,7 @@ namespace rerevved::nation_select_text
 {
 
 bool TryEvaluate(const ReRevvedNationSelectTextQuery& query,
-                 ReRevvedNationSelectTextEvaluation&  evaluation);
+                 ReRevvedNationSelectTextEvaluation& evaluation);
 
 void ResetForTests();
 

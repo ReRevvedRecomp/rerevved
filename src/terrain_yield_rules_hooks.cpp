@@ -7,8 +7,8 @@
 namespace
 {
 
-void ApplyBaseValue(PPCRegister&                  guest_terrain,
-                    PPCRegister&                  base_value,
+void ApplyBaseValue(PPCRegister& guest_terrain,
+                    PPCRegister& base_value,
                     ReRevvedTerrainYieldComponent component)
 {
     ReRevvedTerrainId terrain = REREVVED_TERRAIN_UNKNOWN;

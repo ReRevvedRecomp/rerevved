@@ -256,7 +256,7 @@ class NativeRendererIntegrationTests(unittest.TestCase):
         self.assertIn("GetDeviceRemovedReason", NATIVE_CPP)
 
     def test_d3d12_lifecycle_is_owned_by_one_renderer_thread(self) -> None:
-        self.assertIn("std::thread             renderer_thread;", NATIVE_CPP)
+        self.assertRegex(NATIVE_CPP, r"std::thread\s+renderer_thread;")
         self.assertIn("NativeRendererD3D12::RendererThreadMain", NATIVE_CPP)
         self.assertIn("InitializeOnRendererThread", NATIVE_CPP)
         self.assertIn("PresentOnRendererThread", NATIVE_CPP)

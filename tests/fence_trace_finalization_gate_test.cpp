@@ -26,10 +26,10 @@ int main()
     using rerevved::diagnostics::FenceTraceFinalizationGate;
 
     FenceTraceFinalizationGate gate;
-    std::atomic_uint32_t       calls = 0;
-    std::promise<void>         winner_entered;
-    std::promise<void>         release_winner;
-    auto                       release = release_winner.get_future().share();
+    std::atomic_uint32_t calls = 0;
+    std::promise<void> winner_entered;
+    std::promise<void> release_winner;
+    auto release = release_winner.get_future().share();
 
     auto winner = std::async(std::launch::async,
                              [&]()
@@ -46,9 +46,9 @@ int main()
     winner_entered.get_future().wait();
 
     std::promise<void> loser_entered;
-    auto               loser = std::async(std::launch::async,
-                                          [&]()
-                                          {
+    auto loser = std::async(std::launch::async,
+                            [&]()
+                            {
                                 loser_entered.set_value();
                                 return gate.Run(
                                     [&]()
@@ -56,7 +56,7 @@ int main()
                                         ++calls;
                                         return true;
                                     });
-                                          });
+                            });
     loser_entered.get_future().wait();
     Require(loser.wait_for(std::chrono::milliseconds(20)) ==
                 std::future_status::timeout,
@@ -68,7 +68,7 @@ int main()
     Require(calls == 1, "successful finalization ran more than once");
 
     FenceTraceFinalizationGate retry_gate;
-    uint32_t                   retries = 0;
+    uint32_t retries = 0;
     Require(!retry_gate.Run(
                 [&]()
                 {

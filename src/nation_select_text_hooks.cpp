@@ -16,7 +16,7 @@ namespace
 {
 
 constexpr uint32_t kUniqueEraAbilityTable = 0x82F6F950;
-constexpr size_t   kEraBlockCapacity      = 512;
+constexpr size_t kEraBlockCapacity        = 512;
 
 thread_local uint32_t era_text_buffer                 = 0;
 thread_local uint32_t leader_text_buffer              = 0;
@@ -51,10 +51,10 @@ bool TryReadGuestU32(uint32_t address, uint32_t& value)
     return true;
 }
 
-bool TryPublishText(const char*  text,
-                    size_t       capacity,
-                    bool         include_length_header,
-                    uint32_t&    guest_buffer,
+bool TryPublishText(const char* text,
+                    size_t capacity,
+                    bool include_length_header,
+                    uint32_t& guest_buffer,
                     PPCRegister& out)
 {
     const size_t length = std::strlen(text);
@@ -92,9 +92,9 @@ bool TryPublishText(const char*  text,
     return true;
 }
 
-bool TryEvaluateText(ReRevvedNationSelectTextSurface     surface,
-                     ReRevvedCivilizationId              civilization,
-                     ReRevvedUniqueEraUnlockEra          unlock_era,
+bool TryEvaluateText(ReRevvedNationSelectTextSurface surface,
+                     ReRevvedCivilizationId civilization,
+                     ReRevvedUniqueEraUnlockEra unlock_era,
                      ReRevvedNationSelectTextEvaluation& presentation)
 {
     const ReRevvedNationSelectTextQuery query = {
@@ -113,11 +113,11 @@ bool TryEvaluateText(ReRevvedNationSelectTextSurface     surface,
             REREVVED_NATION_SELECT_TEXT_EVALUATION_REPLACED) != 0;
 }
 
-bool TryReplaceText(PPCRegister&                    localized_text,
-                    ReRevvedCivilizationId          civilization,
+bool TryReplaceText(PPCRegister& localized_text,
+                    ReRevvedCivilizationId civilization,
                     ReRevvedNationSelectTextSurface surface,
-                    bool                            include_length_header,
-                    uint32_t&                       guest_buffer)
+                    bool include_length_header,
+                    uint32_t& guest_buffer)
 {
     ReRevvedNationSelectTextEvaluation presentation{};
     if (!TryEvaluateText(surface,
@@ -134,11 +134,11 @@ bool TryReplaceText(PPCRegister&                    localized_text,
                           localized_text);
 }
 
-bool TryEvaluateEraText(ReRevvedCivilizationId              civilization,
-                        ReRevvedUniqueEraUnlockEra          era,
+bool TryEvaluateEraText(ReRevvedCivilizationId civilization,
+                        ReRevvedUniqueEraUnlockEra era,
                         ReRevvedNationSelectTextEvaluation& presentation)
 {
-    uint32_t       native_bits = 0;
+    uint32_t native_bits = 0;
     const uint32_t native_address =
         kUniqueEraAbilityTable + static_cast<uint32_t>(civilization) * 16u +
         static_cast<uint32_t>(era) * sizeof(uint32_t);
@@ -175,13 +175,13 @@ bool TryEvaluateEraText(ReRevvedCivilizationId              civilization,
             REREVVED_NATION_SELECT_TEXT_EVALUATION_REPLACED) != 0;
 }
 
-bool TryReplaceEraLines(const char*                          native_text,
-                        ReRevvedCivilizationId               civilization,
+bool TryReplaceEraLines(const char* native_text,
+                        ReRevvedCivilizationId civilization,
                         std::array<char, kEraBlockCapacity>& output)
 {
     std::array<const char*, 9> starts{};
-    std::array<size_t, 9>      lengths{};
-    const char*                current = native_text;
+    std::array<size_t, 9> lengths{};
+    const char* current = native_text;
     for (size_t index = 0; index < starts.size(); ++index)
     {
         starts[index]   = current;
@@ -206,14 +206,14 @@ bool TryReplaceEraLines(const char*                          native_text,
         return false;
     }
 
-    size_t used       = 0;
-    bool   any_change = false;
+    size_t used     = 0;
+    bool any_change = false;
     for (size_t index = 0; index < starts.size(); ++index)
     {
-        const char*                        replacement = starts[index];
-        size_t                             length      = lengths[index];
+        const char* replacement = starts[index];
+        size_t length           = lengths[index];
         ReRevvedNationSelectTextEvaluation presentation{};
-        bool                               replaced = false;
+        bool replaced = false;
         if (index != 0 && (index & 1u) != 0)
         {
             replaced = TryEvaluateText(

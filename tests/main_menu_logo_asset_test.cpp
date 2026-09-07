@@ -21,8 +21,8 @@ void Require(bool condition, std::string_view message)
 }
 
 void WriteLittleEndianU32(std::vector<uint8_t>& bytes,
-                          size_t                offset,
-                          uint32_t              value)
+                          size_t offset,
+                          uint32_t value)
 {
     bytes[offset + 0] = static_cast<uint8_t>(value);
     bytes[offset + 1] = static_cast<uint8_t>(value >> 8);
@@ -59,16 +59,16 @@ struct ResolverState
         rex::Err<rex::system::AssetOverlayResolution>(
             rex::ErrorCategory::NotFound, "missing");
     std::string key;
-    size_t      max_bytes     = 0;
-    size_t      package_count = 0;
+    size_t max_bytes     = 0;
+    size_t package_count = 0;
 };
 
 ResolverState resolver_state;
 
 rex::Result<rex::system::AssetOverlayResolution> FakeResolver(
     std::span<const rex::system::AssetOverlayPackage> packages,
-    std::string_view                                  key,
-    size_t                                            max_bytes)
+    std::string_view key,
+    size_t max_bytes)
 {
     resolver_state.key           = std::string(key);
     resolver_state.max_bytes     = max_bytes;

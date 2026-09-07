@@ -50,9 +50,9 @@ REXCVAR_DEFINE_STRING(native_renderer_fence_trace_output, "", "ReRevved", "Ignor
 namespace
 {
 
-constexpr std::size_t kMaxReportedErrors    = 10;
-constexpr std::size_t kCoverageInputZOrder  = 1000;
-constexpr uint32_t    kFinalCoverageSegment = 7;
+constexpr std::size_t kMaxReportedErrors   = 10;
+constexpr std::size_t kCoverageInputZOrder = 1000;
+constexpr uint32_t kFinalCoverageSegment   = 7;
 
 bool IsContainedPath(const std::filesystem::path& root,
                      const std::filesystem::path& path)
@@ -109,7 +109,7 @@ bool ContainsExistingReparsePoint(const std::filesystem::path& root,
     auto is_symlink = [](const std::filesystem::path& candidate)
     {
         std::error_code error;
-        const auto      status = std::filesystem::symlink_status(candidate, error);
+        const auto status = std::filesystem::symlink_status(candidate, error);
         if (error)
         {
             return true;
@@ -134,10 +134,10 @@ bool ContainsExistingReparsePoint(const std::filesystem::path& root,
 #endif
 }
 
-bool ResolvePassiveTracePath(std::string_view       configured,
+bool ResolvePassiveTracePath(std::string_view configured,
                              std::filesystem::path& output_path)
 {
-    std::error_code             error;
+    std::error_code error;
     const std::filesystem::path scratch_root =
         std::filesystem::absolute("out", error).lexically_normal();
     if (error)
@@ -351,8 +351,8 @@ bool ReRevvedApp::SetupPresentation()
 
         const std::filesystem::path output_directory =
             run_root / output_name;
-        const std::string                       output_directory_text = output_directory.string();
-        const std::string                       run_root_text         = run_root.string();
+        const std::string output_directory_text = output_directory.string();
+        const std::string run_root_text         = run_root.string();
         rerevved::native_renderer::StartOptions options{};
         options.run_id           = run_id.c_str();
         options.transition_id    = transition_id.c_str();

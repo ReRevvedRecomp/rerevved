@@ -19,12 +19,12 @@ namespace
 
 constexpr uint32_t kRuleInfoPrefix   = 152;
 constexpr uint32_t kEvaluationPrefix = 20;
-constexpr int32_t  kVeteranLevel     = 2;
+constexpr int32_t kVeteranLevel      = 2;
 
 struct NativeSpecialUpgradeMapping
 {
     ReRevvedUnitEffectId effect;
-    uint32_t             mask;
+    uint32_t mask;
 };
 
 constexpr std::array<NativeSpecialUpgradeMapping, 9>
@@ -40,7 +40,7 @@ constexpr std::array<NativeSpecialUpgradeMapping, 9>
         { REREVVED_UNIT_EFFECT_CREATION_SCOUT, 1u << 8 },
     } };
 
-std::shared_mutex                   registry_mutex;
+std::shared_mutex registry_mutex;
 std::vector<ReRevvedUnitEffectRule> registry;
 
 bool IsRuleIdValid(const char* value)
@@ -114,7 +114,7 @@ bool IsEffectValid(ReRevvedUnitEffectId effect)
 }
 
 bool IsTargetValid(ReRevvedCivilizationId civilization,
-                   ReRevvedUnitTypeId     base_unit_type,
+                   ReRevvedUnitTypeId base_unit_type,
                    ReRevvedUnitIdentityId identity)
 {
     if (!IsCivilizationValid(civilization) || !IsUnitTypeValid(base_unit_type) ||
@@ -132,10 +132,10 @@ bool IsTargetValid(ReRevvedCivilizationId civilization,
 }
 
 bool TargetMatches(const ReRevvedUnitEffectRule& rule,
-                   ReRevvedCivilizationId        civilization,
-                   ReRevvedUnitTypeId            base_unit_type,
-                   ReRevvedUnitIdentityId        identity,
-                   ReRevvedUnitEffectId          effect)
+                   ReRevvedCivilizationId civilization,
+                   ReRevvedUnitTypeId base_unit_type,
+                   ReRevvedUnitIdentityId identity,
+                   ReRevvedUnitEffectId effect)
 {
     return rule.civilization == civilization &&
            rule.base_unit_type == base_unit_type && rule.identity == identity &&
@@ -179,7 +179,7 @@ int32_t CopyOutput(Record* out, uint32_t out_size, const Record& producer)
 } // namespace
 
 bool TryGetNativeSpecialUpgradeMask(ReRevvedUnitEffectId effect,
-                                    uint32_t&            mask)
+                                    uint32_t& mask)
 {
     const auto mapping = std::find_if(
         kNativeSpecialUpgradeMappings.begin(),
@@ -197,11 +197,11 @@ bool TryGetNativeSpecialUpgradeMask(ReRevvedUnitEffectId effect,
     return true;
 }
 
-bool TryEvaluate(ReRevvedCivilizationId        civilization,
-                 ReRevvedUnitTypeId            base_unit_type,
-                 ReRevvedUnitIdentityId        identity,
-                 ReRevvedUnitEffectId          effect,
-                 int32_t                       native_level,
+bool TryEvaluate(ReRevvedCivilizationId civilization,
+                 ReRevvedUnitTypeId base_unit_type,
+                 ReRevvedUnitIdentityId identity,
+                 ReRevvedUnitEffectId effect,
+                 int32_t native_level,
                  ReRevvedUnitEffectEvaluation& evaluation)
 {
     if (!IsTargetValid(civilization, base_unit_type, identity) ||
@@ -284,7 +284,7 @@ extern "C" int32_t ReRevvedRegisterUnitEffectRule(
     try
     {
         std::unique_lock lock(registry_mutex);
-        const auto       duplicate = std::find_if(
+        const auto duplicate = std::find_if(
             registry.begin(), registry.end(), [&](const auto& candidate)
             {
                 return RuleKeyMatches(candidate, normalized);
@@ -320,9 +320,9 @@ extern "C" int32_t ReRevvedGetUnitEffectRuleCount(uint32_t* out_count)
 }
 
 extern "C" int32_t ReRevvedGetUnitEffectRule(
-    uint32_t                    index,
+    uint32_t index,
     ReRevvedUnitEffectRuleInfo* out,
-    uint32_t                    out_size)
+    uint32_t out_size)
 {
     using namespace rerevved::unit_effect_rules;
     if (!out)
@@ -341,7 +341,7 @@ extern "C" int32_t ReRevvedGetUnitEffectRule(
         return REREVVED_UNIT_EFFECT_RULES_ERR_INVALID_ARGUMENT;
     }
 
-    const auto&                rule = registry[index];
+    const auto& rule = registry[index];
     ReRevvedUnitEffectRuleInfo result{};
     result.struct_size    = sizeof(result);
     result.civilization   = rule.civilization;
@@ -355,8 +355,8 @@ extern "C" int32_t ReRevvedGetUnitEffectRule(
 
 extern "C" int32_t ReRevvedEvaluateUnitEffect(
     const ReRevvedUnitEffectQuery* query,
-    ReRevvedUnitEffectEvaluation*  out,
-    uint32_t                       out_size)
+    ReRevvedUnitEffectEvaluation* out,
+    uint32_t out_size)
 {
     using namespace rerevved::unit_effect_rules;
     if (!out)

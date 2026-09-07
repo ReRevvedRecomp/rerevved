@@ -47,10 +47,10 @@ void ReportUnsupported(const char* operation)
 
 struct MmioBridge
 {
-    std::mutex              mutex;
+    std::mutex mutex;
     std::condition_variable idle;
-    NativeGuestGpuService*  service             = nullptr;
-    uint32_t                callbacks_in_flight = 0;
+    NativeGuestGpuService* service = nullptr;
+    uint32_t callbacks_in_flight   = 0;
 };
 
 MmioBridge& GetMmioBridge()
@@ -63,7 +63,7 @@ MmioBridge& GetMmioBridge()
 
 bool BindMmioBridge(NativeGuestGpuService* service)
 {
-    auto&           bridge = GetMmioBridge();
+    auto& bridge = GetMmioBridge();
     std::lock_guard lock(bridge.mutex);
     if (bridge.service || bridge.callbacks_in_flight != 0)
     {
@@ -75,7 +75,7 @@ bool BindMmioBridge(NativeGuestGpuService* service)
 
 void UnbindMmioBridge(NativeGuestGpuService* service)
 {
-    auto&            bridge = GetMmioBridge();
+    auto& bridge = GetMmioBridge();
     std::unique_lock lock(bridge.mutex);
     if (bridge.service != service)
     {
@@ -126,7 +126,7 @@ public:
     }
 
 private:
-    MmioBridge*            bridge_  = nullptr;
+    MmioBridge* bridge_             = nullptr;
     NativeGuestGpuService* service_ = nullptr;
 };
 
@@ -137,11 +137,11 @@ struct NativeGuestGpuService::Impl
     mutable std::mutex mutex;
 
     rex::runtime::FunctionDispatcher* function_dispatcher = nullptr;
-    rex::system::KernelState*         kernel_state        = nullptr;
-    rex::memory::Memory*              memory              = nullptr;
+    rex::system::KernelState* kernel_state                = nullptr;
+    rex::memory::Memory* memory                           = nullptr;
 
     rex::system::object_ref<rex::system::XHostThread> vblank_worker_thread;
-    std::atomic<bool>                                 vblank_worker_running{ false };
+    std::atomic<bool> vblank_worker_running{ false };
 
     bool active           = false;
     bool mmio_registered  = false;
@@ -175,7 +175,7 @@ rex::X_STATUS NativeGuestGpuService::SetupPresentation(rex::ui::WindowedAppConte
 
 rex::X_STATUS NativeGuestGpuService::SetupGuestGpu(
     rex::runtime::FunctionDispatcher* function_dispatcher,
-    rex::system::KernelState*         kernel_state)
+    rex::system::KernelState* kernel_state)
 {
     if (!function_dispatcher || !kernel_state)
     {
@@ -385,8 +385,8 @@ uint32_t NativeGuestGpuService::ReadRegister(uint32_t addr)
             break;
     }
 
-    bool     report_unknown = false;
-    uint32_t value          = 0;
+    bool report_unknown = false;
+    uint32_t value      = 0;
     {
         std::lock_guard lock(impl_->mutex);
         value = impl_->register_values[reg];
@@ -405,9 +405,9 @@ uint32_t NativeGuestGpuService::ReadRegister(uint32_t addr)
 
 void NativeGuestGpuService::WriteRegister(uint32_t addr, uint32_t value)
 {
-    const uint32_t reg            = (addr & 0xFFFF) / 4;
-    bool           report_unknown = false;
-    bool           report_held    = false;
+    const uint32_t reg  = (addr & 0xFFFF) / 4;
+    bool report_unknown = false;
+    bool report_held    = false;
     {
         std::lock_guard lock(impl_->mutex);
         impl_->register_values[reg] = value;
@@ -445,7 +445,7 @@ int NativeGuestGpuService::RunVblankWorker()
 {
     rex::system::X_VIDEO_MODE video_mode;
     rex::kernel::xboxkrnl::VdQueryVideoMode(&video_mode);
-    const double   refresh_rate_hz      = std::max(1.0, double(float(video_mode.refresh_rate)));
+    const double refresh_rate_hz        = std::max(1.0, double(float(video_mode.refresh_rate)));
     const uint64_t guest_tick_frequency = rex::chrono::Clock::guest_tick_frequency();
     const uint64_t vsync_interval_ticks = std::max(
         uint64_t(1), uint64_t(double(guest_tick_frequency) / refresh_rate_hz));
@@ -455,7 +455,7 @@ int NativeGuestGpuService::RunVblankWorker()
     {
         const uint64_t current_time   = rex::chrono::Clock::QueryGuestTickCount();
         const uint64_t interval_ticks = vsync_interval_ticks;
-        uint32_t       catch_up_count = 0;
+        uint32_t catch_up_count       = 0;
         while (current_time - last_frame_time >= interval_ticks &&
                catch_up_count < kMaxVblankCatchUp &&
                impl_->vblank_worker_running.load(std::memory_order_acquire))
@@ -476,8 +476,8 @@ int NativeGuestGpuService::RunVblankWorker()
 
 void NativeGuestGpuService::MarkVblank()
 {
-    uint32_t                          callback            = 0;
-    uint32_t                          user_data           = 0;
+    uint32_t callback                                     = 0;
+    uint32_t user_data                                    = 0;
     rex::runtime::FunctionDispatcher* function_dispatcher = nullptr;
     {
         std::lock_guard lock(impl_->mutex);

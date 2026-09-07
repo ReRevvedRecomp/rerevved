@@ -20,7 +20,7 @@ namespace
 constexpr uint32_t kRuleInfoPrefix   = 152;
 constexpr uint32_t kEvaluationPrefix = 20;
 
-std::shared_mutex                     registry_mutex;
+std::shared_mutex registry_mutex;
 std::vector<ReRevvedUnitMovementRule> registry;
 
 bool IsRuleIdValid(const char* value)
@@ -78,7 +78,7 @@ bool IsUnitTypeValid(ReRevvedUnitTypeId unit_type)
 }
 
 bool IsTargetValid(ReRevvedCivilizationId civilization,
-                   ReRevvedUnitTypeId     base_unit_type,
+                   ReRevvedUnitTypeId base_unit_type,
                    ReRevvedUnitIdentityId identity)
 {
     if (!IsCivilizationValid(civilization) || !IsUnitTypeValid(base_unit_type) ||
@@ -96,9 +96,9 @@ bool IsTargetValid(ReRevvedCivilizationId civilization,
 }
 
 bool TargetMatches(const ReRevvedUnitMovementRule& rule,
-                   ReRevvedCivilizationId          civilization,
-                   ReRevvedUnitTypeId              base_unit_type,
-                   ReRevvedUnitIdentityId          identity)
+                   ReRevvedCivilizationId civilization,
+                   ReRevvedUnitTypeId base_unit_type,
+                   ReRevvedUnitIdentityId identity)
 {
     return rule.civilization == civilization &&
            rule.base_unit_type == base_unit_type && rule.identity == identity;
@@ -140,10 +140,10 @@ int32_t CopyOutput(Record* out, uint32_t out_size, const Record& producer)
 
 } // namespace
 
-bool TryEvaluate(ReRevvedCivilizationId          civilization,
-                 ReRevvedUnitTypeId              base_unit_type,
-                 ReRevvedUnitIdentityId          identity,
-                 int32_t                         native_value,
+bool TryEvaluate(ReRevvedCivilizationId civilization,
+                 ReRevvedUnitTypeId base_unit_type,
+                 ReRevvedUnitIdentityId identity,
+                 int32_t native_value,
                  ReRevvedUnitMovementEvaluation& evaluation)
 {
     if (!IsTargetValid(civilization, base_unit_type, identity))
@@ -161,8 +161,8 @@ bool TryEvaluate(ReRevvedCivilizationId          civilization,
     };
 
     std::shared_lock lock(registry_mutex);
-    int64_t          additive_sum      = 0;
-    bool             additive_overflow = false;
+    int64_t additive_sum   = 0;
+    bool additive_overflow = false;
     for (const auto& rule : registry)
     {
         if (!TargetMatches(rule, civilization, base_unit_type, identity))
@@ -235,7 +235,7 @@ extern "C" int32_t ReRevvedRegisterUnitMovementRule(
     try
     {
         std::unique_lock lock(registry_mutex);
-        const auto       duplicate = std::find_if(
+        const auto duplicate = std::find_if(
             registry.begin(), registry.end(), [&](const auto& candidate)
             {
                 return RuleKeyMatches(candidate, normalized);
@@ -271,9 +271,9 @@ extern "C" int32_t ReRevvedGetUnitMovementRuleCount(uint32_t* out_count)
 }
 
 extern "C" int32_t ReRevvedGetUnitMovementRule(
-    uint32_t                      index,
+    uint32_t index,
     ReRevvedUnitMovementRuleInfo* out,
-    uint32_t                      out_size)
+    uint32_t out_size)
 {
     using namespace rerevved::unit_movement_rules;
     if (!out)
@@ -292,7 +292,7 @@ extern "C" int32_t ReRevvedGetUnitMovementRule(
         return REREVVED_UNIT_MOVEMENT_RULES_ERR_INVALID_ARGUMENT;
     }
 
-    const auto&                  rule = registry[index];
+    const auto& rule = registry[index];
     ReRevvedUnitMovementRuleInfo result{};
     result.struct_size    = sizeof(result);
     result.civilization   = rule.civilization;
@@ -306,8 +306,8 @@ extern "C" int32_t ReRevvedGetUnitMovementRule(
 
 extern "C" int32_t ReRevvedEvaluateUnitMovement(
     const ReRevvedUnitMovementQuery* query,
-    ReRevvedUnitMovementEvaluation*  out,
-    uint32_t                         out_size)
+    ReRevvedUnitMovementEvaluation* out,
+    uint32_t out_size)
 {
     using namespace rerevved::unit_movement_rules;
     if (!out)

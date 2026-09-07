@@ -10,13 +10,13 @@ int main(void)
         ReRevvedRegisterUniqueUnitScalarRule;
     ReRevvedGetUniqueUnitScalarRuleCountFn count_fn =
         ReRevvedGetUniqueUnitScalarRuleCount;
-    ReRevvedGetUniqueUnitScalarRuleFn  get_fn = ReRevvedGetUniqueUnitScalarRule;
+    ReRevvedGetUniqueUnitScalarRuleFn get_fn = ReRevvedGetUniqueUnitScalarRule;
     ReRevvedEvaluateUniqueUnitScalarFn evaluate_fn =
         ReRevvedEvaluateUniqueUnitScalar;
 
-    ReRevvedUniqueUnitScalarRule       rule       = { 0 };
-    ReRevvedUniqueUnitScalarRuleInfo   info       = { 0 };
-    ReRevvedUniqueUnitScalarQuery      query      = { 0 };
+    ReRevvedUniqueUnitScalarRule rule             = { 0 };
+    ReRevvedUniqueUnitScalarRuleInfo info         = { 0 };
+    ReRevvedUniqueUnitScalarQuery query           = { 0 };
     ReRevvedUniqueUnitScalarEvaluation evaluation = { 0 };
 
     if (!version_fn || !register_fn || !count_fn || !get_fn || !evaluate_fn ||

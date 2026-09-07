@@ -41,9 +41,9 @@ private:
         Succeeded,
     };
 
-    std::mutex              mutex_;
+    std::mutex mutex_;
     std::condition_variable completed_;
-    State                   state_ = State::Idle;
+    State state_ = State::Idle;
 };
 
 } // namespace rerevved::diagnostics

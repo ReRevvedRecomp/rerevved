@@ -13,6 +13,6 @@ enum class RendererBackend
 };
 
 RendererBackend ParseRendererBackend(std::string_view value) noexcept;
-const char*     RendererBackendName(RendererBackend backend) noexcept;
+const char* RendererBackendName(RendererBackend backend) noexcept;
 
 } // namespace rerevved::gpu

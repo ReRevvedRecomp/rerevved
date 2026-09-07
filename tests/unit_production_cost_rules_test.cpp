@@ -22,7 +22,7 @@ void Require(bool condition, std::string_view message)
 
 ReRevvedUnitProductionCostRule MakeRule(const char* provider,
                                         const char* rule_id,
-                                        int32_t     percentage_delta)
+                                        int32_t percentage_delta)
 {
     ReRevvedUnitProductionCostRule rule{};
     rule.struct_size = sizeof(rule);

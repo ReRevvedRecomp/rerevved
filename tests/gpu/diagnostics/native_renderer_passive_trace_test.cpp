@@ -52,14 +52,14 @@ struct TraceRow
     std::uint64_t sequence = 0;
     std::uint64_t thread   = 0;
     std::uint32_t epoch    = 0;
-    std::string   event;
+    std::string event;
 };
 
 std::vector<TraceRow> ReadTraceRows(const std::filesystem::path& path)
 {
-    std::ifstream         input(path);
+    std::ifstream input(path);
     std::vector<TraceRow> rows;
-    std::string           line;
+    std::string line;
     while (std::getline(input, line))
     {
         if (line.empty() || line[0] == '#' || line.starts_with("sequence,"))
@@ -67,10 +67,10 @@ std::vector<TraceRow> ReadTraceRows(const std::filesystem::path& path)
             continue;
         }
         std::istringstream stream(line);
-        std::string        sequence;
-        std::string        thread;
-        std::string        epoch;
-        std::string        event;
+        std::string sequence;
+        std::string thread;
+        std::string epoch;
+        std::string event;
         Require(static_cast<bool>(std::getline(stream, sequence, ',')) &&
                     static_cast<bool>(std::getline(stream, thread, ',')) &&
                     static_cast<bool>(std::getline(stream, epoch, ',')) &&
@@ -90,7 +90,7 @@ int main()
 {
     using namespace rerevved::gpu::diagnostics;
 
-    auto              buffer = std::make_unique<PassiveTraceBuffer>();
+    auto buffer = std::make_unique<PassiveTraceBuffer>();
     PassiveTraceEvent disabled_event{};
     disabled_event.point                    = PassiveTracePoint::kReservationEnter;
     disabled_event.device_position          = 0x11223344;
@@ -112,17 +112,17 @@ int main()
             "start performs no artifact write");
 
     PassiveTraceEvent resolve{};
-    resolve.point                               = PassiveTracePoint::kResolveEnter;
-    resolve.valid_fields                        = kTraceDescriptor;
-    resolve.resolve_resource_address            = 0x40100000;
-    resolve.descriptor_address                  = 0x4010001C;
-    resolve.resolve_call_address                = 0x8250AFEC;
-    resolve.resolve_flags                       = 0x10;
-    resolve.resolve_mip_level                   = 2;
-    resolve.resolve_slice                       = 3;
-    resolve.descriptor                          = { 1, 2, 3, 4, 5, 6 };
-    const PassiveTraceEvent      resolve_before = resolve;
-    std::array<std::uint32_t, 4> guest_state    = {
+    resolve.point                            = PassiveTracePoint::kResolveEnter;
+    resolve.valid_fields                     = kTraceDescriptor;
+    resolve.resolve_resource_address         = 0x40100000;
+    resolve.descriptor_address               = 0x4010001C;
+    resolve.resolve_call_address             = 0x8250AFEC;
+    resolve.resolve_flags                    = 0x10;
+    resolve.resolve_mip_level                = 2;
+    resolve.resolve_slice                    = 3;
+    resolve.descriptor                       = { 1, 2, 3, 4, 5, 6 };
+    const PassiveTraceEvent resolve_before   = resolve;
+    std::array<std::uint32_t, 4> guest_state = {
         0x01020304,
         0x11223344,
         0x55667788,
@@ -158,7 +158,7 @@ int main()
     Require(std::filesystem::exists(basic_path), "artifact published");
     Require(!buffer->Start(basic_path), "existing artifact preserved");
 
-    std::ifstream     basic_input(basic_path);
+    std::ifstream basic_input(basic_path);
     const std::string basic_text((std::istreambuf_iterator<char>(basic_input)),
                                  std::istreambuf_iterator<char>());
     Require(basic_text.find("# overflow=0") != std::string::npos,
@@ -194,15 +194,15 @@ int main()
     auto old_epoch_lease = buffer->BeginRecord();
     Require(static_cast<bool>(old_epoch_lease), "old epoch lease acquired");
     std::atomic<bool> epoch_result{ false };
-    std::thread       epoch_thread([&buffer, &epoch_result]()
-                                   {
+    std::thread epoch_thread([&buffer, &epoch_result]()
+                             {
                                  PassiveTraceEvent reset_event{};
                                  reset_event.point =
                                      PassiveTracePoint::kRingResetBegin;
                                  epoch_result.store(
                                      buffer->BeginObservationEpoch(reset_event),
                                      std::memory_order_release);
-                                   });
+                             });
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     PassiveTraceEvent competing_reset{};
     competing_reset.point = PassiveTracePoint::kRingResetBegin;
@@ -257,8 +257,8 @@ int main()
     RemoveTestOutput(concurrent_path);
     Require(buffer->Start(concurrent_path), "concurrent start");
 
-    constexpr std::size_t    kThreadCount      = 8;
-    constexpr std::size_t    kRecordsPerThread = 600;
+    constexpr std::size_t kThreadCount      = 8;
+    constexpr std::size_t kRecordsPerThread = 600;
     std::vector<std::thread> producers;
     producers.reserve(kThreadCount);
     for (std::size_t thread = 0; thread < kThreadCount; ++thread)
@@ -291,7 +291,7 @@ int main()
 
     Require(buffer->StopAndFlush(), "concurrent flush");
 
-    std::ifstream     concurrent_input(concurrent_path);
+    std::ifstream concurrent_input(concurrent_path);
     const std::string concurrent_text(
         (std::istreambuf_iterator<char>(concurrent_input)),
         std::istreambuf_iterator<char>());
@@ -300,9 +300,9 @@ int main()
     Require(concurrent_text.find("# in_flight_at_flush=0") !=
                 std::string::npos,
             "serialized drain complete");
-    const auto              concurrent_rows = ReadTraceRows(concurrent_path);
+    const auto concurrent_rows = ReadTraceRows(concurrent_path);
     std::set<std::uint64_t> sequences;
-    bool                    saw_thread_identity = false;
+    bool saw_thread_identity = false;
     for (const auto& row : concurrent_rows)
     {
         sequences.insert(row.sequence);

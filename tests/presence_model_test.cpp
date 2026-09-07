@@ -74,7 +74,7 @@ int main()
 
     for (int32_t civilization = 0; civilization < 16; ++civilization)
     {
-        const auto              state = GameplayState(civilization, civilization % 4, 1025);
+        const auto state = GameplayState(civilization, civilization % 4, 1025);
         rerevved::PresenceModel presence;
         Require(rerevved::TryBuildGameplayPresence(state, presence),
                 "playable civilization formats");
@@ -84,7 +84,7 @@ int main()
                 "civilization uses one image asset");
     }
 
-    auto                    americans = GameplayState(7, 1, 1025);
+    auto americans = GameplayState(7, 1, 1025);
     rerevved::PresenceModel presence;
     Require(rerevved::TryBuildGameplayPresence(americans, presence),
             "American checkpoint formats");

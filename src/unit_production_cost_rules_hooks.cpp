@@ -16,8 +16,8 @@ namespace
 constexpr uint32_t kCities              = 0x8315FE28;
 constexpr uint32_t kCityStride          = 0xBC;
 constexpr uint32_t kPlayerCivilizations = 0x830ECD28;
-constexpr int32_t  kPlayerCount         = 6;
-constexpr int32_t  kNativeCostPercent   = 100;
+constexpr int32_t kPlayerCount          = 6;
+constexpr int32_t kNativeCostPercent    = 100;
 
 bool TryReadByte(uint32_t address, uint8_t& value)
 {
@@ -57,7 +57,7 @@ bool TryReadBigEndianU32(uint32_t address, uint32_t& value)
     return true;
 }
 
-bool TryReadCivilization(int32_t                 city_offset,
+bool TryReadCivilization(int32_t city_offset,
                          ReRevvedCivilizationId& civilization)
 {
     if (city_offset < 0 || city_offset % static_cast<int32_t>(kCityStride) != 0)

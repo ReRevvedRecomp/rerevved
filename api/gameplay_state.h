@@ -63,25 +63,25 @@ typedef struct ReRevvedGameplayState
     // satisfied. Valid fields may still be returned while available is zero.
     uint32_t valid_fields;
     uint64_t frame_sequence;
-    int32_t  gameplay_active;
-    int32_t  interface_update;
-    int32_t  active_player;
+    int32_t gameplay_active;
+    int32_t interface_update;
+    int32_t active_player;
     uint32_t human_player_mask;
-    int32_t  turn_owner_known;
-    int32_t  human_turn;
-    int32_t  available;
+    int32_t turn_owner_known;
+    int32_t human_turn;
+    int32_t available;
     // These fields describe the active human player. Their validity bits are
     // clear during AI turns, menu/loading transitions, or failed guest reads.
     ReRevvedCivilizationId civilization;
-    int32_t                era;
-    int32_t                year;
-    int32_t                turn;
-    int32_t                reserved[4];
+    int32_t era;
+    int32_t year;
+    int32_t turn;
+    int32_t reserved[4];
 } ReRevvedGameplayState;
 
 typedef uint32_t (*ReRevvedGameplayAbiVersionFn)(void);
 typedef int (*ReRevvedGetGameplayStateFn)(ReRevvedGameplayState* out,
-                                          uint32_t               out_size);
+                                          uint32_t out_size);
 
 #ifdef __cplusplus
 extern "C"
@@ -89,9 +89,9 @@ extern "C"
 #endif
 
     REREVVED_GAMEPLAY_API uint32_t ReRevvedGameplayAbiVersion(void);
-    REREVVED_GAMEPLAY_API int      ReRevvedGetGameplayState(
+    REREVVED_GAMEPLAY_API int ReRevvedGetGameplayState(
         ReRevvedGameplayState* out,
-        uint32_t               out_size);
+        uint32_t out_size);
 
 #ifdef __cplusplus
 } // extern "C"

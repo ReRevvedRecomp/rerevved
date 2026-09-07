@@ -58,47 +58,47 @@ enum
 
 typedef struct ReRevvedTerrainYieldRule
 {
-    uint32_t                      struct_size;
-    char                          provider_id[REREVVED_TERRAIN_YIELD_RULE_ID_CAPACITY];
-    char                          rule_id[REREVVED_TERRAIN_YIELD_RULE_ID_CAPACITY];
-    ReRevvedTerrainId             terrain;
+    uint32_t struct_size;
+    char provider_id[REREVVED_TERRAIN_YIELD_RULE_ID_CAPACITY];
+    char rule_id[REREVVED_TERRAIN_YIELD_RULE_ID_CAPACITY];
+    ReRevvedTerrainId terrain;
     ReRevvedTerrainYieldComponent component;
     ReRevvedTerrainYieldOperation operation;
-    int32_t                       value;
-    int32_t                       reserved[5];
+    int32_t value;
+    int32_t reserved[5];
 } ReRevvedTerrainYieldRule;
 
 typedef struct ReRevvedTerrainYieldRuleInfo
 {
-    uint32_t                      struct_size; // Current producer size. Callers may pass any buffer at least 152 bytes.
-    char                          provider_id[REREVVED_TERRAIN_YIELD_RULE_ID_CAPACITY];
-    char                          rule_id[REREVVED_TERRAIN_YIELD_RULE_ID_CAPACITY];
-    ReRevvedTerrainId             terrain;
+    uint32_t struct_size; // Current producer size. Callers may pass any buffer at least 152 bytes.
+    char provider_id[REREVVED_TERRAIN_YIELD_RULE_ID_CAPACITY];
+    char rule_id[REREVVED_TERRAIN_YIELD_RULE_ID_CAPACITY];
+    ReRevvedTerrainId terrain;
     ReRevvedTerrainYieldComponent component;
     ReRevvedTerrainYieldOperation operation;
-    int32_t                       value;
-    uint32_t                      status_flags;
-    int32_t                       reserved[10];
+    int32_t value;
+    uint32_t status_flags;
+    int32_t reserved[10];
 } ReRevvedTerrainYieldRuleInfo;
 
 typedef struct ReRevvedTerrainYieldQuery
 {
-    uint32_t                      struct_size;
-    ReRevvedTerrainId             terrain;
+    uint32_t struct_size;
+    ReRevvedTerrainId terrain;
     ReRevvedTerrainYieldComponent component;
-    int32_t                       native_value;
-    int32_t                       reserved[6];
+    int32_t native_value;
+    int32_t reserved[6];
 } ReRevvedTerrainYieldQuery;
 
 typedef struct ReRevvedTerrainYieldEvaluation
 {
     uint32_t struct_size; // Current producer size. Callers may pass any buffer at least 24 bytes.
-    int32_t  native_value;
-    int32_t  final_value;
+    int32_t native_value;
+    int32_t final_value;
     uint32_t status_flags;
     uint32_t replacement_count;
     uint32_t additive_count;
-    int32_t  reserved[4];
+    int32_t reserved[4];
 } ReRevvedTerrainYieldEvaluation;
 
 typedef uint32_t (*ReRevvedTerrainYieldRulesAbiVersionFn)(void);
@@ -106,13 +106,13 @@ typedef int32_t (*ReRevvedRegisterTerrainYieldRuleFn)(
     const ReRevvedTerrainYieldRule* rule);
 typedef int32_t (*ReRevvedGetTerrainYieldRuleCountFn)(uint32_t* out_count);
 typedef int32_t (*ReRevvedGetTerrainYieldRuleFn)(
-    uint32_t                      index,
+    uint32_t index,
     ReRevvedTerrainYieldRuleInfo* out,
-    uint32_t                      out_size);
+    uint32_t out_size);
 typedef int32_t (*ReRevvedEvaluateTerrainYieldFn)(
     const ReRevvedTerrainYieldQuery* query,
-    ReRevvedTerrainYieldEvaluation*  out,
-    uint32_t                         out_size);
+    ReRevvedTerrainYieldEvaluation* out,
+    uint32_t out_size);
 
 #ifdef __cplusplus
 extern "C"
@@ -120,19 +120,19 @@ extern "C"
 #endif
 
     REREVVED_TERRAIN_YIELD_RULES_API uint32_t
-                                             ReRevvedTerrainYieldRulesAbiVersion(void);
+    ReRevvedTerrainYieldRulesAbiVersion(void);
     REREVVED_TERRAIN_YIELD_RULES_API int32_t ReRevvedRegisterTerrainYieldRule(
         const ReRevvedTerrainYieldRule* rule);
     REREVVED_TERRAIN_YIELD_RULES_API int32_t ReRevvedGetTerrainYieldRuleCount(
         uint32_t* out_count);
     REREVVED_TERRAIN_YIELD_RULES_API int32_t ReRevvedGetTerrainYieldRule(
-        uint32_t                      index,
+        uint32_t index,
         ReRevvedTerrainYieldRuleInfo* out,
-        uint32_t                      out_size);
+        uint32_t out_size);
     REREVVED_TERRAIN_YIELD_RULES_API int32_t ReRevvedEvaluateTerrainYield(
         const ReRevvedTerrainYieldQuery* query,
-        ReRevvedTerrainYieldEvaluation*  out,
-        uint32_t                         out_size);
+        ReRevvedTerrainYieldEvaluation* out,
+        uint32_t out_size);
 
 #ifdef __cplusplus
 } // extern "C"

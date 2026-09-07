@@ -71,7 +71,7 @@ for name in sys.argv[1:]:
 # guest code and dependencies are outside this repository-hygiene gate.
 $cppFiles = @($trackedPaths | Where-Object {
     $relative = Relative-Path $_
-    $relative -match '^src/' -and
+    $relative -match '^(api|src|tests)/' -and
         $_ -match '(?i)\.(c|cc|cpp|cxx|h|hh|hpp|hxx)$'
 })
 $clangFormat = Get-Command clang-format -CommandType Application -ErrorAction SilentlyContinue |

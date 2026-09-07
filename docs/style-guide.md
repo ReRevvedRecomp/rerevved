@@ -37,10 +37,9 @@ language level in [CMakeLists.txt](../CMakeLists.txt).
 - Keep one statement per line and use early returns where they clarify error
   handling.
 - Keep include sorting and declaration spacing under formatter control.
-- The current configuration aligns consecutive declarations, assignments,
-  macros, and trailing comments. This includes parameter-name alignment in
-  multiline function-pointer declarations; single-space parameter formatting
-  is not the current configured rule.
+- Use one space between a type and its variable, field, or parameter name.
+  Do not pad names into vertical columns. The formatter aligns consecutive
+  assignments, enum values, macros, and trailing comments separately.
 - There is no fixed column limit. Break long signatures at meaningful
   boundaries, using one parameter per line for multiline declarations. Do not
   shorten meaningful public names just to fit a line.
@@ -50,6 +49,11 @@ if (!IsReady())
 {
     return false;
 }
+
+typedef int32_t (*ReRevvedGetUnitMovementRuleFn)(
+    uint32_t index,
+    ReRevvedUnitMovementRuleInfo* out,
+    uint32_t out_size);
 ```
 
 Put short comments about individual enum values, structure fields, and list
@@ -101,9 +105,8 @@ escape a public C ABI boundary.
 ## Verification
 
 From the repository root, run `scripts\verify.ps1` for repository checks.
-The current clang-format gate checks C/C++ under `src/`; it does not check
-`api/` or `tests/`. Review and format changed authored files in those directories
-explicitly. Public-header changes must preserve the C contract and update the
+The clang-format gate checks authored C/C++ under `api/`, `src/`, and `tests/`.
+Public-header changes must preserve the C contract and update the
 Mods mirror when applicable.
 
 The [runtime guide](rexglue-runtime.md) owns build commands. After a native

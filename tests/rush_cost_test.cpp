@@ -31,8 +31,8 @@ int main()
             "preserve the divisor-one control path");
 
     const rerevved::RushCostRepair zero_repair{ true, 0, 6, 10, 15 };
-    int32_t                        bought = -1;
-    int32_t                        after  = -1;
+    int32_t bought = -1;
+    int32_t after  = -1;
     Require(rerevved::TryCoordinateRushProduction(
                 zero_repair, 0, 6, 15, 0, bought, after) &&
                 bought == 10 && after == 10,

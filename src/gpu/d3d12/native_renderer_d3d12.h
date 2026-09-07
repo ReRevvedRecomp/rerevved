@@ -31,8 +31,8 @@ public:
 
 private:
     void RendererThreadMain(std::uintptr_t native_window,
-                            std::uint32_t  width,
-                            std::uint32_t  height);
+                            std::uint32_t width,
+                            std::uint32_t height);
     void HandleRendererFailure();
 
     struct Impl;

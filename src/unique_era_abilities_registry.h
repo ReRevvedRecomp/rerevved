@@ -5,9 +5,9 @@
 namespace rerevved::unique_era_abilities
 {
 
-bool TryEvaluate(ReRevvedCivilizationId                  civilization,
-                 ReRevvedUniqueEraUnlockEra              unlock_era,
-                 ReRevvedUniqueEraAbilityId              native_ability,
+bool TryEvaluate(ReRevvedCivilizationId civilization,
+                 ReRevvedUniqueEraUnlockEra unlock_era,
+                 ReRevvedUniqueEraAbilityId native_ability,
                  ReRevvedUniqueEraAbilityCellEvaluation& evaluation);
 
 void ResetForTests();

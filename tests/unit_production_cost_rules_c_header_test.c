@@ -10,12 +10,12 @@ int main(void)
         ReRevvedRegisterUnitProductionCostRule;
     ReRevvedGetUnitProductionCostRuleCountFn count_fn =
         ReRevvedGetUnitProductionCostRuleCount;
-    ReRevvedGetUnitProductionCostRuleFn  get_fn      = ReRevvedGetUnitProductionCostRule;
+    ReRevvedGetUnitProductionCostRuleFn get_fn       = ReRevvedGetUnitProductionCostRule;
     ReRevvedEvaluateUnitProductionCostFn evaluate_fn = ReRevvedEvaluateUnitProductionCost;
 
-    ReRevvedUnitProductionCostRule       rule       = { 0 };
-    ReRevvedUnitProductionCostRuleInfo   info       = { 0 };
-    ReRevvedUnitProductionCostQuery      query      = { 0 };
+    ReRevvedUnitProductionCostRule rule             = { 0 };
+    ReRevvedUnitProductionCostRuleInfo info         = { 0 };
+    ReRevvedUnitProductionCostQuery query           = { 0 };
     ReRevvedUnitProductionCostEvaluation evaluation = { 0 };
 
     if (!version_fn || !register_fn || !count_fn || !get_fn || !evaluate_fn ||

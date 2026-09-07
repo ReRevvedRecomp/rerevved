@@ -20,10 +20,10 @@ void Require(bool condition, std::string_view message)
     }
 }
 
-ReRevvedUnitCombatRule MakeRule(const char*                provider,
-                                const char*                rule_id,
+ReRevvedUnitCombatRule MakeRule(const char* provider,
+                                const char* rule_id,
                                 ReRevvedUnitCombatProperty property,
-                                int32_t                    percentage_delta)
+                                int32_t percentage_delta)
 {
     ReRevvedUnitCombatRule rule{};
     rule.struct_size      = sizeof(rule);
@@ -101,14 +101,14 @@ void TestLayoutAndValidation()
 void TestRegistrationReadbackAndEvaluation()
 {
     rerevved::unit_combat_rules::ResetForTests();
-    const auto later   = MakeRule("z.provider",
-                                  "late",
-                                  REREVVED_UNIT_COMBAT_ATTACK,
-                                  -25);
-    auto       earlier = MakeRule("a.provider",
-                                  "early",
-                                  REREVVED_UNIT_COMBAT_ATTACK,
-                                  50);
+    const auto later = MakeRule("z.provider",
+                                "late",
+                                REREVVED_UNIT_COMBAT_ATTACK,
+                                -25);
+    auto earlier     = MakeRule("a.provider",
+                                "early",
+                                REREVVED_UNIT_COMBAT_ATTACK,
+                                50);
     Require(ReRevvedRegisterUnitCombatRule(&later) ==
                     REREVVED_UNIT_COMBAT_RULES_OK &&
                 ReRevvedRegisterUnitCombatRule(&earlier) ==

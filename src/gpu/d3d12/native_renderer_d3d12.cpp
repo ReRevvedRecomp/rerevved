@@ -31,8 +31,8 @@ using Microsoft::WRL::ComPtr;
 namespace
 {
 
-constexpr std::uint32_t kFrameCount         = 2;
-constexpr DWORD         kFenceWaitTimeoutMs = 5000;
+constexpr std::uint32_t kFrameCount = 2;
+constexpr DWORD kFenceWaitTimeoutMs = 5000;
 
 bool LogFailure(const char* operation, HRESULT result)
 {
@@ -43,7 +43,7 @@ bool LogFailure(const char* operation, HRESULT result)
 void EnableDred()
 {
     ComPtr<ID3D12DeviceRemovedExtendedDataSettings1> settings;
-    const HRESULT                                    result = D3D12GetDebugInterface(IID_PPV_ARGS(&settings));
+    const HRESULT result = D3D12GetDebugInterface(IID_PPV_ARGS(&settings));
     if (FAILED(result))
     {
         REXLOG_WARN("Native D3D12 DRED settings unavailable: HRESULT 0x{:08X}",
@@ -61,37 +61,37 @@ void EnableDred()
 
 struct NativeRendererD3D12::Impl
 {
-    std::thread             renderer_thread;
-    std::mutex              state_mutex;
+    std::thread renderer_thread;
+    std::mutex state_mutex;
     std::condition_variable state_cv;
-    bool                    stop_requested           = false;
-    bool                    initialization_done      = false;
-    bool                    initialization_succeeded = false;
-    bool                    resize_pending           = false;
-    std::uint32_t           requested_width          = 0;
-    std::uint32_t           requested_height         = 0;
-    bool                    runtime_failed           = false;
-    std::function<void()>   request_deferred_quit;
-    std::atomic<bool>       initialized{ false };
-    std::atomic<bool>       gpu_objects_abandoned{ false };
+    bool stop_requested            = false;
+    bool initialization_done       = false;
+    bool initialization_succeeded  = false;
+    bool resize_pending            = false;
+    std::uint32_t requested_width  = 0;
+    std::uint32_t requested_height = 0;
+    bool runtime_failed            = false;
+    std::function<void()> request_deferred_quit;
+    std::atomic<bool> initialized{ false };
+    std::atomic<bool> gpu_objects_abandoned{ false };
 
 #if defined(_WIN32)
-    ComPtr<IDXGIFactory6>                                   factory;
-    ComPtr<IDXGIAdapter1>                                   adapter;
-    ComPtr<ID3D12Device>                                    device;
-    ComPtr<ID3D12CommandQueue>                              queue;
-    ComPtr<IDXGISwapChain3>                                 swap_chain;
-    ComPtr<ID3D12DescriptorHeap>                            rtv_heap;
-    std::array<ComPtr<ID3D12Resource>, kFrameCount>         back_buffers;
+    ComPtr<IDXGIFactory6> factory;
+    ComPtr<IDXGIAdapter1> adapter;
+    ComPtr<ID3D12Device> device;
+    ComPtr<ID3D12CommandQueue> queue;
+    ComPtr<IDXGISwapChain3> swap_chain;
+    ComPtr<ID3D12DescriptorHeap> rtv_heap;
+    std::array<ComPtr<ID3D12Resource>, kFrameCount> back_buffers;
     std::array<ComPtr<ID3D12CommandAllocator>, kFrameCount> allocators;
-    ComPtr<ID3D12GraphicsCommandList>                       command_list;
-    ComPtr<ID3D12Fence>                                     fence;
-    std::array<std::uint64_t, kFrameCount>                  fence_values{};
-    std::uint64_t                                           next_fence_value = 1;
-    HANDLE                                                  fence_event      = nullptr;
-    std::uint32_t                                           rtv_stride       = 0;
-    std::uint32_t                                           width            = 0;
-    std::uint32_t                                           height           = 0;
+    ComPtr<ID3D12GraphicsCommandList> command_list;
+    ComPtr<ID3D12Fence> fence;
+    std::array<std::uint64_t, kFrameCount> fence_values{};
+    std::uint64_t next_fence_value = 1;
+    HANDLE fence_event             = nullptr;
+    std::uint32_t rtv_stride       = 0;
+    std::uint32_t width            = 0;
+    std::uint32_t height           = 0;
 
     bool WaitForFence(std::uint64_t value)
     {
@@ -129,8 +129,8 @@ struct NativeRendererD3D12::Impl
 
     bool WaitForGpu()
     {
-        const std::uint64_t value  = next_fence_value++;
-        const HRESULT       result = queue->Signal(fence.Get(), value);
+        const std::uint64_t value = next_fence_value++;
+        const HRESULT result      = queue->Signal(fence.Get(), value);
         if (FAILED(result))
         {
             return LogDeviceRemoval("queue signal", result);
@@ -178,8 +178,8 @@ struct NativeRendererD3D12::Impl
     }
 
     bool InitializeOnRendererThread(std::uintptr_t native_window,
-                                    std::uint32_t  initial_width,
-                                    std::uint32_t  initial_height);
+                                    std::uint32_t initial_width,
+                                    std::uint32_t initial_height);
     bool ResizeOnRendererThread(std::uint32_t width, std::uint32_t height);
     bool PresentOnRendererThread();
     void ShutdownOnRendererThread();
@@ -200,8 +200,8 @@ NativeRendererD3D12::~NativeRendererD3D12()
 
 bool NativeRendererD3D12::Impl::InitializeOnRendererThread(
     std::uintptr_t native_window,
-    std::uint32_t  initial_width,
-    std::uint32_t  initial_height)
+    std::uint32_t initial_width,
+    std::uint32_t initial_height)
 {
     const HWND hwnd = reinterpret_cast<HWND>(native_window);
     if (!hwnd || initial_width == 0 || initial_height == 0)
@@ -550,8 +550,8 @@ void NativeRendererD3D12::Impl::ShutdownOnRendererThread()
 #endif
 
 void NativeRendererD3D12::RendererThreadMain(std::uintptr_t native_window,
-                                             std::uint32_t  width,
-                                             std::uint32_t  height)
+                                             std::uint32_t width,
+                                             std::uint32_t height)
 {
 #if defined(_WIN32)
     const bool initialization_succeeded =
@@ -569,7 +569,7 @@ void NativeRendererD3D12::RendererThreadMain(std::uintptr_t native_window,
 
     for (;;)
     {
-        bool          resize           = false;
+        bool resize                    = false;
         std::uint32_t requested_width  = 0;
         std::uint32_t requested_height = 0;
         {

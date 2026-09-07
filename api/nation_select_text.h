@@ -67,48 +67,48 @@ enum
 
 typedef struct ReRevvedNationSelectTextRule
 {
-    uint32_t                    struct_size;
-    char                        provider_id[REREVVED_NATION_SELECT_TEXT_RULE_ID_CAPACITY];
-    char                        rule_id[REREVVED_NATION_SELECT_TEXT_RULE_ID_CAPACITY];
+    uint32_t struct_size;
+    char provider_id[REREVVED_NATION_SELECT_TEXT_RULE_ID_CAPACITY];
+    char rule_id[REREVVED_NATION_SELECT_TEXT_RULE_ID_CAPACITY];
     ReRevvedNationSelectTextSurface surface;
-    ReRevvedCivilizationId      civilization;
-    ReRevvedUniqueEraUnlockEra  unlock_era;
-    ReRevvedUniqueEraAbilityId  ability;
-    ReRevvedUnitTypeId          base_unit_type;
-    ReRevvedUnitIdentityId      identity;
+    ReRevvedCivilizationId civilization;
+    ReRevvedUniqueEraUnlockEra unlock_era;
+    ReRevvedUniqueEraAbilityId ability;
+    ReRevvedUnitTypeId base_unit_type;
+    ReRevvedUnitIdentityId identity;
     ReRevvedUnitDisplayForm display_form; // ABI 1 accepts UNIT for the civilization information screen.
-    char                    text[REREVVED_NATION_SELECT_TEXT_CAPACITY];
-    int32_t                 reserved[8];
+    char text[REREVVED_NATION_SELECT_TEXT_CAPACITY];
+    int32_t reserved[8];
 } ReRevvedNationSelectTextRule;
 
 typedef struct ReRevvedNationSelectTextRuleInfo
 {
-    uint32_t                    struct_size; // Current producer size. Callers may pass any buffer at least 420 bytes.
-    char                        provider_id[REREVVED_NATION_SELECT_TEXT_RULE_ID_CAPACITY];
-    char                        rule_id[REREVVED_NATION_SELECT_TEXT_RULE_ID_CAPACITY];
+    uint32_t struct_size; // Current producer size. Callers may pass any buffer at least 420 bytes.
+    char provider_id[REREVVED_NATION_SELECT_TEXT_RULE_ID_CAPACITY];
+    char rule_id[REREVVED_NATION_SELECT_TEXT_RULE_ID_CAPACITY];
     ReRevvedNationSelectTextSurface surface;
-    ReRevvedCivilizationId      civilization;
-    ReRevvedUniqueEraUnlockEra  unlock_era;
-    ReRevvedUniqueEraAbilityId  ability;
-    ReRevvedUnitTypeId          base_unit_type;
-    ReRevvedUnitIdentityId      identity;
-    ReRevvedUnitDisplayForm     display_form;
-    char                        text[REREVVED_NATION_SELECT_TEXT_CAPACITY];
-    uint32_t                    status_flags;
-    int32_t                     reserved[8];
+    ReRevvedCivilizationId civilization;
+    ReRevvedUniqueEraUnlockEra unlock_era;
+    ReRevvedUniqueEraAbilityId ability;
+    ReRevvedUnitTypeId base_unit_type;
+    ReRevvedUnitIdentityId identity;
+    ReRevvedUnitDisplayForm display_form;
+    char text[REREVVED_NATION_SELECT_TEXT_CAPACITY];
+    uint32_t status_flags;
+    int32_t reserved[8];
 } ReRevvedNationSelectTextRuleInfo;
 
 typedef struct ReRevvedNationSelectTextQuery
 {
-    uint32_t                    struct_size;
+    uint32_t struct_size;
     ReRevvedNationSelectTextSurface surface;
-    ReRevvedCivilizationId      civilization;
-    ReRevvedUniqueEraUnlockEra  unlock_era;
-    ReRevvedUniqueEraAbilityId  ability;
-    ReRevvedUnitTypeId          base_unit_type;
-    ReRevvedUnitIdentityId      identity;
-    ReRevvedUnitDisplayForm     display_form;
-    int32_t                     reserved[8];
+    ReRevvedCivilizationId civilization;
+    ReRevvedUniqueEraUnlockEra unlock_era;
+    ReRevvedUniqueEraAbilityId ability;
+    ReRevvedUnitTypeId base_unit_type;
+    ReRevvedUnitIdentityId identity;
+    ReRevvedUnitDisplayForm display_form;
+    int32_t reserved[8];
 } ReRevvedNationSelectTextQuery;
 
 typedef struct ReRevvedNationSelectTextEvaluation
@@ -116,8 +116,8 @@ typedef struct ReRevvedNationSelectTextEvaluation
     uint32_t struct_size; // Current producer size. Callers may pass any buffer at least 268 bytes.
     uint32_t replacement_count;
     uint32_t status_flags;
-    char     text[REREVVED_NATION_SELECT_TEXT_CAPACITY];
-    int32_t  reserved[8];
+    char text[REREVVED_NATION_SELECT_TEXT_CAPACITY];
+    int32_t reserved[8];
 } ReRevvedNationSelectTextEvaluation;
 
 typedef uint32_t (*ReRevvedNationSelectTextAbiVersionFn)(void);
@@ -125,13 +125,13 @@ typedef int32_t (*ReRevvedRegisterNationSelectTextRuleFn)(
     const ReRevvedNationSelectTextRule* rule);
 typedef int32_t (*ReRevvedGetNationSelectTextRuleCountFn)(uint32_t* out_count);
 typedef int32_t (*ReRevvedGetNationSelectTextRuleFn)(
-    uint32_t                          index,
+    uint32_t index,
     ReRevvedNationSelectTextRuleInfo* out,
-    uint32_t                          out_size);
+    uint32_t out_size);
 typedef int32_t (*ReRevvedEvaluateNationSelectTextFn)(
     const ReRevvedNationSelectTextQuery* query,
-    ReRevvedNationSelectTextEvaluation*  out,
-    uint32_t                             out_size);
+    ReRevvedNationSelectTextEvaluation* out,
+    uint32_t out_size);
 
 #ifdef __cplusplus
 extern "C"
@@ -144,15 +144,15 @@ extern "C"
     ReRevvedRegisterNationSelectTextRule(
         const ReRevvedNationSelectTextRule* rule);
     REREVVED_NATION_SELECT_TEXT_API int32_t
-                                           ReRevvedGetNationSelectTextRuleCount(uint32_t* out_count);
+    ReRevvedGetNationSelectTextRuleCount(uint32_t* out_count);
     REREVVED_NATION_SELECT_TEXT_API int32_t ReRevvedGetNationSelectTextRule(
-        uint32_t                          index,
+        uint32_t index,
         ReRevvedNationSelectTextRuleInfo* out,
-        uint32_t                          out_size);
+        uint32_t out_size);
     REREVVED_NATION_SELECT_TEXT_API int32_t ReRevvedEvaluateNationSelectText(
         const ReRevvedNationSelectTextQuery* query,
-        ReRevvedNationSelectTextEvaluation*  out,
-        uint32_t                             out_size);
+        ReRevvedNationSelectTextEvaluation* out,
+        uint32_t out_size);
 
 #ifdef __cplusplus
 } // extern "C"

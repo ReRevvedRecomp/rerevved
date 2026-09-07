@@ -10,13 +10,13 @@ int main(void)
         ReRevvedRegisterNationSelectTextRule;
     ReRevvedGetNationSelectTextRuleCountFn count_fn =
         ReRevvedGetNationSelectTextRuleCount;
-    ReRevvedGetNationSelectTextRuleFn  get_fn = ReRevvedGetNationSelectTextRule;
+    ReRevvedGetNationSelectTextRuleFn get_fn = ReRevvedGetNationSelectTextRule;
     ReRevvedEvaluateNationSelectTextFn evaluate_fn =
         ReRevvedEvaluateNationSelectText;
 
-    ReRevvedNationSelectTextRule       rule       = { 0 };
-    ReRevvedNationSelectTextRuleInfo   info       = { 0 };
-    ReRevvedNationSelectTextQuery      query      = { 0 };
+    ReRevvedNationSelectTextRule rule             = { 0 };
+    ReRevvedNationSelectTextRuleInfo info         = { 0 };
+    ReRevvedNationSelectTextQuery query           = { 0 };
     ReRevvedNationSelectTextEvaluation evaluation = { 0 };
     if (!version_fn || !register_fn || !count_fn || !get_fn || !evaluate_fn ||
         sizeof(rule) != 448 || sizeof(info) != 452 || sizeof(query) != 64 ||

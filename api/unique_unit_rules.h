@@ -63,53 +63,53 @@ enum
 
 typedef struct ReRevvedUniqueUnitScalarRule
 {
-    uint32_t                          struct_size;
-    char                              provider_id[REREVVED_UNIQUE_UNIT_RULE_ID_CAPACITY];
-    char                              rule_id[REREVVED_UNIQUE_UNIT_RULE_ID_CAPACITY];
-    ReRevvedCivilizationId            civilization;
-    ReRevvedUnitTypeId                base_unit_type;
-    ReRevvedUnitIdentityId            identity;
-    ReRevvedUniqueUnitScalarProperty  property;
+    uint32_t struct_size;
+    char provider_id[REREVVED_UNIQUE_UNIT_RULE_ID_CAPACITY];
+    char rule_id[REREVVED_UNIQUE_UNIT_RULE_ID_CAPACITY];
+    ReRevvedCivilizationId civilization;
+    ReRevvedUnitTypeId base_unit_type;
+    ReRevvedUnitIdentityId identity;
+    ReRevvedUniqueUnitScalarProperty property;
     ReRevvedUniqueUnitScalarOperation operation;
-    int32_t                           value;
-    int32_t                           reserved[5];
+    int32_t value;
+    int32_t reserved[5];
 } ReRevvedUniqueUnitScalarRule;
 
 typedef struct ReRevvedUniqueUnitScalarRuleInfo
 {
-    uint32_t                          struct_size; // Current producer size. Callers may pass any buffer at least 160 bytes.
-    char                              provider_id[REREVVED_UNIQUE_UNIT_RULE_ID_CAPACITY];
-    char                              rule_id[REREVVED_UNIQUE_UNIT_RULE_ID_CAPACITY];
-    ReRevvedCivilizationId            civilization;
-    ReRevvedUnitTypeId                base_unit_type;
-    ReRevvedUnitIdentityId            identity;
-    ReRevvedUniqueUnitScalarProperty  property;
+    uint32_t struct_size; // Current producer size. Callers may pass any buffer at least 160 bytes.
+    char provider_id[REREVVED_UNIQUE_UNIT_RULE_ID_CAPACITY];
+    char rule_id[REREVVED_UNIQUE_UNIT_RULE_ID_CAPACITY];
+    ReRevvedCivilizationId civilization;
+    ReRevvedUnitTypeId base_unit_type;
+    ReRevvedUnitIdentityId identity;
+    ReRevvedUniqueUnitScalarProperty property;
     ReRevvedUniqueUnitScalarOperation operation;
-    int32_t                           value;
-    uint32_t                          status_flags;
-    int32_t                           reserved[8];
+    int32_t value;
+    uint32_t status_flags;
+    int32_t reserved[8];
 } ReRevvedUniqueUnitScalarRuleInfo;
 
 typedef struct ReRevvedUniqueUnitScalarQuery
 {
-    uint32_t                         struct_size;
-    ReRevvedCivilizationId           civilization;
-    ReRevvedUnitTypeId               base_unit_type;
-    ReRevvedUnitIdentityId           identity;
+    uint32_t struct_size;
+    ReRevvedCivilizationId civilization;
+    ReRevvedUnitTypeId base_unit_type;
+    ReRevvedUnitIdentityId identity;
     ReRevvedUniqueUnitScalarProperty property;
-    int32_t                          native_value;
-    int32_t                          reserved[4];
+    int32_t native_value;
+    int32_t reserved[4];
 } ReRevvedUniqueUnitScalarQuery;
 
 typedef struct ReRevvedUniqueUnitScalarEvaluation
 {
     uint32_t struct_size; // Current producer size. Callers may pass any buffer at least 24 bytes.
-    int32_t  native_value;
-    int32_t  final_value;
+    int32_t native_value;
+    int32_t final_value;
     uint32_t status_flags;
     uint32_t replacement_count;
     uint32_t additive_count;
-    int32_t  reserved[4];
+    int32_t reserved[4];
 } ReRevvedUniqueUnitScalarEvaluation;
 
 typedef uint32_t (*ReRevvedUniqueUnitRulesAbiVersionFn)(void);
@@ -117,13 +117,13 @@ typedef int32_t (*ReRevvedRegisterUniqueUnitScalarRuleFn)(
     const ReRevvedUniqueUnitScalarRule* rule);
 typedef int32_t (*ReRevvedGetUniqueUnitScalarRuleCountFn)(uint32_t* out_count);
 typedef int32_t (*ReRevvedGetUniqueUnitScalarRuleFn)(
-    uint32_t                          index,
+    uint32_t index,
     ReRevvedUniqueUnitScalarRuleInfo* out,
-    uint32_t                          out_size);
+    uint32_t out_size);
 typedef int32_t (*ReRevvedEvaluateUniqueUnitScalarFn)(
     const ReRevvedUniqueUnitScalarQuery* query,
-    ReRevvedUniqueUnitScalarEvaluation*  out,
-    uint32_t                             out_size);
+    ReRevvedUniqueUnitScalarEvaluation* out,
+    uint32_t out_size);
 
 #ifdef __cplusplus
 extern "C"
@@ -136,15 +136,15 @@ extern "C"
     ReRevvedRegisterUniqueUnitScalarRule(
         const ReRevvedUniqueUnitScalarRule* rule);
     REREVVED_UNIQUE_UNIT_RULES_API int32_t
-                                           ReRevvedGetUniqueUnitScalarRuleCount(uint32_t* out_count);
+    ReRevvedGetUniqueUnitScalarRuleCount(uint32_t* out_count);
     REREVVED_UNIQUE_UNIT_RULES_API int32_t ReRevvedGetUniqueUnitScalarRule(
-        uint32_t                          index,
+        uint32_t index,
         ReRevvedUniqueUnitScalarRuleInfo* out,
-        uint32_t                          out_size);
+        uint32_t out_size);
     REREVVED_UNIQUE_UNIT_RULES_API int32_t ReRevvedEvaluateUniqueUnitScalar(
         const ReRevvedUniqueUnitScalarQuery* query,
-        ReRevvedUniqueUnitScalarEvaluation*  out,
-        uint32_t                             out_size);
+        ReRevvedUniqueUnitScalarEvaluation* out,
+        uint32_t out_size);
 
 #ifdef __cplusplus
 } // extern "C"

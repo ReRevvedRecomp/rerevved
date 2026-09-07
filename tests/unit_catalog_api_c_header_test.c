@@ -9,11 +9,11 @@
 
 int main(void)
 {
-    ReRevvedUnitCatalogAbiVersionFn version_fn    = ReRevvedUnitCatalogAbiVersion;
-    ReRevvedGetUnitDefinitionFn     definition_fn = ReRevvedGetUnitDefinition;
-    ReRevvedResolveUnitIdentityFn   identity_fn   = ReRevvedResolveUnitIdentity;
-    ReRevvedUnitDefinition          definition    = { 0 };
-    ReRevvedUnitIdentity            identity      = { 0 };
+    ReRevvedUnitCatalogAbiVersionFn version_fn = ReRevvedUnitCatalogAbiVersion;
+    ReRevvedGetUnitDefinitionFn definition_fn  = ReRevvedGetUnitDefinition;
+    ReRevvedResolveUnitIdentityFn identity_fn  = ReRevvedResolveUnitIdentity;
+    ReRevvedUnitDefinition definition          = { 0 };
+    ReRevvedUnitIdentity identity              = { 0 };
 
     if (sizeof(ReRevvedGameplayState) != 80 ||
         offsetof(ReRevvedGameplayState, civilization) != 44 ||

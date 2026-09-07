@@ -14,7 +14,7 @@ namespace
 {
 
 constexpr uint32_t kPlayerCivilizations = 0x830ECD28;
-constexpr int32_t  kPlayerCount         = 6;
+constexpr int32_t kPlayerCount          = 6;
 constexpr uint32_t kUnitRecordSize      = 0x54;
 
 constexpr std::array<ReRevvedUnitEffectId, 9> kSpecialUpgradeEffects = {
