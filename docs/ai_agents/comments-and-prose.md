@@ -10,10 +10,15 @@ entries inline with the entry. Keep shared invariants above the whole group.
 Keep source attributions verbatim. Keep PM4, packet, DAT, wiki, and other source
 locators verbatim. These identifiers are provenance, not work-log prose.
 
-Compress a survivor to one to three lines at the use site. Move a longer
-contract to a declaration or the relevant technical guide and leave a short
-pointer. Delete dates, phase labels, wall numbers, capture set identifiers,
-experiment narratives, and reports of earlier fixes or diagnostics.
+Prefer a survivor of one to three lines at the use site. Clarity, correctness,
+source quotations, licensing, and provenance may require more context. Move a
+longer contract to a declaration or the relevant technical guide and leave a
+short pointer.
+
+Remove dates, phase labels, wall numbers, capture set identifiers, experiment
+narratives, and reports of earlier fixes or diagnostics when they only narrate
+the work. Keep them when they identify, bound, or qualify current evidence or
+provenance.
 
 Generated comments are generated output. Preserve them or update their owning
 generator and regenerate. Do not edit generated PPC, switch-table, ReXGlue
