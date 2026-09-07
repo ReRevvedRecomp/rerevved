@@ -1,4 +1,4 @@
-#include "asset_file_overrides_registry.h"
+#include "main_menu_logo_asset.h"
 
 #include <cstdint>
 #include <cstring>
@@ -14,10 +14,9 @@
 namespace
 {
 
-constexpr std::string_view kLogoPath            = "GFX_MainMenu_logo.dds";
-constexpr uint32_t         kLengthPrefixSize    = sizeof(uint32_t);
-thread_local uint32_t      logo_guest_buffer    = 0;
-thread_local bool          logo_override_logged = false;
+constexpr uint32_t    kLengthPrefixSize    = sizeof(uint32_t);
+thread_local uint32_t logo_guest_buffer    = 0;
+thread_local bool     logo_override_logged = false;
 
 bool IsGuestRangeAccessible(rex::memory::Memory* memory,
                             uint32_t             address,
@@ -64,18 +63,19 @@ void ReRevvedApplyAssetFileOverride(PPCRegister& stack_pointer,
     if (!memory || stack_pointer.u32 == 0 || requested_name.u32 == 0 ||
         !IsGuestRangeAccessible(memory,
                                 requested_name.u32,
-                                static_cast<uint32_t>(kLogoPath.size() + 1),
+                                static_cast<uint32_t>(
+                                    rerevved::main_menu_logo::kGuestFileName.size() + 1),
                                 false) ||
         std::memcmp(memory->TranslateVirtual<const char*>(requested_name.u32),
-                    kLogoPath.data(),
-                    kLogoPath.size() + 1) != 0)
+                    rerevved::main_menu_logo::kGuestFileName.data(),
+                    rerevved::main_menu_logo::kGuestFileName.size() + 1) != 0)
     {
         return;
     }
 
-    rerevved::asset_file_overrides::Payload payload;
-    if (!rerevved::asset_file_overrides::TryGetPayload(kLogoPath, payload) ||
-        !payload || payload->size() != REREVVED_ASSET_FILE_OVERRIDE_LOGO_DDS_SIZE ||
+    rerevved::main_menu_logo::Payload payload;
+    if (!rerevved::main_menu_logo::TryGetPayload(payload) ||
+        !payload || payload->size() != rerevved::main_menu_logo::kLogoDdsSize ||
         payload->size() > std::numeric_limits<uint32_t>::max() -
                               kLengthPrefixSize ||
         stack_pointer.u32 > std::numeric_limits<uint32_t>::max() - 84 ||
@@ -105,17 +105,16 @@ void ReRevvedApplyAssetFileOverride(PPCRegister& stack_pointer,
     }
 
     auto* destination = memory->TranslateVirtual<uint8_t*>(logo_guest_buffer);
-    WriteBigEndianU32(destination, static_cast<uint32_t>(payload->size()));
-    std::memcpy(destination + kLengthPrefixSize,
-                payload->data(),
-                payload->size());
+    WriteBigEndianU32(destination,
+                      static_cast<uint32_t>(payload->size()));
+    std::memcpy(destination + kLengthPrefixSize, payload->data(), payload->size());
     returned_data_pointer.u64 = logo_guest_buffer + kLengthPrefixSize;
     rex::memory::store_and_swap<uint32_t>(
         memory->TranslateVirtual<uint8_t*>(stack_pointer.u32 + 84),
         returned_data_pointer.u32);
     if (!logo_override_logged)
     {
-        REXLOG_INFO("Applied asset override for {}", kLogoPath);
+        REXLOG_INFO("Applied main-menu logo asset override");
         logo_override_logged = true;
     }
 }

@@ -21,7 +21,7 @@ HOOK_SOURCES = [
     ROOT / "src" / "unit_combat_rules_hooks.cpp",
     ROOT / "src" / "unit_effect_rules_hooks.cpp",
     ROOT / "src" / "terrain_yield_rules_hooks.cpp",
-    ROOT / "src" / "asset_file_overrides_hooks.cpp",
+    ROOT / "src" / "main_menu_logo_hooks.cpp",
 ]
 GENERAL_SOURCE = ROOT / "src" / "great_general_attachment.cpp"
 PRESENTATION_SOURCE = ROOT / "src" / "presentation_text_hooks.cpp"
@@ -498,13 +498,15 @@ class HookContractTests(unittest.TestCase):
         self.assertEqual(generated.count(prototype), 1)
         self.assertEqual(generated.count(placement), 1)
 
-    def test_asset_file_override_preserves_native_fallback(self) -> None:
+    def test_main_menu_logo_hook_preserves_native_fallback(self) -> None:
         source = (
-            ROOT / "src" / "asset_file_overrides_hooks.cpp"
+            ROOT / "src" / "main_menu_logo_hooks.cpp"
         ).read_text(encoding="ascii")
         self.assertIn("stack_pointer.u32 == 0", source)
         self.assertIn("requested_name.u32 == 0", source)
-        self.assertIn("TryGetPayload(kLogoPath, payload)", source)
+        self.assertIn("TryGetPayload(payload)", source)
+        self.assertIn("kGuestFileName", source)
+        self.assertIn("kLogoDdsSize", source)
         self.assertIn("SystemHeapAlloc(allocation_size)", source)
         self.assertIn("std::memcmp(", source)
         self.assertGreaterEqual(source.count("return;"), 4)

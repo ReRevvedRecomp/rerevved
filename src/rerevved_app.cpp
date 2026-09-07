@@ -25,6 +25,7 @@
 #include "game_content.h"
 #include "gpu/diagnostics/native_renderer_passive_trace.h"
 #include "gpu/guest_gpu_service.h"
+#include "main_menu_logo_asset.h"
 #include "presence.h"
 
 REXCVAR_DECLARE(std::string, game_data_root);
@@ -451,6 +452,11 @@ std::optional<rex::PathConfig> ReRevvedApp::OnFinalizePaths(const rex::PathConfi
 void ReRevvedApp::OnPostSetup()
 {
     rex::ReXApp::OnPostSetup();
+
+    // Resolve selected package assets after the SDK has built the loadout and
+    // before the guest main thread is resumed.
+    (void)rerevved::main_menu_logo::ResolveSelectedLogo(
+        runtime()->active_asset_overlays());
 
     rerevved::StartPresence();
 
