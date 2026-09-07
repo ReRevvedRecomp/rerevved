@@ -39,21 +39,14 @@ typedef int32_t ReRevvedNationSelectTextSurface;
 
 enum
 {
-    // Civilization, unlock_era, and ability select one effective era value.
-    REREVVED_NATION_SELECT_TEXT_SURFACE_ERA_ABILITY = 0,
-    // Civilization, base_unit_type, identity, and display_form select one unit.
-    REREVVED_NATION_SELECT_TEXT_SURFACE_UNIQUE_UNIT = 1,
-    // These three fields use civilization; every other selector is UNUSED.
-    REREVVED_NATION_SELECT_TEXT_SURFACE_LEADER_NAME        = 2,
-    REREVVED_NATION_SELECT_TEXT_SURFACE_CIVILIZATION_NAME  = 3,
-    REREVVED_NATION_SELECT_TEXT_SURFACE_CIVILIZATION_TRAIT = 4,
-    // Surface 5 was reserved after runtime testing proved the internal era
-    // block prefix is not rendered by the civilization information panel.
-    REREVVED_NATION_SELECT_TEXT_SURFACE_RESERVED_5                  = 5,
-    // Global headings use civilization UNUSED. ERA_HEADING additionally uses
-    // unlock_era; every other selector is UNUSED.
-    REREVVED_NATION_SELECT_TEXT_SURFACE_ERA_HEADING                 = 6,
-    REREVVED_NATION_SELECT_TEXT_SURFACE_UNIQUE_UNIT_SECTION_HEADING = 7,
+    REREVVED_NATION_SELECT_TEXT_SURFACE_ERA_ABILITY                 = 0, // civilization, unlock_era, ability select an effective era value.
+    REREVVED_NATION_SELECT_TEXT_SURFACE_UNIQUE_UNIT                 = 1, // civilization, base_unit_type, identity, display_form select a unit.
+    REREVVED_NATION_SELECT_TEXT_SURFACE_LEADER_NAME                 = 2, // civilization only; other selectors UNUSED.
+    REREVVED_NATION_SELECT_TEXT_SURFACE_CIVILIZATION_NAME           = 3, // civilization only; other selectors UNUSED.
+    REREVVED_NATION_SELECT_TEXT_SURFACE_CIVILIZATION_TRAIT          = 4, // civilization only; other selectors UNUSED.
+    REREVVED_NATION_SELECT_TEXT_SURFACE_RESERVED_5                  = 5, // Reserved; the internal era block prefix is not displayed.
+    REREVVED_NATION_SELECT_TEXT_SURFACE_ERA_HEADING                 = 6, // unlock_era only; other selectors UNUSED.
+    REREVVED_NATION_SELECT_TEXT_SURFACE_UNIQUE_UNIT_SECTION_HEADING = 7, // Global heading; all selectors UNUSED.
 };
 
 enum
