@@ -154,8 +154,8 @@ add_custom_command(TARGET rerevved POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory
         "$<TARGET_FILE_DIR:rerevved>/asset-overrides"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${REREVVED_BUNDLED_ASSET_ROOT}/default_order.txt"
-        "$<TARGET_FILE_DIR:rerevved>/asset-overrides/default_order.txt"
+        "${REREVVED_BUNDLED_ASSET_ROOT}/default_asset_order.txt"
+        "$<TARGET_FILE_DIR:rerevved>/asset-overrides/default_asset_order.txt"
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${REREVVED_BUNDLED_ASSET_ROOT}/rerevved-logo"
         "$<TARGET_FILE_DIR:rerevved>/asset-overrides/rerevved-logo"

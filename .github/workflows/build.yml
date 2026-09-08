@@ -424,7 +424,7 @@ jobs:
           expected_files = {
               f"{root}/LICENSE.txt",
               f"{root}/README.txt",
-              f"{root}/asset-overrides/default_order.txt",
+              f"{root}/asset-overrides/default_asset_order.txt",
               f"{root}/asset-overrides/rerevved-logo/asset-pack.toml",
               f"{root}/asset-overrides/rerevved-logo/assets/file-data/GFX_MainMenu_logo.dds",
               f"{root}/librexgpu-xenos.so",

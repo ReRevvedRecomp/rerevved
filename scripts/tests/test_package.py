@@ -45,7 +45,9 @@ class PackageTests(unittest.TestCase):
             with zipfile.ZipFile(archive_path) as archive:
                 names = set(archive.namelist())
                 self.assertEqual(
-                    archive.read(prefix + "default_order.txt").decode("ascii").strip(),
+                    archive.read(prefix + "default_asset_order.txt")
+                    .decode("ascii")
+                    .strip(),
                     "rerevved-logo",
                 )
             self.assertIn(prefix + "rerevved-logo/asset-pack.toml", names)

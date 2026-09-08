@@ -18,7 +18,7 @@ BINARIES = {
 FORBIDDEN_SUFFIXES = {".xex", ".xexp", ".iso", ".sve", ".log", ".trace"}
 
 BUNDLED_ASSET_FILES = (
-    "default_order.txt",
+    "default_asset_order.txt",
     "rerevved-logo/asset-pack.toml",
     "rerevved-logo/assets/file-data/GFX_MainMenu_logo.dds",
 )
