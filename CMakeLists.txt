@@ -91,10 +91,10 @@ set(REREVVED_SOURCES
     src/terrain_yield_rules.cpp
     src/terrain_yield_rules_hooks.cpp
     src/terrain_yield_rules_registry.h
-    src/presence.cpp
-    src/presence.h
-    src/presence_model.cpp
-    src/presence_model.h
+    src/discord_presence.cpp
+    src/discord_presence.h
+    src/discord_presence_model.cpp
+    src/discord_presence_model.h
     src/rush_cost.cpp
     src/rush_cost.h
     src/unit_catalog_api.cpp
@@ -171,15 +171,15 @@ add_dependencies(rerevved_codegen native_renderer_coverage_codegen_check)
 
 include(CTest)
 if(BUILD_TESTING)
-    add_executable(presence_model_tests
-        src/presence_model.cpp
-        tests/presence_model_test.cpp
+    add_executable(discord_presence_model_tests
+        src/discord_presence_model.cpp
+        tests/discord_presence_model_test.cpp
     )
-    target_include_directories(presence_model_tests PRIVATE
+    target_include_directories(discord_presence_model_tests PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/api
         ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
-    add_test(NAME presence_model COMMAND presence_model_tests)
+    add_test(NAME discord_presence_model COMMAND discord_presence_model_tests)
 
     add_executable(rush_cost_tests
         src/rush_cost.cpp

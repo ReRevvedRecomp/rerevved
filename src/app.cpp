@@ -22,11 +22,11 @@
 #include <rex/ui/windowed_app_context.h>
 
 #include "build_info.h"
+#include "discord_presence.h"
 #include "game_content.h"
 #include "gpu/diagnostics/native_renderer_passive_trace.h"
 #include "gpu/guest_gpu_service.h"
 #include "main_menu_logo_asset.h"
-#include "presence.h"
 
 REXCVAR_DECLARE(std::string, game_data_root);
 REXCVAR_DEFINE_STRING(combat_speed, "normal", "ReRevved", "Combat presentation speed")

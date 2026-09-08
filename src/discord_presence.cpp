@@ -1,4 +1,4 @@
-#include "presence.h"
+#include "discord_presence.h"
 
 #include <atomic>
 #include <chrono>
@@ -9,7 +9,7 @@
 
 #include <gameplay_state.h>
 
-#include "presence_model.h"
+#include "discord_presence_model.h"
 
 namespace rerevved
 {
