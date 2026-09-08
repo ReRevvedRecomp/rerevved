@@ -3,6 +3,9 @@
 // Mods resolve these entry points from the host process and check
 // UnitProductionCostRulesAbiVersion before calling them. Registrations are
 // copied by the host and target identities exposed by Unit Catalog ABI 2.
+// Percentages scale the native integer cost scalar before multiplication by
+// the unit's production factor and division by two. Both divisions truncate
+// toward zero; percentages do not apply directly to the displayed cost.
 
 #pragma once
 
@@ -45,7 +48,7 @@ typedef struct UnitProductionCostRule
     CivilizationId civilization;
     UnitTypeId     baseUnitType;
     UnitIdentityId identity;
-    int32_t        percentageDelta; // Additive percentage points relative to the native cost (100 percent).
+    int32_t        percentageDelta; // Additive percentage points applied to the native integer cost scalar.
     int32_t        reserved[5];
 } UnitProductionCostRule;
 
