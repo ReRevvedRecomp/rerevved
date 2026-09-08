@@ -23,7 +23,7 @@ struct UnitDefinitionEntry
     int32_t defense;
 };
 
-constexpr std::array<UnitDefinitionEntry, REREVVED_UNIT_TYPE_COUNT>
+constexpr std::array<UnitDefinitionEntry, UNIT_TYPE_COUNT>
     kUnitDefinitions = {
         {
             { 0, 0 },
@@ -60,113 +60,113 @@ constexpr std::array<UnitDefinitionEntry, REREVVED_UNIT_TYPE_COUNT>
 
 struct UnitIdentityEntry
 {
-    ReRevvedCivilizationId civilization;
-    ReRevvedUnitTypeId     unitType;
-    ReRevvedUnitIdentityId identity;
+    CivilizationId civilization;
+    UnitTypeId     unitType;
+    UnitIdentityId identity;
 };
 
 constexpr std::array<UnitIdentityEntry, 27> kUnitIdentities = {
     {
-        { REREVVED_CIVILIZATION_AZTEC,
-          REREVVED_UNIT_TYPE_WARRIOR,
-          REREVVED_UNIT_IDENTITY_JAGUAR_WARRIOR },
-        { REREVVED_CIVILIZATION_ZULU,
-          REREVVED_UNIT_TYPE_WARRIOR,
-          REREVVED_UNIT_IDENTITY_IMPI_WARRIOR },
-        { REREVVED_CIVILIZATION_JAPANESE,
-          REREVVED_UNIT_TYPE_PHALANX,
-          REREVVED_UNIT_IDENTITY_ASHIGARU_PIKEMEN },
-        { REREVVED_CIVILIZATION_GREEK,
-          REREVVED_UNIT_TYPE_PHALANX,
-          REREVVED_UNIT_IDENTITY_HOPLITE },
-        { REREVVED_CIVILIZATION_ENGLISH,
-          REREVVED_UNIT_TYPE_ARCHER,
-          REREVVED_UNIT_IDENTITY_LONGBOW_ARCHER },
-        { REREVVED_CIVILIZATION_SPANISH,
-          REREVVED_UNIT_TYPE_ARCHER,
-          REREVVED_UNIT_IDENTITY_CROSSBOW_ARCHER },
-        { REREVVED_CIVILIZATION_CHINESE,
-          REREVVED_UNIT_TYPE_ARCHER,
-          REREVVED_UNIT_IDENTITY_CROSSBOW_ARCHER },
-        { REREVVED_CIVILIZATION_FRENCH,
-          REREVVED_UNIT_TYPE_CATAPULT,
-          REREVVED_UNIT_IDENTITY_TREBUCHET },
-        { REREVVED_CIVILIZATION_RUSSIAN,
-          REREVVED_UNIT_TYPE_HORSEMEN,
-          REREVVED_UNIT_IDENTITY_COSSACK_HORSEMAN },
-        { REREVVED_CIVILIZATION_JAPANESE,
-          REREVVED_UNIT_TYPE_KNIGHTS,
-          REREVVED_UNIT_IDENTITY_SAMURAI_KNIGHT },
-        { REREVVED_CIVILIZATION_SPANISH,
-          REREVVED_UNIT_TYPE_KNIGHTS,
-          REREVVED_UNIT_IDENTITY_CONQUISTADOR },
-        { REREVVED_CIVILIZATION_GERMAN,
-          REREVVED_UNIT_TYPE_TANK,
-          REREVVED_UNIT_IDENTITY_PANZER_TANK },
-        { REREVVED_CIVILIZATION_RUSSIAN,
-          REREVVED_UNIT_TYPE_TANK,
-          REREVVED_UNIT_IDENTITY_T34_TANK },
-        { REREVVED_CIVILIZATION_AMERICAN,
-          REREVVED_UNIT_TYPE_TANK,
-          REREVVED_UNIT_IDENTITY_SHERMAN_TANK },
-        { REREVVED_CIVILIZATION_GERMAN,
-          REREVVED_UNIT_TYPE_ARTILLERY,
-          REREVVED_UNIT_IDENTITY_GERMAN_88MM_GUN },
-        { REREVVED_CIVILIZATION_FRENCH,
-          REREVVED_UNIT_TYPE_ARTILLERY,
-          REREVVED_UNIT_IDENTITY_HOWITZER },
-        { REREVVED_CIVILIZATION_JAPANESE,
-          REREVVED_UNIT_TYPE_FIGHTER,
-          REREVVED_UNIT_IDENTITY_ZERO_FIGHTER },
-        { REREVVED_CIVILIZATION_AMERICAN,
-          REREVVED_UNIT_TYPE_FIGHTER,
-          REREVVED_UNIT_IDENTITY_MUSTANG_FIGHTER },
-        { REREVVED_CIVILIZATION_ENGLISH,
-          REREVVED_UNIT_TYPE_FIGHTER,
-          REREVVED_UNIT_IDENTITY_SPITFIRE_FIGHTER },
-        { REREVVED_CIVILIZATION_GERMAN,
-          REREVVED_UNIT_TYPE_FIGHTER,
-          REREVVED_UNIT_IDENTITY_ME109_FIGHTER },
-        { REREVVED_CIVILIZATION_JAPANESE,
-          REREVVED_UNIT_TYPE_BOMBER,
-          REREVVED_UNIT_IDENTITY_VAL_BOMBER },
-        { REREVVED_CIVILIZATION_AMERICAN,
-          REREVVED_UNIT_TYPE_BOMBER,
-          REREVVED_UNIT_IDENTITY_FLYING_FORTRESS },
-        { REREVVED_CIVILIZATION_ENGLISH,
-          REREVVED_UNIT_TYPE_BOMBER,
-          REREVVED_UNIT_IDENTITY_LANCASTER_BOMBER },
-        { REREVVED_CIVILIZATION_GERMAN,
-          REREVVED_UNIT_TYPE_BOMBER,
-          REREVVED_UNIT_IDENTITY_HEINKEL_BOMBER },
-        { REREVVED_CIVILIZATION_GREEK,
-          REREVVED_UNIT_TYPE_GALLEY,
-          REREVVED_UNIT_IDENTITY_TRIREME },
-        { REREVVED_CIVILIZATION_ROMAN,
-          REREVVED_UNIT_TYPE_KNIGHTS,
-          REREVVED_UNIT_IDENTITY_CATAPHRACT },
-        { REREVVED_CIVILIZATION_MONGOLIAN,
-          REREVVED_UNIT_TYPE_HORSEMEN,
-          REREVVED_UNIT_IDENTITY_KESHIK },
+        { CIVILIZATION_AZTEC,
+          UNIT_TYPE_WARRIOR,
+          UNIT_IDENTITY_JAGUAR_WARRIOR },
+        { CIVILIZATION_ZULU,
+          UNIT_TYPE_WARRIOR,
+          UNIT_IDENTITY_IMPI_WARRIOR },
+        { CIVILIZATION_JAPANESE,
+          UNIT_TYPE_PHALANX,
+          UNIT_IDENTITY_ASHIGARU_PIKEMEN },
+        { CIVILIZATION_GREEK,
+          UNIT_TYPE_PHALANX,
+          UNIT_IDENTITY_HOPLITE },
+        { CIVILIZATION_ENGLISH,
+          UNIT_TYPE_ARCHER,
+          UNIT_IDENTITY_LONGBOW_ARCHER },
+        { CIVILIZATION_SPANISH,
+          UNIT_TYPE_ARCHER,
+          UNIT_IDENTITY_CROSSBOW_ARCHER },
+        { CIVILIZATION_CHINESE,
+          UNIT_TYPE_ARCHER,
+          UNIT_IDENTITY_CROSSBOW_ARCHER },
+        { CIVILIZATION_FRENCH,
+          UNIT_TYPE_CATAPULT,
+          UNIT_IDENTITY_TREBUCHET },
+        { CIVILIZATION_RUSSIAN,
+          UNIT_TYPE_HORSEMEN,
+          UNIT_IDENTITY_COSSACK_HORSEMAN },
+        { CIVILIZATION_JAPANESE,
+          UNIT_TYPE_KNIGHTS,
+          UNIT_IDENTITY_SAMURAI_KNIGHT },
+        { CIVILIZATION_SPANISH,
+          UNIT_TYPE_KNIGHTS,
+          UNIT_IDENTITY_CONQUISTADOR },
+        { CIVILIZATION_GERMAN,
+          UNIT_TYPE_TANK,
+          UNIT_IDENTITY_PANZER_TANK },
+        { CIVILIZATION_RUSSIAN,
+          UNIT_TYPE_TANK,
+          UNIT_IDENTITY_T34_TANK },
+        { CIVILIZATION_AMERICAN,
+          UNIT_TYPE_TANK,
+          UNIT_IDENTITY_SHERMAN_TANK },
+        { CIVILIZATION_GERMAN,
+          UNIT_TYPE_ARTILLERY,
+          UNIT_IDENTITY_GERMAN_88MM_GUN },
+        { CIVILIZATION_FRENCH,
+          UNIT_TYPE_ARTILLERY,
+          UNIT_IDENTITY_HOWITZER },
+        { CIVILIZATION_JAPANESE,
+          UNIT_TYPE_FIGHTER,
+          UNIT_IDENTITY_ZERO_FIGHTER },
+        { CIVILIZATION_AMERICAN,
+          UNIT_TYPE_FIGHTER,
+          UNIT_IDENTITY_MUSTANG_FIGHTER },
+        { CIVILIZATION_ENGLISH,
+          UNIT_TYPE_FIGHTER,
+          UNIT_IDENTITY_SPITFIRE_FIGHTER },
+        { CIVILIZATION_GERMAN,
+          UNIT_TYPE_FIGHTER,
+          UNIT_IDENTITY_ME109_FIGHTER },
+        { CIVILIZATION_JAPANESE,
+          UNIT_TYPE_BOMBER,
+          UNIT_IDENTITY_VAL_BOMBER },
+        { CIVILIZATION_AMERICAN,
+          UNIT_TYPE_BOMBER,
+          UNIT_IDENTITY_FLYING_FORTRESS },
+        { CIVILIZATION_ENGLISH,
+          UNIT_TYPE_BOMBER,
+          UNIT_IDENTITY_LANCASTER_BOMBER },
+        { CIVILIZATION_GERMAN,
+          UNIT_TYPE_BOMBER,
+          UNIT_IDENTITY_HEINKEL_BOMBER },
+        { CIVILIZATION_GREEK,
+          UNIT_TYPE_GALLEY,
+          UNIT_IDENTITY_TRIREME },
+        { CIVILIZATION_ROMAN,
+          UNIT_TYPE_KNIGHTS,
+          UNIT_IDENTITY_CATAPHRACT },
+        { CIVILIZATION_MONGOLIAN,
+          UNIT_TYPE_HORSEMEN,
+          UNIT_IDENTITY_KESHIK },
     }
 };
 
 static_assert(kUnitIdentities.size() == 27);
 
-bool isCivilizationIdValid(ReRevvedCivilizationId civilization)
+bool isCivilizationIdValid(CivilizationId civilization)
 {
-    return civilization >= 0 && civilization < REREVVED_CIVILIZATION_COUNT;
+    return civilization >= 0 && civilization < CIVILIZATION_COUNT;
 }
 
-bool isUnitTypeIdValid(ReRevvedUnitTypeId unitType)
+bool isUnitTypeIdValid(UnitTypeId unitType)
 {
-    return unitType >= 0 && unitType < REREVVED_UNIT_TYPE_COUNT;
+    return unitType >= 0 && unitType < UNIT_TYPE_COUNT;
 }
 
-bool isDisplayFormValid(ReRevvedUnitDisplayForm displayForm)
+bool isDisplayFormValid(UnitDisplayForm displayForm)
 {
-    return displayForm == REREVVED_UNIT_DISPLAY_FORM_UNIT ||
-           displayForm == REREVVED_UNIT_DISPLAY_FORM_ARMY;
+    return displayForm == UNIT_DISPLAY_FORM_UNIT ||
+           displayForm == UNIT_DISPLAY_FORM_ARMY;
 }
 
 void clearOutput(void* out, uint32_t outSize, uint32_t producerSize)
@@ -187,24 +187,24 @@ int32_t CopySizedOutput(void*       out,
 {
     if (!out || !producer)
     {
-        return REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT;
+        return UNIT_CATALOG_ERR_INVALID_ARGUMENT;
     }
 
     clearOutput(out, outSize, producerSize);
     if (outSize < minimumPrefix)
     {
-        return REREVVED_UNIT_CATALOG_ERR_BUFFER_TOO_SMALL;
+        return UNIT_CATALOG_ERR_BUFFER_TOO_SMALL;
     }
 
     uint32_t copySize = std::min(outSize, producerSize);
     copySize -= copySize % sizeof(uint32_t);
     std::memcpy(out, producer, copySize);
-    return REREVVED_UNIT_CATALOG_OK;
+    return UNIT_CATALOG_OK;
 }
 
-bool TryResolveUnitIdentity(ReRevvedCivilizationId  civilization,
-                            ReRevvedUnitTypeId      unitType,
-                            ReRevvedUnitIdentityId& identity)
+bool TryResolveUnitIdentity(CivilizationId  civilization,
+                            UnitTypeId      unitType,
+                            UnitIdentityId& identity)
 {
     if (!isCivilizationIdValid(civilization) ||
         !isUnitTypeIdValid(unitType))
@@ -212,7 +212,7 @@ bool TryResolveUnitIdentity(ReRevvedCivilizationId  civilization,
         return false;
     }
 
-    identity = REREVVED_UNIT_IDENTITY_BASE;
+    identity = UNIT_IDENTITY_BASE;
     for (const auto& entry : kUnitIdentities)
     {
         if (entry.civilization == civilization && entry.unitType == unitType)
@@ -226,52 +226,52 @@ bool TryResolveUnitIdentity(ReRevvedCivilizationId  civilization,
 
 } // namespace rerevved::unit_catalog
 
-static_assert(sizeof(ReRevvedCivilizationId) == sizeof(int32_t));
-static_assert(sizeof(ReRevvedUnitTypeId) == sizeof(int32_t));
-static_assert(sizeof(ReRevvedUnitIdentityId) == sizeof(int32_t));
-static_assert(sizeof(ReRevvedUnitDisplayForm) == sizeof(int32_t));
-static_assert(sizeof(ReRevvedUnitDefinition) == 32);
-static_assert(offsetof(ReRevvedUnitDefinition, structSize) == 0);
-static_assert(offsetof(ReRevvedUnitDefinition, unitType) == 4);
-static_assert(offsetof(ReRevvedUnitDefinition, baseAttack) == 8);
-static_assert(offsetof(ReRevvedUnitDefinition, baseDefense) == 12);
-static_assert(offsetof(ReRevvedUnitDefinition, reserved) == 16);
-static_assert(sizeof(ReRevvedUnitIdentity) == 32);
-static_assert(offsetof(ReRevvedUnitIdentity, structSize) == 0);
-static_assert(offsetof(ReRevvedUnitIdentity, civilization) == 4);
-static_assert(offsetof(ReRevvedUnitIdentity, baseUnitType) == 8);
-static_assert(offsetof(ReRevvedUnitIdentity, identity) == 12);
-static_assert(offsetof(ReRevvedUnitIdentity, displayForm) == 16);
-static_assert(offsetof(ReRevvedUnitIdentity, reserved) == 20);
+static_assert(sizeof(CivilizationId) == sizeof(int32_t));
+static_assert(sizeof(UnitTypeId) == sizeof(int32_t));
+static_assert(sizeof(UnitIdentityId) == sizeof(int32_t));
+static_assert(sizeof(UnitDisplayForm) == sizeof(int32_t));
+static_assert(sizeof(UnitDefinition) == 32);
+static_assert(offsetof(UnitDefinition, structSize) == 0);
+static_assert(offsetof(UnitDefinition, unitType) == 4);
+static_assert(offsetof(UnitDefinition, baseAttack) == 8);
+static_assert(offsetof(UnitDefinition, baseDefense) == 12);
+static_assert(offsetof(UnitDefinition, reserved) == 16);
+static_assert(sizeof(UnitIdentity) == 32);
+static_assert(offsetof(UnitIdentity, structSize) == 0);
+static_assert(offsetof(UnitIdentity, civilization) == 4);
+static_assert(offsetof(UnitIdentity, baseUnitType) == 8);
+static_assert(offsetof(UnitIdentity, identity) == 12);
+static_assert(offsetof(UnitIdentity, displayForm) == 16);
+static_assert(offsetof(UnitIdentity, reserved) == 20);
 
-extern "C" uint32_t ReRevvedUnitCatalogAbiVersion(void)
+extern "C" uint32_t UnitCatalogAbiVersion(void)
 {
-    return REREVVED_UNIT_CATALOG_ABI_VERSION;
+    return UNIT_CATALOG_ABI_VERSION;
 }
 
-extern "C" int32_t ReRevvedGetUnitDefinition(
-    ReRevvedUnitTypeId      unitType,
-    ReRevvedUnitDefinition* out,
-    uint32_t                outSize)
+extern "C" int32_t GetUnitDefinition(
+    UnitTypeId      unitType,
+    UnitDefinition* out,
+    uint32_t        outSize)
 {
-    constexpr uint32_t kProducerSize = sizeof(ReRevvedUnitDefinition);
+    constexpr uint32_t kProducerSize = sizeof(UnitDefinition);
     if (!out)
     {
-        return REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT;
+        return UNIT_CATALOG_ERR_INVALID_ARGUMENT;
     }
 
     rerevved::unit_catalog::clearOutput(out, outSize, kProducerSize);
     if (outSize < rerevved::unit_catalog::kDefinitionPrefix)
     {
-        return REREVVED_UNIT_CATALOG_ERR_BUFFER_TOO_SMALL;
+        return UNIT_CATALOG_ERR_BUFFER_TOO_SMALL;
     }
     if (!rerevved::unit_catalog::isUnitTypeIdValid(unitType))
     {
-        return REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT;
+        return UNIT_CATALOG_ERR_INVALID_ARGUMENT;
     }
 
-    const auto&                  entry  = rerevved::unit_catalog::kUnitDefinitions[unitType];
-    const ReRevvedUnitDefinition result = {
+    const auto&          entry  = rerevved::unit_catalog::kUnitDefinitions[unitType];
+    const UnitDefinition result = {
         kProducerSize,
         unitType,
         entry.attack,
@@ -286,39 +286,39 @@ extern "C" int32_t ReRevvedGetUnitDefinition(
         rerevved::unit_catalog::kDefinitionPrefix);
 }
 
-extern "C" int32_t ReRevvedResolveUnitIdentity(
-    ReRevvedCivilizationId  civilization,
-    ReRevvedUnitTypeId      baseUnitType,
-    ReRevvedUnitDisplayForm displayForm,
-    ReRevvedUnitIdentity*   out,
-    uint32_t                outSize)
+extern "C" int32_t ResolveUnitIdentity(
+    CivilizationId  civilization,
+    UnitTypeId      baseUnitType,
+    UnitDisplayForm displayForm,
+    UnitIdentity*   out,
+    uint32_t        outSize)
 {
-    constexpr uint32_t kProducerSize = sizeof(ReRevvedUnitIdentity);
+    constexpr uint32_t kProducerSize = sizeof(UnitIdentity);
     if (!out)
     {
-        return REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT;
+        return UNIT_CATALOG_ERR_INVALID_ARGUMENT;
     }
 
     rerevved::unit_catalog::clearOutput(out, outSize, kProducerSize);
     if (outSize < rerevved::unit_catalog::kIdentityPrefix)
     {
-        return REREVVED_UNIT_CATALOG_ERR_BUFFER_TOO_SMALL;
+        return UNIT_CATALOG_ERR_BUFFER_TOO_SMALL;
     }
     if (!rerevved::unit_catalog::isCivilizationIdValid(civilization) ||
         !rerevved::unit_catalog::isUnitTypeIdValid(baseUnitType) ||
         !rerevved::unit_catalog::isDisplayFormValid(displayForm))
     {
-        return REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT;
+        return UNIT_CATALOG_ERR_INVALID_ARGUMENT;
     }
 
-    ReRevvedUnitIdentityId identity = REREVVED_UNIT_IDENTITY_BASE;
+    UnitIdentityId identity = UNIT_IDENTITY_BASE;
     if (!rerevved::unit_catalog::TryResolveUnitIdentity(
             civilization, baseUnitType, identity))
     {
-        return REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT;
+        return UNIT_CATALOG_ERR_INVALID_ARGUMENT;
     }
 
-    const ReRevvedUnitIdentity result = {
+    const UnitIdentity result = {
         kProducerSize,
         civilization,
         baseUnitType,

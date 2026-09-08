@@ -50,10 +50,10 @@ if (!IsReady())
     return false;
 }
 
-typedef int32_t (*ReRevvedGetUnitMovementRuleFn)(
-    uint32_t                      index,
-    ReRevvedUnitMovementRuleInfo* out,
-    uint32_t                      outSize);
+typedef int32_t (*GetUnitMovementRuleFn)(
+    uint32_t              index,
+    UnitMovementRuleInfo* out,
+    uint32_t              outSize);
 ```
 
 Put short comments about individual enum values, structure fields, and list
@@ -72,10 +72,12 @@ policy.
   member names describe their role without repeating the product or enclosing
   enum name: `TextSurface::LeaderName`, for example. Variables and parameters
   do not need a product prefix.
-- Public C types and exports use the `ReRevved` prefix. Public C macros and
-  unscoped enumerators use `REREVVED_` with uppercase underscore-separated
-  words because C has no namespaces. Keep these names when using the public
-  API from C++; do not add aliases solely to hide the prefix.
+- Public C types and exports use feature-scoped names that describe the
+  supported feature or screen; they have no mandatory product prefix. Public C
+  macros and unscoped enumerators use feature-scoped uppercase
+  underscore-separated words because C has no namespaces. Keep these names
+  when using the public API from C++; do not add aliases solely to reintroduce
+  a product prefix.
 - Name APIs by their supported feature or screen. Keep public identifiers,
   numeric values, and mirrored headers coordinated under the API contract.
 - Use `#pragma once` and include a header's direct dependencies. Keep private

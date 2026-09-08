@@ -21,13 +21,13 @@ constexpr uint32_t kRuleInfoPrefix   = 160;
 constexpr uint32_t kEvaluationPrefix = 20;
 constexpr int32_t  kNativePercent    = 100;
 
-std::shared_mutex                   registryMutex;
-std::vector<ReRevvedUnitCombatRule> registry;
+std::shared_mutex           registryMutex;
+std::vector<UnitCombatRule> registry;
 
 bool isRuleIdValid(const char* value)
 {
     const void* terminator =
-        std::memchr(value, '\0', REREVVED_UNIT_COMBAT_RULE_ID_CAPACITY);
+        std::memchr(value, '\0', UNIT_COMBAT_RULE_ID_CAPACITY);
     if (!terminator || value[0] == '\0')
     {
         return false;
@@ -52,7 +52,7 @@ void normalizeRuleId(char* value)
     const size_t length = std::strlen(value);
     std::memset(value + length + 1,
                 0,
-                REREVVED_UNIT_COMBAT_RULE_ID_CAPACITY - length - 1);
+                UNIT_COMBAT_RULE_ID_CAPACITY - length - 1);
 }
 
 template <size_t Size>
@@ -68,67 +68,67 @@ bool isZeroed(const int32_t (&values)[Size])
     return true;
 }
 
-bool isCivilizationValid(ReRevvedCivilizationId civilization)
+bool isCivilizationValid(CivilizationId civilization)
 {
-    return civilization >= 0 && civilization < REREVVED_CIVILIZATION_COUNT;
+    return civilization >= 0 && civilization < CIVILIZATION_COUNT;
 }
 
-bool isUnitTypeValid(ReRevvedUnitTypeId unitType)
+bool isUnitTypeValid(UnitTypeId unitType)
 {
-    return unitType >= 0 && unitType < REREVVED_UNIT_TYPE_COUNT;
+    return unitType >= 0 && unitType < UNIT_TYPE_COUNT;
 }
 
-bool isTerrainValid(ReRevvedTerrainId terrain)
+bool isTerrainValid(TerrainId terrain)
 {
     // ABI 1 deliberately exposes only the recovered Forest combat terrain.
-    return terrain == REREVVED_TERRAIN_FOREST;
+    return terrain == TERRAIN_FOREST;
 }
 
-bool isPropertyValid(ReRevvedUnitCombatProperty property)
+bool isPropertyValid(UnitCombatProperty property)
 {
-    return property == REREVVED_UNIT_COMBAT_ATTACK ||
-           property == REREVVED_UNIT_COMBAT_DEFENSE;
+    return property == UNIT_COMBAT_ATTACK ||
+           property == UNIT_COMBAT_DEFENSE;
 }
 
-bool isTargetValid(ReRevvedCivilizationId civilization,
-                   ReRevvedUnitTypeId     baseUnitType,
-                   ReRevvedUnitIdentityId identity)
+bool isTargetValid(CivilizationId civilization,
+                   UnitTypeId     baseUnitType,
+                   UnitIdentityId identity)
 {
     if (!isCivilizationValid(civilization) || !isUnitTypeValid(baseUnitType) ||
-        identity == REREVVED_UNIT_IDENTITY_BASE ||
-        identity < REREVVED_UNIT_IDENTITY_BASE ||
-        identity >= REREVVED_UNIT_IDENTITY_COUNT)
+        identity == UNIT_IDENTITY_BASE ||
+        identity < UNIT_IDENTITY_BASE ||
+        identity >= UNIT_IDENTITY_COUNT)
     {
         return false;
     }
 
-    ReRevvedUnitIdentityId resolved = REREVVED_UNIT_IDENTITY_BASE;
+    UnitIdentityId resolved = UNIT_IDENTITY_BASE;
     return unit_catalog::TryResolveUnitIdentity(
                civilization, baseUnitType, resolved) &&
            resolved == identity;
 }
 
-bool targetMatches(const ReRevvedUnitCombatRule& rule,
-                   ReRevvedCivilizationId        civilization,
-                   ReRevvedUnitTypeId            baseUnitType,
-                   ReRevvedUnitIdentityId        identity,
-                   ReRevvedTerrainId             terrain,
-                   ReRevvedUnitCombatProperty    property)
+bool targetMatches(const UnitCombatRule& rule,
+                   CivilizationId        civilization,
+                   UnitTypeId            baseUnitType,
+                   UnitIdentityId        identity,
+                   TerrainId             terrain,
+                   UnitCombatProperty    property)
 {
     return rule.civilization == civilization &&
            rule.baseUnitType == baseUnitType && rule.identity == identity &&
            rule.terrain == terrain && rule.property == property;
 }
 
-bool ruleKeyMatches(const ReRevvedUnitCombatRule& left,
-                    const ReRevvedUnitCombatRule& right)
+bool ruleKeyMatches(const UnitCombatRule& left,
+                    const UnitCombatRule& right)
 {
     return std::strcmp(left.providerId, right.providerId) == 0 &&
            std::strcmp(left.ruleId, right.ruleId) == 0;
 }
 
-bool ruleKeyLess(const ReRevvedUnitCombatRule& left,
-                 const ReRevvedUnitCombatRule& right)
+bool ruleKeyLess(const UnitCombatRule& left,
+                 const UnitCombatRule& right)
 {
     const int providerOrder = std::strcmp(left.providerId, right.providerId);
     return providerOrder < 0 ||
@@ -148,17 +148,17 @@ int32_t copyOutput(Record* out, uint32_t outSize, const Record& producer)
     uint32_t copySize = std::min<uint32_t>(outSize, sizeof(Record));
     copySize -= copySize % sizeof(uint32_t);
     std::memcpy(out, &producer, copySize);
-    return REREVVED_UNIT_COMBAT_RULES_OK;
+    return UNIT_COMBAT_RULES_OK;
 }
 
 } // namespace
 
-bool TryEvaluate(ReRevvedCivilizationId        civilization,
-                 ReRevvedUnitTypeId            baseUnitType,
-                 ReRevvedUnitIdentityId        identity,
-                 ReRevvedTerrainId             terrain,
-                 ReRevvedUnitCombatProperty    property,
-                 ReRevvedUnitCombatEvaluation& evaluation)
+bool TryEvaluate(CivilizationId        civilization,
+                 UnitTypeId            baseUnitType,
+                 UnitIdentityId        identity,
+                 TerrainId             terrain,
+                 UnitCombatProperty    property,
+                 UnitCombatEvaluation& evaluation)
 {
     if (!isTargetValid(civilization, baseUnitType, identity) ||
         !isTerrainValid(terrain) || !isPropertyValid(property))
@@ -167,7 +167,7 @@ bool TryEvaluate(ReRevvedCivilizationId        civilization,
     }
 
     evaluation = {
-        sizeof(ReRevvedUnitCombatEvaluation),
+        sizeof(UnitCombatEvaluation),
         kNativePercent,
         kNativePercent,
         0,
@@ -212,7 +212,7 @@ bool TryEvaluate(ReRevvedCivilizationId        civilization,
         composed > std::numeric_limits<int32_t>::max())
     {
         evaluation.statusFlags |=
-            REREVVED_UNIT_COMBAT_EVALUATION_OUT_OF_RANGE;
+            UNIT_COMBAT_EVALUATION_OUT_OF_RANGE;
         return true;
     }
 
@@ -228,31 +228,31 @@ void ResetForTests()
 
 } // namespace rerevved::unit_combat_rules
 
-static_assert(sizeof(ReRevvedUnitCombatRule) == 168);
-static_assert(sizeof(ReRevvedUnitCombatRuleInfo) == 192);
-static_assert(sizeof(ReRevvedUnitCombatQuery) == 40);
-static_assert(sizeof(ReRevvedUnitCombatEvaluation) == 40);
+static_assert(sizeof(UnitCombatRule) == 168);
+static_assert(sizeof(UnitCombatRuleInfo) == 192);
+static_assert(sizeof(UnitCombatQuery) == 40);
+static_assert(sizeof(UnitCombatEvaluation) == 40);
 
-extern "C" uint32_t ReRevvedUnitCombatRulesAbiVersion(void)
+extern "C" uint32_t UnitCombatRulesAbiVersion(void)
 {
-    return REREVVED_UNIT_COMBAT_RULES_ABI_VERSION;
+    return UNIT_COMBAT_RULES_ABI_VERSION;
 }
 
-extern "C" int32_t ReRevvedRegisterUnitCombatRule(
-    const ReRevvedUnitCombatRule* rule)
+extern "C" int32_t RegisterUnitCombatRule(
+    const UnitCombatRule* rule)
 {
     using namespace rerevved::unit_combat_rules;
-    if (!rule || rule->structSize < sizeof(ReRevvedUnitCombatRule) ||
+    if (!rule || rule->structSize < sizeof(UnitCombatRule) ||
         !isRuleIdValid(rule->providerId) || !isRuleIdValid(rule->ruleId) ||
         !isTargetValid(rule->civilization, rule->baseUnitType, rule->identity) ||
         !isTerrainValid(rule->terrain) || !isPropertyValid(rule->property) ||
         !isZeroed(rule->reserved))
     {
-        return REREVVED_UNIT_COMBAT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_COMBAT_RULES_ERR_INVALID_ARGUMENT;
     }
 
-    ReRevvedUnitCombatRule normalized = *rule;
-    normalized.structSize             = sizeof(normalized);
+    UnitCombatRule normalized = *rule;
+    normalized.structSize     = sizeof(normalized);
     normalizeRuleId(normalized.providerId);
     normalizeRuleId(normalized.ruleId);
 
@@ -267,8 +267,8 @@ extern "C" int32_t ReRevvedRegisterUnitCombatRule(
         if (duplicate != registry.end())
         {
             return std::memcmp(&*duplicate, &normalized, sizeof(normalized)) == 0
-                       ? REREVVED_UNIT_COMBAT_RULES_OK
-                       : REREVVED_UNIT_COMBAT_RULES_ERR_DUPLICATE_RULE_ID;
+                       ? UNIT_COMBAT_RULES_OK
+                       : UNIT_COMBAT_RULES_ERR_DUPLICATE_RULE_ID;
         }
 
         registry.push_back(normalized);
@@ -276,48 +276,48 @@ extern "C" int32_t ReRevvedRegisterUnitCombatRule(
     }
     catch (...)
     {
-        return REREVVED_UNIT_COMBAT_RULES_ERR_INTERNAL;
+        return UNIT_COMBAT_RULES_ERR_INTERNAL;
     }
-    return REREVVED_UNIT_COMBAT_RULES_OK;
+    return UNIT_COMBAT_RULES_OK;
 }
 
-extern "C" int32_t ReRevvedGetUnitCombatRuleCount(uint32_t* outCount)
+extern "C" int32_t GetUnitCombatRuleCount(uint32_t* outCount)
 {
     if (!outCount)
     {
-        return REREVVED_UNIT_COMBAT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_COMBAT_RULES_ERR_INVALID_ARGUMENT;
     }
 
     std::shared_lock lock(rerevved::unit_combat_rules::registryMutex);
     *outCount = static_cast<uint32_t>(
         rerevved::unit_combat_rules::registry.size());
-    return REREVVED_UNIT_COMBAT_RULES_OK;
+    return UNIT_COMBAT_RULES_OK;
 }
 
-extern "C" int32_t ReRevvedGetUnitCombatRule(
-    uint32_t                    index,
-    ReRevvedUnitCombatRuleInfo* out,
-    uint32_t                    outSize)
+extern "C" int32_t GetUnitCombatRule(
+    uint32_t            index,
+    UnitCombatRuleInfo* out,
+    uint32_t            outSize)
 {
     using namespace rerevved::unit_combat_rules;
     if (!out)
     {
-        return REREVVED_UNIT_COMBAT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_COMBAT_RULES_ERR_INVALID_ARGUMENT;
     }
     clearOutput(out, outSize);
     if (outSize < kRuleInfoPrefix)
     {
-        return REREVVED_UNIT_COMBAT_RULES_ERR_BUFFER_TOO_SMALL;
+        return UNIT_COMBAT_RULES_ERR_BUFFER_TOO_SMALL;
     }
 
     std::shared_lock lock(registryMutex);
     if (index >= registry.size())
     {
-        return REREVVED_UNIT_COMBAT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_COMBAT_RULES_ERR_INVALID_ARGUMENT;
     }
 
-    const auto&                rule = registry[index];
-    ReRevvedUnitCombatRuleInfo result{};
+    const auto&        rule = registry[index];
+    UnitCombatRuleInfo result{};
     result.structSize      = sizeof(result);
     result.civilization    = rule.civilization;
     result.baseUnitType    = rule.baseUnitType;
@@ -330,28 +330,28 @@ extern "C" int32_t ReRevvedGetUnitCombatRule(
     return copyOutput(out, outSize, result);
 }
 
-extern "C" int32_t ReRevvedEvaluateUnitCombat(
-    const ReRevvedUnitCombatQuery* query,
-    ReRevvedUnitCombatEvaluation*  out,
-    uint32_t                       outSize)
+extern "C" int32_t EvaluateUnitCombat(
+    const UnitCombatQuery* query,
+    UnitCombatEvaluation*  out,
+    uint32_t               outSize)
 {
     using namespace rerevved::unit_combat_rules;
     if (!out)
     {
-        return REREVVED_UNIT_COMBAT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_COMBAT_RULES_ERR_INVALID_ARGUMENT;
     }
     clearOutput(out, outSize);
     if (outSize < kEvaluationPrefix)
     {
-        return REREVVED_UNIT_COMBAT_RULES_ERR_BUFFER_TOO_SMALL;
+        return UNIT_COMBAT_RULES_ERR_BUFFER_TOO_SMALL;
     }
-    if (!query || query->structSize < sizeof(ReRevvedUnitCombatQuery) ||
+    if (!query || query->structSize < sizeof(UnitCombatQuery) ||
         !isZeroed(query->reserved))
     {
-        return REREVVED_UNIT_COMBAT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_COMBAT_RULES_ERR_INVALID_ARGUMENT;
     }
 
-    ReRevvedUnitCombatEvaluation result{};
+    UnitCombatEvaluation result{};
     if (!TryEvaluate(query->civilization,
                      query->baseUnitType,
                      query->identity,
@@ -359,7 +359,7 @@ extern "C" int32_t ReRevvedEvaluateUnitCombat(
                      query->property,
                      result))
     {
-        return REREVVED_UNIT_COMBAT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_COMBAT_RULES_ERR_INVALID_ARGUMENT;
     }
     return copyOutput(out, outSize, result);
 }

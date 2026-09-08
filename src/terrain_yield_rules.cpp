@@ -18,32 +18,32 @@ namespace
 constexpr uint32_t kRuleInfoPrefix   = 152;
 constexpr uint32_t kEvaluationPrefix = 24;
 
-std::shared_mutex                     registryMutex;
-std::vector<ReRevvedTerrainYieldRule> registry;
+std::shared_mutex             registryMutex;
+std::vector<TerrainYieldRule> registry;
 
-bool isTerrainValid(ReRevvedTerrainId terrain)
+bool isTerrainValid(TerrainId terrain)
 {
-    return terrain >= REREVVED_TERRAIN_SEA &&
-           terrain < REREVVED_TERRAIN_COUNT;
+    return terrain >= TERRAIN_SEA &&
+           terrain < TERRAIN_COUNT;
 }
 
-bool isComponentValid(ReRevvedTerrainYieldComponent component)
+bool isComponentValid(TerrainYieldComponent component)
 {
-    return component == REREVVED_TERRAIN_YIELD_FOOD ||
-           component == REREVVED_TERRAIN_YIELD_PRODUCTION ||
-           component == REREVVED_TERRAIN_YIELD_TRADE;
+    return component == TERRAIN_YIELD_FOOD ||
+           component == TERRAIN_YIELD_PRODUCTION ||
+           component == TERRAIN_YIELD_TRADE;
 }
 
-bool isOperationValid(ReRevvedTerrainYieldOperation operation)
+bool isOperationValid(TerrainYieldOperation operation)
 {
-    return operation == REREVVED_TERRAIN_YIELD_REPLACE ||
-           operation == REREVVED_TERRAIN_YIELD_ADD;
+    return operation == TERRAIN_YIELD_REPLACE ||
+           operation == TERRAIN_YIELD_ADD;
 }
 
 bool isRuleIdValid(const char* value)
 {
     const void* terminator =
-        std::memchr(value, '\0', REREVVED_TERRAIN_YIELD_RULE_ID_CAPACITY);
+        std::memchr(value, '\0', TERRAIN_YIELD_RULE_ID_CAPACITY);
     if (!terminator || value[0] == '\0')
     {
         return false;
@@ -68,7 +68,7 @@ void normalizeRuleId(char* value)
     const size_t length = std::strlen(value);
     std::memset(value + length + 1,
                 0,
-                REREVVED_TERRAIN_YIELD_RULE_ID_CAPACITY - length - 1);
+                TERRAIN_YIELD_RULE_ID_CAPACITY - length - 1);
 }
 
 template <size_t Size>
@@ -84,22 +84,22 @@ bool isZeroed(const int32_t (&values)[Size])
     return true;
 }
 
-bool targetMatches(const ReRevvedTerrainYieldRule& rule,
-                   ReRevvedTerrainId               terrain,
-                   ReRevvedTerrainYieldComponent   component)
+bool targetMatches(const TerrainYieldRule& rule,
+                   TerrainId               terrain,
+                   TerrainYieldComponent   component)
 {
     return rule.terrain == terrain && rule.component == component;
 }
 
-bool ruleKeyMatches(const ReRevvedTerrainYieldRule& left,
-                    const ReRevvedTerrainYieldRule& right)
+bool ruleKeyMatches(const TerrainYieldRule& left,
+                    const TerrainYieldRule& right)
 {
     return std::strcmp(left.providerId, right.providerId) == 0 &&
            std::strcmp(left.ruleId, right.ruleId) == 0;
 }
 
-bool ruleKeyLess(const ReRevvedTerrainYieldRule& left,
-                 const ReRevvedTerrainYieldRule& right)
+bool ruleKeyLess(const TerrainYieldRule& left,
+                 const TerrainYieldRule& right)
 {
     const int providerOrder = std::strcmp(left.providerId, right.providerId);
     return providerOrder < 0 ||
@@ -121,43 +121,43 @@ int32_t copyOutput(Record*       out,
     uint32_t copySize = std::min<uint32_t>(outSize, sizeof(Record));
     copySize -= copySize % sizeof(uint32_t);
     std::memcpy(out, &producer, copySize);
-    return REREVVED_TERRAIN_YIELD_RULES_OK;
+    return TERRAIN_YIELD_RULES_OK;
 }
 
-uint32_t replacementCount(const ReRevvedTerrainYieldRule& target)
+uint32_t replacementCount(const TerrainYieldRule& target)
 {
     return static_cast<uint32_t>(std::count_if(
         registry.begin(), registry.end(), [&](const auto& candidate)
         {
-            return candidate.operation == REREVVED_TERRAIN_YIELD_REPLACE &&
+            return candidate.operation == TERRAIN_YIELD_REPLACE &&
                    targetMatches(candidate, target.terrain, target.component);
         }));
 }
 
 } // namespace
 
-bool TryMapGuestTerrain(int32_t guestTerrain, ReRevvedTerrainId& terrain)
+bool TryMapGuestTerrain(int32_t guestTerrain, TerrainId& terrain)
 {
-    ReRevvedTerrainId mapped = REREVVED_TERRAIN_UNKNOWN;
+    TerrainId mapped = TERRAIN_UNKNOWN;
     switch (guestTerrain)
     {
         case 0:
-            mapped = REREVVED_TERRAIN_SEA;
+            mapped = TERRAIN_SEA;
             break;
         case 2:
-            mapped = REREVVED_TERRAIN_PLAINS;
+            mapped = TERRAIN_PLAINS;
             break;
         case 3:
-            mapped = REREVVED_TERRAIN_FOREST;
+            mapped = TERRAIN_FOREST;
             break;
         case 4:
-            mapped = REREVVED_TERRAIN_HILL;
+            mapped = TERRAIN_HILL;
             break;
         case 5:
-            mapped = REREVVED_TERRAIN_DESERT;
+            mapped = TERRAIN_DESERT;
             break;
         case 6:
-            mapped = REREVVED_TERRAIN_MOUNTAIN;
+            mapped = TERRAIN_MOUNTAIN;
             break;
         default:
             return false;
@@ -179,10 +179,10 @@ bool TryAddChecked(int64_t accumulator, int64_t value, int64_t& result)
     return true;
 }
 
-bool TryEvaluate(ReRevvedTerrainId               terrain,
-                 ReRevvedTerrainYieldComponent   component,
-                 int32_t                         nativeValue,
-                 ReRevvedTerrainYieldEvaluation& evaluation)
+bool TryEvaluate(TerrainId               terrain,
+                 TerrainYieldComponent   component,
+                 int32_t                 nativeValue,
+                 TerrainYieldEvaluation& evaluation)
 {
     if (!isTerrainValid(terrain) || !isComponentValid(component))
     {
@@ -190,7 +190,7 @@ bool TryEvaluate(ReRevvedTerrainId               terrain,
     }
 
     evaluation = {
-        sizeof(ReRevvedTerrainYieldEvaluation),
+        sizeof(TerrainYieldEvaluation),
         nativeValue,
         nativeValue,
         0,
@@ -209,7 +209,7 @@ bool TryEvaluate(ReRevvedTerrainId               terrain,
         {
             continue;
         }
-        if (rule.operation == REREVVED_TERRAIN_YIELD_REPLACE)
+        if (rule.operation == TERRAIN_YIELD_REPLACE)
         {
             ++evaluation.replacementCount;
             replacement = rule.value;
@@ -235,7 +235,7 @@ bool TryEvaluate(ReRevvedTerrainId               terrain,
     if (evaluation.replacementCount > 1)
     {
         evaluation.statusFlags |=
-            REREVVED_TERRAIN_YIELD_EVALUATION_REPLACEMENT_CONFLICT;
+            TERRAIN_YIELD_EVALUATION_REPLACEMENT_CONFLICT;
         replacement = nativeValue;
     }
 
@@ -245,7 +245,7 @@ bool TryEvaluate(ReRevvedTerrainId               terrain,
         composed < std::numeric_limits<int32_t>::min() ||
         composed > std::numeric_limits<int32_t>::max())
     {
-        evaluation.statusFlags |= REREVVED_TERRAIN_YIELD_EVALUATION_OVERFLOW;
+        evaluation.statusFlags |= TERRAIN_YIELD_EVALUATION_OVERFLOW;
         return true;
     }
 
@@ -261,32 +261,32 @@ void ResetForTests()
 
 } // namespace rerevved::terrain_yield_rules
 
-static_assert(sizeof(ReRevvedTerrainYieldComponent) == sizeof(int32_t));
-static_assert(sizeof(ReRevvedTerrainYieldOperation) == sizeof(int32_t));
-static_assert(sizeof(ReRevvedTerrainYieldRule) == 168);
-static_assert(sizeof(ReRevvedTerrainYieldRuleInfo) == 192);
-static_assert(sizeof(ReRevvedTerrainYieldQuery) == 40);
-static_assert(sizeof(ReRevvedTerrainYieldEvaluation) == 40);
+static_assert(sizeof(TerrainYieldComponent) == sizeof(int32_t));
+static_assert(sizeof(TerrainYieldOperation) == sizeof(int32_t));
+static_assert(sizeof(TerrainYieldRule) == 168);
+static_assert(sizeof(TerrainYieldRuleInfo) == 192);
+static_assert(sizeof(TerrainYieldQuery) == 40);
+static_assert(sizeof(TerrainYieldEvaluation) == 40);
 
-extern "C" uint32_t ReRevvedTerrainYieldRulesAbiVersion(void)
+extern "C" uint32_t TerrainYieldRulesAbiVersion(void)
 {
-    return REREVVED_TERRAIN_YIELD_RULES_ABI_VERSION;
+    return TERRAIN_YIELD_RULES_ABI_VERSION;
 }
 
-extern "C" int32_t ReRevvedRegisterTerrainYieldRule(
-    const ReRevvedTerrainYieldRule* rule)
+extern "C" int32_t RegisterTerrainYieldRule(
+    const TerrainYieldRule* rule)
 {
     using namespace rerevved::terrain_yield_rules;
-    if (!rule || rule->structSize < sizeof(ReRevvedTerrainYieldRule) ||
+    if (!rule || rule->structSize < sizeof(TerrainYieldRule) ||
         !isRuleIdValid(rule->providerId) || !isRuleIdValid(rule->ruleId) ||
         !isTerrainValid(rule->terrain) || !isComponentValid(rule->component) ||
         !isOperationValid(rule->operation) || !isZeroed(rule->reserved))
     {
-        return REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT;
+        return TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT;
     }
 
-    ReRevvedTerrainYieldRule normalized = *rule;
-    normalized.structSize               = sizeof(normalized);
+    TerrainYieldRule normalized = *rule;
+    normalized.structSize       = sizeof(normalized);
     normalizeRuleId(normalized.providerId);
     normalizeRuleId(normalized.ruleId);
 
@@ -301,8 +301,8 @@ extern "C" int32_t ReRevvedRegisterTerrainYieldRule(
         if (duplicate != registry.end())
         {
             return std::memcmp(&*duplicate, &normalized, sizeof(normalized)) == 0
-                       ? REREVVED_TERRAIN_YIELD_RULES_OK
-                       : REREVVED_TERRAIN_YIELD_RULES_ERR_DUPLICATE_RULE_ID;
+                       ? TERRAIN_YIELD_RULES_OK
+                       : TERRAIN_YIELD_RULES_ERR_DUPLICATE_RULE_ID;
         }
 
         registry.push_back(normalized);
@@ -310,48 +310,48 @@ extern "C" int32_t ReRevvedRegisterTerrainYieldRule(
     }
     catch (...)
     {
-        return REREVVED_TERRAIN_YIELD_RULES_ERR_INTERNAL;
+        return TERRAIN_YIELD_RULES_ERR_INTERNAL;
     }
-    return REREVVED_TERRAIN_YIELD_RULES_OK;
+    return TERRAIN_YIELD_RULES_OK;
 }
 
-extern "C" int32_t ReRevvedGetTerrainYieldRuleCount(uint32_t* outCount)
+extern "C" int32_t GetTerrainYieldRuleCount(uint32_t* outCount)
 {
     if (!outCount)
     {
-        return REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT;
+        return TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT;
     }
 
     std::shared_lock lock(rerevved::terrain_yield_rules::registryMutex);
     *outCount = static_cast<uint32_t>(
         rerevved::terrain_yield_rules::registry.size());
-    return REREVVED_TERRAIN_YIELD_RULES_OK;
+    return TERRAIN_YIELD_RULES_OK;
 }
 
-extern "C" int32_t ReRevvedGetTerrainYieldRule(
-    uint32_t                      index,
-    ReRevvedTerrainYieldRuleInfo* out,
-    uint32_t                      outSize)
+extern "C" int32_t GetTerrainYieldRule(
+    uint32_t              index,
+    TerrainYieldRuleInfo* out,
+    uint32_t              outSize)
 {
     using namespace rerevved::terrain_yield_rules;
     if (!out)
     {
-        return REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT;
+        return TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT;
     }
     clearOutput(out, outSize);
     if (outSize < kRuleInfoPrefix)
     {
-        return REREVVED_TERRAIN_YIELD_RULES_ERR_BUFFER_TOO_SMALL;
+        return TERRAIN_YIELD_RULES_ERR_BUFFER_TOO_SMALL;
     }
 
     std::shared_lock lock(registryMutex);
     if (index >= registry.size())
     {
-        return REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT;
+        return TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT;
     }
 
-    const auto&                  rule = registry[index];
-    ReRevvedTerrainYieldRuleInfo result{};
+    const auto&          rule = registry[index];
+    TerrainYieldRuleInfo result{};
     result.structSize = sizeof(result);
     result.terrain    = rule.terrain;
     result.component  = rule.component;
@@ -359,41 +359,41 @@ extern "C" int32_t ReRevvedGetTerrainYieldRule(
     result.value      = rule.value;
     std::memcpy(result.providerId, rule.providerId, sizeof(result.providerId));
     std::memcpy(result.ruleId, rule.ruleId, sizeof(result.ruleId));
-    if (rule.operation == REREVVED_TERRAIN_YIELD_REPLACE &&
+    if (rule.operation == TERRAIN_YIELD_REPLACE &&
         replacementCount(rule) > 1)
     {
         result.statusFlags |=
-            REREVVED_TERRAIN_YIELD_RULE_REPLACEMENT_CONFLICT;
+            TERRAIN_YIELD_RULE_REPLACEMENT_CONFLICT;
     }
     return copyOutput(out, outSize, result);
 }
 
-extern "C" int32_t ReRevvedEvaluateTerrainYield(
-    const ReRevvedTerrainYieldQuery* query,
-    ReRevvedTerrainYieldEvaluation*  out,
-    uint32_t                         outSize)
+extern "C" int32_t EvaluateTerrainYield(
+    const TerrainYieldQuery* query,
+    TerrainYieldEvaluation*  out,
+    uint32_t                 outSize)
 {
     using namespace rerevved::terrain_yield_rules;
     if (!out)
     {
-        return REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT;
+        return TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT;
     }
     clearOutput(out, outSize);
     if (outSize < kEvaluationPrefix)
     {
-        return REREVVED_TERRAIN_YIELD_RULES_ERR_BUFFER_TOO_SMALL;
+        return TERRAIN_YIELD_RULES_ERR_BUFFER_TOO_SMALL;
     }
-    if (!query || query->structSize < sizeof(ReRevvedTerrainYieldQuery) ||
+    if (!query || query->structSize < sizeof(TerrainYieldQuery) ||
         !isZeroed(query->reserved))
     {
-        return REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT;
+        return TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT;
     }
 
-    ReRevvedTerrainYieldEvaluation result{};
+    TerrainYieldEvaluation result{};
     if (!TryEvaluate(
             query->terrain, query->component, query->nativeValue, result))
     {
-        return REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT;
+        return TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT;
     }
     return copyOutput(out, outSize, result);
 }

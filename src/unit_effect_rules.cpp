@@ -23,30 +23,30 @@ constexpr int32_t  kVeteranLevel     = 2;
 
 struct NativeSpecialUpgradeMapping
 {
-    ReRevvedUnitEffectId effect;
-    uint32_t             mask;
+    UnitEffectId effect;
+    uint32_t     mask;
 };
 
 constexpr std::array<NativeSpecialUpgradeMapping, 9>
     kNativeSpecialUpgradeMappings = { {
-        { REREVVED_UNIT_EFFECT_CREATION_GUERILLA, 1u << 2 },
-        { REREVVED_UNIT_EFFECT_CREATION_BLITZ, 1u << 0 },
-        { REREVVED_UNIT_EFFECT_CREATION_INFILTRATION, 1u << 1 },
-        { REREVVED_UNIT_EFFECT_CREATION_LOYALTY, 1u << 3 },
-        { REREVVED_UNIT_EFFECT_CREATION_ENGINEER, 1u << 4 },
-        { REREVVED_UNIT_EFFECT_CREATION_LEADERSHIP, 1u << 5 },
-        { REREVVED_UNIT_EFFECT_CREATION_MARCH, 1u << 6 },
-        { REREVVED_UNIT_EFFECT_CREATION_MEDIC, 1u << 7 },
-        { REREVVED_UNIT_EFFECT_CREATION_SCOUT, 1u << 8 },
+        { UNIT_EFFECT_CREATION_GUERILLA, 1u << 2 },
+        { UNIT_EFFECT_CREATION_BLITZ, 1u << 0 },
+        { UNIT_EFFECT_CREATION_INFILTRATION, 1u << 1 },
+        { UNIT_EFFECT_CREATION_LOYALTY, 1u << 3 },
+        { UNIT_EFFECT_CREATION_ENGINEER, 1u << 4 },
+        { UNIT_EFFECT_CREATION_LEADERSHIP, 1u << 5 },
+        { UNIT_EFFECT_CREATION_MARCH, 1u << 6 },
+        { UNIT_EFFECT_CREATION_MEDIC, 1u << 7 },
+        { UNIT_EFFECT_CREATION_SCOUT, 1u << 8 },
     } };
 
-std::shared_mutex                   registryMutex;
-std::vector<ReRevvedUnitEffectRule> registry;
+std::shared_mutex           registryMutex;
+std::vector<UnitEffectRule> registry;
 
 bool isRuleIdValid(const char* value)
 {
     const void* terminator =
-        std::memchr(value, '\0', REREVVED_UNIT_EFFECT_RULE_ID_CAPACITY);
+        std::memchr(value, '\0', UNIT_EFFECT_RULE_ID_CAPACITY);
     if (!terminator || value[0] == '\0')
     {
         return false;
@@ -71,7 +71,7 @@ void normalizeRuleId(char* value)
     const size_t length = std::strlen(value);
     std::memset(value + length + 1,
                 0,
-                REREVVED_UNIT_EFFECT_RULE_ID_CAPACITY - length - 1);
+                UNIT_EFFECT_RULE_ID_CAPACITY - length - 1);
 }
 
 template <size_t Size>
@@ -87,19 +87,19 @@ bool isZeroed(const int32_t (&values)[Size])
     return true;
 }
 
-bool isCivilizationValid(ReRevvedCivilizationId civilization)
+bool isCivilizationValid(CivilizationId civilization)
 {
-    return civilization >= 0 && civilization < REREVVED_CIVILIZATION_COUNT;
+    return civilization >= 0 && civilization < CIVILIZATION_COUNT;
 }
 
-bool isUnitTypeValid(ReRevvedUnitTypeId unitType)
+bool isUnitTypeValid(UnitTypeId unitType)
 {
-    return unitType >= 0 && unitType < REREVVED_UNIT_TYPE_COUNT;
+    return unitType >= 0 && unitType < UNIT_TYPE_COUNT;
 }
 
-bool isEffectValid(ReRevvedUnitEffectId effect)
+bool isEffectValid(UnitEffectId effect)
 {
-    if (effect == REREVVED_UNIT_EFFECT_CREATION_VETERAN)
+    if (effect == UNIT_EFFECT_CREATION_VETERAN)
     {
         return true;
     }
@@ -113,44 +113,44 @@ bool isEffectValid(ReRevvedUnitEffectId effect)
         });
 }
 
-bool isTargetValid(ReRevvedCivilizationId civilization,
-                   ReRevvedUnitTypeId     baseUnitType,
-                   ReRevvedUnitIdentityId identity)
+bool isTargetValid(CivilizationId civilization,
+                   UnitTypeId     baseUnitType,
+                   UnitIdentityId identity)
 {
     if (!isCivilizationValid(civilization) || !isUnitTypeValid(baseUnitType) ||
-        identity == REREVVED_UNIT_IDENTITY_BASE ||
-        identity < REREVVED_UNIT_IDENTITY_BASE ||
-        identity >= REREVVED_UNIT_IDENTITY_COUNT)
+        identity == UNIT_IDENTITY_BASE ||
+        identity < UNIT_IDENTITY_BASE ||
+        identity >= UNIT_IDENTITY_COUNT)
     {
         return false;
     }
 
-    ReRevvedUnitIdentityId resolved = REREVVED_UNIT_IDENTITY_BASE;
+    UnitIdentityId resolved = UNIT_IDENTITY_BASE;
     return unit_catalog::TryResolveUnitIdentity(
                civilization, baseUnitType, resolved) &&
            resolved == identity;
 }
 
-bool targetMatches(const ReRevvedUnitEffectRule& rule,
-                   ReRevvedCivilizationId        civilization,
-                   ReRevvedUnitTypeId            baseUnitType,
-                   ReRevvedUnitIdentityId        identity,
-                   ReRevvedUnitEffectId          effect)
+bool targetMatches(const UnitEffectRule& rule,
+                   CivilizationId        civilization,
+                   UnitTypeId            baseUnitType,
+                   UnitIdentityId        identity,
+                   UnitEffectId          effect)
 {
     return rule.civilization == civilization &&
            rule.baseUnitType == baseUnitType && rule.identity == identity &&
            rule.effect == effect;
 }
 
-bool ruleKeyMatches(const ReRevvedUnitEffectRule& left,
-                    const ReRevvedUnitEffectRule& right)
+bool ruleKeyMatches(const UnitEffectRule& left,
+                    const UnitEffectRule& right)
 {
     return std::strcmp(left.providerId, right.providerId) == 0 &&
            std::strcmp(left.ruleId, right.ruleId) == 0;
 }
 
-bool ruleKeyLess(const ReRevvedUnitEffectRule& left,
-                 const ReRevvedUnitEffectRule& right)
+bool ruleKeyLess(const UnitEffectRule& left,
+                 const UnitEffectRule& right)
 {
     const int providerOrder = std::strcmp(left.providerId, right.providerId);
     return providerOrder < 0 ||
@@ -173,13 +173,13 @@ int32_t copyOutput(Record* out, uint32_t outSize, const Record& producer)
     uint32_t copySize = std::min<uint32_t>(outSize, sizeof(Record));
     copySize -= copySize % sizeof(uint32_t);
     std::memcpy(out, &producer, copySize);
-    return REREVVED_UNIT_EFFECT_RULES_OK;
+    return UNIT_EFFECT_RULES_OK;
 }
 
 } // namespace
 
-bool TryGetNativeSpecialUpgradeMask(ReRevvedUnitEffectId effect,
-                                    uint32_t&            mask)
+bool TryGetNativeSpecialUpgradeMask(UnitEffectId effect,
+                                    uint32_t&    mask)
 {
     const auto mapping = std::find_if(
         kNativeSpecialUpgradeMappings.begin(),
@@ -197,12 +197,12 @@ bool TryGetNativeSpecialUpgradeMask(ReRevvedUnitEffectId effect,
     return true;
 }
 
-bool TryEvaluate(ReRevvedCivilizationId        civilization,
-                 ReRevvedUnitTypeId            baseUnitType,
-                 ReRevvedUnitIdentityId        identity,
-                 ReRevvedUnitEffectId          effect,
-                 int32_t                       nativeLevel,
-                 ReRevvedUnitEffectEvaluation& evaluation)
+bool TryEvaluate(CivilizationId        civilization,
+                 UnitTypeId            baseUnitType,
+                 UnitIdentityId        identity,
+                 UnitEffectId          effect,
+                 int32_t               nativeLevel,
+                 UnitEffectEvaluation& evaluation)
 {
     if (!isTargetValid(civilization, baseUnitType, identity) ||
         !isEffectValid(effect))
@@ -211,7 +211,7 @@ bool TryEvaluate(ReRevvedCivilizationId        civilization,
     }
 
     evaluation = {
-        sizeof(ReRevvedUnitEffectEvaluation),
+        sizeof(UnitEffectEvaluation),
         nativeLevel,
         nativeLevel,
         0,
@@ -234,8 +234,8 @@ bool TryEvaluate(ReRevvedCivilizationId        civilization,
 
     if (evaluation.grantCount != 0)
     {
-        evaluation.statusFlags |= REREVVED_UNIT_EFFECT_EVALUATION_GRANTED;
-        if (effect == REREVVED_UNIT_EFFECT_CREATION_VETERAN &&
+        evaluation.statusFlags |= UNIT_EFFECT_EVALUATION_GRANTED;
+        if (effect == UNIT_EFFECT_CREATION_VETERAN &&
             evaluation.finalLevel < kVeteranLevel)
         {
             evaluation.finalLevel = kVeteranLevel;
@@ -252,32 +252,32 @@ void ResetForTests()
 
 } // namespace rerevved::unit_effect_rules
 
-static_assert(sizeof(ReRevvedUnitEffectRule) == 168);
-static_assert(sizeof(ReRevvedUnitEffectRuleInfo) == 192);
-static_assert(sizeof(ReRevvedUnitEffectQuery) == 44);
-static_assert(sizeof(ReRevvedUnitEffectEvaluation) == 40);
+static_assert(sizeof(UnitEffectRule) == 168);
+static_assert(sizeof(UnitEffectRuleInfo) == 192);
+static_assert(sizeof(UnitEffectQuery) == 44);
+static_assert(sizeof(UnitEffectEvaluation) == 40);
 
-extern "C" uint32_t ReRevvedUnitEffectRulesAbiVersion(void)
+extern "C" uint32_t UnitEffectRulesAbiVersion(void)
 {
-    return REREVVED_UNIT_EFFECT_RULES_ABI_VERSION;
+    return UNIT_EFFECT_RULES_ABI_VERSION;
 }
 
-extern "C" int32_t ReRevvedRegisterUnitEffectRule(
-    const ReRevvedUnitEffectRule* rule)
+extern "C" int32_t RegisterUnitEffectRule(
+    const UnitEffectRule* rule)
 {
     using namespace rerevved::unit_effect_rules;
-    if (!rule || rule->structSize < sizeof(ReRevvedUnitEffectRule) ||
+    if (!rule || rule->structSize < sizeof(UnitEffectRule) ||
         !isRuleIdValid(rule->providerId) || !isRuleIdValid(rule->ruleId) ||
         !isTargetValid(rule->civilization,
                        rule->baseUnitType,
                        rule->identity) ||
         !isEffectValid(rule->effect) || !isZeroed(rule->reserved))
     {
-        return REREVVED_UNIT_EFFECT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_EFFECT_RULES_ERR_INVALID_ARGUMENT;
     }
 
-    ReRevvedUnitEffectRule normalized = *rule;
-    normalized.structSize             = sizeof(normalized);
+    UnitEffectRule normalized = *rule;
+    normalized.structSize     = sizeof(normalized);
     normalizeRuleId(normalized.providerId);
     normalizeRuleId(normalized.ruleId);
 
@@ -292,8 +292,8 @@ extern "C" int32_t ReRevvedRegisterUnitEffectRule(
         if (duplicate != registry.end())
         {
             return std::memcmp(&*duplicate, &normalized, sizeof(normalized)) == 0
-                       ? REREVVED_UNIT_EFFECT_RULES_OK
-                       : REREVVED_UNIT_EFFECT_RULES_ERR_DUPLICATE_RULE_ID;
+                       ? UNIT_EFFECT_RULES_OK
+                       : UNIT_EFFECT_RULES_ERR_DUPLICATE_RULE_ID;
         }
 
         registry.push_back(normalized);
@@ -301,48 +301,48 @@ extern "C" int32_t ReRevvedRegisterUnitEffectRule(
     }
     catch (...)
     {
-        return REREVVED_UNIT_EFFECT_RULES_ERR_INTERNAL;
+        return UNIT_EFFECT_RULES_ERR_INTERNAL;
     }
-    return REREVVED_UNIT_EFFECT_RULES_OK;
+    return UNIT_EFFECT_RULES_OK;
 }
 
-extern "C" int32_t ReRevvedGetUnitEffectRuleCount(uint32_t* outCount)
+extern "C" int32_t GetUnitEffectRuleCount(uint32_t* outCount)
 {
     if (!outCount)
     {
-        return REREVVED_UNIT_EFFECT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_EFFECT_RULES_ERR_INVALID_ARGUMENT;
     }
 
     std::shared_lock lock(rerevved::unit_effect_rules::registryMutex);
     *outCount =
         static_cast<uint32_t>(rerevved::unit_effect_rules::registry.size());
-    return REREVVED_UNIT_EFFECT_RULES_OK;
+    return UNIT_EFFECT_RULES_OK;
 }
 
-extern "C" int32_t ReRevvedGetUnitEffectRule(
-    uint32_t                    index,
-    ReRevvedUnitEffectRuleInfo* out,
-    uint32_t                    outSize)
+extern "C" int32_t GetUnitEffectRule(
+    uint32_t            index,
+    UnitEffectRuleInfo* out,
+    uint32_t            outSize)
 {
     using namespace rerevved::unit_effect_rules;
     if (!out)
     {
-        return REREVVED_UNIT_EFFECT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_EFFECT_RULES_ERR_INVALID_ARGUMENT;
     }
     clearOutput(out, outSize);
     if (outSize < kRuleInfoPrefix)
     {
-        return REREVVED_UNIT_EFFECT_RULES_ERR_BUFFER_TOO_SMALL;
+        return UNIT_EFFECT_RULES_ERR_BUFFER_TOO_SMALL;
     }
 
     std::shared_lock lock(registryMutex);
     if (index >= registry.size())
     {
-        return REREVVED_UNIT_EFFECT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_EFFECT_RULES_ERR_INVALID_ARGUMENT;
     }
 
-    const auto&                rule = registry[index];
-    ReRevvedUnitEffectRuleInfo result{};
+    const auto&        rule = registry[index];
+    UnitEffectRuleInfo result{};
     result.structSize   = sizeof(result);
     result.civilization = rule.civilization;
     result.baseUnitType = rule.baseUnitType;
@@ -353,28 +353,28 @@ extern "C" int32_t ReRevvedGetUnitEffectRule(
     return copyOutput(out, outSize, result);
 }
 
-extern "C" int32_t ReRevvedEvaluateUnitEffect(
-    const ReRevvedUnitEffectQuery* query,
-    ReRevvedUnitEffectEvaluation*  out,
-    uint32_t                       outSize)
+extern "C" int32_t EvaluateUnitEffect(
+    const UnitEffectQuery* query,
+    UnitEffectEvaluation*  out,
+    uint32_t               outSize)
 {
     using namespace rerevved::unit_effect_rules;
     if (!out)
     {
-        return REREVVED_UNIT_EFFECT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_EFFECT_RULES_ERR_INVALID_ARGUMENT;
     }
     clearOutput(out, outSize);
     if (outSize < kEvaluationPrefix)
     {
-        return REREVVED_UNIT_EFFECT_RULES_ERR_BUFFER_TOO_SMALL;
+        return UNIT_EFFECT_RULES_ERR_BUFFER_TOO_SMALL;
     }
-    if (!query || query->structSize < sizeof(ReRevvedUnitEffectQuery) ||
+    if (!query || query->structSize < sizeof(UnitEffectQuery) ||
         !isZeroed(query->reserved))
     {
-        return REREVVED_UNIT_EFFECT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_EFFECT_RULES_ERR_INVALID_ARGUMENT;
     }
 
-    ReRevvedUnitEffectEvaluation result{};
+    UnitEffectEvaluation result{};
     if (!TryEvaluate(query->civilization,
                      query->baseUnitType,
                      query->identity,
@@ -382,7 +382,7 @@ extern "C" int32_t ReRevvedEvaluateUnitEffect(
                      query->nativeLevel,
                      result))
     {
-        return REREVVED_UNIT_EFFECT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_EFFECT_RULES_ERR_INVALID_ARGUMENT;
     }
     return copyOutput(out, outSize, result);
 }

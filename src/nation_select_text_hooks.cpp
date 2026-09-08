@@ -92,51 +92,51 @@ bool tryPublishText(const char*  text,
     return true;
 }
 
-bool tryEvaluateText(ReRevvedNationSelectTextSurface     surface,
-                     ReRevvedCivilizationId              civilization,
-                     ReRevvedUniqueEraUnlockEra          unlockEra,
-                     ReRevvedNationSelectTextEvaluation& presentation)
+bool tryEvaluateText(NationSelectTextSurface     surface,
+                     CivilizationId              civilization,
+                     UnlockEra                   unlockEra,
+                     NationSelectTextEvaluation& presentation)
 {
-    const ReRevvedNationSelectTextQuery query = {
-        sizeof(ReRevvedNationSelectTextQuery),
+    const NationSelectTextQuery query = {
+        sizeof(NationSelectTextQuery),
         surface,
         civilization,
         unlockEra,
-        REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED,
-        REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED,
-        REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED,
-        REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED,
+        NATION_SELECT_TEXT_SELECTOR_UNUSED,
+        NATION_SELECT_TEXT_SELECTOR_UNUSED,
+        NATION_SELECT_TEXT_SELECTOR_UNUSED,
+        NATION_SELECT_TEXT_SELECTOR_UNUSED,
         {},
     };
     return rerevved::nation_select_text::TryEvaluate(query, presentation) &&
            (presentation.statusFlags &
-            REREVVED_NATION_SELECT_TEXT_EVALUATION_REPLACED) != 0;
+            NATION_SELECT_TEXT_EVALUATION_REPLACED) != 0;
 }
 
-bool tryReplaceText(PPCRegister&                    localizedText,
-                    ReRevvedCivilizationId          civilization,
-                    ReRevvedNationSelectTextSurface surface,
-                    bool                            includeLengthHeader,
-                    uint32_t&                       guestBuffer)
+bool tryReplaceText(PPCRegister&            localizedText,
+                    CivilizationId          civilization,
+                    NationSelectTextSurface surface,
+                    bool                    includeLengthHeader,
+                    uint32_t&               guestBuffer)
 {
-    ReRevvedNationSelectTextEvaluation presentation{};
+    NationSelectTextEvaluation presentation{};
     if (!tryEvaluateText(surface,
                          civilization,
-                         REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED,
+                         NATION_SELECT_TEXT_SELECTOR_UNUSED,
                          presentation))
     {
         return false;
     }
     return tryPublishText(presentation.text,
-                          REREVVED_NATION_SELECT_TEXT_CAPACITY,
+                          NATION_SELECT_TEXT_CAPACITY,
                           includeLengthHeader,
                           guestBuffer,
                           localizedText);
 }
 
-bool tryEvaluateEraText(ReRevvedCivilizationId              civilization,
-                        ReRevvedUniqueEraUnlockEra          era,
-                        ReRevvedNationSelectTextEvaluation& presentation)
+bool tryEvaluateEraText(CivilizationId              civilization,
+                        UnlockEra                   era,
+                        NationSelectTextEvaluation& presentation)
 {
     uint32_t       nativeBits = 0;
     const uint32_t nativeAddress =
@@ -147,36 +147,36 @@ bool tryEvaluateEraText(ReRevvedCivilizationId              civilization,
         return false;
     }
 
-    ReRevvedUniqueEraAbilityCellEvaluation ability{};
+    EraAbilityCellEvaluation ability{};
     if (!rerevved::unique_era_abilities::TryEvaluate(
             civilization,
             era,
-            static_cast<ReRevvedUniqueEraAbilityId>(nativeBits),
+            static_cast<EraAbilityId>(nativeBits),
             ability) ||
         (ability.statusFlags &
-         REREVVED_UNIQUE_ERA_ABILITY_EVALUATION_REPLACEMENT_CONFLICT) != 0)
+         ERA_ABILITY_EVALUATION_REPLACEMENT_CONFLICT) != 0)
     {
         return false;
     }
 
-    const ReRevvedNationSelectTextQuery query = {
-        sizeof(ReRevvedNationSelectTextQuery),
-        REREVVED_NATION_SELECT_TEXT_SURFACE_ERA_ABILITY,
+    const NationSelectTextQuery query = {
+        sizeof(NationSelectTextQuery),
+        NATION_SELECT_TEXT_SURFACE_ERA_ABILITY,
         civilization,
         era,
         ability.effectiveAbility,
-        REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED,
-        REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED,
-        REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED,
+        NATION_SELECT_TEXT_SELECTOR_UNUSED,
+        NATION_SELECT_TEXT_SELECTOR_UNUSED,
+        NATION_SELECT_TEXT_SELECTOR_UNUSED,
         {},
     };
     return rerevved::nation_select_text::TryEvaluate(query, presentation) &&
            (presentation.statusFlags &
-            REREVVED_NATION_SELECT_TEXT_EVALUATION_REPLACED) != 0;
+            NATION_SELECT_TEXT_EVALUATION_REPLACED) != 0;
 }
 
 bool tryReplaceEraLines(const char*                          nativeText,
-                        ReRevvedCivilizationId               civilization,
+                        CivilizationId                       civilization,
                         std::array<char, kEraBlockCapacity>& output)
 {
     std::array<const char*, 9> starts{};
@@ -210,22 +210,22 @@ bool tryReplaceEraLines(const char*                          nativeText,
     bool   anyChange = false;
     for (size_t index = 0; index < starts.size(); ++index)
     {
-        const char*                        replacement = starts[index];
-        size_t                             length      = lengths[index];
-        ReRevvedNationSelectTextEvaluation presentation{};
-        bool                               replaced = false;
+        const char*                replacement = starts[index];
+        size_t                     length      = lengths[index];
+        NationSelectTextEvaluation presentation{};
+        bool                       replaced = false;
         if (index != 0 && (index & 1u) != 0)
         {
             replaced = tryEvaluateText(
-                REREVVED_NATION_SELECT_TEXT_SURFACE_ERA_HEADING,
-                REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED,
-                static_cast<ReRevvedUniqueEraUnlockEra>((index - 1) / 2),
+                NATION_SELECT_TEXT_SURFACE_ERA_HEADING,
+                NATION_SELECT_TEXT_SELECTOR_UNUSED,
+                static_cast<UnlockEra>((index - 1) / 2),
                 presentation);
         }
         else if (index != 0 &&
                  tryEvaluateEraText(
                      civilization,
-                     static_cast<ReRevvedUniqueEraUnlockEra>((index - 2) / 2),
+                     static_cast<UnlockEra>((index - 2) / 2),
                      presentation))
         {
             replaced = true;
@@ -261,7 +261,7 @@ void ReRevvedApplyEraAbilityNationSelectText(PPCRegister& eraBlock,
                                              PPCRegister& civilization)
 {
     if (civilization.s32 < 0 ||
-        civilization.s32 >= REREVVED_CIVILIZATION_COUNT ||
+        civilization.s32 >= CIVILIZATION_COUNT ||
         eraBlock.u32 == 0)
     {
         return;
@@ -284,13 +284,13 @@ void ReRevvedApplyLeaderNameNationSelectText(PPCRegister& localizedText,
                                              PPCRegister& civilization)
 {
     if (civilization.s32 < 0 ||
-        civilization.s32 >= REREVVED_CIVILIZATION_COUNT)
+        civilization.s32 >= CIVILIZATION_COUNT)
     {
         return;
     }
     tryReplaceText(localizedText,
                    civilization.s32,
-                   REREVVED_NATION_SELECT_TEXT_SURFACE_LEADER_NAME,
+                   NATION_SELECT_TEXT_SURFACE_LEADER_NAME,
                    false,
                    leaderTextBuffer);
 }
@@ -300,13 +300,13 @@ void ReRevvedApplyCivilizationNameNationSelectText(
     PPCRegister& civilization)
 {
     if (civilization.s32 < 0 ||
-        civilization.s32 >= REREVVED_CIVILIZATION_COUNT)
+        civilization.s32 >= CIVILIZATION_COUNT)
     {
         return;
     }
     tryReplaceText(localizedText,
                    civilization.s32,
-                   REREVVED_NATION_SELECT_TEXT_SURFACE_CIVILIZATION_NAME,
+                   NATION_SELECT_TEXT_SURFACE_CIVILIZATION_NAME,
                    false,
                    civilizationTextBuffer);
 }
@@ -316,13 +316,13 @@ void ReRevvedApplyCivilizationTraitNationSelectText(
     PPCRegister& civilization)
 {
     if (civilization.s32 < 0 ||
-        civilization.s32 >= REREVVED_CIVILIZATION_COUNT)
+        civilization.s32 >= CIVILIZATION_COUNT)
     {
         return;
     }
     tryReplaceText(traitText,
                    civilization.s32,
-                   REREVVED_NATION_SELECT_TEXT_SURFACE_CIVILIZATION_TRAIT,
+                   NATION_SELECT_TEXT_SURFACE_CIVILIZATION_TRAIT,
                    true,
                    traitTextBuffer);
 }
@@ -331,8 +331,8 @@ void ReRevvedApplyUniqueUnitSectionHeadingNationSelectText(
     PPCRegister& heading)
 {
     tryReplaceText(heading,
-                   REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED,
-                   REREVVED_NATION_SELECT_TEXT_SURFACE_UNIQUE_UNIT_SECTION_HEADING,
+                   NATION_SELECT_TEXT_SELECTOR_UNUSED,
+                   NATION_SELECT_TEXT_SURFACE_UNIQUE_UNIT_SECTION_HEADING,
                    false,
                    uniqueUnitHeadingTextBuffer);
 }
@@ -344,36 +344,36 @@ void ReRevvedApplyUniqueUnitNationSelectText(PPCRegister& localizedText,
                                              PPCRegister& civilization)
 {
     if (civilization.s32 < 0 ||
-        civilization.s32 >= REREVVED_CIVILIZATION_COUNT)
+        civilization.s32 >= CIVILIZATION_COUNT)
     {
         return;
     }
-    ReRevvedUnitIdentityId identity = REREVVED_UNIT_IDENTITY_BASE;
+    UnitIdentityId identity = UNIT_IDENTITY_BASE;
     if (!rerevved::unit_catalog::TryResolveUnitIdentity(
             civilization.s32, baseUnitType.s32, identity) ||
-        identity == REREVVED_UNIT_IDENTITY_BASE)
+        identity == UNIT_IDENTITY_BASE)
     {
         return;
     }
 
-    const ReRevvedNationSelectTextQuery query = {
-        sizeof(ReRevvedNationSelectTextQuery),
-        REREVVED_NATION_SELECT_TEXT_SURFACE_UNIQUE_UNIT,
+    const NationSelectTextQuery query = {
+        sizeof(NationSelectTextQuery),
+        NATION_SELECT_TEXT_SURFACE_UNIQUE_UNIT,
         civilization.s32,
-        REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED,
+        NATION_SELECT_TEXT_SELECTOR_UNUSED,
         0,
         baseUnitType.s32,
         identity,
-        REREVVED_UNIT_DISPLAY_FORM_UNIT,
+        UNIT_DISPLAY_FORM_UNIT,
         {},
     };
-    ReRevvedNationSelectTextEvaluation presentation{};
+    NationSelectTextEvaluation presentation{};
     if (rerevved::nation_select_text::TryEvaluate(query, presentation) &&
         (presentation.statusFlags &
-         REREVVED_NATION_SELECT_TEXT_EVALUATION_REPLACED) != 0)
+         NATION_SELECT_TEXT_EVALUATION_REPLACED) != 0)
     {
         tryPublishText(presentation.text,
-                       REREVVED_NATION_SELECT_TEXT_CAPACITY,
+                       NATION_SELECT_TEXT_CAPACITY,
                        false,
                        unitTextBuffer,
                        localizedText);

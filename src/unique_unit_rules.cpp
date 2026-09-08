@@ -20,25 +20,25 @@ namespace
 constexpr uint32_t kRuleInfoPrefix   = 160;
 constexpr uint32_t kEvaluationPrefix = 24;
 
-std::shared_mutex                         registryMutex;
-std::vector<ReRevvedUniqueUnitScalarRule> registry;
+std::shared_mutex                 registryMutex;
+std::vector<UniqueUnitScalarRule> registry;
 
-bool isPropertyValid(ReRevvedUniqueUnitScalarProperty property)
+bool isPropertyValid(UniqueUnitScalarProperty property)
 {
-    return property == REREVVED_UNIQUE_UNIT_SCALAR_BASE_ATTACK ||
-           property == REREVVED_UNIQUE_UNIT_SCALAR_BASE_DEFENSE;
+    return property == UNIQUE_UNIT_SCALAR_BASE_ATTACK ||
+           property == UNIQUE_UNIT_SCALAR_BASE_DEFENSE;
 }
 
-bool isOperationValid(ReRevvedUniqueUnitScalarOperation operation)
+bool isOperationValid(UniqueUnitScalarOperation operation)
 {
-    return operation == REREVVED_UNIQUE_UNIT_SCALAR_REPLACE ||
-           operation == REREVVED_UNIQUE_UNIT_SCALAR_ADD;
+    return operation == UNIQUE_UNIT_SCALAR_REPLACE ||
+           operation == UNIQUE_UNIT_SCALAR_ADD;
 }
 
 bool isRuleIdValid(const char* value)
 {
     const void* terminator =
-        std::memchr(value, '\0', REREVVED_UNIQUE_UNIT_RULE_ID_CAPACITY);
+        std::memchr(value, '\0', UNIQUE_UNIT_RULE_ID_CAPACITY);
     if (!terminator || value[0] == '\0')
     {
         return false;
@@ -63,7 +63,7 @@ void normalizeRuleId(char* value)
     const size_t length = std::strlen(value);
     std::memset(value + length + 1,
                 0,
-                REREVVED_UNIQUE_UNIT_RULE_ID_CAPACITY - length - 1);
+                UNIQUE_UNIT_RULE_ID_CAPACITY - length - 1);
 }
 
 template <size_t Size>
@@ -79,26 +79,26 @@ bool isZeroed(const int32_t (&values)[Size])
     return true;
 }
 
-bool targetMatches(const ReRevvedUniqueUnitScalarRule& rule,
-                   ReRevvedCivilizationId              civilization,
-                   ReRevvedUnitTypeId                  baseUnitType,
-                   ReRevvedUnitIdentityId              identity,
-                   ReRevvedUniqueUnitScalarProperty    property)
+bool targetMatches(const UniqueUnitScalarRule& rule,
+                   CivilizationId              civilization,
+                   UnitTypeId                  baseUnitType,
+                   UnitIdentityId              identity,
+                   UniqueUnitScalarProperty    property)
 {
     return rule.civilization == civilization &&
            rule.baseUnitType == baseUnitType && rule.identity == identity &&
            rule.property == property;
 }
 
-bool ruleKeyMatches(const ReRevvedUniqueUnitScalarRule& left,
-                    const ReRevvedUniqueUnitScalarRule& right)
+bool ruleKeyMatches(const UniqueUnitScalarRule& left,
+                    const UniqueUnitScalarRule& right)
 {
     return std::strcmp(left.providerId, right.providerId) == 0 &&
            std::strcmp(left.ruleId, right.ruleId) == 0;
 }
 
-bool ruleKeyLess(const ReRevvedUniqueUnitScalarRule& left,
-                 const ReRevvedUniqueUnitScalarRule& right)
+bool ruleKeyLess(const UniqueUnitScalarRule& left,
+                 const UniqueUnitScalarRule& right)
 {
     const int providerOrder = std::strcmp(left.providerId, right.providerId);
     return providerOrder < 0 ||
@@ -106,12 +106,12 @@ bool ruleKeyLess(const ReRevvedUniqueUnitScalarRule& left,
             std::strcmp(left.ruleId, right.ruleId) < 0);
 }
 
-bool isTargetValid(ReRevvedCivilizationId civilization,
-                   ReRevvedUnitTypeId     baseUnitType,
-                   ReRevvedUnitIdentityId identity)
+bool isTargetValid(CivilizationId civilization,
+                   UnitTypeId     baseUnitType,
+                   UnitIdentityId identity)
 {
-    ReRevvedUnitIdentityId resolved = REREVVED_UNIT_IDENTITY_BASE;
-    return identity != REREVVED_UNIT_IDENTITY_BASE &&
+    UnitIdentityId resolved = UNIT_IDENTITY_BASE;
+    return identity != UNIT_IDENTITY_BASE &&
            unit_catalog::TryResolveUnitIdentity(
                civilization, baseUnitType, resolved) &&
            resolved == identity;
@@ -134,26 +134,26 @@ int32_t copyOutput(Record*       out,
 {
     if (!out)
     {
-        return REREVVED_UNIQUE_UNIT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIQUE_UNIT_RULES_ERR_INVALID_ARGUMENT;
     }
     clearOutput(out, outSize);
     if (outSize < minimumPrefix)
     {
-        return REREVVED_UNIQUE_UNIT_RULES_ERR_BUFFER_TOO_SMALL;
+        return UNIQUE_UNIT_RULES_ERR_BUFFER_TOO_SMALL;
     }
 
     uint32_t copySize = std::min<uint32_t>(outSize, sizeof(Record));
     copySize -= copySize % sizeof(uint32_t);
     std::memcpy(out, &producer, copySize);
-    return REREVVED_UNIQUE_UNIT_RULES_OK;
+    return UNIQUE_UNIT_RULES_OK;
 }
 
-uint32_t replacementCount(const ReRevvedUniqueUnitScalarRule& target)
+uint32_t replacementCount(const UniqueUnitScalarRule& target)
 {
     return static_cast<uint32_t>(std::count_if(
         registry.begin(), registry.end(), [&](const auto& candidate)
         {
-            return candidate.operation == REREVVED_UNIQUE_UNIT_SCALAR_REPLACE &&
+            return candidate.operation == UNIQUE_UNIT_SCALAR_REPLACE &&
                    targetMatches(candidate,
                                  target.civilization,
                                  target.baseUnitType,
@@ -164,12 +164,12 @@ uint32_t replacementCount(const ReRevvedUniqueUnitScalarRule& target)
 
 } // namespace
 
-bool TryEvaluate(ReRevvedCivilizationId              civilization,
-                 ReRevvedUnitTypeId                  baseUnitType,
-                 ReRevvedUnitIdentityId              identity,
-                 ReRevvedUniqueUnitScalarProperty    property,
-                 int32_t                             nativeValue,
-                 ReRevvedUniqueUnitScalarEvaluation& evaluation)
+bool TryEvaluate(CivilizationId              civilization,
+                 UnitTypeId                  baseUnitType,
+                 UnitIdentityId              identity,
+                 UniqueUnitScalarProperty    property,
+                 int32_t                     nativeValue,
+                 UniqueUnitScalarEvaluation& evaluation)
 {
     if (!isTargetValid(civilization, baseUnitType, identity) ||
         !isPropertyValid(property))
@@ -178,7 +178,7 @@ bool TryEvaluate(ReRevvedCivilizationId              civilization,
     }
 
     evaluation = {
-        sizeof(ReRevvedUniqueUnitScalarEvaluation),
+        sizeof(UniqueUnitScalarEvaluation),
         nativeValue,
         nativeValue,
         0,
@@ -198,7 +198,7 @@ bool TryEvaluate(ReRevvedCivilizationId              civilization,
         {
             continue;
         }
-        if (rule.operation == REREVVED_UNIQUE_UNIT_SCALAR_REPLACE)
+        if (rule.operation == UNIQUE_UNIT_SCALAR_REPLACE)
         {
             ++evaluation.replacementCount;
             replacement = rule.value;
@@ -225,7 +225,7 @@ bool TryEvaluate(ReRevvedCivilizationId              civilization,
     if (evaluation.replacementCount > 1)
     {
         evaluation.statusFlags |=
-            REREVVED_UNIQUE_UNIT_EVALUATION_REPLACEMENT_CONFLICT;
+            UNIQUE_UNIT_EVALUATION_REPLACEMENT_CONFLICT;
         replacement = nativeValue;
     }
 
@@ -234,7 +234,7 @@ bool TryEvaluate(ReRevvedCivilizationId              civilization,
         composed < std::numeric_limits<int32_t>::min() ||
         composed > std::numeric_limits<int32_t>::max())
     {
-        evaluation.statusFlags |= REREVVED_UNIQUE_UNIT_EVALUATION_OVERFLOW;
+        evaluation.statusFlags |= UNIQUE_UNIT_EVALUATION_OVERFLOW;
         return true;
     }
 
@@ -250,34 +250,34 @@ void ResetForTests()
 
 } // namespace rerevved::unique_unit_rules
 
-static_assert(sizeof(ReRevvedUniqueUnitScalarProperty) == sizeof(int32_t));
-static_assert(sizeof(ReRevvedUniqueUnitScalarOperation) == sizeof(int32_t));
-static_assert(sizeof(ReRevvedUniqueUnitScalarRule) == 176);
-static_assert(sizeof(ReRevvedUniqueUnitScalarRuleInfo) == 192);
-static_assert(sizeof(ReRevvedUniqueUnitScalarQuery) == 40);
-static_assert(sizeof(ReRevvedUniqueUnitScalarEvaluation) == 40);
+static_assert(sizeof(UniqueUnitScalarProperty) == sizeof(int32_t));
+static_assert(sizeof(UniqueUnitScalarOperation) == sizeof(int32_t));
+static_assert(sizeof(UniqueUnitScalarRule) == 176);
+static_assert(sizeof(UniqueUnitScalarRuleInfo) == 192);
+static_assert(sizeof(UniqueUnitScalarQuery) == 40);
+static_assert(sizeof(UniqueUnitScalarEvaluation) == 40);
 
-extern "C" uint32_t ReRevvedUniqueUnitRulesAbiVersion(void)
+extern "C" uint32_t UniqueUnitRulesAbiVersion(void)
 {
-    return REREVVED_UNIQUE_UNIT_RULES_ABI_VERSION;
+    return UNIQUE_UNIT_RULES_ABI_VERSION;
 }
 
-extern "C" int32_t ReRevvedRegisterUniqueUnitScalarRule(
-    const ReRevvedUniqueUnitScalarRule* rule)
+extern "C" int32_t RegisterUniqueUnitScalarRule(
+    const UniqueUnitScalarRule* rule)
 {
     using namespace rerevved::unique_unit_rules;
-    if (!rule || rule->structSize < sizeof(ReRevvedUniqueUnitScalarRule) ||
+    if (!rule || rule->structSize < sizeof(UniqueUnitScalarRule) ||
         !isRuleIdValid(rule->providerId) || !isRuleIdValid(rule->ruleId) ||
         !isTargetValid(
             rule->civilization, rule->baseUnitType, rule->identity) ||
         !isPropertyValid(rule->property) ||
         !isOperationValid(rule->operation) || !isZeroed(rule->reserved))
     {
-        return REREVVED_UNIQUE_UNIT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIQUE_UNIT_RULES_ERR_INVALID_ARGUMENT;
     }
 
-    ReRevvedUniqueUnitScalarRule normalized = *rule;
-    normalized.structSize                   = sizeof(normalized);
+    UniqueUnitScalarRule normalized = *rule;
+    normalized.structSize           = sizeof(normalized);
     normalizeRuleId(normalized.providerId);
     normalizeRuleId(normalized.ruleId);
 
@@ -292,8 +292,8 @@ extern "C" int32_t ReRevvedRegisterUniqueUnitScalarRule(
         if (duplicate != registry.end())
         {
             return std::memcmp(&*duplicate, &normalized, sizeof(normalized)) == 0
-                       ? REREVVED_UNIQUE_UNIT_RULES_OK
-                       : REREVVED_UNIQUE_UNIT_RULES_ERR_DUPLICATE_RULE_ID;
+                       ? UNIQUE_UNIT_RULES_OK
+                       : UNIQUE_UNIT_RULES_ERR_DUPLICATE_RULE_ID;
         }
 
         registry.push_back(normalized);
@@ -301,48 +301,48 @@ extern "C" int32_t ReRevvedRegisterUniqueUnitScalarRule(
     }
     catch (...)
     {
-        return REREVVED_UNIQUE_UNIT_RULES_ERR_INTERNAL;
+        return UNIQUE_UNIT_RULES_ERR_INTERNAL;
     }
-    return REREVVED_UNIQUE_UNIT_RULES_OK;
+    return UNIQUE_UNIT_RULES_OK;
 }
 
-extern "C" int32_t ReRevvedGetUniqueUnitScalarRuleCount(uint32_t* outCount)
+extern "C" int32_t GetUniqueUnitScalarRuleCount(uint32_t* outCount)
 {
     if (!outCount)
     {
-        return REREVVED_UNIQUE_UNIT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIQUE_UNIT_RULES_ERR_INVALID_ARGUMENT;
     }
 
     std::shared_lock lock(rerevved::unique_unit_rules::registryMutex);
     *outCount = static_cast<uint32_t>(
         rerevved::unique_unit_rules::registry.size());
-    return REREVVED_UNIQUE_UNIT_RULES_OK;
+    return UNIQUE_UNIT_RULES_OK;
 }
 
-extern "C" int32_t ReRevvedGetUniqueUnitScalarRule(
-    uint32_t                          index,
-    ReRevvedUniqueUnitScalarRuleInfo* out,
-    uint32_t                          outSize)
+extern "C" int32_t GetUniqueUnitScalarRule(
+    uint32_t                  index,
+    UniqueUnitScalarRuleInfo* out,
+    uint32_t                  outSize)
 {
     using namespace rerevved::unique_unit_rules;
     if (!out)
     {
-        return REREVVED_UNIQUE_UNIT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIQUE_UNIT_RULES_ERR_INVALID_ARGUMENT;
     }
     clearOutput(out, outSize);
     if (outSize < kRuleInfoPrefix)
     {
-        return REREVVED_UNIQUE_UNIT_RULES_ERR_BUFFER_TOO_SMALL;
+        return UNIQUE_UNIT_RULES_ERR_BUFFER_TOO_SMALL;
     }
 
     std::shared_lock lock(registryMutex);
     if (index >= registry.size())
     {
-        return REREVVED_UNIQUE_UNIT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIQUE_UNIT_RULES_ERR_INVALID_ARGUMENT;
     }
 
-    const auto&                      rule = registry[index];
-    ReRevvedUniqueUnitScalarRuleInfo result{};
+    const auto&              rule = registry[index];
+    UniqueUnitScalarRuleInfo result{};
     result.structSize   = sizeof(result);
     result.civilization = rule.civilization;
     result.baseUnitType = rule.baseUnitType;
@@ -352,37 +352,37 @@ extern "C" int32_t ReRevvedGetUniqueUnitScalarRule(
     result.value        = rule.value;
     std::memcpy(result.providerId, rule.providerId, sizeof(result.providerId));
     std::memcpy(result.ruleId, rule.ruleId, sizeof(result.ruleId));
-    if (rule.operation == REREVVED_UNIQUE_UNIT_SCALAR_REPLACE &&
+    if (rule.operation == UNIQUE_UNIT_SCALAR_REPLACE &&
         replacementCount(rule) > 1)
     {
         result.statusFlags |=
-            REREVVED_UNIQUE_UNIT_RULE_REPLACEMENT_CONFLICT;
+            UNIQUE_UNIT_RULE_REPLACEMENT_CONFLICT;
     }
     return copyOutput(out, outSize, result, kRuleInfoPrefix);
 }
 
-extern "C" int32_t ReRevvedEvaluateUniqueUnitScalar(
-    const ReRevvedUniqueUnitScalarQuery* query,
-    ReRevvedUniqueUnitScalarEvaluation*  out,
-    uint32_t                             outSize)
+extern "C" int32_t EvaluateUniqueUnitScalar(
+    const UniqueUnitScalarQuery* query,
+    UniqueUnitScalarEvaluation*  out,
+    uint32_t                     outSize)
 {
     using namespace rerevved::unique_unit_rules;
     if (!out)
     {
-        return REREVVED_UNIQUE_UNIT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIQUE_UNIT_RULES_ERR_INVALID_ARGUMENT;
     }
     clearOutput(out, outSize);
     if (outSize < kEvaluationPrefix)
     {
-        return REREVVED_UNIQUE_UNIT_RULES_ERR_BUFFER_TOO_SMALL;
+        return UNIQUE_UNIT_RULES_ERR_BUFFER_TOO_SMALL;
     }
-    if (!query || query->structSize < sizeof(ReRevvedUniqueUnitScalarQuery) ||
+    if (!query || query->structSize < sizeof(UniqueUnitScalarQuery) ||
         !isZeroed(query->reserved))
     {
-        return REREVVED_UNIQUE_UNIT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIQUE_UNIT_RULES_ERR_INVALID_ARGUMENT;
     }
 
-    ReRevvedUniqueUnitScalarEvaluation result{};
+    UniqueUnitScalarEvaluation result{};
     if (!TryEvaluate(query->civilization,
                      query->baseUnitType,
                      query->identity,
@@ -390,7 +390,7 @@ extern "C" int32_t ReRevvedEvaluateUniqueUnitScalar(
                      query->nativeValue,
                      result))
     {
-        return REREVVED_UNIQUE_UNIT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIQUE_UNIT_RULES_ERR_INVALID_ARGUMENT;
     }
     return copyOutput(out, outSize, result, kEvaluationPrefix);
 }

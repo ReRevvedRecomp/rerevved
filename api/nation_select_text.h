@@ -1,8 +1,8 @@
 // Public C ABI for civilization information screen text replacements.
 //
 // Mods resolve these entry points from the host process and check
-// ReRevvedNationSelectTextAbiVersion before calling them. Registrations are
-// copied by the host. ABI 1 accepts complete printable ASCII replacement
+// NationSelectTextAbiVersion before calling them. Registrations are
+// copied by the host. ABI 2 accepts complete printable ASCII replacement
 // fields and lines.
 
 #pragma once
@@ -12,147 +12,147 @@
 #include <game_ids.h>
 #include <unique_era_abilities.h>
 
-#if defined(REREVVED_NATION_SELECT_TEXT_API_EXPORTS)
+#if defined(NATION_SELECT_TEXT_API_EXPORTS)
 #if defined(_WIN32)
-#define REREVVED_NATION_SELECT_TEXT_API __declspec(dllexport)
+#define NATION_SELECT_TEXT_API __declspec(dllexport)
 #else
-#define REREVVED_NATION_SELECT_TEXT_API __attribute__((visibility("default")))
+#define NATION_SELECT_TEXT_API __attribute__((visibility("default")))
 #endif
 #else
-#define REREVVED_NATION_SELECT_TEXT_API
+#define NATION_SELECT_TEXT_API
 #endif
 
-#define REREVVED_NATION_SELECT_TEXT_ABI_VERSION      1u
-#define REREVVED_NATION_SELECT_TEXT_RULE_ID_CAPACITY 64u
-#define REREVVED_NATION_SELECT_TEXT_CAPACITY         256u
+#define NATION_SELECT_TEXT_ABI_VERSION      2u
+#define NATION_SELECT_TEXT_RULE_ID_CAPACITY 64u
+#define NATION_SELECT_TEXT_CAPACITY         256u
 
 enum
 {
-    REREVVED_NATION_SELECT_TEXT_OK                    = 0,
-    REREVVED_NATION_SELECT_TEXT_ERR_INVALID_ARGUMENT  = -10,
-    REREVVED_NATION_SELECT_TEXT_ERR_BUFFER_TOO_SMALL  = -11,
-    REREVVED_NATION_SELECT_TEXT_ERR_DUPLICATE_RULE_ID = -12,
-    REREVVED_NATION_SELECT_TEXT_ERR_INTERNAL          = -13,
+    NATION_SELECT_TEXT_OK                    = 0,
+    NATION_SELECT_TEXT_ERR_INVALID_ARGUMENT  = -10,
+    NATION_SELECT_TEXT_ERR_BUFFER_TOO_SMALL  = -11,
+    NATION_SELECT_TEXT_ERR_DUPLICATE_RULE_ID = -12,
+    NATION_SELECT_TEXT_ERR_INTERNAL          = -13,
 };
 
-typedef int32_t ReRevvedNationSelectTextSurface;
+typedef int32_t NationSelectTextSurface;
 
 enum
 {
-    REREVVED_NATION_SELECT_TEXT_SURFACE_ERA_ABILITY                 = 0, // civilization, unlockEra, ability select an effective era value.
-    REREVVED_NATION_SELECT_TEXT_SURFACE_UNIQUE_UNIT                 = 1, // civilization, baseUnitType, identity, displayForm select a unit.
-    REREVVED_NATION_SELECT_TEXT_SURFACE_LEADER_NAME                 = 2, // civilization only; other selectors UNUSED.
-    REREVVED_NATION_SELECT_TEXT_SURFACE_CIVILIZATION_NAME           = 3, // civilization only; other selectors UNUSED.
-    REREVVED_NATION_SELECT_TEXT_SURFACE_CIVILIZATION_TRAIT          = 4, // civilization only; other selectors UNUSED.
-    REREVVED_NATION_SELECT_TEXT_SURFACE_RESERVED_5                  = 5, // Reserved; the internal era block prefix is not displayed.
-    REREVVED_NATION_SELECT_TEXT_SURFACE_ERA_HEADING                 = 6, // unlockEra only; other selectors UNUSED.
-    REREVVED_NATION_SELECT_TEXT_SURFACE_UNIQUE_UNIT_SECTION_HEADING = 7, // Global heading; all selectors UNUSED.
-};
-
-enum
-{
-    REREVVED_NATION_SELECT_TEXT_SELECTOR_UNUSED = -1,
+    NATION_SELECT_TEXT_SURFACE_ERA_ABILITY                 = 0, // civilization, unlockEra, ability select an effective era value.
+    NATION_SELECT_TEXT_SURFACE_UNIQUE_UNIT                 = 1, // civilization, baseUnitType, identity, displayForm select a unit.
+    NATION_SELECT_TEXT_SURFACE_LEADER_NAME                 = 2, // civilization only; other selectors UNUSED.
+    NATION_SELECT_TEXT_SURFACE_CIVILIZATION_NAME           = 3, // civilization only; other selectors UNUSED.
+    NATION_SELECT_TEXT_SURFACE_CIVILIZATION_TRAIT          = 4, // civilization only; other selectors UNUSED.
+    NATION_SELECT_TEXT_SURFACE_RESERVED_5                  = 5, // Reserved; the internal era block prefix is not displayed.
+    NATION_SELECT_TEXT_SURFACE_ERA_HEADING                 = 6, // unlockEra only; other selectors UNUSED.
+    NATION_SELECT_TEXT_SURFACE_UNIQUE_UNIT_SECTION_HEADING = 7, // Global heading; all selectors UNUSED.
 };
 
 enum
 {
-    REREVVED_NATION_SELECT_TEXT_RULE_REPLACEMENT_CONFLICT = 1u << 0,
+    NATION_SELECT_TEXT_SELECTOR_UNUSED = -1,
 };
 
 enum
 {
-    REREVVED_NATION_SELECT_TEXT_EVALUATION_REPLACED             = 1u << 0,
-    REREVVED_NATION_SELECT_TEXT_EVALUATION_REPLACEMENT_CONFLICT = 1u << 1,
+    NATION_SELECT_TEXT_RULE_REPLACEMENT_CONFLICT = 1u << 0,
 };
 
-typedef struct ReRevvedNationSelectTextRule
+enum
 {
-    uint32_t                        structSize;
-    char                            providerId[REREVVED_NATION_SELECT_TEXT_RULE_ID_CAPACITY];
-    char                            ruleId[REREVVED_NATION_SELECT_TEXT_RULE_ID_CAPACITY];
-    ReRevvedNationSelectTextSurface surface;
-    ReRevvedCivilizationId          civilization;
-    ReRevvedUniqueEraUnlockEra      unlockEra;
-    ReRevvedUniqueEraAbilityId      ability;
-    ReRevvedUnitTypeId              baseUnitType;
-    ReRevvedUnitIdentityId          identity;
-    ReRevvedUnitDisplayForm         displayForm; // ABI 1 accepts UNIT for the civilization information screen.
-    char                            text[REREVVED_NATION_SELECT_TEXT_CAPACITY];
-    int32_t                         reserved[8];
-} ReRevvedNationSelectTextRule;
+    NATION_SELECT_TEXT_EVALUATION_REPLACED             = 1u << 0,
+    NATION_SELECT_TEXT_EVALUATION_REPLACEMENT_CONFLICT = 1u << 1,
+};
 
-typedef struct ReRevvedNationSelectTextRuleInfo
+typedef struct NationSelectTextRule
 {
-    uint32_t                        structSize; // Current producer size. Callers may pass any buffer at least 420 bytes.
-    char                            providerId[REREVVED_NATION_SELECT_TEXT_RULE_ID_CAPACITY];
-    char                            ruleId[REREVVED_NATION_SELECT_TEXT_RULE_ID_CAPACITY];
-    ReRevvedNationSelectTextSurface surface;
-    ReRevvedCivilizationId          civilization;
-    ReRevvedUniqueEraUnlockEra      unlockEra;
-    ReRevvedUniqueEraAbilityId      ability;
-    ReRevvedUnitTypeId              baseUnitType;
-    ReRevvedUnitIdentityId          identity;
-    ReRevvedUnitDisplayForm         displayForm;
-    char                            text[REREVVED_NATION_SELECT_TEXT_CAPACITY];
-    uint32_t                        statusFlags;
-    int32_t                         reserved[8];
-} ReRevvedNationSelectTextRuleInfo;
+    uint32_t                structSize;
+    char                    providerId[NATION_SELECT_TEXT_RULE_ID_CAPACITY];
+    char                    ruleId[NATION_SELECT_TEXT_RULE_ID_CAPACITY];
+    NationSelectTextSurface surface;
+    CivilizationId          civilization;
+    UnlockEra               unlockEra;
+    EraAbilityId            ability;
+    UnitTypeId              baseUnitType;
+    UnitIdentityId          identity;
+    UnitDisplayForm         displayForm; // ABI 2 accepts UNIT for the civilization information screen.
+    char                    text[NATION_SELECT_TEXT_CAPACITY];
+    int32_t                 reserved[8];
+} NationSelectTextRule;
 
-typedef struct ReRevvedNationSelectTextQuery
+typedef struct NationSelectTextRuleInfo
 {
-    uint32_t                        structSize;
-    ReRevvedNationSelectTextSurface surface;
-    ReRevvedCivilizationId          civilization;
-    ReRevvedUniqueEraUnlockEra      unlockEra;
-    ReRevvedUniqueEraAbilityId      ability;
-    ReRevvedUnitTypeId              baseUnitType;
-    ReRevvedUnitIdentityId          identity;
-    ReRevvedUnitDisplayForm         displayForm;
-    int32_t                         reserved[8];
-} ReRevvedNationSelectTextQuery;
+    uint32_t                structSize; // Current producer size. Callers may pass any buffer at least 420 bytes.
+    char                    providerId[NATION_SELECT_TEXT_RULE_ID_CAPACITY];
+    char                    ruleId[NATION_SELECT_TEXT_RULE_ID_CAPACITY];
+    NationSelectTextSurface surface;
+    CivilizationId          civilization;
+    UnlockEra               unlockEra;
+    EraAbilityId            ability;
+    UnitTypeId              baseUnitType;
+    UnitIdentityId          identity;
+    UnitDisplayForm         displayForm;
+    char                    text[NATION_SELECT_TEXT_CAPACITY];
+    uint32_t                statusFlags;
+    int32_t                 reserved[8];
+} NationSelectTextRuleInfo;
 
-typedef struct ReRevvedNationSelectTextEvaluation
+typedef struct NationSelectTextQuery
+{
+    uint32_t                structSize;
+    NationSelectTextSurface surface;
+    CivilizationId          civilization;
+    UnlockEra               unlockEra;
+    EraAbilityId            ability;
+    UnitTypeId              baseUnitType;
+    UnitIdentityId          identity;
+    UnitDisplayForm         displayForm;
+    int32_t                 reserved[8];
+} NationSelectTextQuery;
+
+typedef struct NationSelectTextEvaluation
 {
     uint32_t structSize; // Current producer size. Callers may pass any buffer at least 268 bytes.
     uint32_t replacementCount;
     uint32_t statusFlags;
-    char     text[REREVVED_NATION_SELECT_TEXT_CAPACITY];
+    char     text[NATION_SELECT_TEXT_CAPACITY];
     int32_t  reserved[8];
-} ReRevvedNationSelectTextEvaluation;
+} NationSelectTextEvaluation;
 
-typedef uint32_t (*ReRevvedNationSelectTextAbiVersionFn)(void);
-typedef int32_t (*ReRevvedRegisterNationSelectTextRuleFn)(
-    const ReRevvedNationSelectTextRule* rule);
-typedef int32_t (*ReRevvedGetNationSelectTextRuleCountFn)(uint32_t* outCount);
-typedef int32_t (*ReRevvedGetNationSelectTextRuleFn)(
-    uint32_t                          index,
-    ReRevvedNationSelectTextRuleInfo* out,
-    uint32_t                          outSize);
-typedef int32_t (*ReRevvedEvaluateNationSelectTextFn)(
-    const ReRevvedNationSelectTextQuery* query,
-    ReRevvedNationSelectTextEvaluation*  out,
-    uint32_t                             outSize);
+typedef uint32_t (*NationSelectTextAbiVersionFn)(void);
+typedef int32_t (*RegisterNationSelectTextRuleFn)(
+    const NationSelectTextRule* rule);
+typedef int32_t (*GetNationSelectTextRuleCountFn)(uint32_t* outCount);
+typedef int32_t (*GetNationSelectTextRuleFn)(
+    uint32_t                  index,
+    NationSelectTextRuleInfo* out,
+    uint32_t                  outSize);
+typedef int32_t (*EvaluateNationSelectTextFn)(
+    const NationSelectTextQuery* query,
+    NationSelectTextEvaluation*  out,
+    uint32_t                     outSize);
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-    REREVVED_NATION_SELECT_TEXT_API uint32_t ReRevvedNationSelectTextAbiVersion(void);
-    REREVVED_NATION_SELECT_TEXT_API int32_t  ReRevvedRegisterNationSelectTextRule(
-        const ReRevvedNationSelectTextRule* rule);
-    REREVVED_NATION_SELECT_TEXT_API int32_t ReRevvedGetNationSelectTextRuleCount(uint32_t* outCount);
-    REREVVED_NATION_SELECT_TEXT_API int32_t ReRevvedGetNationSelectTextRule(
-        uint32_t                          index,
-        ReRevvedNationSelectTextRuleInfo* out,
-        uint32_t                          outSize);
-    REREVVED_NATION_SELECT_TEXT_API int32_t ReRevvedEvaluateNationSelectText(
-        const ReRevvedNationSelectTextQuery* query,
-        ReRevvedNationSelectTextEvaluation*  out,
-        uint32_t                             outSize);
+    NATION_SELECT_TEXT_API uint32_t NationSelectTextAbiVersion(void);
+    NATION_SELECT_TEXT_API int32_t  RegisterNationSelectTextRule(
+        const NationSelectTextRule* rule);
+    NATION_SELECT_TEXT_API int32_t GetNationSelectTextRuleCount(uint32_t* outCount);
+    NATION_SELECT_TEXT_API int32_t GetNationSelectTextRule(
+        uint32_t                  index,
+        NationSelectTextRuleInfo* out,
+        uint32_t                  outSize);
+    NATION_SELECT_TEXT_API int32_t EvaluateNationSelectText(
+        const NationSelectTextQuery* query,
+        NationSelectTextEvaluation*  out,
+        uint32_t                     outSize);
 
 #ifdef __cplusplus
 } // extern "C"
 #endif
 
-#undef REREVVED_NATION_SELECT_TEXT_API
+#undef NATION_SELECT_TEXT_API

@@ -20,66 +20,66 @@ void require(bool condition, std::string_view message)
     }
 }
 
-ReRevvedUnitProductionCostRule makeRule(const char* provider,
-                                        const char* ruleId,
-                                        int32_t     percentageDelta)
+UnitProductionCostRule makeRule(const char* provider,
+                                const char* ruleId,
+                                int32_t     percentageDelta)
 {
-    ReRevvedUnitProductionCostRule rule{};
+    UnitProductionCostRule rule{};
     rule.structSize = sizeof(rule);
     std::memcpy(rule.providerId, provider, std::strlen(provider) + 1);
     std::memcpy(rule.ruleId, ruleId, std::strlen(ruleId) + 1);
-    rule.civilization    = REREVVED_CIVILIZATION_AZTEC;
-    rule.baseUnitType    = REREVVED_UNIT_TYPE_WARRIOR;
-    rule.identity        = REREVVED_UNIT_IDENTITY_JAGUAR_WARRIOR;
+    rule.civilization    = CIVILIZATION_AZTEC;
+    rule.baseUnitType    = UNIT_TYPE_WARRIOR;
+    rule.identity        = UNIT_IDENTITY_JAGUAR_WARRIOR;
     rule.percentageDelta = percentageDelta;
     return rule;
 }
 
-ReRevvedUnitProductionCostEvaluation evaluate()
+UnitProductionCostEvaluation evaluate()
 {
-    const ReRevvedUnitProductionCostQuery query = {
-        sizeof(ReRevvedUnitProductionCostQuery),
-        REREVVED_CIVILIZATION_AZTEC,
-        REREVVED_UNIT_TYPE_WARRIOR,
-        REREVVED_UNIT_IDENTITY_JAGUAR_WARRIOR,
+    const UnitProductionCostQuery query = {
+        sizeof(UnitProductionCostQuery),
+        CIVILIZATION_AZTEC,
+        UNIT_TYPE_WARRIOR,
+        UNIT_IDENTITY_JAGUAR_WARRIOR,
         {},
     };
-    ReRevvedUnitProductionCostEvaluation evaluation{};
-    require(ReRevvedEvaluateUnitProductionCost(
+    UnitProductionCostEvaluation evaluation{};
+    require(EvaluateUnitProductionCost(
                 &query, &evaluation, sizeof(evaluation)) ==
-                REREVVED_UNIT_PRODUCTION_COST_RULES_OK,
+                UNIT_PRODUCTION_COST_RULES_OK,
             "production cost evaluation failed");
     return evaluation;
 }
 
 void TestLayoutAndValidation()
 {
-    static_assert(sizeof(ReRevvedUnitProductionCostRule) == 168);
-    static_assert(offsetof(ReRevvedUnitProductionCostRule, civilization) == 132);
-    static_assert(offsetof(ReRevvedUnitProductionCostRule,
+    static_assert(sizeof(UnitProductionCostRule) == 168);
+    static_assert(offsetof(UnitProductionCostRule, civilization) == 132);
+    static_assert(offsetof(UnitProductionCostRule,
                            percentageDelta) == 144);
-    static_assert(sizeof(ReRevvedUnitProductionCostRuleInfo) == 192);
-    static_assert(offsetof(ReRevvedUnitProductionCostRuleInfo, statusFlags) == 148);
-    static_assert(sizeof(ReRevvedUnitProductionCostQuery) == 40);
-    static_assert(sizeof(ReRevvedUnitProductionCostEvaluation) == 40);
-    static_assert(offsetof(ReRevvedUnitProductionCostEvaluation, finalPercent) == 8);
-    require(ReRevvedUnitProductionCostRulesAbiVersion() ==
-                REREVVED_UNIT_PRODUCTION_COST_RULES_ABI_VERSION,
+    static_assert(sizeof(UnitProductionCostRuleInfo) == 192);
+    static_assert(offsetof(UnitProductionCostRuleInfo, statusFlags) == 148);
+    static_assert(sizeof(UnitProductionCostQuery) == 40);
+    static_assert(sizeof(UnitProductionCostEvaluation) == 40);
+    static_assert(offsetof(UnitProductionCostEvaluation, finalPercent) == 8);
+    require(UnitProductionCostRulesAbiVersion() ==
+                UNIT_PRODUCTION_COST_RULES_ABI_VERSION,
             "production cost ABI version mismatch");
 
     rerevved::unit_production_cost_rules::ResetForTests();
-    require(ReRevvedRegisterUnitProductionCostRule(nullptr) ==
-                REREVVED_UNIT_PRODUCTION_COST_RULES_ERR_INVALID_ARGUMENT,
+    require(RegisterUnitProductionCostRule(nullptr) ==
+                UNIT_PRODUCTION_COST_RULES_ERR_INVALID_ARGUMENT,
             "null production cost rule accepted");
     auto invalid     = makeRule("test.provider", "invalid", 1);
-    invalid.identity = REREVVED_UNIT_IDENTITY_BASE;
-    require(ReRevvedRegisterUnitProductionCostRule(&invalid) ==
-                REREVVED_UNIT_PRODUCTION_COST_RULES_ERR_INVALID_ARGUMENT,
+    invalid.identity = UNIT_IDENTITY_BASE;
+    require(RegisterUnitProductionCostRule(&invalid) ==
+                UNIT_PRODUCTION_COST_RULES_ERR_INVALID_ARGUMENT,
             "base identity production cost rule accepted");
     invalid             = makeRule("test.provider", "invalid", 1);
     invalid.reserved[0] = 1;
-    require(ReRevvedRegisterUnitProductionCostRule(&invalid) ==
-                REREVVED_UNIT_PRODUCTION_COST_RULES_ERR_INVALID_ARGUMENT,
+    require(RegisterUnitProductionCostRule(&invalid) ==
+                UNIT_PRODUCTION_COST_RULES_ERR_INVALID_ARGUMENT,
             "nonzero production cost reserved field accepted");
 }
 
@@ -88,27 +88,27 @@ void TestRegistrationReadbackAndEvaluation()
     rerevved::unit_production_cost_rules::ResetForTests();
     auto later   = makeRule("z.provider", "late", -25);
     auto earlier = makeRule("a.provider", "early", 50);
-    require(ReRevvedRegisterUnitProductionCostRule(&later) ==
-                    REREVVED_UNIT_PRODUCTION_COST_RULES_OK &&
-                ReRevvedRegisterUnitProductionCostRule(&earlier) ==
-                    REREVVED_UNIT_PRODUCTION_COST_RULES_OK,
+    require(RegisterUnitProductionCostRule(&later) ==
+                    UNIT_PRODUCTION_COST_RULES_OK &&
+                RegisterUnitProductionCostRule(&earlier) ==
+                    UNIT_PRODUCTION_COST_RULES_OK,
             "production cost rules did not register");
-    require(ReRevvedRegisterUnitProductionCostRule(&earlier) ==
-                REREVVED_UNIT_PRODUCTION_COST_RULES_OK,
+    require(RegisterUnitProductionCostRule(&earlier) ==
+                UNIT_PRODUCTION_COST_RULES_OK,
             "idempotent production cost registration failed");
     earlier.percentageDelta = 40;
-    require(ReRevvedRegisterUnitProductionCostRule(&earlier) ==
-                REREVVED_UNIT_PRODUCTION_COST_RULES_ERR_DUPLICATE_RULE_ID,
+    require(RegisterUnitProductionCostRule(&earlier) ==
+                UNIT_PRODUCTION_COST_RULES_ERR_DUPLICATE_RULE_ID,
             "conflicting production cost rule id accepted");
 
     uint32_t count = 0;
-    require(ReRevvedGetUnitProductionCostRuleCount(&count) ==
-                    REREVVED_UNIT_PRODUCTION_COST_RULES_OK &&
+    require(GetUnitProductionCostRuleCount(&count) ==
+                    UNIT_PRODUCTION_COST_RULES_OK &&
                 count == 2,
             "production cost rule count mismatch");
-    ReRevvedUnitProductionCostRuleInfo info{};
-    require(ReRevvedGetUnitProductionCostRule(0, &info, sizeof(info)) ==
-                    REREVVED_UNIT_PRODUCTION_COST_RULES_OK &&
+    UnitProductionCostRuleInfo info{};
+    require(GetUnitProductionCostRule(0, &info, sizeof(info)) ==
+                    UNIT_PRODUCTION_COST_RULES_OK &&
                 std::string_view(info.providerId) == "a.provider" &&
                 info.percentageDelta == 50,
             "production cost readback ordering mismatch");
@@ -119,17 +119,17 @@ void TestRegistrationReadbackAndEvaluation()
                 evaluation.additiveCount == 2 && evaluation.statusFlags == 0,
             "production cost additive composition mismatch");
 
-    const ReRevvedUnitProductionCostQuery impiQuery = {
-        sizeof(ReRevvedUnitProductionCostQuery),
-        REREVVED_CIVILIZATION_ZULU,
-        REREVVED_UNIT_TYPE_WARRIOR,
-        REREVVED_UNIT_IDENTITY_IMPI_WARRIOR,
+    const UnitProductionCostQuery impiQuery = {
+        sizeof(UnitProductionCostQuery),
+        CIVILIZATION_ZULU,
+        UNIT_TYPE_WARRIOR,
+        UNIT_IDENTITY_IMPI_WARRIOR,
         {},
     };
-    ReRevvedUnitProductionCostEvaluation impi{};
-    require(ReRevvedEvaluateUnitProductionCost(
+    UnitProductionCostEvaluation impi{};
+    require(EvaluateUnitProductionCost(
                 &impiQuery, &impi, sizeof(impi)) ==
-                    REREVVED_UNIT_PRODUCTION_COST_RULES_OK &&
+                    UNIT_PRODUCTION_COST_RULES_OK &&
                 impi.finalPercent == 100 && impi.additiveCount == 0,
             "production cost identity target leaked to control unit");
 }
@@ -139,40 +139,40 @@ void TestOverflowAndSizedOutput()
     rerevved::unit_production_cost_rules::ResetForTests();
     auto overflow = makeRule(
         "a.provider", "overflow", std::numeric_limits<int32_t>::max());
-    require(ReRevvedRegisterUnitProductionCostRule(&overflow) ==
-                REREVVED_UNIT_PRODUCTION_COST_RULES_OK,
+    require(RegisterUnitProductionCostRule(&overflow) ==
+                UNIT_PRODUCTION_COST_RULES_OK,
             "production cost overflow rule did not register");
     const auto evaluation = evaluate();
     require(evaluation.finalPercent == evaluation.nativePercent &&
                 (evaluation.statusFlags &
-                 REREVVED_UNIT_PRODUCTION_COST_EVALUATION_OUT_OF_RANGE) != 0,
+                 UNIT_PRODUCTION_COST_EVALUATION_OUT_OF_RANGE) != 0,
             "production cost overflow did not preserve native percent");
 
     rerevved::unit_production_cost_rules::ResetForTests();
     auto nonpositive = makeRule("a.provider", "nonpositive", -100);
-    require(ReRevvedRegisterUnitProductionCostRule(&nonpositive) ==
-                REREVVED_UNIT_PRODUCTION_COST_RULES_OK,
+    require(RegisterUnitProductionCostRule(&nonpositive) ==
+                UNIT_PRODUCTION_COST_RULES_OK,
             "production cost nonpositive rule did not register");
     const auto invalid = evaluate();
     require(invalid.finalPercent == invalid.nativePercent &&
                 (invalid.statusFlags &
-                 REREVVED_UNIT_PRODUCTION_COST_EVALUATION_OUT_OF_RANGE) != 0,
+                 UNIT_PRODUCTION_COST_EVALUATION_OUT_OF_RANGE) != 0,
             "nonpositive production cost did not preserve native percent");
 
-    const ReRevvedUnitProductionCostQuery query = {
-        sizeof(ReRevvedUnitProductionCostQuery),
-        REREVVED_CIVILIZATION_AZTEC,
-        REREVVED_UNIT_TYPE_WARRIOR,
-        REREVVED_UNIT_IDENTITY_JAGUAR_WARRIOR,
+    const UnitProductionCostQuery query = {
+        sizeof(UnitProductionCostQuery),
+        CIVILIZATION_AZTEC,
+        UNIT_TYPE_WARRIOR,
+        UNIT_IDENTITY_JAGUAR_WARRIOR,
         {},
     };
-    ReRevvedUnitProductionCostEvaluation output{};
-    require(ReRevvedEvaluateUnitProductionCost(&query, &output, 19) ==
-                REREVVED_UNIT_PRODUCTION_COST_RULES_ERR_BUFFER_TOO_SMALL,
+    UnitProductionCostEvaluation output{};
+    require(EvaluateUnitProductionCost(&query, &output, 19) ==
+                UNIT_PRODUCTION_COST_RULES_ERR_BUFFER_TOO_SMALL,
             "short production cost evaluation output accepted");
     std::memset(&output, 0x5a, sizeof(output));
-    require(ReRevvedEvaluateUnitProductionCost(&query, &output, 20) ==
-                    REREVVED_UNIT_PRODUCTION_COST_RULES_OK &&
+    require(EvaluateUnitProductionCost(&query, &output, 20) ==
+                    UNIT_PRODUCTION_COST_RULES_OK &&
                 output.structSize ==
                     sizeof(output),
             "production cost minimum evaluation prefix rejected");

@@ -175,9 +175,9 @@ bool resolvePassiveTracePath(std::string_view       configured,
 
 rerevved::native_renderer::SnapshotFields readCoverageSnapshot() noexcept
 {
-    ReRevvedGameplayState state{};
+    GameplayState state{};
     state.structSize = sizeof(state);
-    (void)ReRevvedGetGameplayState(&state, sizeof(state));
+    (void)GetGameplayState(&state, sizeof(state));
 
     rerevved::native_renderer::SnapshotFields fields{};
     fields.frameSequence   = state.frameSequence;

@@ -20,13 +20,13 @@ namespace
 constexpr uint32_t kRuleInfoPrefix   = 152;
 constexpr uint32_t kEvaluationPrefix = 20;
 
-std::shared_mutex                     registryMutex;
-std::vector<ReRevvedUnitMovementRule> registry;
+std::shared_mutex             registryMutex;
+std::vector<UnitMovementRule> registry;
 
 bool isRuleIdValid(const char* value)
 {
     const void* terminator =
-        std::memchr(value, '\0', REREVVED_UNIT_MOVEMENT_RULE_ID_CAPACITY);
+        std::memchr(value, '\0', UNIT_MOVEMENT_RULE_ID_CAPACITY);
     if (!terminator || value[0] == '\0')
     {
         return false;
@@ -51,7 +51,7 @@ void normalizeRuleId(char* value)
     const size_t length = std::strlen(value);
     std::memset(value + length + 1,
                 0,
-                REREVVED_UNIT_MOVEMENT_RULE_ID_CAPACITY - length - 1);
+                UNIT_MOVEMENT_RULE_ID_CAPACITY - length - 1);
 }
 
 template <size_t Size>
@@ -67,52 +67,52 @@ bool isZeroed(const int32_t (&values)[Size])
     return true;
 }
 
-bool isCivilizationValid(ReRevvedCivilizationId civilization)
+bool isCivilizationValid(CivilizationId civilization)
 {
-    return civilization >= 0 && civilization < REREVVED_CIVILIZATION_COUNT;
+    return civilization >= 0 && civilization < CIVILIZATION_COUNT;
 }
 
-bool isUnitTypeValid(ReRevvedUnitTypeId unitType)
+bool isUnitTypeValid(UnitTypeId unitType)
 {
-    return unitType >= 0 && unitType < REREVVED_UNIT_TYPE_COUNT;
+    return unitType >= 0 && unitType < UNIT_TYPE_COUNT;
 }
 
-bool isTargetValid(ReRevvedCivilizationId civilization,
-                   ReRevvedUnitTypeId     baseUnitType,
-                   ReRevvedUnitIdentityId identity)
+bool isTargetValid(CivilizationId civilization,
+                   UnitTypeId     baseUnitType,
+                   UnitIdentityId identity)
 {
     if (!isCivilizationValid(civilization) || !isUnitTypeValid(baseUnitType) ||
-        identity == REREVVED_UNIT_IDENTITY_BASE ||
-        identity < REREVVED_UNIT_IDENTITY_BASE ||
-        identity >= REREVVED_UNIT_IDENTITY_COUNT)
+        identity == UNIT_IDENTITY_BASE ||
+        identity < UNIT_IDENTITY_BASE ||
+        identity >= UNIT_IDENTITY_COUNT)
     {
         return false;
     }
 
-    ReRevvedUnitIdentityId resolved = REREVVED_UNIT_IDENTITY_BASE;
+    UnitIdentityId resolved = UNIT_IDENTITY_BASE;
     return unit_catalog::TryResolveUnitIdentity(
                civilization, baseUnitType, resolved) &&
            resolved == identity;
 }
 
-bool targetMatches(const ReRevvedUnitMovementRule& rule,
-                   ReRevvedCivilizationId          civilization,
-                   ReRevvedUnitTypeId              baseUnitType,
-                   ReRevvedUnitIdentityId          identity)
+bool targetMatches(const UnitMovementRule& rule,
+                   CivilizationId          civilization,
+                   UnitTypeId              baseUnitType,
+                   UnitIdentityId          identity)
 {
     return rule.civilization == civilization &&
            rule.baseUnitType == baseUnitType && rule.identity == identity;
 }
 
-bool ruleKeyMatches(const ReRevvedUnitMovementRule& left,
-                    const ReRevvedUnitMovementRule& right)
+bool ruleKeyMatches(const UnitMovementRule& left,
+                    const UnitMovementRule& right)
 {
     return std::strcmp(left.providerId, right.providerId) == 0 &&
            std::strcmp(left.ruleId, right.ruleId) == 0;
 }
 
-bool ruleKeyLess(const ReRevvedUnitMovementRule& left,
-                 const ReRevvedUnitMovementRule& right)
+bool ruleKeyLess(const UnitMovementRule& left,
+                 const UnitMovementRule& right)
 {
     const int providerOrder = std::strcmp(left.providerId, right.providerId);
     return providerOrder < 0 ||
@@ -135,16 +135,16 @@ int32_t copyOutput(Record* out, uint32_t outSize, const Record& producer)
     uint32_t copySize = std::min<uint32_t>(outSize, sizeof(Record));
     copySize -= copySize % sizeof(uint32_t);
     std::memcpy(out, &producer, copySize);
-    return REREVVED_UNIT_MOVEMENT_RULES_OK;
+    return UNIT_MOVEMENT_RULES_OK;
 }
 
 } // namespace
 
-bool TryEvaluate(ReRevvedCivilizationId          civilization,
-                 ReRevvedUnitTypeId              baseUnitType,
-                 ReRevvedUnitIdentityId          identity,
-                 int32_t                         nativeValue,
-                 ReRevvedUnitMovementEvaluation& evaluation)
+bool TryEvaluate(CivilizationId          civilization,
+                 UnitTypeId              baseUnitType,
+                 UnitIdentityId          identity,
+                 int32_t                 nativeValue,
+                 UnitMovementEvaluation& evaluation)
 {
     if (!isTargetValid(civilization, baseUnitType, identity))
     {
@@ -152,7 +152,7 @@ bool TryEvaluate(ReRevvedCivilizationId          civilization,
     }
 
     evaluation = {
-        sizeof(ReRevvedUnitMovementEvaluation),
+        sizeof(UnitMovementEvaluation),
         nativeValue,
         nativeValue,
         0,
@@ -189,7 +189,7 @@ bool TryEvaluate(ReRevvedCivilizationId          civilization,
         composed < std::numeric_limits<int32_t>::min() ||
         composed > std::numeric_limits<int32_t>::max())
     {
-        evaluation.statusFlags |= REREVVED_UNIT_MOVEMENT_RULE_EVALUATION_OVERFLOW;
+        evaluation.statusFlags |= UNIT_MOVEMENT_RULE_EVALUATION_OVERFLOW;
         return true;
     }
 
@@ -205,30 +205,30 @@ void ResetForTests()
 
 } // namespace rerevved::unit_movement_rules
 
-static_assert(sizeof(ReRevvedUnitMovementRule) == 168);
-static_assert(sizeof(ReRevvedUnitMovementRuleInfo) == 192);
-static_assert(sizeof(ReRevvedUnitMovementQuery) == 40);
-static_assert(sizeof(ReRevvedUnitMovementEvaluation) == 40);
+static_assert(sizeof(UnitMovementRule) == 168);
+static_assert(sizeof(UnitMovementRuleInfo) == 192);
+static_assert(sizeof(UnitMovementQuery) == 40);
+static_assert(sizeof(UnitMovementEvaluation) == 40);
 
-extern "C" uint32_t ReRevvedUnitMovementRulesAbiVersion(void)
+extern "C" uint32_t UnitMovementRulesAbiVersion(void)
 {
-    return REREVVED_UNIT_MOVEMENT_RULES_ABI_VERSION;
+    return UNIT_MOVEMENT_RULES_ABI_VERSION;
 }
 
-extern "C" int32_t ReRevvedRegisterUnitMovementRule(
-    const ReRevvedUnitMovementRule* rule)
+extern "C" int32_t RegisterUnitMovementRule(
+    const UnitMovementRule* rule)
 {
     using namespace rerevved::unit_movement_rules;
-    if (!rule || rule->structSize < sizeof(ReRevvedUnitMovementRule) ||
+    if (!rule || rule->structSize < sizeof(UnitMovementRule) ||
         !isRuleIdValid(rule->providerId) || !isRuleIdValid(rule->ruleId) ||
         !isTargetValid(rule->civilization, rule->baseUnitType, rule->identity) ||
         !isZeroed(rule->reserved))
     {
-        return REREVVED_UNIT_MOVEMENT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_MOVEMENT_RULES_ERR_INVALID_ARGUMENT;
     }
 
-    ReRevvedUnitMovementRule normalized = *rule;
-    normalized.structSize               = sizeof(normalized);
+    UnitMovementRule normalized = *rule;
+    normalized.structSize       = sizeof(normalized);
     normalizeRuleId(normalized.providerId);
     normalizeRuleId(normalized.ruleId);
 
@@ -243,8 +243,8 @@ extern "C" int32_t ReRevvedRegisterUnitMovementRule(
         if (duplicate != registry.end())
         {
             return std::memcmp(&*duplicate, &normalized, sizeof(normalized)) == 0
-                       ? REREVVED_UNIT_MOVEMENT_RULES_OK
-                       : REREVVED_UNIT_MOVEMENT_RULES_ERR_DUPLICATE_RULE_ID;
+                       ? UNIT_MOVEMENT_RULES_OK
+                       : UNIT_MOVEMENT_RULES_ERR_DUPLICATE_RULE_ID;
         }
 
         registry.push_back(normalized);
@@ -252,48 +252,48 @@ extern "C" int32_t ReRevvedRegisterUnitMovementRule(
     }
     catch (...)
     {
-        return REREVVED_UNIT_MOVEMENT_RULES_ERR_INTERNAL;
+        return UNIT_MOVEMENT_RULES_ERR_INTERNAL;
     }
-    return REREVVED_UNIT_MOVEMENT_RULES_OK;
+    return UNIT_MOVEMENT_RULES_OK;
 }
 
-extern "C" int32_t ReRevvedGetUnitMovementRuleCount(uint32_t* outCount)
+extern "C" int32_t GetUnitMovementRuleCount(uint32_t* outCount)
 {
     if (!outCount)
     {
-        return REREVVED_UNIT_MOVEMENT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_MOVEMENT_RULES_ERR_INVALID_ARGUMENT;
     }
 
     std::shared_lock lock(rerevved::unit_movement_rules::registryMutex);
     *outCount = static_cast<uint32_t>(
         rerevved::unit_movement_rules::registry.size());
-    return REREVVED_UNIT_MOVEMENT_RULES_OK;
+    return UNIT_MOVEMENT_RULES_OK;
 }
 
-extern "C" int32_t ReRevvedGetUnitMovementRule(
-    uint32_t                      index,
-    ReRevvedUnitMovementRuleInfo* out,
-    uint32_t                      outSize)
+extern "C" int32_t GetUnitMovementRule(
+    uint32_t              index,
+    UnitMovementRuleInfo* out,
+    uint32_t              outSize)
 {
     using namespace rerevved::unit_movement_rules;
     if (!out)
     {
-        return REREVVED_UNIT_MOVEMENT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_MOVEMENT_RULES_ERR_INVALID_ARGUMENT;
     }
     clearOutput(out, outSize);
     if (outSize < kRuleInfoPrefix)
     {
-        return REREVVED_UNIT_MOVEMENT_RULES_ERR_BUFFER_TOO_SMALL;
+        return UNIT_MOVEMENT_RULES_ERR_BUFFER_TOO_SMALL;
     }
 
     std::shared_lock lock(registryMutex);
     if (index >= registry.size())
     {
-        return REREVVED_UNIT_MOVEMENT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_MOVEMENT_RULES_ERR_INVALID_ARGUMENT;
     }
 
-    const auto&                  rule = registry[index];
-    ReRevvedUnitMovementRuleInfo result{};
+    const auto&          rule = registry[index];
+    UnitMovementRuleInfo result{};
     result.structSize   = sizeof(result);
     result.civilization = rule.civilization;
     result.baseUnitType = rule.baseUnitType;
@@ -304,35 +304,35 @@ extern "C" int32_t ReRevvedGetUnitMovementRule(
     return copyOutput(out, outSize, result);
 }
 
-extern "C" int32_t ReRevvedEvaluateUnitMovement(
-    const ReRevvedUnitMovementQuery* query,
-    ReRevvedUnitMovementEvaluation*  out,
-    uint32_t                         outSize)
+extern "C" int32_t EvaluateUnitMovement(
+    const UnitMovementQuery* query,
+    UnitMovementEvaluation*  out,
+    uint32_t                 outSize)
 {
     using namespace rerevved::unit_movement_rules;
     if (!out)
     {
-        return REREVVED_UNIT_MOVEMENT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_MOVEMENT_RULES_ERR_INVALID_ARGUMENT;
     }
     clearOutput(out, outSize);
     if (outSize < kEvaluationPrefix)
     {
-        return REREVVED_UNIT_MOVEMENT_RULES_ERR_BUFFER_TOO_SMALL;
+        return UNIT_MOVEMENT_RULES_ERR_BUFFER_TOO_SMALL;
     }
-    if (!query || query->structSize < sizeof(ReRevvedUnitMovementQuery) ||
+    if (!query || query->structSize < sizeof(UnitMovementQuery) ||
         !isZeroed(query->reserved))
     {
-        return REREVVED_UNIT_MOVEMENT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_MOVEMENT_RULES_ERR_INVALID_ARGUMENT;
     }
 
-    ReRevvedUnitMovementEvaluation result{};
+    UnitMovementEvaluation result{};
     if (!TryEvaluate(query->civilization,
                      query->baseUnitType,
                      query->identity,
                      query->nativeValue,
                      result))
     {
-        return REREVVED_UNIT_MOVEMENT_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_MOVEMENT_RULES_ERR_INVALID_ARGUMENT;
     }
     return copyOutput(out, outSize, result);
 }

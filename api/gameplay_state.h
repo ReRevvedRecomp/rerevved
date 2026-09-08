@@ -2,9 +2,9 @@
 //
 // The guest frame thread publishes immutable snapshots for host-side readers.
 // Mods do not link against the ReRevved executable; they resolve the two entry
-// points from the host process and check ReRevvedGameplayAbiVersion first.
+// points from the host process and check GameplayAbiVersion first.
 //
-// ABI 1 evolves additively by consuming reserved fields or adding validity
+// ABI 2 evolves additively by consuming reserved fields or adding validity
 // bits without changing existing offsets. An incompatible change requires a
 // new ABI version.
 
@@ -14,44 +14,44 @@
 
 #include <game_ids.h>
 
-#if defined(REREVVED_GAMEPLAY_API_EXPORTS)
+#if defined(GAMEPLAY_API_EXPORTS)
 #if defined(_WIN32)
-#define REREVVED_GAMEPLAY_API __declspec(dllexport)
+#define GAMEPLAY_API __declspec(dllexport)
 #else
-#define REREVVED_GAMEPLAY_API __attribute__((visibility("default")))
+#define GAMEPLAY_API __attribute__((visibility("default")))
 #endif
 #else
-#define REREVVED_GAMEPLAY_API
+#define GAMEPLAY_API
 #endif
 
-#define REREVVED_GAMEPLAY_ABI_VERSION 1u
+#define GAMEPLAY_ABI_VERSION 2u
 
 enum
 {
-    REREVVED_GAMEPLAY_OK                   = 0,
-    REREVVED_GAMEPLAY_ERR_UNAVAILABLE      = -1,
-    REREVVED_GAMEPLAY_ERR_INVALID_ARGUMENT = -10,
-    REREVVED_GAMEPLAY_ERR_BUFFER_TOO_SMALL = -11,
+    GAMEPLAY_OK                   = 0,
+    GAMEPLAY_ERR_UNAVAILABLE      = -1,
+    GAMEPLAY_ERR_INVALID_ARGUMENT = -10,
+    GAMEPLAY_ERR_BUFFER_TOO_SMALL = -11,
 };
 
 enum
 {
-    REREVVED_GAMEPLAY_VALID_FRONTEND     = 1u << 0,
-    REREVVED_GAMEPLAY_VALID_TURN         = 1u << 1,
-    REREVVED_GAMEPLAY_VALID_INTERFACE    = 1u << 2,
-    REREVVED_GAMEPLAY_VALID_CIVILIZATION = 1u << 3,
-    REREVVED_GAMEPLAY_VALID_ERA          = 1u << 4,
-    REREVVED_GAMEPLAY_VALID_YEAR         = 1u << 5,
-    REREVVED_GAMEPLAY_VALID_TURN_NUMBER  = 1u << 6,
+    GAMEPLAY_VALID_FRONTEND     = 1u << 0,
+    GAMEPLAY_VALID_TURN         = 1u << 1,
+    GAMEPLAY_VALID_INTERFACE    = 1u << 2,
+    GAMEPLAY_VALID_CIVILIZATION = 1u << 3,
+    GAMEPLAY_VALID_ERA          = 1u << 4,
+    GAMEPLAY_VALID_YEAR         = 1u << 5,
+    GAMEPLAY_VALID_TURN_NUMBER  = 1u << 6,
 };
 
-#define REREVVED_GAMEPLAY_PLAYER_UNKNOWN       (-1)
-#define REREVVED_GAMEPLAY_CIVILIZATION_UNKNOWN (-1)
-#define REREVVED_GAMEPLAY_ERA_UNKNOWN          (-1)
-#define REREVVED_GAMEPLAY_YEAR_UNKNOWN         (-2147483647 - 1)
-#define REREVVED_GAMEPLAY_TURN_UNKNOWN         (-1)
+#define GAMEPLAY_PLAYER_UNKNOWN       (-1)
+#define GAMEPLAY_CIVILIZATION_UNKNOWN (-1)
+#define GAMEPLAY_ERA_UNKNOWN          (-1)
+#define GAMEPLAY_YEAR_UNKNOWN         (-2147483647 - 1)
+#define GAMEPLAY_TURN_UNKNOWN         (-1)
 
-typedef struct ReRevvedGameplayState
+typedef struct GameplayState
 {
     // Size written when outSize can hold this structure, including when the
     // snapshot is unavailable. Smaller buffers are cleared as far as possible
@@ -72,29 +72,29 @@ typedef struct ReRevvedGameplayState
     int32_t  available;
     // These fields describe the active human player. Their validity bits are
     // clear during AI turns, menu/loading transitions, or failed guest reads.
-    ReRevvedCivilizationId civilization;
-    int32_t                era;
-    int32_t                year;
-    int32_t                turn;
-    int32_t                reserved[4];
-} ReRevvedGameplayState;
+    CivilizationId civilization;
+    int32_t        era;
+    int32_t        year;
+    int32_t        turn;
+    int32_t        reserved[4];
+} GameplayState;
 
-typedef uint32_t (*ReRevvedGameplayAbiVersionFn)(void);
-typedef int (*ReRevvedGetGameplayStateFn)(ReRevvedGameplayState* out,
-                                          uint32_t               outSize);
+typedef uint32_t (*GameplayAbiVersionFn)(void);
+typedef int (*GetGameplayStateFn)(GameplayState* out,
+                                  uint32_t       outSize);
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-    REREVVED_GAMEPLAY_API uint32_t ReRevvedGameplayAbiVersion(void);
-    REREVVED_GAMEPLAY_API int      ReRevvedGetGameplayState(
-        ReRevvedGameplayState* out,
-        uint32_t               outSize);
+    GAMEPLAY_API uint32_t GameplayAbiVersion(void);
+    GAMEPLAY_API int      GetGameplayState(
+        GameplayState* out,
+        uint32_t       outSize);
 
 #ifdef __cplusplus
 } // extern "C"
 #endif
 
-#undef REREVVED_GAMEPLAY_API
+#undef GAMEPLAY_API

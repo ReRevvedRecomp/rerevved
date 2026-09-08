@@ -21,8 +21,8 @@ void ReRevvedApplyUniqueEraAbilityCell(PPCRegister& cellOffset,
                                        PPCRegister& nativeAbility)
 {
     if ((cellOffset.u32 & 3u) != 0 ||
-        unlockEra.s32 < REREVVED_UNIQUE_ERA_ANCIENT ||
-        unlockEra.s32 > REREVVED_UNIQUE_ERA_MODERN)
+        unlockEra.s32 < UNLOCK_ERA_ANCIENT ||
+        unlockEra.s32 > UNLOCK_ERA_MODERN)
     {
         return;
     }
@@ -39,9 +39,9 @@ void ReRevvedApplyUniqueEraAbilityCell(PPCRegister& cellOffset,
         return;
     }
 
-    const auto civilization = static_cast<ReRevvedCivilizationId>(
+    const auto civilization = static_cast<CivilizationId>(
         civilizationWord / 4u);
-    ReRevvedUniqueEraAbilityCellEvaluation evaluation{};
+    EraAbilityCellEvaluation evaluation{};
     if (rerevved::unique_era_abilities::TryEvaluate(civilization,
                                                     unlockEra.s32,
                                                     nativeAbility.s32,
@@ -53,23 +53,23 @@ void ReRevvedApplyUniqueEraAbilityCell(PPCRegister& cellOffset,
 
 void ReRevvedApplyBarbarianVillageCityReplacement(PPCRegister& civilization)
 {
-    if (civilization.s32 != REREVVED_CIVILIZATION_MONGOLIAN)
+    if (civilization.s32 != CIVILIZATION_MONGOLIAN)
     {
         return;
     }
 
-    ReRevvedUniqueEraAbilityCellEvaluation evaluation{};
+    EraAbilityCellEvaluation evaluation{};
     if (rerevved::unique_era_abilities::TryEvaluate(
-            REREVVED_CIVILIZATION_MONGOLIAN,
-            REREVVED_UNIQUE_ERA_ANCIENT,
-            REREVVED_UNIQUE_ERA_ABILITY_BARBARIAN_VILLAGES_BECOME_CITIES,
+            CIVILIZATION_MONGOLIAN,
+            UNLOCK_ERA_ANCIENT,
+            ERA_ABILITY_BARBARIAN_VILLAGES_BECOME_CITIES,
             evaluation) &&
         evaluation.effectiveAbility !=
-            REREVVED_UNIQUE_ERA_ABILITY_BARBARIAN_VILLAGES_BECOME_CITIES)
+            ERA_ABILITY_BARBARIAN_VILLAGES_BECOME_CITIES)
     {
         // This native effect hard-codes civilization 14 instead of querying
         // UEA 40. A non-civilization value selects its ordinary reward path.
-        civilization.s64 = REREVVED_CIVILIZATION_UNKNOWN;
+        civilization.s64 = CIVILIZATION_UNKNOWN;
     }
 }
 
@@ -88,7 +88,7 @@ void ReRevvedEndHorsebackRidingOwnershipCheck(PPCRegister& ownershipBase)
 void ReRevvedSelectHorsebackRidingAbility(PPCRegister& ability)
 {
     ability.s64 =
-        REREVVED_UNIQUE_ERA_ABILITY_KNOWLEDGE_OF_HORSEBACK_RIDING;
+        ERA_ABILITY_KNOWLEDGE_OF_HORSEBACK_RIDING;
 }
 
 void ReRevvedSelectHorsebackRidingTechnology(PPCRegister& technology)

@@ -57,8 +57,8 @@ bool tryReadBigEndianU32(uint32_t address, uint32_t& value)
     return true;
 }
 
-bool tryReadCivilization(int32_t                 cityOffset,
-                         ReRevvedCivilizationId& civilization)
+bool tryReadCivilization(int32_t         cityOffset,
+                         CivilizationId& civilization)
 {
     if (cityOffset < 0 || cityOffset % static_cast<int32_t>(kCityStride) != 0)
     {
@@ -84,13 +84,13 @@ bool tryReadCivilization(int32_t                 cityOffset,
                                  static_cast<uint32_t>(player) *
                                      sizeof(uint32_t),
                              civilizationValue) ||
-        civilizationValue >= REREVVED_CIVILIZATION_COUNT)
+        civilizationValue >= CIVILIZATION_COUNT)
     {
         return false;
     }
 
     civilization =
-        static_cast<ReRevvedCivilizationId>(civilizationValue);
+        static_cast<CivilizationId>(civilizationValue);
     return true;
 }
 
@@ -100,33 +100,33 @@ void ReRevvedApplyUnitProductionCostPercent(PPCRegister& cityOffset,
                                             PPCRegister& unitType,
                                             PPCRegister& costScalar)
 {
-    if (unitType.s32 < 0 || unitType.s32 >= REREVVED_UNIT_TYPE_COUNT)
+    if (unitType.s32 < 0 || unitType.s32 >= UNIT_TYPE_COUNT)
     {
         return;
     }
 
-    ReRevvedCivilizationId civilization = REREVVED_CIVILIZATION_UNKNOWN;
+    CivilizationId civilization = CIVILIZATION_UNKNOWN;
     if (!tryReadCivilization(cityOffset.s32, civilization))
     {
         return;
     }
 
-    ReRevvedUnitIdentityId identity = REREVVED_UNIT_IDENTITY_BASE;
+    UnitIdentityId identity = UNIT_IDENTITY_BASE;
     if (!rerevved::unit_catalog::TryResolveUnitIdentity(
             civilization, unitType.s32, identity) ||
-        identity == REREVVED_UNIT_IDENTITY_BASE)
+        identity == UNIT_IDENTITY_BASE)
     {
         return;
     }
 
-    ReRevvedUnitProductionCostEvaluation evaluation{};
+    UnitProductionCostEvaluation evaluation{};
     if (!rerevved::unit_production_cost_rules::TryEvaluate(
             civilization,
             unitType.s32,
             identity,
             evaluation) ||
         (evaluation.statusFlags &
-         REREVVED_UNIT_PRODUCTION_COST_EVALUATION_OUT_OF_RANGE) != 0)
+         UNIT_PRODUCTION_COST_EVALUATION_OUT_OF_RANGE) != 0)
     {
         return;
     }

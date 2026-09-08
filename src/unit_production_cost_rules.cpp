@@ -21,13 +21,13 @@ constexpr uint32_t kRuleInfoPrefix   = 152;
 constexpr uint32_t kEvaluationPrefix = 20;
 constexpr int32_t  kNativePercent    = 100;
 
-std::shared_mutex                           registryMutex;
-std::vector<ReRevvedUnitProductionCostRule> registry;
+std::shared_mutex                   registryMutex;
+std::vector<UnitProductionCostRule> registry;
 
 bool isRuleIdValid(const char* value)
 {
     const void* terminator =
-        std::memchr(value, '\0', REREVVED_UNIT_PRODUCTION_COST_RULE_ID_CAPACITY);
+        std::memchr(value, '\0', UNIT_PRODUCTION_COST_RULE_ID_CAPACITY);
     if (!terminator || value[0] == '\0')
     {
         return false;
@@ -52,7 +52,7 @@ void normalizeRuleId(char* value)
     const size_t length = std::strlen(value);
     std::memset(value + length + 1,
                 0,
-                REREVVED_UNIT_PRODUCTION_COST_RULE_ID_CAPACITY - length - 1);
+                UNIT_PRODUCTION_COST_RULE_ID_CAPACITY - length - 1);
 }
 
 template <size_t Size>
@@ -68,52 +68,52 @@ bool isZeroed(const int32_t (&values)[Size])
     return true;
 }
 
-bool isCivilizationValid(ReRevvedCivilizationId civilization)
+bool isCivilizationValid(CivilizationId civilization)
 {
-    return civilization >= 0 && civilization < REREVVED_CIVILIZATION_COUNT;
+    return civilization >= 0 && civilization < CIVILIZATION_COUNT;
 }
 
-bool isUnitTypeValid(ReRevvedUnitTypeId unitType)
+bool isUnitTypeValid(UnitTypeId unitType)
 {
-    return unitType >= 0 && unitType < REREVVED_UNIT_TYPE_COUNT;
+    return unitType >= 0 && unitType < UNIT_TYPE_COUNT;
 }
 
-bool isTargetValid(ReRevvedCivilizationId civilization,
-                   ReRevvedUnitTypeId     baseUnitType,
-                   ReRevvedUnitIdentityId identity)
+bool isTargetValid(CivilizationId civilization,
+                   UnitTypeId     baseUnitType,
+                   UnitIdentityId identity)
 {
     if (!isCivilizationValid(civilization) || !isUnitTypeValid(baseUnitType) ||
-        identity == REREVVED_UNIT_IDENTITY_BASE ||
-        identity < REREVVED_UNIT_IDENTITY_BASE ||
-        identity >= REREVVED_UNIT_IDENTITY_COUNT)
+        identity == UNIT_IDENTITY_BASE ||
+        identity < UNIT_IDENTITY_BASE ||
+        identity >= UNIT_IDENTITY_COUNT)
     {
         return false;
     }
 
-    ReRevvedUnitIdentityId resolved = REREVVED_UNIT_IDENTITY_BASE;
+    UnitIdentityId resolved = UNIT_IDENTITY_BASE;
     return unit_catalog::TryResolveUnitIdentity(
                civilization, baseUnitType, resolved) &&
            resolved == identity;
 }
 
-bool targetMatches(const ReRevvedUnitProductionCostRule& rule,
-                   ReRevvedCivilizationId                civilization,
-                   ReRevvedUnitTypeId                    baseUnitType,
-                   ReRevvedUnitIdentityId                identity)
+bool targetMatches(const UnitProductionCostRule& rule,
+                   CivilizationId                civilization,
+                   UnitTypeId                    baseUnitType,
+                   UnitIdentityId                identity)
 {
     return rule.civilization == civilization &&
            rule.baseUnitType == baseUnitType && rule.identity == identity;
 }
 
-bool ruleKeyMatches(const ReRevvedUnitProductionCostRule& left,
-                    const ReRevvedUnitProductionCostRule& right)
+bool ruleKeyMatches(const UnitProductionCostRule& left,
+                    const UnitProductionCostRule& right)
 {
     return std::strcmp(left.providerId, right.providerId) == 0 &&
            std::strcmp(left.ruleId, right.ruleId) == 0;
 }
 
-bool ruleKeyLess(const ReRevvedUnitProductionCostRule& left,
-                 const ReRevvedUnitProductionCostRule& right)
+bool ruleKeyLess(const UnitProductionCostRule& left,
+                 const UnitProductionCostRule& right)
 {
     const int providerOrder = std::strcmp(left.providerId, right.providerId);
     return providerOrder < 0 ||
@@ -136,15 +136,15 @@ int32_t copyOutput(Record* out, uint32_t outSize, const Record& producer)
     uint32_t copySize = std::min<uint32_t>(outSize, sizeof(Record));
     copySize -= copySize % sizeof(uint32_t);
     std::memcpy(out, &producer, copySize);
-    return REREVVED_UNIT_PRODUCTION_COST_RULES_OK;
+    return UNIT_PRODUCTION_COST_RULES_OK;
 }
 
 } // namespace
 
-bool TryEvaluate(ReRevvedCivilizationId                civilization,
-                 ReRevvedUnitTypeId                    baseUnitType,
-                 ReRevvedUnitIdentityId                identity,
-                 ReRevvedUnitProductionCostEvaluation& evaluation)
+bool TryEvaluate(CivilizationId                civilization,
+                 UnitTypeId                    baseUnitType,
+                 UnitIdentityId                identity,
+                 UnitProductionCostEvaluation& evaluation)
 {
     if (!isTargetValid(civilization, baseUnitType, identity))
     {
@@ -152,7 +152,7 @@ bool TryEvaluate(ReRevvedCivilizationId                civilization,
     }
 
     evaluation = {
-        sizeof(ReRevvedUnitProductionCostEvaluation),
+        sizeof(UnitProductionCostEvaluation),
         kNativePercent,
         kNativePercent,
         0,
@@ -192,7 +192,7 @@ bool TryEvaluate(ReRevvedCivilizationId                civilization,
         composed > std::numeric_limits<int32_t>::max())
     {
         evaluation.statusFlags |=
-            REREVVED_UNIT_PRODUCTION_COST_EVALUATION_OUT_OF_RANGE;
+            UNIT_PRODUCTION_COST_EVALUATION_OUT_OF_RANGE;
         return true;
     }
 
@@ -208,30 +208,30 @@ void ResetForTests()
 
 } // namespace rerevved::unit_production_cost_rules
 
-static_assert(sizeof(ReRevvedUnitProductionCostRule) == 168);
-static_assert(sizeof(ReRevvedUnitProductionCostRuleInfo) == 192);
-static_assert(sizeof(ReRevvedUnitProductionCostQuery) == 40);
-static_assert(sizeof(ReRevvedUnitProductionCostEvaluation) == 40);
+static_assert(sizeof(UnitProductionCostRule) == 168);
+static_assert(sizeof(UnitProductionCostRuleInfo) == 192);
+static_assert(sizeof(UnitProductionCostQuery) == 40);
+static_assert(sizeof(UnitProductionCostEvaluation) == 40);
 
-extern "C" uint32_t ReRevvedUnitProductionCostRulesAbiVersion(void)
+extern "C" uint32_t UnitProductionCostRulesAbiVersion(void)
 {
-    return REREVVED_UNIT_PRODUCTION_COST_RULES_ABI_VERSION;
+    return UNIT_PRODUCTION_COST_RULES_ABI_VERSION;
 }
 
-extern "C" int32_t ReRevvedRegisterUnitProductionCostRule(
-    const ReRevvedUnitProductionCostRule* rule)
+extern "C" int32_t RegisterUnitProductionCostRule(
+    const UnitProductionCostRule* rule)
 {
     using namespace rerevved::unit_production_cost_rules;
-    if (!rule || rule->structSize < sizeof(ReRevvedUnitProductionCostRule) ||
+    if (!rule || rule->structSize < sizeof(UnitProductionCostRule) ||
         !isRuleIdValid(rule->providerId) || !isRuleIdValid(rule->ruleId) ||
         !isTargetValid(rule->civilization, rule->baseUnitType, rule->identity) ||
         !isZeroed(rule->reserved))
     {
-        return REREVVED_UNIT_PRODUCTION_COST_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_PRODUCTION_COST_RULES_ERR_INVALID_ARGUMENT;
     }
 
-    ReRevvedUnitProductionCostRule normalized = *rule;
-    normalized.structSize                     = sizeof(normalized);
+    UnitProductionCostRule normalized = *rule;
+    normalized.structSize             = sizeof(normalized);
     normalizeRuleId(normalized.providerId);
     normalizeRuleId(normalized.ruleId);
 
@@ -246,8 +246,8 @@ extern "C" int32_t ReRevvedRegisterUnitProductionCostRule(
         if (duplicate != registry.end())
         {
             return std::memcmp(&*duplicate, &normalized, sizeof(normalized)) == 0
-                       ? REREVVED_UNIT_PRODUCTION_COST_RULES_OK
-                       : REREVVED_UNIT_PRODUCTION_COST_RULES_ERR_DUPLICATE_RULE_ID;
+                       ? UNIT_PRODUCTION_COST_RULES_OK
+                       : UNIT_PRODUCTION_COST_RULES_ERR_DUPLICATE_RULE_ID;
         }
 
         registry.push_back(normalized);
@@ -255,48 +255,48 @@ extern "C" int32_t ReRevvedRegisterUnitProductionCostRule(
     }
     catch (...)
     {
-        return REREVVED_UNIT_PRODUCTION_COST_RULES_ERR_INTERNAL;
+        return UNIT_PRODUCTION_COST_RULES_ERR_INTERNAL;
     }
-    return REREVVED_UNIT_PRODUCTION_COST_RULES_OK;
+    return UNIT_PRODUCTION_COST_RULES_OK;
 }
 
-extern "C" int32_t ReRevvedGetUnitProductionCostRuleCount(uint32_t* outCount)
+extern "C" int32_t GetUnitProductionCostRuleCount(uint32_t* outCount)
 {
     if (!outCount)
     {
-        return REREVVED_UNIT_PRODUCTION_COST_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_PRODUCTION_COST_RULES_ERR_INVALID_ARGUMENT;
     }
 
     std::shared_lock lock(rerevved::unit_production_cost_rules::registryMutex);
     *outCount = static_cast<uint32_t>(
         rerevved::unit_production_cost_rules::registry.size());
-    return REREVVED_UNIT_PRODUCTION_COST_RULES_OK;
+    return UNIT_PRODUCTION_COST_RULES_OK;
 }
 
-extern "C" int32_t ReRevvedGetUnitProductionCostRule(
-    uint32_t                            index,
-    ReRevvedUnitProductionCostRuleInfo* out,
-    uint32_t                            outSize)
+extern "C" int32_t GetUnitProductionCostRule(
+    uint32_t                    index,
+    UnitProductionCostRuleInfo* out,
+    uint32_t                    outSize)
 {
     using namespace rerevved::unit_production_cost_rules;
     if (!out)
     {
-        return REREVVED_UNIT_PRODUCTION_COST_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_PRODUCTION_COST_RULES_ERR_INVALID_ARGUMENT;
     }
     clearOutput(out, outSize);
     if (outSize < kRuleInfoPrefix)
     {
-        return REREVVED_UNIT_PRODUCTION_COST_RULES_ERR_BUFFER_TOO_SMALL;
+        return UNIT_PRODUCTION_COST_RULES_ERR_BUFFER_TOO_SMALL;
     }
 
     std::shared_lock lock(registryMutex);
     if (index >= registry.size())
     {
-        return REREVVED_UNIT_PRODUCTION_COST_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_PRODUCTION_COST_RULES_ERR_INVALID_ARGUMENT;
     }
 
-    const auto&                        rule = registry[index];
-    ReRevvedUnitProductionCostRuleInfo result{};
+    const auto&                rule = registry[index];
+    UnitProductionCostRuleInfo result{};
     result.structSize      = sizeof(result);
     result.civilization    = rule.civilization;
     result.baseUnitType    = rule.baseUnitType;
@@ -307,34 +307,34 @@ extern "C" int32_t ReRevvedGetUnitProductionCostRule(
     return copyOutput(out, outSize, result);
 }
 
-extern "C" int32_t ReRevvedEvaluateUnitProductionCost(
-    const ReRevvedUnitProductionCostQuery* query,
-    ReRevvedUnitProductionCostEvaluation*  out,
-    uint32_t                               outSize)
+extern "C" int32_t EvaluateUnitProductionCost(
+    const UnitProductionCostQuery* query,
+    UnitProductionCostEvaluation*  out,
+    uint32_t                       outSize)
 {
     using namespace rerevved::unit_production_cost_rules;
     if (!out)
     {
-        return REREVVED_UNIT_PRODUCTION_COST_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_PRODUCTION_COST_RULES_ERR_INVALID_ARGUMENT;
     }
     clearOutput(out, outSize);
     if (outSize < kEvaluationPrefix)
     {
-        return REREVVED_UNIT_PRODUCTION_COST_RULES_ERR_BUFFER_TOO_SMALL;
+        return UNIT_PRODUCTION_COST_RULES_ERR_BUFFER_TOO_SMALL;
     }
-    if (!query || query->structSize < sizeof(ReRevvedUnitProductionCostQuery) ||
+    if (!query || query->structSize < sizeof(UnitProductionCostQuery) ||
         !isZeroed(query->reserved))
     {
-        return REREVVED_UNIT_PRODUCTION_COST_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_PRODUCTION_COST_RULES_ERR_INVALID_ARGUMENT;
     }
 
-    ReRevvedUnitProductionCostEvaluation result{};
+    UnitProductionCostEvaluation result{};
     if (!TryEvaluate(query->civilization,
                      query->baseUnitType,
                      query->identity,
                      result))
     {
-        return REREVVED_UNIT_PRODUCTION_COST_RULES_ERR_INVALID_ARGUMENT;
+        return UNIT_PRODUCTION_COST_RULES_ERR_INVALID_ARGUMENT;
     }
     return copyOutput(out, outSize, result);
 }

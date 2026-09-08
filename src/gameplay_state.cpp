@@ -24,7 +24,7 @@ struct Snapshot
     uint32_t interfaceGate     = 0;
     uint32_t civilization      = UINT32_MAX;
     uint32_t era               = UINT32_MAX;
-    int32_t  year              = REREVVED_GAMEPLAY_YEAR_UNKNOWN;
+    int32_t  year              = GAMEPLAY_YEAR_UNKNOWN;
     uint32_t turn              = UINT32_MAX;
     bool     frontendKnown     = false;
     bool     gameplayActive    = false;
@@ -251,73 +251,73 @@ static bool getPublishedSnapshot(Snapshot& out)
 
 } // namespace rerevved::gameplay
 
-static_assert(sizeof(ReRevvedGameplayState) == 80);
+static_assert(sizeof(GameplayState) == 80);
 
-extern "C" uint32_t ReRevvedGameplayAbiVersion(void)
+extern "C" uint32_t GameplayAbiVersion(void)
 {
-    return REREVVED_GAMEPLAY_ABI_VERSION;
+    return GAMEPLAY_ABI_VERSION;
 }
 
-extern "C" int ReRevvedGetGameplayState(
-    ReRevvedGameplayState* out,
-    uint32_t               outSize)
+extern "C" int GetGameplayState(
+    GameplayState* out,
+    uint32_t       outSize)
 {
     if (!out)
     {
-        return REREVVED_GAMEPLAY_ERR_INVALID_ARGUMENT;
+        return GAMEPLAY_ERR_INVALID_ARGUMENT;
     }
 
     std::memset(out, 0, std::min<size_t>(outSize, sizeof(*out)));
     if (outSize < sizeof(*out))
     {
-        return REREVVED_GAMEPLAY_ERR_BUFFER_TOO_SMALL;
+        return GAMEPLAY_ERR_BUFFER_TOO_SMALL;
     }
 
     out->structSize   = sizeof(*out);
-    out->activePlayer = REREVVED_GAMEPLAY_PLAYER_UNKNOWN;
-    out->civilization = REREVVED_GAMEPLAY_CIVILIZATION_UNKNOWN;
-    out->era          = REREVVED_GAMEPLAY_ERA_UNKNOWN;
-    out->year         = REREVVED_GAMEPLAY_YEAR_UNKNOWN;
-    out->turn         = REREVVED_GAMEPLAY_TURN_UNKNOWN;
+    out->activePlayer = GAMEPLAY_PLAYER_UNKNOWN;
+    out->civilization = GAMEPLAY_CIVILIZATION_UNKNOWN;
+    out->era          = GAMEPLAY_ERA_UNKNOWN;
+    out->year         = GAMEPLAY_YEAR_UNKNOWN;
+    out->turn         = GAMEPLAY_TURN_UNKNOWN;
 
     rerevved::gameplay::Snapshot snapshot{};
     if (!rerevved::gameplay::getPublishedSnapshot(snapshot))
     {
-        return REREVVED_GAMEPLAY_ERR_UNAVAILABLE;
+        return GAMEPLAY_ERR_UNAVAILABLE;
     }
 
     if (snapshot.frontendKnown)
     {
-        out->validFields |= REREVVED_GAMEPLAY_VALID_FRONTEND;
+        out->validFields |= GAMEPLAY_VALID_FRONTEND;
     }
     if (snapshot.turnOwnerKnown)
     {
-        out->validFields |= REREVVED_GAMEPLAY_VALID_TURN;
+        out->validFields |= GAMEPLAY_VALID_TURN;
         out->activePlayer    = static_cast<int32_t>(snapshot.activePlayer);
         out->humanPlayerMask = snapshot.humanPlayerMask;
     }
     if (snapshot.interfaceKnown)
     {
-        out->validFields |= REREVVED_GAMEPLAY_VALID_INTERFACE;
+        out->validFields |= GAMEPLAY_VALID_INTERFACE;
     }
     if (snapshot.civilizationKnown)
     {
-        out->validFields |= REREVVED_GAMEPLAY_VALID_CIVILIZATION;
+        out->validFields |= GAMEPLAY_VALID_CIVILIZATION;
         out->civilization = static_cast<int32_t>(snapshot.civilization);
     }
     if (snapshot.eraKnown)
     {
-        out->validFields |= REREVVED_GAMEPLAY_VALID_ERA;
+        out->validFields |= GAMEPLAY_VALID_ERA;
         out->era = static_cast<int32_t>(snapshot.era);
     }
     if (snapshot.yearKnown)
     {
-        out->validFields |= REREVVED_GAMEPLAY_VALID_YEAR;
+        out->validFields |= GAMEPLAY_VALID_YEAR;
         out->year = snapshot.year;
     }
     if (snapshot.turnNumberKnown)
     {
-        out->validFields |= REREVVED_GAMEPLAY_VALID_TURN_NUMBER;
+        out->validFields |= GAMEPLAY_VALID_TURN_NUMBER;
         out->turn = static_cast<int32_t>(snapshot.turn);
     }
 
@@ -327,5 +327,5 @@ extern "C" int ReRevvedGetGameplayState(
     out->turnOwnerKnown  = snapshot.turnOwnerKnown ? 1 : 0;
     out->humanTurn       = snapshot.humanTurn ? 1 : 0;
     out->available       = snapshot.available ? 1 : 0;
-    return REREVVED_GAMEPLAY_OK;
+    return GAMEPLAY_OK;
 }

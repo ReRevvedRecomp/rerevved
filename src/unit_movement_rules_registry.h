@@ -7,11 +7,11 @@
 namespace rerevved::unit_movement_rules
 {
 
-bool TryEvaluate(ReRevvedCivilizationId          civilization,
-                 ReRevvedUnitTypeId              baseUnitType,
-                 ReRevvedUnitIdentityId          identity,
-                 int32_t                         nativeValue,
-                 ReRevvedUnitMovementEvaluation& evaluation);
+bool TryEvaluate(CivilizationId          civilization,
+                 UnitTypeId              baseUnitType,
+                 UnitIdentityId          identity,
+                 int32_t                 nativeValue,
+                 UnitMovementEvaluation& evaluation);
 
 void ResetForTests();
 

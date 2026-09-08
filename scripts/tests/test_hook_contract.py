@@ -942,8 +942,8 @@ class HookContractTests(unittest.TestCase):
         )[0]
         self.assertIn("std::array<const char*, 9>", parser)
         self.assertIn("if (index != 0", parser)
-        self.assertNotIn("REREVVED_NATION_SELECT_TEXT_SURFACE_RESERVED_5", parser)
-        self.assertIn("REREVVED_NATION_SELECT_TEXT_SURFACE_ERA_HEADING", parser)
+        self.assertNotIn("NATION_SELECT_TEXT_SURFACE_RESERVED_5", parser)
+        self.assertIn("NATION_SELECT_TEXT_SURFACE_ERA_HEADING", parser)
         self.assertIn("(index - 1) / 2", parser)
         self.assertIn("(index - 2) / 2", parser)
         publish = source.split("bool tryPublishText", 1)[1].split(
@@ -974,16 +974,16 @@ class HookContractTests(unittest.TestCase):
         ]:
             self.assertEqual(source.count(f"void {name}"), 1)
         self.assertIn(
-            "REREVVED_NATION_SELECT_TEXT_SURFACE_LEADER_NAME", source
+            "NATION_SELECT_TEXT_SURFACE_LEADER_NAME", source
         )
         self.assertIn(
-            "REREVVED_NATION_SELECT_TEXT_SURFACE_CIVILIZATION_NAME", source
+            "NATION_SELECT_TEXT_SURFACE_CIVILIZATION_NAME", source
         )
         self.assertIn(
-            "REREVVED_NATION_SELECT_TEXT_SURFACE_CIVILIZATION_TRAIT", source
+            "NATION_SELECT_TEXT_SURFACE_CIVILIZATION_TRAIT", source
         )
         self.assertIn(
-            "REREVVED_NATION_SELECT_TEXT_SURFACE_UNIQUE_UNIT_SECTION_HEADING",
+            "NATION_SELECT_TEXT_SURFACE_UNIQUE_UNIT_SECTION_HEADING",
             source,
         )
         trait_hook = source.split(
@@ -1115,7 +1115,7 @@ class HookContractTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("unit_catalog::TryResolveUnitIdentity(", source)
-        self.assertIn("identity == REREVVED_UNIT_IDENTITY_BASE", source)
+        self.assertIn("identity == UNIT_IDENTITY_BASE", source)
 
     def test_generated_horseback_riding_consumer_when_available(self) -> None:
         paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))

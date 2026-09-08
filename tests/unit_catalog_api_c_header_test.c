@@ -3,41 +3,41 @@
 
 #include <stddef.h>
 
-#if REREVVED_GAMEPLAY_CIVILIZATION_UNKNOWN != -1
+#if GAMEPLAY_CIVILIZATION_UNKNOWN != -1
 #error "gameplay civilization unknown must remain a numeric preprocessor value"
 #endif
 
 int main(void)
 {
-    ReRevvedUnitCatalogAbiVersionFn versionFn    = ReRevvedUnitCatalogAbiVersion;
-    ReRevvedGetUnitDefinitionFn     definitionFn = ReRevvedGetUnitDefinition;
-    ReRevvedResolveUnitIdentityFn   identityFn   = ReRevvedResolveUnitIdentity;
-    ReRevvedUnitDefinition          definition   = { 0 };
-    ReRevvedUnitIdentity            identity     = { 0 };
+    UnitCatalogAbiVersionFn versionFn    = UnitCatalogAbiVersion;
+    GetUnitDefinitionFn     definitionFn = GetUnitDefinition;
+    ResolveUnitIdentityFn   identityFn   = ResolveUnitIdentity;
+    UnitDefinition          definition   = { 0 };
+    UnitIdentity            identity     = { 0 };
 
-    if (sizeof(ReRevvedGameplayState) != 80 ||
-        offsetof(ReRevvedGameplayState, civilization) != 44 ||
-        sizeof(ReRevvedUnitDefinition) != 32 ||
-        sizeof(ReRevvedUnitIdentity) != 32 ||
-        REREVVED_GAMEPLAY_CIVILIZATION_UNKNOWN !=
-            REREVVED_CIVILIZATION_UNKNOWN)
+    if (sizeof(GameplayState) != 80 ||
+        offsetof(GameplayState, civilization) != 44 ||
+        sizeof(UnitDefinition) != 32 ||
+        sizeof(UnitIdentity) != 32 ||
+        GAMEPLAY_CIVILIZATION_UNKNOWN !=
+            CIVILIZATION_UNKNOWN)
     {
         return 1;
     }
-    if (versionFn() != REREVVED_UNIT_CATALOG_ABI_VERSION ||
-        definitionFn(REREVVED_UNIT_TYPE_KNIGHTS,
+    if (versionFn() != UNIT_CATALOG_ABI_VERSION ||
+        definitionFn(UNIT_TYPE_KNIGHTS,
                      &definition,
-                     sizeof(definition)) != REREVVED_UNIT_CATALOG_OK ||
-        identityFn(REREVVED_CIVILIZATION_ROMAN,
-                   REREVVED_UNIT_TYPE_KNIGHTS,
-                   REREVVED_UNIT_DISPLAY_FORM_UNIT,
+                     sizeof(definition)) != UNIT_CATALOG_OK ||
+        identityFn(CIVILIZATION_ROMAN,
+                   UNIT_TYPE_KNIGHTS,
+                   UNIT_DISPLAY_FORM_UNIT,
                    &identity,
-                   sizeof(identity)) != REREVVED_UNIT_CATALOG_OK)
+                   sizeof(identity)) != UNIT_CATALOG_OK)
     {
         return 1;
     }
     return definition.baseAttack == 4 &&
-                   identity.identity == REREVVED_UNIT_IDENTITY_CATAPHRACT
+                   identity.identity == UNIT_IDENTITY_CATAPHRACT
                ? 0
                : 1;
 }

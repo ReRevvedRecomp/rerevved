@@ -15,7 +15,7 @@ namespace
 constexpr uint32_t kPlayerCivilizations = 0x830ECD28;
 constexpr int32_t  kPlayerCount         = 6;
 
-bool tryReadCivilization(int32_t player, ReRevvedCivilizationId& civilization)
+bool tryReadCivilization(int32_t player, CivilizationId& civilization)
 {
     if (player < 0 || player >= kPlayerCount)
     {
@@ -40,34 +40,34 @@ bool tryReadCivilization(int32_t player, ReRevvedCivilizationId& civilization)
     const uint32_t value  = (uint32_t{ source[0] } << 24) |
                             (uint32_t{ source[1] } << 16) |
                             (uint32_t{ source[2] } << 8) | uint32_t{ source[3] };
-    if (value >= REREVVED_CIVILIZATION_COUNT)
+    if (value >= CIVILIZATION_COUNT)
     {
         return false;
     }
-    civilization = static_cast<ReRevvedCivilizationId>(value);
+    civilization = static_cast<CivilizationId>(value);
     return true;
 }
 
-void applyBaseValue(PPCRegister&                     player,
-                    PPCRegister&                     unitType,
-                    PPCRegister&                     value,
-                    ReRevvedUniqueUnitScalarProperty property)
+void applyBaseValue(PPCRegister&             player,
+                    PPCRegister&             unitType,
+                    PPCRegister&             value,
+                    UniqueUnitScalarProperty property)
 {
-    ReRevvedCivilizationId civilization = REREVVED_CIVILIZATION_UNKNOWN;
+    CivilizationId civilization = CIVILIZATION_UNKNOWN;
     if (!tryReadCivilization(player.s32, civilization))
     {
         return;
     }
 
-    ReRevvedUnitIdentityId identity = REREVVED_UNIT_IDENTITY_BASE;
+    UnitIdentityId identity = UNIT_IDENTITY_BASE;
     if (!rerevved::unit_catalog::TryResolveUnitIdentity(
             civilization, unitType.s32, identity) ||
-        identity == REREVVED_UNIT_IDENTITY_BASE)
+        identity == UNIT_IDENTITY_BASE)
     {
         return;
     }
 
-    ReRevvedUniqueUnitScalarEvaluation evaluation{};
+    UniqueUnitScalarEvaluation evaluation{};
     if (rerevved::unique_unit_rules::TryEvaluate(civilization,
                                                  unitType.s32,
                                                  identity,
@@ -88,7 +88,7 @@ void ReRevvedApplyUniqueUnitBaseAttack(PPCRegister& player,
     applyBaseValue(player,
                    unitType,
                    value,
-                   REREVVED_UNIQUE_UNIT_SCALAR_BASE_ATTACK);
+                   UNIQUE_UNIT_SCALAR_BASE_ATTACK);
 }
 
 void ReRevvedApplyUniqueUnitBaseDefense(PPCRegister& player,
@@ -98,5 +98,5 @@ void ReRevvedApplyUniqueUnitBaseDefense(PPCRegister& player,
     applyBaseValue(player,
                    unitType,
                    value,
-                   REREVVED_UNIQUE_UNIT_SCALAR_BASE_DEFENSE);
+                   UNIQUE_UNIT_SCALAR_BASE_DEFENSE);
 }

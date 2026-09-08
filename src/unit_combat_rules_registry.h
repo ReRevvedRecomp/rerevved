@@ -5,12 +5,12 @@
 namespace rerevved::unit_combat_rules
 {
 
-bool TryEvaluate(ReRevvedCivilizationId        civilization,
-                 ReRevvedUnitTypeId            baseUnitType,
-                 ReRevvedUnitIdentityId        identity,
-                 ReRevvedTerrainId             terrain,
-                 ReRevvedUnitCombatProperty    property,
-                 ReRevvedUnitCombatEvaluation& evaluation);
+bool TryEvaluate(CivilizationId        civilization,
+                 UnitTypeId            baseUnitType,
+                 UnitIdentityId        identity,
+                 TerrainId             terrain,
+                 UnitCombatProperty    property,
+                 UnitCombatEvaluation& evaluation);
 
 void ResetForTests();
 

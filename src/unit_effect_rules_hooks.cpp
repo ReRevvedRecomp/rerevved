@@ -17,16 +17,16 @@ constexpr uint32_t kPlayerCivilizations = 0x830ECD28;
 constexpr int32_t  kPlayerCount         = 6;
 constexpr uint32_t kUnitRecordSize      = 0x54;
 
-constexpr std::array<ReRevvedUnitEffectId, 9> kSpecialUpgradeEffects = {
-    REREVVED_UNIT_EFFECT_CREATION_BLITZ,
-    REREVVED_UNIT_EFFECT_CREATION_INFILTRATION,
-    REREVVED_UNIT_EFFECT_CREATION_GUERILLA,
-    REREVVED_UNIT_EFFECT_CREATION_LOYALTY,
-    REREVVED_UNIT_EFFECT_CREATION_ENGINEER,
-    REREVVED_UNIT_EFFECT_CREATION_LEADERSHIP,
-    REREVVED_UNIT_EFFECT_CREATION_MARCH,
-    REREVVED_UNIT_EFFECT_CREATION_MEDIC,
-    REREVVED_UNIT_EFFECT_CREATION_SCOUT,
+constexpr std::array<UnitEffectId, 9> kSpecialUpgradeEffects = {
+    UNIT_EFFECT_CREATION_BLITZ,
+    UNIT_EFFECT_CREATION_INFILTRATION,
+    UNIT_EFFECT_CREATION_GUERILLA,
+    UNIT_EFFECT_CREATION_LOYALTY,
+    UNIT_EFFECT_CREATION_ENGINEER,
+    UNIT_EFFECT_CREATION_LEADERSHIP,
+    UNIT_EFFECT_CREATION_MARCH,
+    UNIT_EFFECT_CREATION_MEDIC,
+    UNIT_EFFECT_CREATION_SCOUT,
 };
 
 bool isGuestReadableRange(uint32_t address, uint32_t extent)
@@ -97,7 +97,7 @@ bool tryWriteU32(uint32_t address, uint32_t value)
     return true;
 }
 
-bool tryReadCivilization(int32_t player, ReRevvedCivilizationId& civilization)
+bool tryReadCivilization(int32_t player, CivilizationId& civilization)
 {
     if (player < 0 || player >= kPlayerCount ||
         !isGuestReadableRange(kPlayerCivilizations +
@@ -113,11 +113,11 @@ bool tryReadCivilization(int32_t player, ReRevvedCivilizationId& civilization)
     const uint32_t value = (uint32_t{ source[0] } << 24) |
                            (uint32_t{ source[1] } << 16) |
                            (uint32_t{ source[2] } << 8) | uint32_t{ source[3] };
-    if (value >= REREVVED_CIVILIZATION_COUNT)
+    if (value >= CIVILIZATION_COUNT)
     {
         return false;
     }
-    civilization = static_cast<ReRevvedCivilizationId>(value);
+    civilization = static_cast<CivilizationId>(value);
     return true;
 }
 
@@ -145,30 +145,30 @@ void ReRevvedApplyUnitEffectCreationGrants(PPCRegister& player,
         return;
     }
 
-    ReRevvedCivilizationId civilization = REREVVED_CIVILIZATION_UNKNOWN;
+    CivilizationId civilization = CIVILIZATION_UNKNOWN;
     if (!tryReadCivilization(player.s32, civilization))
     {
         return;
     }
 
-    ReRevvedUnitIdentityId identity = REREVVED_UNIT_IDENTITY_BASE;
+    UnitIdentityId identity = UNIT_IDENTITY_BASE;
     if (!rerevved::unit_catalog::TryResolveUnitIdentity(
             civilization, runtimeBaseType, identity) ||
-        identity == REREVVED_UNIT_IDENTITY_BASE)
+        identity == UNIT_IDENTITY_BASE)
     {
         return;
     }
 
-    ReRevvedUnitEffectEvaluation veteranEvaluation{};
+    UnitEffectEvaluation veteranEvaluation{};
     if (rerevved::unit_effect_rules::TryEvaluate(
             civilization,
             runtimeBaseType,
             identity,
-            REREVVED_UNIT_EFFECT_CREATION_VETERAN,
+            UNIT_EFFECT_CREATION_VETERAN,
             nativeLevel,
             veteranEvaluation) &&
         (veteranEvaluation.statusFlags &
-         REREVVED_UNIT_EFFECT_EVALUATION_GRANTED) != 0 &&
+         UNIT_EFFECT_EVALUATION_GRANTED) != 0 &&
         veteranEvaluation.finalLevel > nativeLevel)
     {
         // The native +0x3C gate, UEA 50 route, and maximum-two saturation
@@ -184,7 +184,7 @@ void ReRevvedApplyUnitEffectCreationGrants(PPCRegister& player,
     }
 
     uint32_t grantedUpgrades = 0;
-    for (ReRevvedUnitEffectId effect : kSpecialUpgradeEffects)
+    for (UnitEffectId effect : kSpecialUpgradeEffects)
     {
         uint32_t mask = 0;
         if (!rerevved::unit_effect_rules::TryGetNativeSpecialUpgradeMask(
@@ -193,7 +193,7 @@ void ReRevvedApplyUnitEffectCreationGrants(PPCRegister& player,
             continue;
         }
 
-        ReRevvedUnitEffectEvaluation evaluation{};
+        UnitEffectEvaluation evaluation{};
         if (rerevved::unit_effect_rules::TryEvaluate(
                 civilization,
                 runtimeBaseType,
@@ -202,7 +202,7 @@ void ReRevvedApplyUnitEffectCreationGrants(PPCRegister& player,
                 (nativeUpgrades & mask) != 0 ? 1 : 0,
                 evaluation) &&
             (evaluation.statusFlags &
-             REREVVED_UNIT_EFFECT_EVALUATION_GRANTED) != 0 &&
+             UNIT_EFFECT_EVALUATION_GRANTED) != 0 &&
             (nativeUpgrades & mask) == 0)
         {
             grantedUpgrades |= mask;
@@ -217,7 +217,7 @@ void ReRevvedApplyUnitEffectCreationGrants(PPCRegister& player,
 
     uint32_t marchMask = 0;
     if (rerevved::unit_effect_rules::TryGetNativeSpecialUpgradeMask(
-            REREVVED_UNIT_EFFECT_CREATION_MARCH, marchMask) &&
+            UNIT_EFFECT_CREATION_MARCH, marchMask) &&
         (grantedUpgrades & marchMask) != 0)
     {
         uint8_t movement = 0;

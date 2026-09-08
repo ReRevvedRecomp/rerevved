@@ -29,43 +29,43 @@ void require(bool condition, std::string_view message)
 
 struct DefinitionFixture
 {
-    ReRevvedUnitTypeId unitType;
-    int32_t            attack;
-    int32_t            defense;
+    UnitTypeId unitType;
+    int32_t    attack;
+    int32_t    defense;
 };
 
-constexpr std::array<DefinitionFixture, REREVVED_UNIT_TYPE_COUNT>
+constexpr std::array<DefinitionFixture, UNIT_TYPE_COUNT>
     kDefinitions = {
         {
-            { REREVVED_UNIT_TYPE_SETTLERS, 0, 0 },
-            { REREVVED_UNIT_TYPE_FSETTLER, 0, 0 },
-            { REREVVED_UNIT_TYPE_NAVAL_CREW, 0, 1 },
-            { REREVVED_UNIT_TYPE_BARBARIAN_HOT, 1, 1 },
-            { REREVVED_UNIT_TYPE_BARBARIAN_TEMPERATE, 1, 1 },
-            { REREVVED_UNIT_TYPE_BARBARIAN_COLD, 1, 1 },
-            { REREVVED_UNIT_TYPE_WARRIOR, 1, 1 },
-            { REREVVED_UNIT_TYPE_MILITIA, 0, 1 },
-            { REREVVED_UNIT_TYPE_LEGION, 2, 1 },
-            { REREVVED_UNIT_TYPE_ARCHER, 1, 2 },
-            { REREVVED_UNIT_TYPE_RIFLEMEN, 3, 5 },
-            { REREVVED_UNIT_TYPE_MODERN_INFANTRY, 4, 8 },
-            { REREVVED_UNIT_TYPE_HORSEMEN, 2, 1 },
-            { REREVVED_UNIT_TYPE_KNIGHTS, 4, 2 },
-            { REREVVED_UNIT_TYPE_TANK, 10, 6 },
-            { REREVVED_UNIT_TYPE_PHALANX, 1, 3 },
-            { REREVVED_UNIT_TYPE_CATAPULT, 4, 1 },
-            { REREVVED_UNIT_TYPE_CANNON, 6, 2 },
-            { REREVVED_UNIT_TYPE_ARTILLERY, 16, 2 },
-            { REREVVED_UNIT_TYPE_SUBMARINE, 12, 2 },
-            { REREVVED_UNIT_TYPE_GALLEY, 1, 1 },
-            { REREVVED_UNIT_TYPE_GALLEON, 2, 2 },
-            { REREVVED_UNIT_TYPE_CRUISER, 6, 6 },
-            { REREVVED_UNIT_TYPE_BATTLESHIP, 12, 18 },
-            { REREVVED_UNIT_TYPE_SPACE_STATION, 0, 3 },
-            { REREVVED_UNIT_TYPE_BOMBER, 18, 3 },
-            { REREVVED_UNIT_TYPE_FIGHTER, 6, 4 },
-            { REREVVED_UNIT_TYPE_ICBM, 0, 0 },
-            { REREVVED_UNIT_TYPE_SPY, 0, 0 },
+            { UNIT_TYPE_SETTLERS, 0, 0 },
+            { UNIT_TYPE_FSETTLER, 0, 0 },
+            { UNIT_TYPE_NAVAL_CREW, 0, 1 },
+            { UNIT_TYPE_BARBARIAN_HOT, 1, 1 },
+            { UNIT_TYPE_BARBARIAN_TEMPERATE, 1, 1 },
+            { UNIT_TYPE_BARBARIAN_COLD, 1, 1 },
+            { UNIT_TYPE_WARRIOR, 1, 1 },
+            { UNIT_TYPE_MILITIA, 0, 1 },
+            { UNIT_TYPE_LEGION, 2, 1 },
+            { UNIT_TYPE_ARCHER, 1, 2 },
+            { UNIT_TYPE_RIFLEMEN, 3, 5 },
+            { UNIT_TYPE_MODERN_INFANTRY, 4, 8 },
+            { UNIT_TYPE_HORSEMEN, 2, 1 },
+            { UNIT_TYPE_KNIGHTS, 4, 2 },
+            { UNIT_TYPE_TANK, 10, 6 },
+            { UNIT_TYPE_PHALANX, 1, 3 },
+            { UNIT_TYPE_CATAPULT, 4, 1 },
+            { UNIT_TYPE_CANNON, 6, 2 },
+            { UNIT_TYPE_ARTILLERY, 16, 2 },
+            { UNIT_TYPE_SUBMARINE, 12, 2 },
+            { UNIT_TYPE_GALLEY, 1, 1 },
+            { UNIT_TYPE_GALLEON, 2, 2 },
+            { UNIT_TYPE_CRUISER, 6, 6 },
+            { UNIT_TYPE_BATTLESHIP, 12, 18 },
+            { UNIT_TYPE_SPACE_STATION, 0, 3 },
+            { UNIT_TYPE_BOMBER, 18, 3 },
+            { UNIT_TYPE_FIGHTER, 6, 4 },
+            { UNIT_TYPE_ICBM, 0, 0 },
+            { UNIT_TYPE_SPY, 0, 0 },
         }
     };
 
@@ -78,172 +78,172 @@ struct IdentityFixture
 
 constexpr std::array<IdentityFixture, 27> kIdentities = {
     {
-        { REREVVED_CIVILIZATION_AZTEC,
-          REREVVED_UNIT_TYPE_WARRIOR,
-          REREVVED_UNIT_IDENTITY_JAGUAR_WARRIOR },
-        { REREVVED_CIVILIZATION_ZULU,
-          REREVVED_UNIT_TYPE_WARRIOR,
-          REREVVED_UNIT_IDENTITY_IMPI_WARRIOR },
-        { REREVVED_CIVILIZATION_JAPANESE,
-          REREVVED_UNIT_TYPE_PHALANX,
-          REREVVED_UNIT_IDENTITY_ASHIGARU_PIKEMEN },
-        { REREVVED_CIVILIZATION_GREEK,
-          REREVVED_UNIT_TYPE_PHALANX,
-          REREVVED_UNIT_IDENTITY_HOPLITE },
-        { REREVVED_CIVILIZATION_ENGLISH,
-          REREVVED_UNIT_TYPE_ARCHER,
-          REREVVED_UNIT_IDENTITY_LONGBOW_ARCHER },
-        { REREVVED_CIVILIZATION_SPANISH,
-          REREVVED_UNIT_TYPE_ARCHER,
-          REREVVED_UNIT_IDENTITY_CROSSBOW_ARCHER },
-        { REREVVED_CIVILIZATION_CHINESE,
-          REREVVED_UNIT_TYPE_ARCHER,
-          REREVVED_UNIT_IDENTITY_CROSSBOW_ARCHER },
-        { REREVVED_CIVILIZATION_FRENCH,
-          REREVVED_UNIT_TYPE_CATAPULT,
-          REREVVED_UNIT_IDENTITY_TREBUCHET },
-        { REREVVED_CIVILIZATION_RUSSIAN,
-          REREVVED_UNIT_TYPE_HORSEMEN,
-          REREVVED_UNIT_IDENTITY_COSSACK_HORSEMAN },
-        { REREVVED_CIVILIZATION_JAPANESE,
-          REREVVED_UNIT_TYPE_KNIGHTS,
-          REREVVED_UNIT_IDENTITY_SAMURAI_KNIGHT },
-        { REREVVED_CIVILIZATION_SPANISH,
-          REREVVED_UNIT_TYPE_KNIGHTS,
-          REREVVED_UNIT_IDENTITY_CONQUISTADOR },
-        { REREVVED_CIVILIZATION_GERMAN,
-          REREVVED_UNIT_TYPE_TANK,
-          REREVVED_UNIT_IDENTITY_PANZER_TANK },
-        { REREVVED_CIVILIZATION_RUSSIAN,
-          REREVVED_UNIT_TYPE_TANK,
-          REREVVED_UNIT_IDENTITY_T34_TANK },
-        { REREVVED_CIVILIZATION_AMERICAN,
-          REREVVED_UNIT_TYPE_TANK,
-          REREVVED_UNIT_IDENTITY_SHERMAN_TANK },
-        { REREVVED_CIVILIZATION_GERMAN,
-          REREVVED_UNIT_TYPE_ARTILLERY,
-          REREVVED_UNIT_IDENTITY_GERMAN_88MM_GUN },
-        { REREVVED_CIVILIZATION_FRENCH,
-          REREVVED_UNIT_TYPE_ARTILLERY,
-          REREVVED_UNIT_IDENTITY_HOWITZER },
-        { REREVVED_CIVILIZATION_JAPANESE,
-          REREVVED_UNIT_TYPE_FIGHTER,
-          REREVVED_UNIT_IDENTITY_ZERO_FIGHTER },
-        { REREVVED_CIVILIZATION_AMERICAN,
-          REREVVED_UNIT_TYPE_FIGHTER,
-          REREVVED_UNIT_IDENTITY_MUSTANG_FIGHTER },
-        { REREVVED_CIVILIZATION_ENGLISH,
-          REREVVED_UNIT_TYPE_FIGHTER,
-          REREVVED_UNIT_IDENTITY_SPITFIRE_FIGHTER },
-        { REREVVED_CIVILIZATION_GERMAN,
-          REREVVED_UNIT_TYPE_FIGHTER,
-          REREVVED_UNIT_IDENTITY_ME109_FIGHTER },
-        { REREVVED_CIVILIZATION_JAPANESE,
-          REREVVED_UNIT_TYPE_BOMBER,
-          REREVVED_UNIT_IDENTITY_VAL_BOMBER },
-        { REREVVED_CIVILIZATION_AMERICAN,
-          REREVVED_UNIT_TYPE_BOMBER,
-          REREVVED_UNIT_IDENTITY_FLYING_FORTRESS },
-        { REREVVED_CIVILIZATION_ENGLISH,
-          REREVVED_UNIT_TYPE_BOMBER,
-          REREVVED_UNIT_IDENTITY_LANCASTER_BOMBER },
-        { REREVVED_CIVILIZATION_GERMAN,
-          REREVVED_UNIT_TYPE_BOMBER,
-          REREVVED_UNIT_IDENTITY_HEINKEL_BOMBER },
-        { REREVVED_CIVILIZATION_GREEK,
-          REREVVED_UNIT_TYPE_GALLEY,
-          REREVVED_UNIT_IDENTITY_TRIREME },
-        { REREVVED_CIVILIZATION_ROMAN,
-          REREVVED_UNIT_TYPE_KNIGHTS,
-          REREVVED_UNIT_IDENTITY_CATAPHRACT },
-        { REREVVED_CIVILIZATION_MONGOLIAN,
-          REREVVED_UNIT_TYPE_HORSEMEN,
-          REREVVED_UNIT_IDENTITY_KESHIK },
+        { CIVILIZATION_AZTEC,
+          UNIT_TYPE_WARRIOR,
+          UNIT_IDENTITY_JAGUAR_WARRIOR },
+        { CIVILIZATION_ZULU,
+          UNIT_TYPE_WARRIOR,
+          UNIT_IDENTITY_IMPI_WARRIOR },
+        { CIVILIZATION_JAPANESE,
+          UNIT_TYPE_PHALANX,
+          UNIT_IDENTITY_ASHIGARU_PIKEMEN },
+        { CIVILIZATION_GREEK,
+          UNIT_TYPE_PHALANX,
+          UNIT_IDENTITY_HOPLITE },
+        { CIVILIZATION_ENGLISH,
+          UNIT_TYPE_ARCHER,
+          UNIT_IDENTITY_LONGBOW_ARCHER },
+        { CIVILIZATION_SPANISH,
+          UNIT_TYPE_ARCHER,
+          UNIT_IDENTITY_CROSSBOW_ARCHER },
+        { CIVILIZATION_CHINESE,
+          UNIT_TYPE_ARCHER,
+          UNIT_IDENTITY_CROSSBOW_ARCHER },
+        { CIVILIZATION_FRENCH,
+          UNIT_TYPE_CATAPULT,
+          UNIT_IDENTITY_TREBUCHET },
+        { CIVILIZATION_RUSSIAN,
+          UNIT_TYPE_HORSEMEN,
+          UNIT_IDENTITY_COSSACK_HORSEMAN },
+        { CIVILIZATION_JAPANESE,
+          UNIT_TYPE_KNIGHTS,
+          UNIT_IDENTITY_SAMURAI_KNIGHT },
+        { CIVILIZATION_SPANISH,
+          UNIT_TYPE_KNIGHTS,
+          UNIT_IDENTITY_CONQUISTADOR },
+        { CIVILIZATION_GERMAN,
+          UNIT_TYPE_TANK,
+          UNIT_IDENTITY_PANZER_TANK },
+        { CIVILIZATION_RUSSIAN,
+          UNIT_TYPE_TANK,
+          UNIT_IDENTITY_T34_TANK },
+        { CIVILIZATION_AMERICAN,
+          UNIT_TYPE_TANK,
+          UNIT_IDENTITY_SHERMAN_TANK },
+        { CIVILIZATION_GERMAN,
+          UNIT_TYPE_ARTILLERY,
+          UNIT_IDENTITY_GERMAN_88MM_GUN },
+        { CIVILIZATION_FRENCH,
+          UNIT_TYPE_ARTILLERY,
+          UNIT_IDENTITY_HOWITZER },
+        { CIVILIZATION_JAPANESE,
+          UNIT_TYPE_FIGHTER,
+          UNIT_IDENTITY_ZERO_FIGHTER },
+        { CIVILIZATION_AMERICAN,
+          UNIT_TYPE_FIGHTER,
+          UNIT_IDENTITY_MUSTANG_FIGHTER },
+        { CIVILIZATION_ENGLISH,
+          UNIT_TYPE_FIGHTER,
+          UNIT_IDENTITY_SPITFIRE_FIGHTER },
+        { CIVILIZATION_GERMAN,
+          UNIT_TYPE_FIGHTER,
+          UNIT_IDENTITY_ME109_FIGHTER },
+        { CIVILIZATION_JAPANESE,
+          UNIT_TYPE_BOMBER,
+          UNIT_IDENTITY_VAL_BOMBER },
+        { CIVILIZATION_AMERICAN,
+          UNIT_TYPE_BOMBER,
+          UNIT_IDENTITY_FLYING_FORTRESS },
+        { CIVILIZATION_ENGLISH,
+          UNIT_TYPE_BOMBER,
+          UNIT_IDENTITY_LANCASTER_BOMBER },
+        { CIVILIZATION_GERMAN,
+          UNIT_TYPE_BOMBER,
+          UNIT_IDENTITY_HEINKEL_BOMBER },
+        { CIVILIZATION_GREEK,
+          UNIT_TYPE_GALLEY,
+          UNIT_IDENTITY_TRIREME },
+        { CIVILIZATION_ROMAN,
+          UNIT_TYPE_KNIGHTS,
+          UNIT_IDENTITY_CATAPHRACT },
+        { CIVILIZATION_MONGOLIAN,
+          UNIT_TYPE_HORSEMEN,
+          UNIT_IDENTITY_KESHIK },
     }
 };
 
 static_assert(kIdentities.size() == 27);
 
-constexpr std::array<int32_t, REREVVED_CIVILIZATION_COUNT>
+constexpr std::array<int32_t, CIVILIZATION_COUNT>
     kCivilizationIds = {
-        REREVVED_CIVILIZATION_ROMAN,
-        REREVVED_CIVILIZATION_EGYPTIAN,
-        REREVVED_CIVILIZATION_GREEK,
-        REREVVED_CIVILIZATION_SPANISH,
-        REREVVED_CIVILIZATION_GERMAN,
-        REREVVED_CIVILIZATION_RUSSIAN,
-        REREVVED_CIVILIZATION_CHINESE,
-        REREVVED_CIVILIZATION_AMERICAN,
-        REREVVED_CIVILIZATION_JAPANESE,
-        REREVVED_CIVILIZATION_FRENCH,
-        REREVVED_CIVILIZATION_INDIAN,
-        REREVVED_CIVILIZATION_ARABIAN,
-        REREVVED_CIVILIZATION_AZTEC,
-        REREVVED_CIVILIZATION_ZULU,
-        REREVVED_CIVILIZATION_MONGOLIAN,
-        REREVVED_CIVILIZATION_ENGLISH,
+        CIVILIZATION_ROMAN,
+        CIVILIZATION_EGYPTIAN,
+        CIVILIZATION_GREEK,
+        CIVILIZATION_SPANISH,
+        CIVILIZATION_GERMAN,
+        CIVILIZATION_RUSSIAN,
+        CIVILIZATION_CHINESE,
+        CIVILIZATION_AMERICAN,
+        CIVILIZATION_JAPANESE,
+        CIVILIZATION_FRENCH,
+        CIVILIZATION_INDIAN,
+        CIVILIZATION_ARABIAN,
+        CIVILIZATION_AZTEC,
+        CIVILIZATION_ZULU,
+        CIVILIZATION_MONGOLIAN,
+        CIVILIZATION_ENGLISH,
     };
 
-constexpr std::array<int32_t, REREVVED_UNIT_TYPE_COUNT> kUnitTypeIds = {
-    REREVVED_UNIT_TYPE_SETTLERS,
-    REREVVED_UNIT_TYPE_FSETTLER,
-    REREVVED_UNIT_TYPE_NAVAL_CREW,
-    REREVVED_UNIT_TYPE_BARBARIAN_HOT,
-    REREVVED_UNIT_TYPE_BARBARIAN_TEMPERATE,
-    REREVVED_UNIT_TYPE_BARBARIAN_COLD,
-    REREVVED_UNIT_TYPE_WARRIOR,
-    REREVVED_UNIT_TYPE_MILITIA,
-    REREVVED_UNIT_TYPE_LEGION,
-    REREVVED_UNIT_TYPE_ARCHER,
-    REREVVED_UNIT_TYPE_RIFLEMEN,
-    REREVVED_UNIT_TYPE_MODERN_INFANTRY,
-    REREVVED_UNIT_TYPE_HORSEMEN,
-    REREVVED_UNIT_TYPE_KNIGHTS,
-    REREVVED_UNIT_TYPE_TANK,
-    REREVVED_UNIT_TYPE_PHALANX,
-    REREVVED_UNIT_TYPE_CATAPULT,
-    REREVVED_UNIT_TYPE_CANNON,
-    REREVVED_UNIT_TYPE_ARTILLERY,
-    REREVVED_UNIT_TYPE_SUBMARINE,
-    REREVVED_UNIT_TYPE_GALLEY,
-    REREVVED_UNIT_TYPE_GALLEON,
-    REREVVED_UNIT_TYPE_CRUISER,
-    REREVVED_UNIT_TYPE_BATTLESHIP,
-    REREVVED_UNIT_TYPE_SPACE_STATION,
-    REREVVED_UNIT_TYPE_BOMBER,
-    REREVVED_UNIT_TYPE_FIGHTER,
-    REREVVED_UNIT_TYPE_ICBM,
-    REREVVED_UNIT_TYPE_SPY,
+constexpr std::array<int32_t, UNIT_TYPE_COUNT> kUnitTypeIds = {
+    UNIT_TYPE_SETTLERS,
+    UNIT_TYPE_FSETTLER,
+    UNIT_TYPE_NAVAL_CREW,
+    UNIT_TYPE_BARBARIAN_HOT,
+    UNIT_TYPE_BARBARIAN_TEMPERATE,
+    UNIT_TYPE_BARBARIAN_COLD,
+    UNIT_TYPE_WARRIOR,
+    UNIT_TYPE_MILITIA,
+    UNIT_TYPE_LEGION,
+    UNIT_TYPE_ARCHER,
+    UNIT_TYPE_RIFLEMEN,
+    UNIT_TYPE_MODERN_INFANTRY,
+    UNIT_TYPE_HORSEMEN,
+    UNIT_TYPE_KNIGHTS,
+    UNIT_TYPE_TANK,
+    UNIT_TYPE_PHALANX,
+    UNIT_TYPE_CATAPULT,
+    UNIT_TYPE_CANNON,
+    UNIT_TYPE_ARTILLERY,
+    UNIT_TYPE_SUBMARINE,
+    UNIT_TYPE_GALLEY,
+    UNIT_TYPE_GALLEON,
+    UNIT_TYPE_CRUISER,
+    UNIT_TYPE_BATTLESHIP,
+    UNIT_TYPE_SPACE_STATION,
+    UNIT_TYPE_BOMBER,
+    UNIT_TYPE_FIGHTER,
+    UNIT_TYPE_ICBM,
+    UNIT_TYPE_SPY,
 };
 
-constexpr std::array<int32_t, REREVVED_UNIT_IDENTITY_COUNT> kIdentityIds = {
-    REREVVED_UNIT_IDENTITY_BASE,
-    REREVVED_UNIT_IDENTITY_JAGUAR_WARRIOR,
-    REREVVED_UNIT_IDENTITY_IMPI_WARRIOR,
-    REREVVED_UNIT_IDENTITY_ASHIGARU_PIKEMEN,
-    REREVVED_UNIT_IDENTITY_HOPLITE,
-    REREVVED_UNIT_IDENTITY_LONGBOW_ARCHER,
-    REREVVED_UNIT_IDENTITY_CROSSBOW_ARCHER,
-    REREVVED_UNIT_IDENTITY_TREBUCHET,
-    REREVVED_UNIT_IDENTITY_COSSACK_HORSEMAN,
-    REREVVED_UNIT_IDENTITY_SAMURAI_KNIGHT,
-    REREVVED_UNIT_IDENTITY_CONQUISTADOR,
-    REREVVED_UNIT_IDENTITY_PANZER_TANK,
-    REREVVED_UNIT_IDENTITY_T34_TANK,
-    REREVVED_UNIT_IDENTITY_SHERMAN_TANK,
-    REREVVED_UNIT_IDENTITY_GERMAN_88MM_GUN,
-    REREVVED_UNIT_IDENTITY_HOWITZER,
-    REREVVED_UNIT_IDENTITY_ZERO_FIGHTER,
-    REREVVED_UNIT_IDENTITY_MUSTANG_FIGHTER,
-    REREVVED_UNIT_IDENTITY_SPITFIRE_FIGHTER,
-    REREVVED_UNIT_IDENTITY_ME109_FIGHTER,
-    REREVVED_UNIT_IDENTITY_VAL_BOMBER,
-    REREVVED_UNIT_IDENTITY_FLYING_FORTRESS,
-    REREVVED_UNIT_IDENTITY_LANCASTER_BOMBER,
-    REREVVED_UNIT_IDENTITY_HEINKEL_BOMBER,
-    REREVVED_UNIT_IDENTITY_TRIREME,
-    REREVVED_UNIT_IDENTITY_CATAPHRACT,
-    REREVVED_UNIT_IDENTITY_KESHIK,
+constexpr std::array<int32_t, UNIT_IDENTITY_COUNT> kIdentityIds = {
+    UNIT_IDENTITY_BASE,
+    UNIT_IDENTITY_JAGUAR_WARRIOR,
+    UNIT_IDENTITY_IMPI_WARRIOR,
+    UNIT_IDENTITY_ASHIGARU_PIKEMEN,
+    UNIT_IDENTITY_HOPLITE,
+    UNIT_IDENTITY_LONGBOW_ARCHER,
+    UNIT_IDENTITY_CROSSBOW_ARCHER,
+    UNIT_IDENTITY_TREBUCHET,
+    UNIT_IDENTITY_COSSACK_HORSEMAN,
+    UNIT_IDENTITY_SAMURAI_KNIGHT,
+    UNIT_IDENTITY_CONQUISTADOR,
+    UNIT_IDENTITY_PANZER_TANK,
+    UNIT_IDENTITY_T34_TANK,
+    UNIT_IDENTITY_SHERMAN_TANK,
+    UNIT_IDENTITY_GERMAN_88MM_GUN,
+    UNIT_IDENTITY_HOWITZER,
+    UNIT_IDENTITY_ZERO_FIGHTER,
+    UNIT_IDENTITY_MUSTANG_FIGHTER,
+    UNIT_IDENTITY_SPITFIRE_FIGHTER,
+    UNIT_IDENTITY_ME109_FIGHTER,
+    UNIT_IDENTITY_VAL_BOMBER,
+    UNIT_IDENTITY_FLYING_FORTRESS,
+    UNIT_IDENTITY_LANCASTER_BOMBER,
+    UNIT_IDENTITY_HEINKEL_BOMBER,
+    UNIT_IDENTITY_TRIREME,
+    UNIT_IDENTITY_CATAPHRACT,
+    UNIT_IDENTITY_KESHIK,
 };
 
 constexpr int32_t expectedIdentity(int32_t civilization, int32_t unitType)
@@ -255,7 +255,7 @@ constexpr int32_t expectedIdentity(int32_t civilization, int32_t unitType)
             return entry.identity;
         }
     }
-    return REREVVED_UNIT_IDENTITY_BASE;
+    return UNIT_IDENTITY_BASE;
 }
 
 constexpr uint8_t kCanary = 0xA5;
@@ -315,43 +315,43 @@ struct GuardedOutput
 
 void TestLayoutsAndIds()
 {
-    static_assert(std::is_same_v<ReRevvedCivilizationId, int32_t>);
-    static_assert(std::is_same_v<ReRevvedUnitTypeId, int32_t>);
-    static_assert(std::is_same_v<ReRevvedUnitIdentityId, int32_t>);
-    static_assert(std::is_same_v<ReRevvedUnitDisplayForm, int32_t>);
+    static_assert(std::is_same_v<CivilizationId, int32_t>);
+    static_assert(std::is_same_v<UnitTypeId, int32_t>);
+    static_assert(std::is_same_v<UnitIdentityId, int32_t>);
+    static_assert(std::is_same_v<UnitDisplayForm, int32_t>);
 
-    static_assert(sizeof(ReRevvedGameplayState) == 80);
-    static_assert(offsetof(ReRevvedGameplayState, structSize) == 0);
-    static_assert(offsetof(ReRevvedGameplayState, validFields) == 4);
-    static_assert(offsetof(ReRevvedGameplayState, frameSequence) == 8);
-    static_assert(offsetof(ReRevvedGameplayState, gameplayActive) == 16);
-    static_assert(offsetof(ReRevvedGameplayState, interfaceUpdate) == 20);
-    static_assert(offsetof(ReRevvedGameplayState, activePlayer) == 24);
-    static_assert(offsetof(ReRevvedGameplayState, humanPlayerMask) == 28);
-    static_assert(offsetof(ReRevvedGameplayState, turnOwnerKnown) == 32);
-    static_assert(offsetof(ReRevvedGameplayState, humanTurn) == 36);
-    static_assert(offsetof(ReRevvedGameplayState, available) == 40);
-    static_assert(offsetof(ReRevvedGameplayState, civilization) == 44);
-    static_assert(offsetof(ReRevvedGameplayState, era) == 48);
-    static_assert(offsetof(ReRevvedGameplayState, year) == 52);
-    static_assert(offsetof(ReRevvedGameplayState, turn) == 56);
-    static_assert(offsetof(ReRevvedGameplayState, reserved) == 60);
+    static_assert(sizeof(GameplayState) == 80);
+    static_assert(offsetof(GameplayState, structSize) == 0);
+    static_assert(offsetof(GameplayState, validFields) == 4);
+    static_assert(offsetof(GameplayState, frameSequence) == 8);
+    static_assert(offsetof(GameplayState, gameplayActive) == 16);
+    static_assert(offsetof(GameplayState, interfaceUpdate) == 20);
+    static_assert(offsetof(GameplayState, activePlayer) == 24);
+    static_assert(offsetof(GameplayState, humanPlayerMask) == 28);
+    static_assert(offsetof(GameplayState, turnOwnerKnown) == 32);
+    static_assert(offsetof(GameplayState, humanTurn) == 36);
+    static_assert(offsetof(GameplayState, available) == 40);
+    static_assert(offsetof(GameplayState, civilization) == 44);
+    static_assert(offsetof(GameplayState, era) == 48);
+    static_assert(offsetof(GameplayState, year) == 52);
+    static_assert(offsetof(GameplayState, turn) == 56);
+    static_assert(offsetof(GameplayState, reserved) == 60);
 
-    static_assert(sizeof(ReRevvedUnitDefinition) == 32);
-    static_assert(offsetof(ReRevvedUnitDefinition, unitType) == 4);
-    static_assert(offsetof(ReRevvedUnitDefinition, baseAttack) == 8);
-    static_assert(offsetof(ReRevvedUnitDefinition, baseDefense) == 12);
-    static_assert(offsetof(ReRevvedUnitDefinition, reserved) == 16);
-    static_assert(sizeof(ReRevvedUnitIdentity) == 32);
-    static_assert(offsetof(ReRevvedUnitIdentity, civilization) == 4);
-    static_assert(offsetof(ReRevvedUnitIdentity, baseUnitType) == 8);
-    static_assert(offsetof(ReRevvedUnitIdentity, identity) == 12);
-    static_assert(offsetof(ReRevvedUnitIdentity, displayForm) == 16);
-    static_assert(offsetof(ReRevvedUnitIdentity, reserved) == 20);
+    static_assert(sizeof(UnitDefinition) == 32);
+    static_assert(offsetof(UnitDefinition, unitType) == 4);
+    static_assert(offsetof(UnitDefinition, baseAttack) == 8);
+    static_assert(offsetof(UnitDefinition, baseDefense) == 12);
+    static_assert(offsetof(UnitDefinition, reserved) == 16);
+    static_assert(sizeof(UnitIdentity) == 32);
+    static_assert(offsetof(UnitIdentity, civilization) == 4);
+    static_assert(offsetof(UnitIdentity, baseUnitType) == 8);
+    static_assert(offsetof(UnitIdentity, identity) == 12);
+    static_assert(offsetof(UnitIdentity, displayForm) == 16);
+    static_assert(offsetof(UnitIdentity, reserved) == 20);
 
-    require(REREVVED_CIVILIZATION_UNKNOWN == -1,
+    require(CIVILIZATION_UNKNOWN == -1,
             "civilization unknown value");
-    require(REREVVED_UNIT_TYPE_UNKNOWN == -1, "unit type unknown value");
+    require(UNIT_TYPE_UNKNOWN == -1, "unit type unknown value");
     for (size_t index = 0; index < kCivilizationIds.size(); ++index)
     {
         require(kCivilizationIds[index] == static_cast<int32_t>(index),
@@ -371,13 +371,13 @@ void TestLayoutsAndIds()
 
 void TestDefinitions()
 {
-    for (int32_t unitType = 0; unitType < REREVVED_UNIT_TYPE_COUNT;
+    for (int32_t unitType = 0; unitType < UNIT_TYPE_COUNT;
          ++unitType)
     {
-        const auto&            fixture = kDefinitions[unitType];
-        ReRevvedUnitDefinition result{};
-        require(ReRevvedGetUnitDefinition(unitType, &result, sizeof(result)) ==
-                    REREVVED_UNIT_CATALOG_OK,
+        const auto&    fixture = kDefinitions[unitType];
+        UnitDefinition result{};
+        require(GetUnitDefinition(unitType, &result, sizeof(result)) ==
+                    UNIT_CATALOG_OK,
                 "definition query succeeds");
         require(result.structSize == sizeof(result),
                 "definition producer size");
@@ -396,10 +396,10 @@ void TestDefinitions()
                 "definition reserved words");
     }
 
-    ReRevvedUnitDefinition knights{};
-    require(ReRevvedGetUnitDefinition(
-                REREVVED_UNIT_TYPE_KNIGHTS, &knights, sizeof(knights)) ==
-                    REREVVED_UNIT_CATALOG_OK &&
+    UnitDefinition knights{};
+    require(GetUnitDefinition(
+                UNIT_TYPE_KNIGHTS, &knights, sizeof(knights)) ==
+                    UNIT_CATALOG_OK &&
                 knights.baseAttack == 4,
             "first-party Knights base attack readback");
 }
@@ -408,24 +408,24 @@ void TestResolverMatrix()
 {
     int32_t nonBaseCount = 0;
     for (int32_t civilization = 0;
-         civilization < REREVVED_CIVILIZATION_COUNT;
+         civilization < CIVILIZATION_COUNT;
          ++civilization)
     {
-        for (int32_t unitType = 0; unitType < REREVVED_UNIT_TYPE_COUNT;
+        for (int32_t unitType = 0; unitType < UNIT_TYPE_COUNT;
              ++unitType)
         {
             int32_t priorIdentity = -1;
-            for (int32_t displayForm = REREVVED_UNIT_DISPLAY_FORM_UNIT;
-                 displayForm <= REREVVED_UNIT_DISPLAY_FORM_ARMY;
+            for (int32_t displayForm = UNIT_DISPLAY_FORM_UNIT;
+                 displayForm <= UNIT_DISPLAY_FORM_ARMY;
                  ++displayForm)
             {
-                ReRevvedUnitIdentity result{};
-                require(ReRevvedResolveUnitIdentity(civilization,
-                                                    unitType,
-                                                    displayForm,
-                                                    &result,
-                                                    sizeof(result)) ==
-                            REREVVED_UNIT_CATALOG_OK,
+                UnitIdentity result{};
+                require(ResolveUnitIdentity(civilization,
+                                            unitType,
+                                            displayForm,
+                                            &result,
+                                            sizeof(result)) ==
+                            UNIT_CATALOG_OK,
                         "identity resolver succeeds");
                 require(result.structSize == sizeof(result),
                         "identity producer size");
@@ -445,11 +445,11 @@ void TestResolverMatrix()
                                 return value == 0;
                             }),
                         "identity reserved words");
-                if (result.identity != REREVVED_UNIT_IDENTITY_BASE)
+                if (result.identity != UNIT_IDENTITY_BASE)
                 {
                     ++nonBaseCount;
                 }
-                if (displayForm == REREVVED_UNIT_DISPLAY_FORM_UNIT)
+                if (displayForm == UNIT_DISPLAY_FORM_UNIT)
                 {
                     priorIdentity = result.identity;
                 }
@@ -463,12 +463,12 @@ void TestResolverMatrix()
     }
 
     require(nonBaseCount == 54, "resolver has 54 non-base outputs");
-    require(expectedIdentity(REREVVED_CIVILIZATION_SPANISH,
-                             REREVVED_UNIT_TYPE_ARCHER) ==
-                    REREVVED_UNIT_IDENTITY_CROSSBOW_ARCHER &&
-                expectedIdentity(REREVVED_CIVILIZATION_CHINESE,
-                                 REREVVED_UNIT_TYPE_ARCHER) ==
-                    REREVVED_UNIT_IDENTITY_CROSSBOW_ARCHER,
+    require(expectedIdentity(CIVILIZATION_SPANISH,
+                             UNIT_TYPE_ARCHER) ==
+                    UNIT_IDENTITY_CROSSBOW_ARCHER &&
+                expectedIdentity(CIVILIZATION_CHINESE,
+                                 UNIT_TYPE_ARCHER) ==
+                    UNIT_IDENTITY_CROSSBOW_ARCHER,
             "Spanish and Chinese share Crossbow Archer");
 }
 
@@ -477,13 +477,13 @@ void TestDefinitionBufferContract()
     for (uint32_t outSize = 0; outSize <= 40; ++outSize)
     {
         GuardedOutput output;
-        const int32_t status = ReRevvedGetUnitDefinition(
-            REREVVED_UNIT_TYPE_KNIGHTS,
-            static_cast<ReRevvedUnitDefinition*>(output.data()),
+        const int32_t status = GetUnitDefinition(
+            UNIT_TYPE_KNIGHTS,
+            static_cast<UnitDefinition*>(output.data()),
             outSize);
         require(status == (outSize < 16
-                               ? REREVVED_UNIT_CATALOG_ERR_BUFFER_TOO_SMALL
-                               : REREVVED_UNIT_CATALOG_OK),
+                               ? UNIT_CATALOG_ERR_BUFFER_TOO_SMALL
+                               : UNIT_CATALOG_OK),
                 "definition prefix status");
         require(output.outsideCallerIsIntact(outSize),
                 "definition caller canaries");
@@ -494,9 +494,9 @@ void TestDefinitionBufferContract()
             continue;
         }
 
-        const auto result = output.read<ReRevvedUnitDefinition>(outSize);
+        const auto result = output.read<UnitDefinition>(outSize);
         require(result.structSize == 32 &&
-                    result.unitType == REREVVED_UNIT_TYPE_KNIGHTS &&
+                    result.unitType == UNIT_TYPE_KNIGHTS &&
                     result.baseAttack == 4 && result.baseDefense == 2,
                 "definition prefix fields");
         require(output.bytesAre(16, std::min(outSize, uint32_t{ 32 }), 0),
@@ -514,15 +514,15 @@ void TestIdentityBufferContract()
     for (uint32_t outSize = 0; outSize <= 40; ++outSize)
     {
         GuardedOutput output;
-        const int32_t status = ReRevvedResolveUnitIdentity(
-            REREVVED_CIVILIZATION_ROMAN,
-            REREVVED_UNIT_TYPE_KNIGHTS,
-            REREVVED_UNIT_DISPLAY_FORM_ARMY,
-            static_cast<ReRevvedUnitIdentity*>(output.data()),
+        const int32_t status = ResolveUnitIdentity(
+            CIVILIZATION_ROMAN,
+            UNIT_TYPE_KNIGHTS,
+            UNIT_DISPLAY_FORM_ARMY,
+            static_cast<UnitIdentity*>(output.data()),
             outSize);
         require(status == (outSize < 20
-                               ? REREVVED_UNIT_CATALOG_ERR_BUFFER_TOO_SMALL
-                               : REREVVED_UNIT_CATALOG_OK),
+                               ? UNIT_CATALOG_ERR_BUFFER_TOO_SMALL
+                               : UNIT_CATALOG_OK),
                 "identity prefix status");
         require(output.outsideCallerIsIntact(outSize),
                 "identity caller canaries");
@@ -533,12 +533,12 @@ void TestIdentityBufferContract()
             continue;
         }
 
-        const auto result = output.read<ReRevvedUnitIdentity>(outSize);
+        const auto result = output.read<UnitIdentity>(outSize);
         require(result.structSize == 32 &&
-                    result.civilization == REREVVED_CIVILIZATION_ROMAN &&
-                    result.baseUnitType == REREVVED_UNIT_TYPE_KNIGHTS &&
-                    result.identity == REREVVED_UNIT_IDENTITY_CATAPHRACT &&
-                    result.displayForm == REREVVED_UNIT_DISPLAY_FORM_ARMY,
+                    result.civilization == CIVILIZATION_ROMAN &&
+                    result.baseUnitType == UNIT_TYPE_KNIGHTS &&
+                    result.identity == UNIT_IDENTITY_CATAPHRACT &&
+                    result.displayForm == UNIT_DISPLAY_FORM_ARMY,
                 "identity prefix fields");
         require(output.bytesAre(20, std::min(outSize, uint32_t{ 32 }), 0),
                 "identity partial reserved bytes are zero");
@@ -555,7 +555,7 @@ void requireInvalidCallClears(Call call, std::string_view message)
 {
     GuardedOutput output;
     const int32_t status = call(output);
-    require(status == REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT, message);
+    require(status == UNIT_CATALOG_ERR_INVALID_ARGUMENT, message);
     require(output.bytesAre(0, 32, 0), "invalid call clears producer bytes");
     require(output.bytesAre(32, 40, kCanary),
             "invalid call leaves extended caller bytes untouched");
@@ -564,38 +564,38 @@ void requireInvalidCallClears(Call call, std::string_view message)
 
 void TestInvalidArguments()
 {
-    require(ReRevvedGetUnitDefinition(REREVVED_UNIT_TYPE_KNIGHTS,
-                                      nullptr,
-                                      32) ==
-                REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT,
+    require(GetUnitDefinition(UNIT_TYPE_KNIGHTS,
+                              nullptr,
+                              32) ==
+                UNIT_CATALOG_ERR_INVALID_ARGUMENT,
             "definition null output");
-    require(ReRevvedResolveUnitIdentity(REREVVED_CIVILIZATION_ROMAN,
-                                        REREVVED_UNIT_TYPE_KNIGHTS,
-                                        REREVVED_UNIT_DISPLAY_FORM_UNIT,
-                                        nullptr,
-                                        32) ==
-                REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT,
+    require(ResolveUnitIdentity(CIVILIZATION_ROMAN,
+                                UNIT_TYPE_KNIGHTS,
+                                UNIT_DISPLAY_FORM_UNIT,
+                                nullptr,
+                                32) ==
+                UNIT_CATALOG_ERR_INVALID_ARGUMENT,
             "identity null output");
 
     GuardedOutput invalidSmallDefinition;
-    require(ReRevvedGetUnitDefinition(
-                REREVVED_UNIT_TYPE_UNKNOWN,
-                static_cast<ReRevvedUnitDefinition*>(
+    require(GetUnitDefinition(
+                UNIT_TYPE_UNKNOWN,
+                static_cast<UnitDefinition*>(
                     invalidSmallDefinition.data()),
-                15) == REREVVED_UNIT_CATALOG_ERR_BUFFER_TOO_SMALL,
+                15) == UNIT_CATALOG_ERR_BUFFER_TOO_SMALL,
             "definition size validation precedes ID validation");
     require(invalidSmallDefinition.bytesAre(0, 15, 0) &&
                 invalidSmallDefinition.outsideCallerIsIntact(15),
             "invalid small definition buffer is bounded and cleared");
 
     GuardedOutput invalidSmallIdentity;
-    require(ReRevvedResolveUnitIdentity(
-                REREVVED_CIVILIZATION_UNKNOWN,
-                REREVVED_UNIT_TYPE_UNKNOWN,
+    require(ResolveUnitIdentity(
+                CIVILIZATION_UNKNOWN,
+                UNIT_TYPE_UNKNOWN,
                 -1,
-                static_cast<ReRevvedUnitIdentity*>(
+                static_cast<UnitIdentity*>(
                     invalidSmallIdentity.data()),
-                19) == REREVVED_UNIT_CATALOG_ERR_BUFFER_TOO_SMALL,
+                19) == UNIT_CATALOG_ERR_BUFFER_TOO_SMALL,
             "identity size validation precedes ID validation");
     require(invalidSmallIdentity.bytesAre(0, 19, 0) &&
                 invalidSmallIdentity.outsideCallerIsIntact(19),
@@ -603,8 +603,8 @@ void TestInvalidArguments()
 
     constexpr std::array<int32_t, 4> kInvalidUnitTypes = {
         -1,
-        REREVVED_UNIT_TYPE_COUNT,
-        REREVVED_UNIT_TYPE_COUNT + 1,
+        UNIT_TYPE_COUNT,
+        UNIT_TYPE_COUNT + 1,
         std::numeric_limits<int32_t>::max(),
     };
     for (int32_t unitType : kInvalidUnitTypes)
@@ -612,9 +612,9 @@ void TestInvalidArguments()
         requireInvalidCallClears(
             [unitType](GuardedOutput& output)
             {
-                return ReRevvedGetUnitDefinition(
+                return GetUnitDefinition(
                     unitType,
-                    static_cast<ReRevvedUnitDefinition*>(output.data()),
+                    static_cast<UnitDefinition*>(output.data()),
                     40);
             },
             "invalid definition unit type");
@@ -622,8 +622,8 @@ void TestInvalidArguments()
 
     constexpr std::array<int32_t, 4> kInvalidCivilizations = {
         -1,
-        REREVVED_CIVILIZATION_COUNT,
-        REREVVED_CIVILIZATION_COUNT + 1,
+        CIVILIZATION_COUNT,
+        CIVILIZATION_COUNT + 1,
         std::numeric_limits<int32_t>::max(),
     };
     for (int32_t civilization : kInvalidCivilizations)
@@ -631,11 +631,11 @@ void TestInvalidArguments()
         requireInvalidCallClears(
             [civilization](GuardedOutput& output)
             {
-                return ReRevvedResolveUnitIdentity(
+                return ResolveUnitIdentity(
                     civilization,
-                    REREVVED_UNIT_TYPE_KNIGHTS,
-                    REREVVED_UNIT_DISPLAY_FORM_UNIT,
-                    static_cast<ReRevvedUnitIdentity*>(output.data()),
+                    UNIT_TYPE_KNIGHTS,
+                    UNIT_DISPLAY_FORM_UNIT,
+                    static_cast<UnitIdentity*>(output.data()),
                     40);
             },
             "invalid identity civilization");
@@ -645,11 +645,11 @@ void TestInvalidArguments()
         requireInvalidCallClears(
             [unitType](GuardedOutput& output)
             {
-                return ReRevvedResolveUnitIdentity(
-                    REREVVED_CIVILIZATION_ROMAN,
+                return ResolveUnitIdentity(
+                    CIVILIZATION_ROMAN,
                     unitType,
-                    REREVVED_UNIT_DISPLAY_FORM_UNIT,
-                    static_cast<ReRevvedUnitIdentity*>(output.data()),
+                    UNIT_DISPLAY_FORM_UNIT,
+                    static_cast<UnitIdentity*>(output.data()),
                     40);
             },
             "invalid identity unit type");
@@ -666,11 +666,11 @@ void TestInvalidArguments()
         requireInvalidCallClears(
             [displayForm](GuardedOutput& output)
             {
-                return ReRevvedResolveUnitIdentity(
-                    REREVVED_CIVILIZATION_ROMAN,
-                    REREVVED_UNIT_TYPE_KNIGHTS,
+                return ResolveUnitIdentity(
+                    CIVILIZATION_ROMAN,
+                    UNIT_TYPE_KNIGHTS,
                     displayForm,
-                    static_cast<ReRevvedUnitIdentity*>(output.data()),
+                    static_cast<UnitIdentity*>(output.data()),
                     40);
             },
             "invalid identity display form");
@@ -701,7 +701,7 @@ void TestEnlargedProducerContract()
     GuardedOutput prefix;
     require(rerevved::unit_catalog::CopySizedOutput(
                 prefix.data(), 16, &producer, sizeof(producer), 16) ==
-                REREVVED_UNIT_CATALOG_OK,
+                UNIT_CATALOG_OK,
             "enlarged producer accepts ABI 1 prefix");
     const auto prefixResult = prefix.read<FutureOutput>(16);
     require(prefixResult.structSize == 36 && prefixResult.first == 11 &&
@@ -715,7 +715,7 @@ void TestEnlargedProducerContract()
                                                     17,
                                                     &producer,
                                                     sizeof(producer),
-                                                    16) == REREVVED_UNIT_CATALOG_OK,
+                                                    16) == UNIT_CATALOG_OK,
             "enlarged producer accepts partial trailing storage");
     require(partialField.bytesAre(16, 17, 0),
             "enlarged producer writes only complete fields");
@@ -725,7 +725,7 @@ void TestEnlargedProducerContract()
     GuardedOutput extended;
     require(rerevved::unit_catalog::CopySizedOutput(
                 extended.data(), 40, &producer, sizeof(producer), 16) ==
-                REREVVED_UNIT_CATALOG_OK,
+                UNIT_CATALOG_OK,
             "enlarged producer writes its full record");
     require(extended.bytesAre(36, 40, kCanary),
             "enlarged producer leaves later bytes untouched");
@@ -737,7 +737,7 @@ void TestEnlargedProducerContract()
 
 int main()
 {
-    require(ReRevvedUnitCatalogAbiVersion() == REREVVED_UNIT_CATALOG_ABI_VERSION,
+    require(UnitCatalogAbiVersion() == UNIT_CATALOG_ABI_VERSION,
             "Unit Catalog ABI version");
     TestLayoutsAndIds();
     TestDefinitions();

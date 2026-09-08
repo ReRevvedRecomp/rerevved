@@ -4,34 +4,34 @@
 
 int main(void)
 {
-    ReRevvedTerrainYieldRulesAbiVersionFn versionFn =
-        ReRevvedTerrainYieldRulesAbiVersion;
-    ReRevvedRegisterTerrainYieldRuleFn registerFn =
-        ReRevvedRegisterTerrainYieldRule;
-    ReRevvedGetTerrainYieldRuleCountFn countFn =
-        ReRevvedGetTerrainYieldRuleCount;
-    ReRevvedGetTerrainYieldRuleFn  getFn      = ReRevvedGetTerrainYieldRule;
-    ReRevvedEvaluateTerrainYieldFn evaluateFn = ReRevvedEvaluateTerrainYield;
+    TerrainYieldRulesAbiVersionFn versionFn =
+        TerrainYieldRulesAbiVersion;
+    RegisterTerrainYieldRuleFn registerFn =
+        RegisterTerrainYieldRule;
+    GetTerrainYieldRuleCountFn countFn =
+        GetTerrainYieldRuleCount;
+    GetTerrainYieldRuleFn  getFn      = GetTerrainYieldRule;
+    EvaluateTerrainYieldFn evaluateFn = EvaluateTerrainYield;
 
-    ReRevvedTerrainYieldRule       rule       = { 0 };
-    ReRevvedTerrainYieldRuleInfo   info       = { 0 };
-    ReRevvedTerrainYieldQuery      query      = { 0 };
-    ReRevvedTerrainYieldEvaluation evaluation = { 0 };
+    TerrainYieldRule       rule       = { 0 };
+    TerrainYieldRuleInfo   info       = { 0 };
+    TerrainYieldQuery      query      = { 0 };
+    TerrainYieldEvaluation evaluation = { 0 };
 
     if (!versionFn || !registerFn || !countFn || !getFn || !evaluateFn ||
         sizeof(rule) != 168 || sizeof(info) != 192 || sizeof(query) != 40 ||
         sizeof(evaluation) != 40 ||
-        offsetof(ReRevvedTerrainYieldRule, terrain) != 132 ||
-        offsetof(ReRevvedTerrainYieldRule, value) != 144 ||
-        offsetof(ReRevvedTerrainYieldRuleInfo, statusFlags) != 148 ||
-        offsetof(ReRevvedTerrainYieldQuery, nativeValue) != 12 ||
-        offsetof(ReRevvedTerrainYieldEvaluation, finalValue) != 8 ||
-        REREVVED_TERRAIN_UNKNOWN != -1 || REREVVED_TERRAIN_SEA != 0 ||
-        REREVVED_TERRAIN_PLAINS != 1 || REREVVED_TERRAIN_FOREST != 2 ||
-        REREVVED_TERRAIN_HILL != 3 || REREVVED_TERRAIN_DESERT != 4 ||
-        REREVVED_TERRAIN_MOUNTAIN != 5 || REREVVED_TERRAIN_COUNT != 6)
+        offsetof(TerrainYieldRule, terrain) != 132 ||
+        offsetof(TerrainYieldRule, value) != 144 ||
+        offsetof(TerrainYieldRuleInfo, statusFlags) != 148 ||
+        offsetof(TerrainYieldQuery, nativeValue) != 12 ||
+        offsetof(TerrainYieldEvaluation, finalValue) != 8 ||
+        TERRAIN_UNKNOWN != -1 || TERRAIN_SEA != 0 ||
+        TERRAIN_PLAINS != 1 || TERRAIN_FOREST != 2 ||
+        TERRAIN_HILL != 3 || TERRAIN_DESERT != 4 ||
+        TERRAIN_MOUNTAIN != 5 || TERRAIN_COUNT != 6)
     {
         return 1;
     }
-    return versionFn() == REREVVED_TERRAIN_YIELD_RULES_ABI_VERSION ? 0 : 2;
+    return versionFn() == TERRAIN_YIELD_RULES_ABI_VERSION ? 0 : 2;
 }

@@ -4,34 +4,34 @@
 
 int main(void)
 {
-    if (REREVVED_UNIQUE_ERA_ABILITIES_ABI_VERSION != 2u ||
-        REREVVED_UNIQUE_ERA_ABILITY_KNOWLEDGE_OF_HORSEBACK_RIDING != 0x10000)
+    if (ERA_ABILITIES_ABI_VERSION != 3u ||
+        ERA_ABILITY_KNOWLEDGE_OF_HORSEBACK_RIDING != 0x10000)
     {
         return 1;
     }
-    ReRevvedUniqueEraAbilitiesAbiVersionFn versionFn =
-        ReRevvedUniqueEraAbilitiesAbiVersion;
-    ReRevvedRegisterUniqueEraAbilityReplacementFn registerFn =
-        ReRevvedRegisterUniqueEraAbilityReplacement;
-    ReRevvedGetUniqueEraAbilityRuleCountFn countFn =
-        ReRevvedGetUniqueEraAbilityRuleCount;
-    ReRevvedGetUniqueEraAbilityRuleFn getFn =
-        ReRevvedGetUniqueEraAbilityRule;
-    ReRevvedEvaluateUniqueEraAbilityCellFn evaluateFn =
-        ReRevvedEvaluateUniqueEraAbilityCell;
+    EraAbilitiesAbiVersionFn versionFn =
+        EraAbilitiesAbiVersion;
+    RegisterEraAbilityReplacementFn registerFn =
+        RegisterEraAbilityReplacement;
+    GetEraAbilityRuleCountFn countFn =
+        GetEraAbilityRuleCount;
+    GetEraAbilityRuleFn getFn =
+        GetEraAbilityRule;
+    EvaluateEraAbilityCellFn evaluateFn =
+        EvaluateEraAbilityCell;
 
-    ReRevvedUniqueEraAbilityReplacement    rule       = { 0 };
-    ReRevvedUniqueEraAbilityRuleInfo       info       = { 0 };
-    ReRevvedUniqueEraAbilityCellQuery      query      = { 0 };
-    ReRevvedUniqueEraAbilityCellEvaluation evaluation = { 0 };
+    EraAbilityReplacement    rule       = { 0 };
+    EraAbilityRuleInfo       info       = { 0 };
+    EraAbilityCellQuery      query      = { 0 };
+    EraAbilityCellEvaluation evaluation = { 0 };
 
-    if (versionFn() != REREVVED_UNIQUE_ERA_ABILITIES_ABI_VERSION ||
+    if (versionFn() != ERA_ABILITIES_ABI_VERSION ||
         sizeof(rule) != 176 || sizeof(info) != 180 || sizeof(query) != 40 ||
         sizeof(evaluation) != 40 ||
-        offsetof(ReRevvedUniqueEraAbilityReplacement, replacementAbility) !=
+        offsetof(EraAbilityReplacement, replacementAbility) !=
             140 ||
-        offsetof(ReRevvedUniqueEraAbilityRuleInfo, statusFlags) != 144 ||
-        offsetof(ReRevvedUniqueEraAbilityCellEvaluation, effectiveAbility) !=
+        offsetof(EraAbilityRuleInfo, statusFlags) != 144 ||
+        offsetof(EraAbilityCellEvaluation, effectiveAbility) !=
             8)
     {
         return 1;

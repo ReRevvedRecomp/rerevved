@@ -95,7 +95,7 @@ bool tryReadStackI32(uint32_t stack, uint32_t offset, int32_t& value)
     return true;
 }
 
-bool tryReadCivilization(int32_t player, ReRevvedCivilizationId& civilization)
+bool tryReadCivilization(int32_t player, CivilizationId& civilization)
 {
     if (player < 0 || player >= kPlayerCount)
     {
@@ -106,11 +106,11 @@ bool tryReadCivilization(int32_t player, ReRevvedCivilizationId& civilization)
     if (!tryReadGuestU32(0x830ECD28u +
                              static_cast<uint32_t>(player) * sizeof(uint32_t),
                          value) ||
-        value >= REREVVED_CIVILIZATION_COUNT)
+        value >= CIVILIZATION_COUNT)
     {
         return false;
     }
-    civilization = static_cast<ReRevvedCivilizationId>(value);
+    civilization = static_cast<CivilizationId>(value);
     return true;
 }
 
@@ -147,9 +147,9 @@ bool tryReadUnitCoordinates(int32_t  player,
     return true;
 }
 
-bool tryReadUnitBaseType(int32_t             player,
-                         int32_t             unit,
-                         ReRevvedUnitTypeId& baseUnitType)
+bool tryReadUnitBaseType(int32_t     player,
+                         int32_t     unit,
+                         UnitTypeId& baseUnitType)
 {
     uint32_t address = 0;
     if (!tryGetUnitAddress(player, unit, address) ||
@@ -160,11 +160,11 @@ bool tryReadUnitBaseType(int32_t             player,
 
     const uint8_t value = *REX_KERNEL_MEMORY()->TranslateVirtual<const uint8_t*>(
         address + 0x01);
-    if (value >= REREVVED_UNIT_TYPE_COUNT)
+    if (value >= UNIT_TYPE_COUNT)
     {
         return false;
     }
-    baseUnitType = static_cast<ReRevvedUnitTypeId>(value);
+    baseUnitType = static_cast<UnitTypeId>(value);
     return true;
 }
 
@@ -191,23 +191,23 @@ bool isForestDefenderTile(int32_t defenderPlayer, int32_t defenderUnit)
     return terrain == 3; // Guest Forest.
 }
 
-bool tryResolveIdentity(uint32_t                stack,
-                        uint32_t                playerOffset,
-                        uint32_t                unitOffset,
-                        ReRevvedCivilizationId& civilization,
-                        ReRevvedUnitTypeId&     unitType,
-                        ReRevvedUnitIdentityId& identity)
+bool tryResolveIdentity(uint32_t        stack,
+                        uint32_t        playerOffset,
+                        uint32_t        unitOffset,
+                        CivilizationId& civilization,
+                        UnitTypeId&     unitType,
+                        UnitIdentityId& identity)
 {
-    int32_t            player       = 0;
-    int32_t            unit         = 0;
-    ReRevvedUnitTypeId baseUnitType = REREVVED_UNIT_TYPE_UNKNOWN;
+    int32_t    player       = 0;
+    int32_t    unit         = 0;
+    UnitTypeId baseUnitType = UNIT_TYPE_UNKNOWN;
     if (!tryReadStackI32(stack, playerOffset, player) ||
         !tryReadStackI32(stack, unitOffset, unit) ||
         !tryReadCivilization(player, civilization) ||
         !tryReadUnitBaseType(player, unit, baseUnitType) ||
         !rerevved::unit_catalog::TryResolveUnitIdentity(
             civilization, baseUnitType, identity) ||
-        identity == REREVVED_UNIT_IDENTITY_BASE)
+        identity == UNIT_IDENTITY_BASE)
     {
         return false;
     }
@@ -295,12 +295,12 @@ bool tryAppendForestCombatLine(uint32_t stack,
     return true;
 }
 
-void applyCombatRule(uint32_t                   stack,
-                     uint32_t                   identityPlayerOffset,
-                     uint32_t                   identityUnitOffset,
-                     ReRevvedUnitCombatProperty property,
-                     uint32_t                   textBufferOffset,
-                     PPCRegister&               accumulator)
+void applyCombatRule(uint32_t           stack,
+                     uint32_t           identityPlayerOffset,
+                     uint32_t           identityUnitOffset,
+                     UnitCombatProperty property,
+                     uint32_t           textBufferOffset,
+                     PPCRegister&       accumulator)
 {
     int32_t defenderPlayer = 0;
     int32_t defenderUnit   = 0;
@@ -311,9 +311,9 @@ void applyCombatRule(uint32_t                   stack,
         return;
     }
 
-    ReRevvedCivilizationId civilization = REREVVED_CIVILIZATION_UNKNOWN;
-    ReRevvedUnitTypeId     unitType     = REREVVED_UNIT_TYPE_UNKNOWN;
-    ReRevvedUnitIdentityId identity     = REREVVED_UNIT_IDENTITY_BASE;
+    CivilizationId civilization = CIVILIZATION_UNKNOWN;
+    UnitTypeId     unitType     = UNIT_TYPE_UNKNOWN;
+    UnitIdentityId identity     = UNIT_IDENTITY_BASE;
     if (!tryResolveIdentity(stack,
                             identityPlayerOffset,
                             identityUnitOffset,
@@ -324,16 +324,16 @@ void applyCombatRule(uint32_t                   stack,
         return;
     }
 
-    ReRevvedUnitCombatEvaluation evaluation{};
+    UnitCombatEvaluation evaluation{};
     if (!rerevved::unit_combat_rules::TryEvaluate(civilization,
                                                   unitType,
                                                   identity,
-                                                  REREVVED_TERRAIN_FOREST,
+                                                  TERRAIN_FOREST,
                                                   property,
                                                   evaluation) ||
         evaluation.additiveCount == 0 ||
         (evaluation.statusFlags &
-         REREVVED_UNIT_COMBAT_EVALUATION_OUT_OF_RANGE) != 0)
+         UNIT_COMBAT_EVALUATION_OUT_OF_RANGE) != 0)
     {
         return;
     }
@@ -367,7 +367,7 @@ void ReRevvedApplyUnitCombatAttackPercent(PPCRegister& stack,
     applyCombatRule(stack.u32,
                     kAttackerPlayerOffset,
                     kAttackerUnitOffset,
-                    REREVVED_UNIT_COMBAT_ATTACK,
+                    UNIT_COMBAT_ATTACK,
                     kAttackTextOffset,
                     accumulator);
 }
@@ -380,7 +380,7 @@ void ReRevvedApplyUnitCombatDefensePercent(PPCRegister& stack,
     applyCombatRule(stack.u32,
                     kDefenderPlayerOffset,
                     kDefenderUnitOffset,
-                    REREVVED_UNIT_COMBAT_DEFENSE,
+                    UNIT_COMBAT_DEFENSE,
                     kDefenseTextOffset,
                     accumulator);
 }

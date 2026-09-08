@@ -7,24 +7,24 @@
 namespace
 {
 
-void applyBaseValue(PPCRegister&                  guestTerrain,
-                    PPCRegister&                  baseValue,
-                    ReRevvedTerrainYieldComponent component)
+void applyBaseValue(PPCRegister&          guestTerrain,
+                    PPCRegister&          baseValue,
+                    TerrainYieldComponent component)
 {
-    ReRevvedTerrainId terrain = REREVVED_TERRAIN_UNKNOWN;
+    TerrainId terrain = TERRAIN_UNKNOWN;
     if (!rerevved::terrain_yield_rules::TryMapGuestTerrain(
             guestTerrain.s32, terrain))
     {
         return;
     }
 
-    ReRevvedTerrainYieldEvaluation evaluation{};
+    TerrainYieldEvaluation evaluation{};
     if (rerevved::terrain_yield_rules::TryEvaluate(
             terrain, component, baseValue.s32, evaluation) &&
         (evaluation.replacementCount != 0 ||
          evaluation.additiveCount != 0) &&
         (evaluation.statusFlags &
-         REREVVED_TERRAIN_YIELD_EVALUATION_OVERFLOW) == 0)
+         TERRAIN_YIELD_EVALUATION_OVERFLOW) == 0)
     {
         baseValue.s64 = evaluation.finalValue;
     }
@@ -37,7 +37,7 @@ void ReRevvedApplyTerrainTradeBase(PPCRegister& guestTerrain,
 {
     applyBaseValue(guestTerrain,
                    baseValue,
-                   REREVVED_TERRAIN_YIELD_TRADE);
+                   TERRAIN_YIELD_TRADE);
 }
 
 void ReRevvedApplyTerrainProductionBase(PPCRegister& guestTerrain,
@@ -45,7 +45,7 @@ void ReRevvedApplyTerrainProductionBase(PPCRegister& guestTerrain,
 {
     applyBaseValue(guestTerrain,
                    baseValue,
-                   REREVVED_TERRAIN_YIELD_PRODUCTION);
+                   TERRAIN_YIELD_PRODUCTION);
 }
 
 void ReRevvedApplyTerrainFoodBase(PPCRegister& guestTerrain,
@@ -53,5 +53,5 @@ void ReRevvedApplyTerrainFoodBase(PPCRegister& guestTerrain,
 {
     applyBaseValue(guestTerrain,
                    baseValue,
-                   REREVVED_TERRAIN_YIELD_FOOD);
+                   TERRAIN_YIELD_FOOD);
 }

@@ -30,15 +30,15 @@ void require(bool condition, const char* message)
     }
 }
 
-ReRevvedTerrainYieldRule makeRule(
-    const char*                   provider,
-    const char*                   ruleId,
-    ReRevvedTerrainId             terrain,
-    ReRevvedTerrainYieldComponent component,
-    ReRevvedTerrainYieldOperation operation,
-    int32_t                       value)
+TerrainYieldRule makeRule(
+    const char*           provider,
+    const char*           ruleId,
+    TerrainId             terrain,
+    TerrainYieldComponent component,
+    TerrainYieldOperation operation,
+    int32_t               value)
 {
-    ReRevvedTerrainYieldRule rule{};
+    TerrainYieldRule rule{};
     rule.structSize = sizeof(rule);
     std::snprintf(rule.providerId, sizeof(rule.providerId), "%s", provider);
     std::snprintf(rule.ruleId, sizeof(rule.ruleId), "%s", ruleId);
@@ -49,140 +49,140 @@ ReRevvedTerrainYieldRule makeRule(
     return rule;
 }
 
-ReRevvedTerrainYieldEvaluation evaluate(ReRevvedTerrainId             terrain,
-                                        ReRevvedTerrainYieldComponent component,
-                                        int32_t                       nativeValue)
+TerrainYieldEvaluation evaluate(TerrainId             terrain,
+                                TerrainYieldComponent component,
+                                int32_t               nativeValue)
 {
-    const ReRevvedTerrainYieldQuery query = {
-        sizeof(ReRevvedTerrainYieldQuery), terrain, component, nativeValue, {}
+    const TerrainYieldQuery query = {
+        sizeof(TerrainYieldQuery), terrain, component, nativeValue, {}
     };
-    ReRevvedTerrainYieldEvaluation evaluation{};
-    require(ReRevvedEvaluateTerrainYield(
+    TerrainYieldEvaluation evaluation{};
+    require(EvaluateTerrainYield(
                 &query, &evaluation, sizeof(evaluation)) ==
-                REREVVED_TERRAIN_YIELD_RULES_OK,
+                TERRAIN_YIELD_RULES_OK,
             "evaluation succeeds");
     return evaluation;
 }
 
 void TestLayout()
 {
-    static_assert(REREVVED_TERRAIN_YIELD_RULES_OK == 0);
-    static_assert(REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT == -10);
-    static_assert(REREVVED_TERRAIN_YIELD_RULES_ERR_BUFFER_TOO_SMALL == -11);
-    static_assert(REREVVED_TERRAIN_YIELD_RULES_ERR_DUPLICATE_RULE_ID == -12);
-    static_assert(REREVVED_TERRAIN_YIELD_RULES_ERR_INTERNAL == -13);
-    static_assert(REREVVED_TERRAIN_YIELD_FOOD == 0);
-    static_assert(REREVVED_TERRAIN_YIELD_PRODUCTION == 1);
-    static_assert(REREVVED_TERRAIN_YIELD_TRADE == 2);
-    static_assert(REREVVED_TERRAIN_YIELD_REPLACE == 0);
-    static_assert(REREVVED_TERRAIN_YIELD_ADD == 1);
-    static_assert(REREVVED_TERRAIN_YIELD_RULE_REPLACEMENT_CONFLICT == 1u);
-    static_assert(REREVVED_TERRAIN_YIELD_EVALUATION_REPLACEMENT_CONFLICT == 1u);
-    static_assert(REREVVED_TERRAIN_YIELD_EVALUATION_OVERFLOW == 2u);
-    static_assert(REREVVED_TERRAIN_UNKNOWN == -1);
-    static_assert(REREVVED_TERRAIN_SEA == 0);
-    static_assert(REREVVED_TERRAIN_PLAINS == 1);
-    static_assert(REREVVED_TERRAIN_FOREST == 2);
-    static_assert(REREVVED_TERRAIN_HILL == 3);
-    static_assert(REREVVED_TERRAIN_DESERT == 4);
-    static_assert(REREVVED_TERRAIN_MOUNTAIN == 5);
-    static_assert(REREVVED_TERRAIN_COUNT == 6);
-    static_assert(sizeof(ReRevvedTerrainYieldRule) == 168);
-    static_assert(offsetof(ReRevvedTerrainYieldRule, providerId) == 4);
-    static_assert(offsetof(ReRevvedTerrainYieldRule, ruleId) == 68);
-    static_assert(offsetof(ReRevvedTerrainYieldRule, terrain) == 132);
-    static_assert(offsetof(ReRevvedTerrainYieldRule, value) == 144);
-    static_assert(offsetof(ReRevvedTerrainYieldRule, reserved) == 148);
-    static_assert(sizeof(ReRevvedTerrainYieldRuleInfo) == 192);
-    static_assert(offsetof(ReRevvedTerrainYieldRuleInfo, statusFlags) == 148);
-    static_assert(sizeof(ReRevvedTerrainYieldQuery) == 40);
-    static_assert(offsetof(ReRevvedTerrainYieldQuery, nativeValue) == 12);
-    static_assert(sizeof(ReRevvedTerrainYieldEvaluation) == 40);
-    static_assert(offsetof(ReRevvedTerrainYieldEvaluation, finalValue) == 8);
-    static_assert(offsetof(ReRevvedTerrainYieldEvaluation, statusFlags) == 12);
-    require(ReRevvedTerrainYieldRulesAbiVersion() ==
-                REREVVED_TERRAIN_YIELD_RULES_ABI_VERSION,
+    static_assert(TERRAIN_YIELD_RULES_OK == 0);
+    static_assert(TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT == -10);
+    static_assert(TERRAIN_YIELD_RULES_ERR_BUFFER_TOO_SMALL == -11);
+    static_assert(TERRAIN_YIELD_RULES_ERR_DUPLICATE_RULE_ID == -12);
+    static_assert(TERRAIN_YIELD_RULES_ERR_INTERNAL == -13);
+    static_assert(TERRAIN_YIELD_FOOD == 0);
+    static_assert(TERRAIN_YIELD_PRODUCTION == 1);
+    static_assert(TERRAIN_YIELD_TRADE == 2);
+    static_assert(TERRAIN_YIELD_REPLACE == 0);
+    static_assert(TERRAIN_YIELD_ADD == 1);
+    static_assert(TERRAIN_YIELD_RULE_REPLACEMENT_CONFLICT == 1u);
+    static_assert(TERRAIN_YIELD_EVALUATION_REPLACEMENT_CONFLICT == 1u);
+    static_assert(TERRAIN_YIELD_EVALUATION_OVERFLOW == 2u);
+    static_assert(TERRAIN_UNKNOWN == -1);
+    static_assert(TERRAIN_SEA == 0);
+    static_assert(TERRAIN_PLAINS == 1);
+    static_assert(TERRAIN_FOREST == 2);
+    static_assert(TERRAIN_HILL == 3);
+    static_assert(TERRAIN_DESERT == 4);
+    static_assert(TERRAIN_MOUNTAIN == 5);
+    static_assert(TERRAIN_COUNT == 6);
+    static_assert(sizeof(TerrainYieldRule) == 168);
+    static_assert(offsetof(TerrainYieldRule, providerId) == 4);
+    static_assert(offsetof(TerrainYieldRule, ruleId) == 68);
+    static_assert(offsetof(TerrainYieldRule, terrain) == 132);
+    static_assert(offsetof(TerrainYieldRule, value) == 144);
+    static_assert(offsetof(TerrainYieldRule, reserved) == 148);
+    static_assert(sizeof(TerrainYieldRuleInfo) == 192);
+    static_assert(offsetof(TerrainYieldRuleInfo, statusFlags) == 148);
+    static_assert(sizeof(TerrainYieldQuery) == 40);
+    static_assert(offsetof(TerrainYieldQuery, nativeValue) == 12);
+    static_assert(sizeof(TerrainYieldEvaluation) == 40);
+    static_assert(offsetof(TerrainYieldEvaluation, finalValue) == 8);
+    static_assert(offsetof(TerrainYieldEvaluation, statusFlags) == 12);
+    require(TerrainYieldRulesAbiVersion() ==
+                TERRAIN_YIELD_RULES_ABI_VERSION,
             "ABI version");
 }
 
 void TestValidation()
 {
     rerevved::terrain_yield_rules::ResetForTests();
-    require(ReRevvedRegisterTerrainYieldRule(nullptr) ==
-                REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
+    require(RegisterTerrainYieldRule(nullptr) ==
+                TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
             "null rule rejected");
 
     auto rule       = makeRule("aeshur.fertile-plains",
                                "plains-food",
-                               REREVVED_TERRAIN_PLAINS,
-                               REREVVED_TERRAIN_YIELD_FOOD,
-                               REREVVED_TERRAIN_YIELD_ADD,
+                               TERRAIN_PLAINS,
+                               TERRAIN_YIELD_FOOD,
+                               TERRAIN_YIELD_ADD,
                                1);
     rule.structSize = sizeof(rule) - 1;
-    require(ReRevvedRegisterTerrainYieldRule(&rule) ==
-                REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
+    require(RegisterTerrainYieldRule(&rule) ==
+                TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
             "short rule rejected");
 
-    rule = makeRule("Aeshur", "rule", REREVVED_TERRAIN_PLAINS, REREVVED_TERRAIN_YIELD_FOOD, REREVVED_TERRAIN_YIELD_ADD, 1);
-    require(ReRevvedRegisterTerrainYieldRule(&rule) ==
-                REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
+    rule = makeRule("Aeshur", "rule", TERRAIN_PLAINS, TERRAIN_YIELD_FOOD, TERRAIN_YIELD_ADD, 1);
+    require(RegisterTerrainYieldRule(&rule) ==
+                TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
             "invalid provider rejected");
 
-    rule = makeRule("a.provider", "rule", REREVVED_TERRAIN_PLAINS, REREVVED_TERRAIN_YIELD_FOOD, REREVVED_TERRAIN_YIELD_ADD, 1);
+    rule = makeRule("a.provider", "rule", TERRAIN_PLAINS, TERRAIN_YIELD_FOOD, TERRAIN_YIELD_ADD, 1);
     std::memset(rule.ruleId, 'a', sizeof(rule.ruleId));
-    require(ReRevvedRegisterTerrainYieldRule(&rule) ==
-                REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
+    require(RegisterTerrainYieldRule(&rule) ==
+                TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
             "unterminated rule ID rejected");
 
-    rule = makeRule("a.provider", "rule", -1, REREVVED_TERRAIN_YIELD_FOOD, REREVVED_TERRAIN_YIELD_ADD, 1);
-    require(ReRevvedRegisterTerrainYieldRule(&rule) ==
-                REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
+    rule = makeRule("a.provider", "rule", -1, TERRAIN_YIELD_FOOD, TERRAIN_YIELD_ADD, 1);
+    require(RegisterTerrainYieldRule(&rule) ==
+                TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
             "unknown terrain rejected");
-    rule.terrain = REREVVED_TERRAIN_COUNT;
-    require(ReRevvedRegisterTerrainYieldRule(&rule) ==
-                REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
+    rule.terrain = TERRAIN_COUNT;
+    require(RegisterTerrainYieldRule(&rule) ==
+                TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
             "upper terrain rejected");
 
-    rule.terrain   = REREVVED_TERRAIN_PLAINS;
+    rule.terrain   = TERRAIN_PLAINS;
     rule.component = 3;
-    require(ReRevvedRegisterTerrainYieldRule(&rule) ==
-                REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
+    require(RegisterTerrainYieldRule(&rule) ==
+                TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
             "invalid component rejected");
-    rule.component = REREVVED_TERRAIN_YIELD_FOOD;
+    rule.component = TERRAIN_YIELD_FOOD;
     rule.operation = 2;
-    require(ReRevvedRegisterTerrainYieldRule(&rule) ==
-                REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
+    require(RegisterTerrainYieldRule(&rule) ==
+                TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
             "invalid operation rejected");
-    rule.operation   = REREVVED_TERRAIN_YIELD_REPLACE;
+    rule.operation   = TERRAIN_YIELD_REPLACE;
     rule.reserved[4] = 1;
-    require(ReRevvedRegisterTerrainYieldRule(&rule) ==
-                REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
+    require(RegisterTerrainYieldRule(&rule) ==
+                TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
             "nonzero reserved field rejected");
 
     uint32_t count = 99;
-    require(ReRevvedGetTerrainYieldRuleCount(nullptr) ==
-                REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
+    require(GetTerrainYieldRuleCount(nullptr) ==
+                TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
             "null count rejected");
-    require(ReRevvedGetTerrainYieldRuleCount(&count) ==
-                    REREVVED_TERRAIN_YIELD_RULES_OK &&
+    require(GetTerrainYieldRuleCount(&count) ==
+                    TERRAIN_YIELD_RULES_OK &&
                 count == 0,
             "invalid registration mutated registry");
 }
 
 void TestGuestTerrainMapping()
 {
-    const int32_t           guestValues[]    = { 0, 2, 3, 4, 5, 6 };
-    const ReRevvedTerrainId semanticValues[] = {
-        REREVVED_TERRAIN_SEA,
-        REREVVED_TERRAIN_PLAINS,
-        REREVVED_TERRAIN_FOREST,
-        REREVVED_TERRAIN_HILL,
-        REREVVED_TERRAIN_DESERT,
-        REREVVED_TERRAIN_MOUNTAIN,
+    const int32_t   guestValues[]    = { 0, 2, 3, 4, 5, 6 };
+    const TerrainId semanticValues[] = {
+        TERRAIN_SEA,
+        TERRAIN_PLAINS,
+        TERRAIN_FOREST,
+        TERRAIN_HILL,
+        TERRAIN_DESERT,
+        TERRAIN_MOUNTAIN,
     };
     for (size_t index = 0; index < 6; ++index)
     {
-        ReRevvedTerrainId terrain = REREVVED_TERRAIN_UNKNOWN;
+        TerrainId terrain = TERRAIN_UNKNOWN;
         require(rerevved::terrain_yield_rules::TryMapGuestTerrain(
                     guestValues[index], terrain) &&
                     terrain == semanticValues[index],
@@ -194,12 +194,12 @@ void TestGuestTerrainMapping()
         {
             continue;
         }
-        ReRevvedTerrainId terrain = REREVVED_TERRAIN_UNKNOWN;
+        TerrainId terrain = TERRAIN_UNKNOWN;
         require(!rerevved::terrain_yield_rules::TryMapGuestTerrain(guest, terrain) &&
-                    terrain == REREVVED_TERRAIN_UNKNOWN,
+                    terrain == TERRAIN_UNKNOWN,
                 "unrecognized guest terrain accepted");
     }
-    ReRevvedTerrainId terrain = REREVVED_TERRAIN_UNKNOWN;
+    TerrainId terrain = TERRAIN_UNKNOWN;
     require(!rerevved::terrain_yield_rules::TryMapGuestTerrain(
                 std::numeric_limits<int32_t>::min(), terrain) &&
                 !rerevved::terrain_yield_rules::TryMapGuestTerrain(
@@ -210,44 +210,44 @@ void TestGuestTerrainMapping()
 void TestRegistrationAndReadback()
 {
     rerevved::terrain_yield_rules::ResetForTests();
-    auto z = makeRule("z.provider", "z-rule", REREVVED_TERRAIN_DESERT, REREVVED_TERRAIN_YIELD_TRADE, REREVVED_TERRAIN_YIELD_ADD, 2);
-    auto a = makeRule("a.provider", "a-rule", REREVVED_TERRAIN_PLAINS, REREVVED_TERRAIN_YIELD_FOOD, REREVVED_TERRAIN_YIELD_REPLACE, 50);
-    require(ReRevvedRegisterTerrainYieldRule(&z) ==
-                    REREVVED_TERRAIN_YIELD_RULES_OK &&
-                ReRevvedRegisterTerrainYieldRule(&a) ==
-                    REREVVED_TERRAIN_YIELD_RULES_OK &&
-                ReRevvedRegisterTerrainYieldRule(&a) ==
-                    REREVVED_TERRAIN_YIELD_RULES_OK,
+    auto z = makeRule("z.provider", "z-rule", TERRAIN_DESERT, TERRAIN_YIELD_TRADE, TERRAIN_YIELD_ADD, 2);
+    auto a = makeRule("a.provider", "a-rule", TERRAIN_PLAINS, TERRAIN_YIELD_FOOD, TERRAIN_YIELD_REPLACE, 50);
+    require(RegisterTerrainYieldRule(&z) ==
+                    TERRAIN_YIELD_RULES_OK &&
+                RegisterTerrainYieldRule(&a) ==
+                    TERRAIN_YIELD_RULES_OK &&
+                RegisterTerrainYieldRule(&a) ==
+                    TERRAIN_YIELD_RULES_OK,
             "valid and identical registrations");
     a.value = 49;
-    require(ReRevvedRegisterTerrainYieldRule(&a) ==
-                REREVVED_TERRAIN_YIELD_RULES_ERR_DUPLICATE_RULE_ID,
+    require(RegisterTerrainYieldRule(&a) ==
+                TERRAIN_YIELD_RULES_ERR_DUPLICATE_RULE_ID,
             "changed duplicate rejected");
 
     uint32_t count = 0;
-    require(ReRevvedGetTerrainYieldRuleCount(&count) ==
-                    REREVVED_TERRAIN_YIELD_RULES_OK &&
+    require(GetTerrainYieldRuleCount(&count) ==
+                    TERRAIN_YIELD_RULES_OK &&
                 count == 2,
             "registry count");
-    ReRevvedTerrainYieldRuleInfo info{};
-    require(ReRevvedGetTerrainYieldRule(0, &info, sizeof(info)) ==
-                    REREVVED_TERRAIN_YIELD_RULES_OK &&
+    TerrainYieldRuleInfo info{};
+    require(GetTerrainYieldRule(0, &info, sizeof(info)) ==
+                    TERRAIN_YIELD_RULES_OK &&
                 std::string_view(info.providerId) == "a.provider" &&
-                info.terrain == REREVVED_TERRAIN_PLAINS && info.value == 50,
+                info.terrain == TERRAIN_PLAINS && info.value == 50,
             "canonical readback order");
-    require(ReRevvedGetTerrainYieldRule(2, &info, sizeof(info)) ==
-                REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
+    require(GetTerrainYieldRule(2, &info, sizeof(info)) ==
+                TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
             "readback bounds rejected");
-    require(ReRevvedGetTerrainYieldRule(
-                0, nullptr, sizeof(ReRevvedTerrainYieldRuleInfo)) ==
-                REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
+    require(GetTerrainYieldRule(
+                0, nullptr, sizeof(TerrainYieldRuleInfo)) ==
+                TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
             "null readback output rejected");
-    require(ReRevvedGetTerrainYieldRule(0, &info, 151) ==
-                REREVVED_TERRAIN_YIELD_RULES_ERR_BUFFER_TOO_SMALL,
+    require(GetTerrainYieldRule(0, &info, 151) ==
+                TERRAIN_YIELD_RULES_ERR_BUFFER_TOO_SMALL,
             "short readback rejected");
     std::memset(&info, 0x5a, sizeof(info));
-    require(ReRevvedGetTerrainYieldRule(0, &info, 152) ==
-                REREVVED_TERRAIN_YIELD_RULES_OK,
+    require(GetTerrainYieldRule(0, &info, 152) ==
+                TERRAIN_YIELD_RULES_OK,
             "minimum readback prefix rejected");
     const auto* infoBytes = reinterpret_cast<const unsigned char*>(&info);
     for (size_t index = 152; index < sizeof(info); ++index)
@@ -255,8 +255,8 @@ void TestRegistrationAndReadback()
         require(infoBytes[index] == 0x5a, "readback overwrote caller tail");
     }
     std::memset(&info, 0x5a, sizeof(info));
-    require(ReRevvedGetTerrainYieldRule(0, &info, 153) ==
-                    REREVVED_TERRAIN_YIELD_RULES_OK &&
+    require(GetTerrainYieldRule(0, &info, 153) ==
+                    TERRAIN_YIELD_RULES_OK &&
                 info.structSize == sizeof(info),
             "odd readback output size rejected");
     const auto* oddInfoBytes = reinterpret_cast<const unsigned char*>(&info);
@@ -268,8 +268,8 @@ void TestRegistrationAndReadback()
 
     a.providerId[0] = 'z';
     a.value         = 50;
-    require(ReRevvedGetTerrainYieldRule(0, &info, sizeof(info)) ==
-                    REREVVED_TERRAIN_YIELD_RULES_OK &&
+    require(GetTerrainYieldRule(0, &info, sizeof(info)) ==
+                    TERRAIN_YIELD_RULES_OK &&
                 std::string_view(info.providerId) == "a.provider" &&
                 info.value == 50,
             "registry owns copied input");
@@ -279,29 +279,29 @@ void TestComposition()
 {
     struct CompositionCase
     {
-        ReRevvedTerrainId             terrain;
-        ReRevvedTerrainYieldComponent component;
-        int32_t                       nativeValue;
-        int32_t                       replacement;
-        int32_t                       positiveAdd;
-        int32_t                       negativeAdd;
+        TerrainId             terrain;
+        TerrainYieldComponent component;
+        int32_t               nativeValue;
+        int32_t               replacement;
+        int32_t               positiveAdd;
+        int32_t               negativeAdd;
     };
 
     constexpr CompositionCase cases[] = {
-        { REREVVED_TERRAIN_PLAINS,
-          REREVVED_TERRAIN_YIELD_FOOD,
+        { TERRAIN_PLAINS,
+          TERRAIN_YIELD_FOOD,
           4,
           -7,
           3,
           -2 },
-        { REREVVED_TERRAIN_FOREST,
-          REREVVED_TERRAIN_YIELD_PRODUCTION,
+        { TERRAIN_FOREST,
+          TERRAIN_YIELD_PRODUCTION,
           10,
           12,
           4,
           -2 },
-        { REREVVED_TERRAIN_DESERT,
-          REREVVED_TERRAIN_YIELD_TRADE,
+        { TERRAIN_DESERT,
+          TERRAIN_YIELD_TRADE,
           6,
           -3,
           5,
@@ -312,14 +312,14 @@ void TestComposition()
     {
         rerevved::terrain_yield_rules::ResetForTests();
         auto replacement = makeRule(
-            "b.replace", "replace", testCase.terrain, testCase.component, REREVVED_TERRAIN_YIELD_REPLACE, testCase.replacement);
+            "b.replace", "replace", testCase.terrain, testCase.component, TERRAIN_YIELD_REPLACE, testCase.replacement);
         auto positive = makeRule(
-            "a.add", "positive", testCase.terrain, testCase.component, REREVVED_TERRAIN_YIELD_ADD, testCase.positiveAdd);
+            "a.add", "positive", testCase.terrain, testCase.component, TERRAIN_YIELD_ADD, testCase.positiveAdd);
         auto negative = makeRule(
-            "c.add", "negative", testCase.terrain, testCase.component, REREVVED_TERRAIN_YIELD_ADD, testCase.negativeAdd);
-        require(ReRevvedRegisterTerrainYieldRule(&replacement) == 0 &&
-                    ReRevvedRegisterTerrainYieldRule(&positive) == 0 &&
-                    ReRevvedRegisterTerrainYieldRule(&negative) == 0,
+            "c.add", "negative", testCase.terrain, testCase.component, TERRAIN_YIELD_ADD, testCase.negativeAdd);
+        require(RegisterTerrainYieldRule(&replacement) == 0 &&
+                    RegisterTerrainYieldRule(&positive) == 0 &&
+                    RegisterTerrainYieldRule(&negative) == 0,
                 "component Add and Replace rules register");
         auto evaluation = evaluate(testCase.terrain,
                                    testCase.component,
@@ -334,8 +334,8 @@ void TestComposition()
                 "component Add and Replace composition");
 
         auto conflict = makeRule(
-            "d.replace", "conflict", testCase.terrain, testCase.component, REREVVED_TERRAIN_YIELD_REPLACE, 60);
-        require(ReRevvedRegisterTerrainYieldRule(&conflict) == 0,
+            "d.replace", "conflict", testCase.terrain, testCase.component, TERRAIN_YIELD_REPLACE, 60);
+        require(RegisterTerrainYieldRule(&conflict) == 0,
                 "component replacement conflict register");
         evaluation = evaluate(testCase.terrain,
                               testCase.component,
@@ -345,20 +345,20 @@ void TestComposition()
                             testCase.negativeAdd &&
                     evaluation.replacementCount == 2 &&
                     (evaluation.statusFlags &
-                     REREVVED_TERRAIN_YIELD_EVALUATION_REPLACEMENT_CONFLICT) != 0,
+                     TERRAIN_YIELD_EVALUATION_REPLACEMENT_CONFLICT) != 0,
                 "component replacement conflict preserves native plus additions");
 
         uint32_t conflictReadbackCount = 0;
         for (uint32_t index = 0; index < 4; ++index)
         {
-            ReRevvedTerrainYieldRuleInfo info{};
-            require(ReRevvedGetTerrainYieldRule(index, &info, sizeof(info)) == 0,
+            TerrainYieldRuleInfo info{};
+            require(GetTerrainYieldRule(index, &info, sizeof(info)) == 0,
                     "component conflict readback");
-            if (info.operation == REREVVED_TERRAIN_YIELD_REPLACE)
+            if (info.operation == TERRAIN_YIELD_REPLACE)
             {
                 ++conflictReadbackCount;
                 require((info.statusFlags &
-                         REREVVED_TERRAIN_YIELD_RULE_REPLACEMENT_CONFLICT) != 0,
+                         TERRAIN_YIELD_RULE_REPLACEMENT_CONFLICT) != 0,
                         "component conflict omitted from readback");
             }
         }
@@ -369,24 +369,24 @@ void TestComposition()
 
 void TestRegistrationOrderIndependence()
 {
-    auto replacement = makeRule("b.provider", "replacement", REREVVED_TERRAIN_HILL, REREVVED_TERRAIN_YIELD_PRODUCTION, REREVVED_TERRAIN_YIELD_REPLACE, 50);
-    auto addTwo      = makeRule("a.provider", "add-two", REREVVED_TERRAIN_HILL, REREVVED_TERRAIN_YIELD_PRODUCTION, REREVVED_TERRAIN_YIELD_ADD, 2);
-    auto subOne      = makeRule("c.provider", "sub-one", REREVVED_TERRAIN_HILL, REREVVED_TERRAIN_YIELD_PRODUCTION, REREVVED_TERRAIN_YIELD_ADD, -1);
+    auto replacement = makeRule("b.provider", "replacement", TERRAIN_HILL, TERRAIN_YIELD_PRODUCTION, TERRAIN_YIELD_REPLACE, 50);
+    auto addTwo      = makeRule("a.provider", "add-two", TERRAIN_HILL, TERRAIN_YIELD_PRODUCTION, TERRAIN_YIELD_ADD, 2);
+    auto subOne      = makeRule("c.provider", "sub-one", TERRAIN_HILL, TERRAIN_YIELD_PRODUCTION, TERRAIN_YIELD_ADD, -1);
     rerevved::terrain_yield_rules::ResetForTests();
-    require(ReRevvedRegisterTerrainYieldRule(&replacement) == 0 &&
-                ReRevvedRegisterTerrainYieldRule(&addTwo) == 0 &&
-                ReRevvedRegisterTerrainYieldRule(&subOne) == 0,
+    require(RegisterTerrainYieldRule(&replacement) == 0 &&
+                RegisterTerrainYieldRule(&addTwo) == 0 &&
+                RegisterTerrainYieldRule(&subOne) == 0,
             "forward registration");
-    const auto forward = evaluate(REREVVED_TERRAIN_HILL,
-                                  REREVVED_TERRAIN_YIELD_PRODUCTION,
+    const auto forward = evaluate(TERRAIN_HILL,
+                                  TERRAIN_YIELD_PRODUCTION,
                                   4);
     rerevved::terrain_yield_rules::ResetForTests();
-    require(ReRevvedRegisterTerrainYieldRule(&subOne) == 0 &&
-                ReRevvedRegisterTerrainYieldRule(&addTwo) == 0 &&
-                ReRevvedRegisterTerrainYieldRule(&replacement) == 0,
+    require(RegisterTerrainYieldRule(&subOne) == 0 &&
+                RegisterTerrainYieldRule(&addTwo) == 0 &&
+                RegisterTerrainYieldRule(&replacement) == 0,
             "reverse registration");
-    const auto reverse = evaluate(REREVVED_TERRAIN_HILL,
-                                  REREVVED_TERRAIN_YIELD_PRODUCTION,
+    const auto reverse = evaluate(TERRAIN_HILL,
+                                  TERRAIN_YIELD_PRODUCTION,
                                   4);
     require(forward.finalValue == 51 && reverse.finalValue == 51 &&
                 forward.statusFlags == reverse.statusFlags,
@@ -397,17 +397,17 @@ void TestBridges()
 {
     struct BridgeCase
     {
-        ReRevvedTerrainYieldComponent component;
-        int32_t                       guestTerrain;
+        TerrainYieldComponent component;
+        int32_t               guestTerrain;
         void (*bridge)(PPCRegister&, PPCRegister&);
     };
 
     const BridgeCase bridges[] = {
-        { REREVVED_TERRAIN_YIELD_FOOD, 2, ReRevvedApplyTerrainFoodBase },
-        { REREVVED_TERRAIN_YIELD_PRODUCTION,
+        { TERRAIN_YIELD_FOOD, 2, ReRevvedApplyTerrainFoodBase },
+        { TERRAIN_YIELD_PRODUCTION,
           3,
           ReRevvedApplyTerrainProductionBase },
-        { REREVVED_TERRAIN_YIELD_TRADE, 5, ReRevvedApplyTerrainTradeBase },
+        { TERRAIN_YIELD_TRADE, 5, ReRevvedApplyTerrainTradeBase },
     };
 
     // Empty registries must preserve both live registers for every bridge.
@@ -428,13 +428,13 @@ void TestBridges()
 
     // Each bridge applies only its matching terrain/component Add rule.
     rerevved::terrain_yield_rules::ResetForTests();
-    const auto food       = makeRule("a.food", "add", REREVVED_TERRAIN_PLAINS, REREVVED_TERRAIN_YIELD_FOOD, REREVVED_TERRAIN_YIELD_ADD, 1);
+    const auto food       = makeRule("a.food", "add", TERRAIN_PLAINS, TERRAIN_YIELD_FOOD, TERRAIN_YIELD_ADD, 1);
     const auto production = makeRule(
-        "a.production", "add", REREVVED_TERRAIN_FOREST, REREVVED_TERRAIN_YIELD_PRODUCTION, REREVVED_TERRAIN_YIELD_ADD, 1);
-    const auto trade = makeRule("a.trade", "add", REREVVED_TERRAIN_DESERT, REREVVED_TERRAIN_YIELD_TRADE, REREVVED_TERRAIN_YIELD_ADD, 1);
-    require(ReRevvedRegisterTerrainYieldRule(&food) == 0 &&
-                ReRevvedRegisterTerrainYieldRule(&production) == 0 &&
-                ReRevvedRegisterTerrainYieldRule(&trade) == 0,
+        "a.production", "add", TERRAIN_FOREST, TERRAIN_YIELD_PRODUCTION, TERRAIN_YIELD_ADD, 1);
+    const auto trade = makeRule("a.trade", "add", TERRAIN_DESERT, TERRAIN_YIELD_TRADE, TERRAIN_YIELD_ADD, 1);
+    require(RegisterTerrainYieldRule(&food) == 0 &&
+                RegisterTerrainYieldRule(&production) == 0 &&
+                RegisterTerrainYieldRule(&trade) == 0,
             "bridge Add rules register");
     for (const auto& testCase : bridges)
     {
@@ -454,8 +454,8 @@ void TestBridges()
     {
         rerevved::terrain_yield_rules::ResetForTests();
         const auto wrongComponent = makeRule(
-            "a.wrong-component", "add", REREVVED_TERRAIN_PLAINS, static_cast<ReRevvedTerrainYieldComponent>((testCase.component + 1) % 3), REREVVED_TERRAIN_YIELD_ADD, 1);
-        require(ReRevvedRegisterTerrainYieldRule(&wrongComponent) == 0,
+            "a.wrong-component", "add", TERRAIN_PLAINS, static_cast<TerrainYieldComponent>((testCase.component + 1) % 3), TERRAIN_YIELD_ADD, 1);
+        require(RegisterTerrainYieldRule(&wrongComponent) == 0,
                 "wrong component bridge rule register");
         PPCRegister terrain{};
         PPCRegister value{};
@@ -475,8 +475,8 @@ void TestBridges()
         const bool    plainsTarget = testCase.guestTerrain == 2;
         const int32_t wrongGuest   = plainsTarget ? 3 : 2;
         const auto    wrongTerrain = makeRule(
-            "a.wrong-terrain", "add", REREVVED_TERRAIN_HILL, testCase.component, REREVVED_TERRAIN_YIELD_ADD, 1);
-        require(ReRevvedRegisterTerrainYieldRule(&wrongTerrain) == 0,
+            "a.wrong-terrain", "add", TERRAIN_HILL, testCase.component, TERRAIN_YIELD_ADD, 1);
+        require(RegisterTerrainYieldRule(&wrongTerrain) == 0,
                 "wrong terrain bridge rule register");
         PPCRegister terrain{};
         PPCRegister value{};
@@ -495,13 +495,13 @@ void TestBridges()
     {
         rerevved::terrain_yield_rules::ResetForTests();
         const auto replacement = makeRule(
-            "a.replace", "one", REREVVED_TERRAIN_PLAINS, testCase.component, REREVVED_TERRAIN_YIELD_REPLACE, 20);
+            "a.replace", "one", TERRAIN_PLAINS, testCase.component, TERRAIN_YIELD_REPLACE, 20);
         const auto conflict = makeRule(
-            "b.replace", "two", REREVVED_TERRAIN_PLAINS, testCase.component, REREVVED_TERRAIN_YIELD_REPLACE, 30);
-        const auto add = makeRule("c.add", "one", REREVVED_TERRAIN_PLAINS, testCase.component, REREVVED_TERRAIN_YIELD_ADD, 1);
-        require(ReRevvedRegisterTerrainYieldRule(&replacement) == 0 &&
-                    ReRevvedRegisterTerrainYieldRule(&conflict) == 0 &&
-                    ReRevvedRegisterTerrainYieldRule(&add) == 0,
+            "b.replace", "two", TERRAIN_PLAINS, testCase.component, TERRAIN_YIELD_REPLACE, 30);
+        const auto add = makeRule("c.add", "one", TERRAIN_PLAINS, testCase.component, TERRAIN_YIELD_ADD, 1);
+        require(RegisterTerrainYieldRule(&replacement) == 0 &&
+                    RegisterTerrainYieldRule(&conflict) == 0 &&
+                    RegisterTerrainYieldRule(&add) == 0,
                 "bridge conflict rules register");
         PPCRegister terrain{};
         PPCRegister value{};
@@ -518,8 +518,8 @@ void TestBridges()
     {
         rerevved::terrain_yield_rules::ResetForTests();
         const auto overflow = makeRule(
-            "a.overflow", "one", REREVVED_TERRAIN_PLAINS, testCase.component, REREVVED_TERRAIN_YIELD_ADD, 1);
-        require(ReRevvedRegisterTerrainYieldRule(&overflow) == 0,
+            "a.overflow", "one", TERRAIN_PLAINS, testCase.component, TERRAIN_YIELD_ADD, 1);
+        require(RegisterTerrainYieldRule(&overflow) == 0,
                 "bridge overflow rule register");
         PPCRegister terrain{};
         PPCRegister value{};
@@ -541,8 +541,8 @@ void TestBridges()
         for (const int32_t rejectedGuest : { 1, 7, 8 })
         {
             rerevved::terrain_yield_rules::ResetForTests();
-            const auto rule = makeRule("a.rejected", "one", REREVVED_TERRAIN_PLAINS, testCase.component, REREVVED_TERRAIN_YIELD_ADD, 1);
-            require(ReRevvedRegisterTerrainYieldRule(&rule) == 0,
+            const auto rule = makeRule("a.rejected", "one", TERRAIN_PLAINS, testCase.component, TERRAIN_YIELD_ADD, 1);
+            require(RegisterTerrainYieldRule(&rule) == 0,
                     "rejected guest bridge rule register");
             PPCRegister terrain{};
             PPCRegister value{};
@@ -562,21 +562,21 @@ void TestBridges()
 void TestCopiedInputAndConcurrentAccess()
 {
     rerevved::terrain_yield_rules::ResetForTests();
-    auto replacement = makeRule("a.provider", "replacement", REREVVED_TERRAIN_PLAINS, REREVVED_TERRAIN_YIELD_FOOD, REREVVED_TERRAIN_YIELD_REPLACE, 50);
-    require(ReRevvedRegisterTerrainYieldRule(&replacement) == 0,
+    auto replacement = makeRule("a.provider", "replacement", TERRAIN_PLAINS, TERRAIN_YIELD_FOOD, TERRAIN_YIELD_REPLACE, 50);
+    require(RegisterTerrainYieldRule(&replacement) == 0,
             "copied-input registration");
     replacement.providerId[0] = 'z';
     replacement.value         = 4;
-    ReRevvedTerrainYieldRuleInfo info{};
-    require(ReRevvedGetTerrainYieldRule(0, &info, sizeof(info)) == 0 &&
+    TerrainYieldRuleInfo info{};
+    require(GetTerrainYieldRule(0, &info, sizeof(info)) == 0 &&
                 std::string_view(info.providerId) == "a.provider" &&
                 info.value == 50,
             "registry did not copy input");
 
-    const ReRevvedTerrainYieldQuery query = {
-        sizeof(ReRevvedTerrainYieldQuery),
-        REREVVED_TERRAIN_PLAINS,
-        REREVVED_TERRAIN_YIELD_FOOD,
+    const TerrainYieldQuery query = {
+        sizeof(TerrainYieldQuery),
+        TERRAIN_PLAINS,
+        TERRAIN_YIELD_FOOD,
         4,
         {},
     };
@@ -591,24 +591,24 @@ void TestCopiedInputAndConcurrentAccess()
         }
         do
         {
-            ReRevvedTerrainYieldEvaluation evaluation{};
-            const int32_t                  result = ReRevvedEvaluateTerrainYield(
+            TerrainYieldEvaluation evaluation{};
+            const int32_t          result = EvaluateTerrainYield(
                 &query, &evaluation, sizeof(evaluation));
-            uint32_t                     count = 0;
-            ReRevvedTerrainYieldRuleInfo info{};
-            const int32_t                countResult =
-                ReRevvedGetTerrainYieldRuleCount(&count);
+            uint32_t             count = 0;
+            TerrainYieldRuleInfo info{};
+            const int32_t        countResult =
+                GetTerrainYieldRuleCount(&count);
             const int32_t readbackResult =
                 count == 0
-                    ? REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT
-                    : ReRevvedGetTerrainYieldRule(
+                    ? TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT
+                    : GetTerrainYieldRule(
                           count - 1, &info, sizeof(info));
             const int32_t additions = evaluation.finalValue - 50;
             if (result != 0 || countResult != 0 || readbackResult != 0 ||
                 count < 1 || count > 17 ||
                 info.structSize != sizeof(info) ||
-                info.terrain != REREVVED_TERRAIN_PLAINS ||
-                info.component != REREVVED_TERRAIN_YIELD_FOOD ||
+                info.terrain != TERRAIN_PLAINS ||
+                info.component != TERRAIN_YIELD_FOOD ||
                 additions < 0 || additions > 16 ||
                 evaluation.additiveCount != static_cast<uint32_t>(additions) ||
                 evaluation.replacementCount != 1 || evaluation.statusFlags != 0)
@@ -629,8 +629,8 @@ void TestCopiedInputAndConcurrentAccess()
     {
         char provider[32]{};
         std::snprintf(provider, sizeof(provider), "writer.%02d", index);
-        auto addition = makeRule(provider, "add-one", REREVVED_TERRAIN_PLAINS, REREVVED_TERRAIN_YIELD_FOOD, REREVVED_TERRAIN_YIELD_ADD, 1);
-        if (ReRevvedRegisterTerrainYieldRule(&addition) != 0)
+        auto addition = makeRule(provider, "add-one", TERRAIN_PLAINS, TERRAIN_YIELD_FOOD, TERRAIN_YIELD_ADD, 1);
+        if (RegisterTerrainYieldRule(&addition) != 0)
         {
             failed.store(true, std::memory_order_relaxed);
             break;
@@ -641,8 +641,8 @@ void TestCopiedInputAndConcurrentAccess()
     {
         reader.join();
     }
-    const auto final = evaluate(REREVVED_TERRAIN_PLAINS,
-                                REREVVED_TERRAIN_YIELD_FOOD,
+    const auto final = evaluate(TERRAIN_PLAINS,
+                                TERRAIN_YIELD_FOOD,
                                 4);
     require(!failed.load(std::memory_order_relaxed) &&
                 final.finalValue == 66 && final.additiveCount == 16,
@@ -660,46 +660,46 @@ void TestOverflowAndQueryValidation()
             "negative int64 accumulator overflow accepted");
 
     rerevved::terrain_yield_rules::ResetForTests();
-    auto add = makeRule("a.provider", "overflow", REREVVED_TERRAIN_PLAINS, REREVVED_TERRAIN_YIELD_FOOD, REREVVED_TERRAIN_YIELD_ADD, 1);
-    require(ReRevvedRegisterTerrainYieldRule(&add) == 0,
+    auto add = makeRule("a.provider", "overflow", TERRAIN_PLAINS, TERRAIN_YIELD_FOOD, TERRAIN_YIELD_ADD, 1);
+    require(RegisterTerrainYieldRule(&add) == 0,
             "positive overflow rule registration");
-    auto evaluation = evaluate(REREVVED_TERRAIN_PLAINS,
-                               REREVVED_TERRAIN_YIELD_FOOD,
+    auto evaluation = evaluate(TERRAIN_PLAINS,
+                               TERRAIN_YIELD_FOOD,
                                std::numeric_limits<int32_t>::max());
     require(evaluation.finalValue == std::numeric_limits<int32_t>::max() &&
                 (evaluation.statusFlags &
-                 REREVVED_TERRAIN_YIELD_EVALUATION_OVERFLOW) != 0,
+                 TERRAIN_YIELD_EVALUATION_OVERFLOW) != 0,
             "positive int32 overflow did not fall back");
 
     rerevved::terrain_yield_rules::ResetForTests();
-    add = makeRule("a.provider", "underflow", REREVVED_TERRAIN_PLAINS, REREVVED_TERRAIN_YIELD_FOOD, REREVVED_TERRAIN_YIELD_ADD, -1);
-    require(ReRevvedRegisterTerrainYieldRule(&add) == 0,
+    add = makeRule("a.provider", "underflow", TERRAIN_PLAINS, TERRAIN_YIELD_FOOD, TERRAIN_YIELD_ADD, -1);
+    require(RegisterTerrainYieldRule(&add) == 0,
             "negative overflow rule registration");
-    evaluation = evaluate(REREVVED_TERRAIN_PLAINS,
-                          REREVVED_TERRAIN_YIELD_FOOD,
+    evaluation = evaluate(TERRAIN_PLAINS,
+                          TERRAIN_YIELD_FOOD,
                           std::numeric_limits<int32_t>::min());
     require(evaluation.finalValue == std::numeric_limits<int32_t>::min() &&
                 (evaluation.statusFlags &
-                 REREVVED_TERRAIN_YIELD_EVALUATION_OVERFLOW) != 0,
+                 TERRAIN_YIELD_EVALUATION_OVERFLOW) != 0,
             "negative int32 overflow did not fall back");
 
-    ReRevvedTerrainYieldQuery query{};
+    TerrainYieldQuery query{};
     query.structSize = sizeof(query);
-    query.terrain    = REREVVED_TERRAIN_PLAINS;
-    query.component  = REREVVED_TERRAIN_YIELD_FOOD;
-    ReRevvedTerrainYieldEvaluation out{};
-    require(ReRevvedEvaluateTerrainYield(&query, nullptr, sizeof(out)) ==
-                REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
+    query.terrain    = TERRAIN_PLAINS;
+    query.component  = TERRAIN_YIELD_FOOD;
+    TerrainYieldEvaluation out{};
+    require(EvaluateTerrainYield(&query, nullptr, sizeof(out)) ==
+                TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
             "null evaluation output accepted");
-    require(ReRevvedEvaluateTerrainYield(&query, &out, 23) ==
-                REREVVED_TERRAIN_YIELD_RULES_ERR_BUFFER_TOO_SMALL,
+    require(EvaluateTerrainYield(&query, &out, 23) ==
+                TERRAIN_YIELD_RULES_ERR_BUFFER_TOO_SMALL,
             "short evaluation output accepted");
-    require(ReRevvedEvaluateTerrainYield(nullptr, &out, sizeof(out)) ==
-                REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
+    require(EvaluateTerrainYield(nullptr, &out, sizeof(out)) ==
+                TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
             "null query accepted");
     std::memset(&out, 0x5a, sizeof(out));
-    require(ReRevvedEvaluateTerrainYield(&query, &out, 24) ==
-                    REREVVED_TERRAIN_YIELD_RULES_OK &&
+    require(EvaluateTerrainYield(&query, &out, 24) ==
+                    TERRAIN_YIELD_RULES_OK &&
                 out.structSize == sizeof(out),
             "minimum evaluation prefix rejected");
     const auto* minimumBytes = reinterpret_cast<const unsigned char*>(&out);
@@ -709,8 +709,8 @@ void TestOverflowAndQueryValidation()
                 "minimum evaluation prefix overwrote caller tail");
     }
     std::memset(&out, 0x5a, sizeof(out));
-    require(ReRevvedEvaluateTerrainYield(&query, &out, 25) ==
-                    REREVVED_TERRAIN_YIELD_RULES_OK &&
+    require(EvaluateTerrainYield(&query, &out, 25) ==
+                    TERRAIN_YIELD_RULES_OK &&
                 out.structSize == sizeof(out),
             "odd evaluation output size rejected");
     const auto* oddBytes = reinterpret_cast<const unsigned char*>(&out);
@@ -720,23 +720,23 @@ void TestOverflowAndQueryValidation()
                 "odd evaluation output overwrote caller tail");
     }
     query.structSize = sizeof(query) - 1;
-    require(ReRevvedEvaluateTerrainYield(&query, &out, sizeof(out)) ==
-                REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
+    require(EvaluateTerrainYield(&query, &out, sizeof(out)) ==
+                TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
             "short query accepted");
     query.structSize  = sizeof(query);
     query.reserved[0] = 1;
-    require(ReRevvedEvaluateTerrainYield(&query, &out, sizeof(out)) ==
-                REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
+    require(EvaluateTerrainYield(&query, &out, sizeof(out)) ==
+                TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
             "query reserved field accepted");
     query.reserved[0] = 0;
     query.component   = 3;
-    require(ReRevvedEvaluateTerrainYield(&query, &out, sizeof(out)) ==
-                REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
+    require(EvaluateTerrainYield(&query, &out, sizeof(out)) ==
+                TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
             "invalid query component accepted");
-    query.component = REREVVED_TERRAIN_YIELD_FOOD;
-    query.terrain   = REREVVED_TERRAIN_UNKNOWN;
-    require(ReRevvedEvaluateTerrainYield(&query, &out, sizeof(out)) ==
-                REREVVED_TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
+    query.component = TERRAIN_YIELD_FOOD;
+    query.terrain   = TERRAIN_UNKNOWN;
+    require(EvaluateTerrainYield(&query, &out, sizeof(out)) ==
+                TERRAIN_YIELD_RULES_ERR_INVALID_ARGUMENT,
             "invalid query terrain accepted");
 }
 

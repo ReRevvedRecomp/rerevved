@@ -60,7 +60,7 @@ Game-specific IDs and behavior remain in this repository.
   remain unproved.
 - Unit combat rules add signed percentage points to the native attack or defense
   accumulator for an accepted civilization, base type, Unit Catalog identity,
-  semantic Forest terrain, and ATTACK or DEFENSE property. ABI 1 accepts only
+  semantic Forest terrain, and ATTACK or DEFENSE property. ABI 2 accepts only
   Forest. The attack callback joins the native modifier call at `0x82CDABBC`
   using the initialized `r16` accumulator, and defense joins at `0x82CDAC10`
   using `r17`; native call ordering and Guerilla behavior remain in the guest
@@ -71,13 +71,13 @@ Game-specific IDs and behavior remain in this repository.
   exact runtime acceptance of ordinary attack and defense CombatResolve
   consumers, including combat promotions, AI, network, save, scenario, and
   multiplayer paths, remains required.
-- Unit effect rules use ABI 2 and expose the creation-time Veteran grant plus
+- Unit effect rules use ABI 3 and expose the creation-time Veteran grant plus
   the nine named native special upgrade effects: Blitz, Infiltration, Guerilla,
   Loyalty, Engineer, Leadership, March, Medic, and Scout. They match
   civilization, base type, and the accepted Unit Catalog identity. Veteran
   raises a lower creation rank to level two and preserves a higher native rank;
   the named special effects report a grant while preserving the queried native
-  rank. The ABI 1 record layouts and Veteran effect ID remain unchanged. At
+  rank. At
   creation, the title ORs granted special upgrades into the native upgrade word
   without spending rank; March also adds one movement point. The Veteran path
   preserves the native `+0x3C` gate, UEA 50 route, and maximum-two saturation.
@@ -88,7 +88,7 @@ Game-specific IDs and behavior remain in this repository.
 - Unique Unit rules compose at the documented base-stat boundary before the title applies its native modifiers.
 - Unique Era Ability rules cover only the IDs and effects documented by that ABI.
 - Nation Select Text rules replace complete printable ASCII fields on the
-  civilization information screen. ABI 1 supports civilization-specific
+  civilization information screen. ABI 2 supports civilization-specific
   leader, civilization, and trait fields; the four global era labels and
   civilization/effective-ability rows; the global unique-unit heading; and
   civilization/identity-specific unique-unit rows. Multiple matching rules

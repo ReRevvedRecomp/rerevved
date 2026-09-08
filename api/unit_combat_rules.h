@@ -1,8 +1,8 @@
 // Public C ABI for identity-targeted unit combat percentages on Forest.
 //
 // Mods resolve these entry points from the host process and check
-// ReRevvedUnitCombatRulesAbiVersion before calling them. Registrations are
-// copied by the host and target identities exposed by Unit Catalog ABI 1.
+// UnitCombatRulesAbiVersion before calling them. Registrations are
+// copied by the host and target identities exposed by Unit Catalog ABI 2.
 
 #pragma once
 
@@ -10,82 +10,82 @@
 
 #include <game_ids.h>
 
-#if defined(REREVVED_UNIT_COMBAT_RULES_API_EXPORTS)
+#if defined(UNIT_COMBAT_RULES_API_EXPORTS)
 #if defined(_WIN32)
-#define REREVVED_UNIT_COMBAT_RULES_API __declspec(dllexport)
+#define UNIT_COMBAT_RULES_API __declspec(dllexport)
 #else
-#define REREVVED_UNIT_COMBAT_RULES_API __attribute__((visibility("default")))
+#define UNIT_COMBAT_RULES_API __attribute__((visibility("default")))
 #endif
 #else
-#define REREVVED_UNIT_COMBAT_RULES_API
+#define UNIT_COMBAT_RULES_API
 #endif
 
-#define REREVVED_UNIT_COMBAT_RULES_ABI_VERSION 1u
-#define REREVVED_UNIT_COMBAT_RULE_ID_CAPACITY  64u
+#define UNIT_COMBAT_RULES_ABI_VERSION 2u
+#define UNIT_COMBAT_RULE_ID_CAPACITY  64u
 
 enum
 {
-    REREVVED_UNIT_COMBAT_RULES_OK                    = 0,
-    REREVVED_UNIT_COMBAT_RULES_ERR_INVALID_ARGUMENT  = -10,
-    REREVVED_UNIT_COMBAT_RULES_ERR_BUFFER_TOO_SMALL  = -11,
-    REREVVED_UNIT_COMBAT_RULES_ERR_DUPLICATE_RULE_ID = -12,
-    REREVVED_UNIT_COMBAT_RULES_ERR_INTERNAL          = -13,
+    UNIT_COMBAT_RULES_OK                    = 0,
+    UNIT_COMBAT_RULES_ERR_INVALID_ARGUMENT  = -10,
+    UNIT_COMBAT_RULES_ERR_BUFFER_TOO_SMALL  = -11,
+    UNIT_COMBAT_RULES_ERR_DUPLICATE_RULE_ID = -12,
+    UNIT_COMBAT_RULES_ERR_INTERNAL          = -13,
 };
 
-typedef int32_t ReRevvedUnitCombatProperty;
+typedef int32_t UnitCombatProperty;
 
 enum
 {
-    REREVVED_UNIT_COMBAT_ATTACK  = 0,
-    REREVVED_UNIT_COMBAT_DEFENSE = 1,
+    UNIT_COMBAT_ATTACK  = 0,
+    UNIT_COMBAT_DEFENSE = 1,
 };
 
 enum
 {
-    REREVVED_UNIT_COMBAT_EVALUATION_OUT_OF_RANGE = 1u << 0,
+    UNIT_COMBAT_EVALUATION_OUT_OF_RANGE = 1u << 0,
 };
 
-typedef struct ReRevvedUnitCombatRule
+typedef struct UnitCombatRule
 {
-    uint32_t                   structSize;
-    char                       providerId[REREVVED_UNIT_COMBAT_RULE_ID_CAPACITY];
-    char                       ruleId[REREVVED_UNIT_COMBAT_RULE_ID_CAPACITY];
-    ReRevvedCivilizationId     civilization;
-    ReRevvedUnitTypeId         baseUnitType;
-    ReRevvedUnitIdentityId     identity;
-    ReRevvedTerrainId          terrain;
-    ReRevvedUnitCombatProperty property;
-    int32_t                    percentageDelta; // Additive percentage points relative to the native 100 percent scalar.
-    int32_t                    reserved[3];
-} ReRevvedUnitCombatRule;
+    uint32_t           structSize;
+    char               providerId[UNIT_COMBAT_RULE_ID_CAPACITY];
+    char               ruleId[UNIT_COMBAT_RULE_ID_CAPACITY];
+    CivilizationId     civilization;
+    UnitTypeId         baseUnitType;
+    UnitIdentityId     identity;
+    TerrainId          terrain;
+    UnitCombatProperty property;
+    int32_t            percentageDelta; // Additive percentage points relative to the native 100 percent scalar.
+    int32_t            reserved[3];
+} UnitCombatRule;
 
-typedef struct ReRevvedUnitCombatRuleInfo
+typedef struct UnitCombatRuleInfo
 {
-    uint32_t                   structSize; // Current producer size. Callers may pass any buffer at least 160 bytes.
-    char                       providerId[REREVVED_UNIT_COMBAT_RULE_ID_CAPACITY];
-    char                       ruleId[REREVVED_UNIT_COMBAT_RULE_ID_CAPACITY];
-    ReRevvedCivilizationId     civilization;
-    ReRevvedUnitTypeId         baseUnitType;
-    ReRevvedUnitIdentityId     identity;
-    ReRevvedTerrainId          terrain;
-    ReRevvedUnitCombatProperty property;
-    int32_t                    percentageDelta;
-    uint32_t                   statusFlags;
-    int32_t                    reserved[8];
-} ReRevvedUnitCombatRuleInfo;
+    uint32_t           structSize; // Current producer size. Callers may pass any buffer at least 160 bytes.
+    char               providerId[UNIT_COMBAT_RULE_ID_CAPACITY];
+    char               ruleId[UNIT_COMBAT_RULE_ID_CAPACITY];
+    CivilizationId     civilization;
+    UnitTypeId         baseUnitType;
+    UnitIdentityId     identity;
+    TerrainId          terrain;
+    UnitCombatProperty property;
+    int32_t            percentageDelta;
+    uint32_t           statusFlags;
+    int32_t            reserved[8];
+} UnitCombatRuleInfo;
 
-typedef struct ReRevvedUnitCombatQuery
+typedef struct UnitCombatQuery
 {
-    uint32_t                   structSize;
-    ReRevvedCivilizationId     civilization;
-    ReRevvedUnitTypeId         baseUnitType;
-    ReRevvedUnitIdentityId     identity;
-    ReRevvedTerrainId          terrain;
-    ReRevvedUnitCombatProperty property;
-    int32_t                    reserved[4];
-} ReRevvedUnitCombatQuery;
+    uint32_t           structSize;
+    CivilizationId     civilization;
+    UnitTypeId         baseUnitType;
+    UnitIdentityId     identity;
+    TerrainId          terrain;
+    UnitCombatProperty property;
+    int32_t            reserved[4];
+} UnitCombatQuery;
 
-typedef struct ReRevvedUnitCombatEvaluation
+typedef struct UnitCombatEvaluation
 {
     uint32_t structSize; // Current producer size. Callers may pass any buffer at least 20 bytes.
     int32_t  nativePercent;
@@ -93,42 +93,42 @@ typedef struct ReRevvedUnitCombatEvaluation
     uint32_t statusFlags;
     uint32_t additiveCount;
     int32_t  reserved[5];
-} ReRevvedUnitCombatEvaluation;
+} UnitCombatEvaluation;
 
-typedef uint32_t (*ReRevvedUnitCombatRulesAbiVersionFn)(void);
-typedef int32_t (*ReRevvedRegisterUnitCombatRuleFn)(
-    const ReRevvedUnitCombatRule* rule);
-typedef int32_t (*ReRevvedGetUnitCombatRuleCountFn)(uint32_t* outCount);
-typedef int32_t (*ReRevvedGetUnitCombatRuleFn)(
-    uint32_t                    index,
-    ReRevvedUnitCombatRuleInfo* out,
-    uint32_t                    outSize);
-typedef int32_t (*ReRevvedEvaluateUnitCombatFn)(
-    const ReRevvedUnitCombatQuery* query,
-    ReRevvedUnitCombatEvaluation*  out,
-    uint32_t                       outSize);
+typedef uint32_t (*UnitCombatRulesAbiVersionFn)(void);
+typedef int32_t (*RegisterUnitCombatRuleFn)(
+    const UnitCombatRule* rule);
+typedef int32_t (*GetUnitCombatRuleCountFn)(uint32_t* outCount);
+typedef int32_t (*GetUnitCombatRuleFn)(
+    uint32_t            index,
+    UnitCombatRuleInfo* out,
+    uint32_t            outSize);
+typedef int32_t (*EvaluateUnitCombatFn)(
+    const UnitCombatQuery* query,
+    UnitCombatEvaluation*  out,
+    uint32_t               outSize);
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-    REREVVED_UNIT_COMBAT_RULES_API uint32_t ReRevvedUnitCombatRulesAbiVersion(void);
-    REREVVED_UNIT_COMBAT_RULES_API int32_t  ReRevvedRegisterUnitCombatRule(
-        const ReRevvedUnitCombatRule* rule);
-    REREVVED_UNIT_COMBAT_RULES_API int32_t ReRevvedGetUnitCombatRuleCount(
+    UNIT_COMBAT_RULES_API uint32_t UnitCombatRulesAbiVersion(void);
+    UNIT_COMBAT_RULES_API int32_t  RegisterUnitCombatRule(
+        const UnitCombatRule* rule);
+    UNIT_COMBAT_RULES_API int32_t GetUnitCombatRuleCount(
         uint32_t* outCount);
-    REREVVED_UNIT_COMBAT_RULES_API int32_t ReRevvedGetUnitCombatRule(
-        uint32_t                    index,
-        ReRevvedUnitCombatRuleInfo* out,
-        uint32_t                    outSize);
-    REREVVED_UNIT_COMBAT_RULES_API int32_t ReRevvedEvaluateUnitCombat(
-        const ReRevvedUnitCombatQuery* query,
-        ReRevvedUnitCombatEvaluation*  out,
-        uint32_t                       outSize);
+    UNIT_COMBAT_RULES_API int32_t GetUnitCombatRule(
+        uint32_t            index,
+        UnitCombatRuleInfo* out,
+        uint32_t            outSize);
+    UNIT_COMBAT_RULES_API int32_t EvaluateUnitCombat(
+        const UnitCombatQuery* query,
+        UnitCombatEvaluation*  out,
+        uint32_t               outSize);
 
 #ifdef __cplusplus
 } // extern "C"
 #endif
 
-#undef REREVVED_UNIT_COMBAT_RULES_API
+#undef UNIT_COMBAT_RULES_API

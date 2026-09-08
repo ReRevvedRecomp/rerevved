@@ -48,10 +48,10 @@ void presenceThread(PresenceModel lastSent)
             break;
         }
 
-        ReRevvedGameplayState state{};
-        const bool            stateAvailable =
-            ReRevvedGetGameplayState(&state, sizeof(state)) ==
-            REREVVED_GAMEPLAY_OK;
+        GameplayState state{};
+        const bool    stateAvailable =
+            GetGameplayState(&state, sizeof(state)) ==
+            GAMEPLAY_OK;
         if (stateAvailable)
         {
             PresenceModel gameplay;
@@ -60,7 +60,7 @@ void presenceThread(PresenceModel lastSent)
                 retainedGameplay = std::move(gameplay);
             }
             else if ((state.validFields &
-                      REREVVED_GAMEPLAY_VALID_FRONTEND) != 0 &&
+                      GAMEPLAY_VALID_FRONTEND) != 0 &&
                      !state.gameplayActive)
             {
                 retainedGameplay.reset();

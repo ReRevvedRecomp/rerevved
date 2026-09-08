@@ -15,8 +15,8 @@ int32_t CopySizedOutput(void*       out,
                         uint32_t    producerSize,
                         uint32_t    minimumPrefix);
 
-bool TryResolveUnitIdentity(ReRevvedCivilizationId  civilization,
-                            ReRevvedUnitTypeId      unitType,
-                            ReRevvedUnitIdentityId& identity);
+bool TryResolveUnitIdentity(CivilizationId  civilization,
+                            UnitTypeId      unitType,
+                            UnitIdentityId& identity);
 
 } // namespace rerevved::unit_catalog

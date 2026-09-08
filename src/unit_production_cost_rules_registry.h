@@ -7,10 +7,10 @@
 namespace rerevved::unit_production_cost_rules
 {
 
-bool TryEvaluate(ReRevvedCivilizationId                civilization,
-                 ReRevvedUnitTypeId                    baseUnitType,
-                 ReRevvedUnitIdentityId                identity,
-                 ReRevvedUnitProductionCostEvaluation& evaluation);
+bool TryEvaluate(CivilizationId                civilization,
+                 UnitTypeId                    baseUnitType,
+                 UnitIdentityId                identity,
+                 UnitProductionCostEvaluation& evaluation);
 
 void ResetForTests();
 

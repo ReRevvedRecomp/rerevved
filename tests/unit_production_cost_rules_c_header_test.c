@@ -4,31 +4,31 @@
 
 int main(void)
 {
-    ReRevvedUnitProductionCostRulesAbiVersionFn versionFn =
-        ReRevvedUnitProductionCostRulesAbiVersion;
-    ReRevvedRegisterUnitProductionCostRuleFn registerFn =
-        ReRevvedRegisterUnitProductionCostRule;
-    ReRevvedGetUnitProductionCostRuleCountFn countFn =
-        ReRevvedGetUnitProductionCostRuleCount;
-    ReRevvedGetUnitProductionCostRuleFn  getFn      = ReRevvedGetUnitProductionCostRule;
-    ReRevvedEvaluateUnitProductionCostFn evaluateFn = ReRevvedEvaluateUnitProductionCost;
+    UnitProductionCostRulesAbiVersionFn versionFn =
+        UnitProductionCostRulesAbiVersion;
+    RegisterUnitProductionCostRuleFn registerFn =
+        RegisterUnitProductionCostRule;
+    GetUnitProductionCostRuleCountFn countFn =
+        GetUnitProductionCostRuleCount;
+    GetUnitProductionCostRuleFn  getFn      = GetUnitProductionCostRule;
+    EvaluateUnitProductionCostFn evaluateFn = EvaluateUnitProductionCost;
 
-    ReRevvedUnitProductionCostRule       rule       = { 0 };
-    ReRevvedUnitProductionCostRuleInfo   info       = { 0 };
-    ReRevvedUnitProductionCostQuery      query      = { 0 };
-    ReRevvedUnitProductionCostEvaluation evaluation = { 0 };
+    UnitProductionCostRule       rule       = { 0 };
+    UnitProductionCostRuleInfo   info       = { 0 };
+    UnitProductionCostQuery      query      = { 0 };
+    UnitProductionCostEvaluation evaluation = { 0 };
 
     if (!versionFn || !registerFn || !countFn || !getFn || !evaluateFn ||
         sizeof(rule) != 168 || sizeof(info) != 192 || sizeof(query) != 40 ||
         sizeof(evaluation) != 40 ||
-        offsetof(ReRevvedUnitProductionCostRule, civilization) != 132 ||
-        offsetof(ReRevvedUnitProductionCostRule, percentageDelta) != 144 ||
-        offsetof(ReRevvedUnitProductionCostRuleInfo, statusFlags) != 148 ||
-        offsetof(ReRevvedUnitProductionCostQuery, reserved) != 16 ||
-        offsetof(ReRevvedUnitProductionCostEvaluation, finalPercent) != 8 ||
-        REREVVED_UNIT_PRODUCTION_COST_RULES_ABI_VERSION != 1u)
+        offsetof(UnitProductionCostRule, civilization) != 132 ||
+        offsetof(UnitProductionCostRule, percentageDelta) != 144 ||
+        offsetof(UnitProductionCostRuleInfo, statusFlags) != 148 ||
+        offsetof(UnitProductionCostQuery, reserved) != 16 ||
+        offsetof(UnitProductionCostEvaluation, finalPercent) != 8 ||
+        UNIT_PRODUCTION_COST_RULES_ABI_VERSION != 2u)
     {
         return 1;
     }
-    return versionFn() == REREVVED_UNIT_PRODUCTION_COST_RULES_ABI_VERSION ? 0 : 2;
+    return versionFn() == UNIT_PRODUCTION_COST_RULES_ABI_VERSION ? 0 : 2;
 }
