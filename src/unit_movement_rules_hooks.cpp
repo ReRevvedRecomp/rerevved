@@ -13,7 +13,7 @@ namespace
 {
 
 constexpr uint32_t kPlayerCivilizations = 0x830ECD28;
-constexpr int32_t kPlayerCount          = 6;
+constexpr int32_t  kPlayerCount         = 6;
 
 bool TryReadCivilization(int32_t player, ReRevvedCivilizationId& civilization)
 {
@@ -36,10 +36,10 @@ bool TryReadCivilization(int32_t player, ReRevvedCivilizationId& civilization)
         return false;
     }
 
-    const auto* source   = memory->TranslateVirtual<const uint8_t*>(address);
-    const uint32_t value = (uint32_t{ source[0] } << 24) |
-                           (uint32_t{ source[1] } << 16) |
-                           (uint32_t{ source[2] } << 8) | uint32_t{ source[3] };
+    const auto*    source = memory->TranslateVirtual<const uint8_t*>(address);
+    const uint32_t value  = (uint32_t{ source[0] } << 24) |
+                            (uint32_t{ source[1] } << 16) |
+                            (uint32_t{ source[2] } << 8) | uint32_t{ source[3] };
     if (value >= REREVVED_CIVILIZATION_COUNT)
     {
         return false;

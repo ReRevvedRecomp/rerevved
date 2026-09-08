@@ -20,7 +20,7 @@ namespace
 constexpr uint32_t kRuleInfoPrefix   = 160;
 constexpr uint32_t kEvaluationPrefix = 24;
 
-std::shared_mutex registry_mutex;
+std::shared_mutex                         registry_mutex;
 std::vector<ReRevvedUniqueUnitScalarRule> registry;
 
 bool IsPropertyValid(ReRevvedUniqueUnitScalarProperty property)
@@ -80,10 +80,10 @@ bool IsZeroed(const int32_t (&values)[Size])
 }
 
 bool TargetMatches(const ReRevvedUniqueUnitScalarRule& rule,
-                   ReRevvedCivilizationId civilization,
-                   ReRevvedUnitTypeId base_unit_type,
-                   ReRevvedUnitIdentityId identity,
-                   ReRevvedUniqueUnitScalarProperty property)
+                   ReRevvedCivilizationId              civilization,
+                   ReRevvedUnitTypeId                  base_unit_type,
+                   ReRevvedUnitIdentityId              identity,
+                   ReRevvedUniqueUnitScalarProperty    property)
 {
     return rule.civilization == civilization &&
            rule.base_unit_type == base_unit_type && rule.identity == identity &&
@@ -107,7 +107,7 @@ bool RuleKeyLess(const ReRevvedUniqueUnitScalarRule& left,
 }
 
 bool IsTargetValid(ReRevvedCivilizationId civilization,
-                   ReRevvedUnitTypeId base_unit_type,
+                   ReRevvedUnitTypeId     base_unit_type,
                    ReRevvedUnitIdentityId identity)
 {
     ReRevvedUnitIdentityId resolved = REREVVED_UNIT_IDENTITY_BASE;
@@ -127,10 +127,10 @@ void ClearOutput(Record* out, uint32_t out_size)
 }
 
 template <typename Record>
-int32_t CopyOutput(Record* out,
-                   uint32_t out_size,
+int32_t CopyOutput(Record*       out,
+                   uint32_t      out_size,
                    const Record& producer,
-                   uint32_t minimum_prefix)
+                   uint32_t      minimum_prefix)
 {
     if (!out)
     {
@@ -164,11 +164,11 @@ uint32_t ReplacementCount(const ReRevvedUniqueUnitScalarRule& target)
 
 } // namespace
 
-bool TryEvaluate(ReRevvedCivilizationId civilization,
-                 ReRevvedUnitTypeId base_unit_type,
-                 ReRevvedUnitIdentityId identity,
-                 ReRevvedUniqueUnitScalarProperty property,
-                 int32_t native_value,
+bool TryEvaluate(ReRevvedCivilizationId              civilization,
+                 ReRevvedUnitTypeId                  base_unit_type,
+                 ReRevvedUnitIdentityId              identity,
+                 ReRevvedUniqueUnitScalarProperty    property,
+                 int32_t                             native_value,
                  ReRevvedUniqueUnitScalarEvaluation& evaluation)
 {
     if (!IsTargetValid(civilization, base_unit_type, identity) ||
@@ -188,9 +188,9 @@ bool TryEvaluate(ReRevvedCivilizationId civilization,
     };
 
     std::shared_lock lock(registry_mutex);
-    int64_t additive_sum   = 0;
-    int32_t replacement    = native_value;
-    bool additive_overflow = false;
+    int64_t          additive_sum      = 0;
+    int32_t          replacement       = native_value;
+    bool             additive_overflow = false;
     for (const auto& rule : registry)
     {
         if (!TargetMatches(
@@ -284,7 +284,7 @@ extern "C" int32_t ReRevvedRegisterUniqueUnitScalarRule(
     try
     {
         std::unique_lock lock(registry_mutex);
-        const auto duplicate = std::find_if(
+        const auto       duplicate = std::find_if(
             registry.begin(), registry.end(), [&](const auto& candidate)
             {
                 return RuleKeyMatches(candidate, normalized);
@@ -320,9 +320,9 @@ extern "C" int32_t ReRevvedGetUniqueUnitScalarRuleCount(uint32_t* out_count)
 }
 
 extern "C" int32_t ReRevvedGetUniqueUnitScalarRule(
-    uint32_t index,
+    uint32_t                          index,
     ReRevvedUniqueUnitScalarRuleInfo* out,
-    uint32_t out_size)
+    uint32_t                          out_size)
 {
     using namespace rerevved::unique_unit_rules;
     if (!out)
@@ -341,7 +341,7 @@ extern "C" int32_t ReRevvedGetUniqueUnitScalarRule(
         return REREVVED_UNIQUE_UNIT_RULES_ERR_INVALID_ARGUMENT;
     }
 
-    const auto& rule = registry[index];
+    const auto&                      rule = registry[index];
     ReRevvedUniqueUnitScalarRuleInfo result{};
     result.struct_size    = sizeof(result);
     result.civilization   = rule.civilization;
@@ -363,8 +363,8 @@ extern "C" int32_t ReRevvedGetUniqueUnitScalarRule(
 
 extern "C" int32_t ReRevvedEvaluateUniqueUnitScalar(
     const ReRevvedUniqueUnitScalarQuery* query,
-    ReRevvedUniqueUnitScalarEvaluation* out,
-    uint32_t out_size)
+    ReRevvedUniqueUnitScalarEvaluation*  out,
+    uint32_t                             out_size)
 {
     using namespace rerevved::unique_unit_rules;
     if (!out)

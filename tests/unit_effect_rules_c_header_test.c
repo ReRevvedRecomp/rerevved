@@ -8,12 +8,12 @@ int main(void)
         ReRevvedUnitEffectRulesAbiVersion;
     ReRevvedRegisterUnitEffectRuleFn register_fn = ReRevvedRegisterUnitEffectRule;
     ReRevvedGetUnitEffectRuleCountFn count_fn    = ReRevvedGetUnitEffectRuleCount;
-    ReRevvedGetUnitEffectRuleFn get_fn           = ReRevvedGetUnitEffectRule;
-    ReRevvedEvaluateUnitEffectFn evaluate_fn     = ReRevvedEvaluateUnitEffect;
+    ReRevvedGetUnitEffectRuleFn      get_fn      = ReRevvedGetUnitEffectRule;
+    ReRevvedEvaluateUnitEffectFn     evaluate_fn = ReRevvedEvaluateUnitEffect;
 
-    ReRevvedUnitEffectRule rule             = { 0 };
-    ReRevvedUnitEffectRuleInfo info         = { 0 };
-    ReRevvedUnitEffectQuery query           = { 0 };
+    ReRevvedUnitEffectRule       rule       = { 0 };
+    ReRevvedUnitEffectRuleInfo   info       = { 0 };
+    ReRevvedUnitEffectQuery      query      = { 0 };
     ReRevvedUnitEffectEvaluation evaluation = { 0 };
 
     if (!version_fn || !register_fn || !count_fn || !get_fn || !evaluate_fn ||

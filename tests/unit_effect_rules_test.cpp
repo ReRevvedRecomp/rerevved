@@ -20,12 +20,12 @@ void Require(bool condition, std::string_view message)
     }
 }
 
-ReRevvedUnitEffectRule MakeRule(const char* provider,
-                                const char* rule_id,
+ReRevvedUnitEffectRule MakeRule(const char*            provider,
+                                const char*            rule_id,
                                 ReRevvedCivilizationId civilization,
-                                ReRevvedUnitTypeId base_unit_type,
+                                ReRevvedUnitTypeId     base_unit_type,
                                 ReRevvedUnitIdentityId identity,
-                                ReRevvedUnitEffectId effect =
+                                ReRevvedUnitEffectId   effect =
                                     REREVVED_UNIT_EFFECT_CREATION_VETERAN)
 {
     ReRevvedUnitEffectRule rule{};
@@ -40,10 +40,10 @@ ReRevvedUnitEffectRule MakeRule(const char* provider,
 }
 
 ReRevvedUnitEffectEvaluation Evaluate(ReRevvedCivilizationId civilization,
-                                      ReRevvedUnitTypeId base_unit_type,
+                                      ReRevvedUnitTypeId     base_unit_type,
                                       ReRevvedUnitIdentityId identity,
-                                      int32_t native_level,
-                                      ReRevvedUnitEffectId effect =
+                                      int32_t                native_level,
+                                      ReRevvedUnitEffectId   effect =
                                           REREVVED_UNIT_EFFECT_CREATION_VETERAN)
 {
     const ReRevvedUnitEffectQuery query = {
@@ -118,7 +118,7 @@ void TestNamedSpecialEffects()
     struct ExpectedEffect
     {
         ReRevvedUnitEffectId effect;
-        uint32_t mask;
+        uint32_t             mask;
     };
 
     constexpr std::array<ExpectedEffect, 9> expected = { {

@@ -31,21 +31,21 @@ enum
 
 typedef struct ReRevvedUnitDefinition
 {
-    uint32_t struct_size; // Current producer size. Callers may pass any buffer at least 16 bytes.
+    uint32_t           struct_size; // Current producer size. Callers may pass any buffer at least 16 bytes.
     ReRevvedUnitTypeId unit_type;
-    int32_t base_attack;
-    int32_t base_defense;
-    int32_t reserved[4];
+    int32_t            base_attack;
+    int32_t            base_defense;
+    int32_t            reserved[4];
 } ReRevvedUnitDefinition;
 
 typedef struct ReRevvedUnitIdentity
 {
-    uint32_t struct_size; // Current producer size. Callers may pass any buffer at least 20 bytes.
-    ReRevvedCivilizationId civilization;
-    ReRevvedUnitTypeId base_unit_type;
-    ReRevvedUnitIdentityId identity;
+    uint32_t                struct_size; // Current producer size. Callers may pass any buffer at least 20 bytes.
+    ReRevvedCivilizationId  civilization;
+    ReRevvedUnitTypeId      base_unit_type;
+    ReRevvedUnitIdentityId  identity;
     ReRevvedUnitDisplayForm display_form;
-    int32_t reserved[3];
+    int32_t                 reserved[3];
 } ReRevvedUnitIdentity;
 
 // A null output returns INVALID_ARGUMENT. Otherwise each query first clears
@@ -56,15 +56,15 @@ typedef struct ReRevvedUnitIdentity
 
 typedef uint32_t (*ReRevvedUnitCatalogAbiVersionFn)(void);
 typedef int32_t (*ReRevvedGetUnitDefinitionFn)(
-    ReRevvedUnitTypeId unit_type,
+    ReRevvedUnitTypeId      unit_type,
     ReRevvedUnitDefinition* out,
-    uint32_t out_size);
+    uint32_t                out_size);
 typedef int32_t (*ReRevvedResolveUnitIdentityFn)(
-    ReRevvedCivilizationId civilization,
-    ReRevvedUnitTypeId base_unit_type,
+    ReRevvedCivilizationId  civilization,
+    ReRevvedUnitTypeId      base_unit_type,
     ReRevvedUnitDisplayForm display_form,
-    ReRevvedUnitIdentity* out,
-    uint32_t out_size);
+    ReRevvedUnitIdentity*   out,
+    uint32_t                out_size);
 
 #ifdef __cplusplus
 extern "C"
@@ -74,17 +74,17 @@ extern "C"
     REREVVED_UNIT_CATALOG_API uint32_t ReRevvedUnitCatalogAbiVersion(void);
     // Returns the immutable base definition for one unit type.
     REREVVED_UNIT_CATALOG_API int32_t ReRevvedGetUnitDefinition(
-        ReRevvedUnitTypeId unit_type,
+        ReRevvedUnitTypeId      unit_type,
         ReRevvedUnitDefinition* out,
-        uint32_t out_size);
+        uint32_t                out_size);
     // Returns a civilization-specific identity or BASE when none exists.
     // Display form is echoed but does not change the resolved identity.
     REREVVED_UNIT_CATALOG_API int32_t ReRevvedResolveUnitIdentity(
-        ReRevvedCivilizationId civilization,
-        ReRevvedUnitTypeId base_unit_type,
+        ReRevvedCivilizationId  civilization,
+        ReRevvedUnitTypeId      base_unit_type,
         ReRevvedUnitDisplayForm display_form,
-        ReRevvedUnitIdentity* out,
-        uint32_t out_size);
+        ReRevvedUnitIdentity*   out,
+        uint32_t                out_size);
 
 #ifdef __cplusplus
 } // extern "C"

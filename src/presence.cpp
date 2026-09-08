@@ -21,7 +21,7 @@ constexpr char kDiscordClientId[]    = "1539761702416162938";
 constexpr auto kPresencePollInterval = std::chrono::seconds{ 1 };
 
 std::atomic<bool> g_presence_running{ false };
-std::thread g_presence_thread;
+std::thread       g_presence_thread;
 
 rex::discord_rpc::Presence ToDiscordPresence(const PresenceModel& model)
 {
@@ -38,7 +38,7 @@ rex::discord_rpc::Presence ToDiscordPresence(const PresenceModel& model)
 void PresenceThread(PresenceModel last_sent)
 {
     std::optional<PresenceModel> retained_gameplay;
-    auto last_publish = std::chrono::steady_clock::now();
+    auto                         last_publish = std::chrono::steady_clock::now();
 
     while (g_presence_running.load(std::memory_order_acquire))
     {
@@ -49,7 +49,7 @@ void PresenceThread(PresenceModel last_sent)
         }
 
         ReRevvedGameplayState state{};
-        const bool state_available =
+        const bool            state_available =
             ReRevvedGetGameplayState(&state, sizeof(state)) ==
             REREVVED_GAMEPLAY_OK;
         if (state_available)

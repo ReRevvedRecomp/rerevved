@@ -15,28 +15,28 @@ namespace rerevved::gameplay
 
 struct Snapshot
 {
-    uint64_t frame_sequence    = 0;
-    uint32_t frontend_root     = 0;
-    uint32_t frontend_state    = 0;
-    uint32_t frontend_key      = UINT32_MAX;
-    uint32_t active_player     = UINT32_MAX;
-    uint32_t human_player_mask = 0;
-    uint32_t interface_gate    = 0;
-    uint32_t civilization      = UINT32_MAX;
-    uint32_t era               = UINT32_MAX;
-    int32_t year               = REREVVED_GAMEPLAY_YEAR_UNKNOWN;
-    uint32_t turn              = UINT32_MAX;
-    bool frontend_known        = false;
-    bool gameplay_active       = false;
-    bool turn_owner_known      = false;
-    bool human_turn            = false;
-    bool interface_known       = false;
-    bool interface_update      = false;
-    bool civilization_known    = false;
-    bool era_known             = false;
-    bool year_known            = false;
-    bool turn_number_known     = false;
-    bool available             = false;
+    uint64_t frame_sequence     = 0;
+    uint32_t frontend_root      = 0;
+    uint32_t frontend_state     = 0;
+    uint32_t frontend_key       = UINT32_MAX;
+    uint32_t active_player      = UINT32_MAX;
+    uint32_t human_player_mask  = 0;
+    uint32_t interface_gate     = 0;
+    uint32_t civilization       = UINT32_MAX;
+    uint32_t era                = UINT32_MAX;
+    int32_t  year               = REREVVED_GAMEPLAY_YEAR_UNKNOWN;
+    uint32_t turn               = UINT32_MAX;
+    bool     frontend_known     = false;
+    bool     gameplay_active    = false;
+    bool     turn_owner_known   = false;
+    bool     human_turn         = false;
+    bool     interface_known    = false;
+    bool     interface_update   = false;
+    bool     civilization_known = false;
+    bool     era_known          = false;
+    bool     year_known         = false;
+    bool     turn_number_known  = false;
+    bool     available          = false;
 };
 
 namespace
@@ -55,16 +55,16 @@ constexpr uint32_t kPlayerCount             = 6;
 struct PublishedSlot
 {
     std::atomic<int32_t> users{ 0 };
-    Snapshot snapshot;
+    Snapshot             snapshot;
 };
 
 // UI readers may make the inactive slot temporarily unavailable, but the guest
 // frame writer never waits for them. Skipping one publication is harmless.
 std::array<PublishedSlot, 2> g_published_slots;
-std::atomic<uint32_t> g_active_slot{ 0 };
-std::atomic<bool> g_snapshot_published{ false };
-uint32_t g_writer_slot    = 0;
-uint64_t g_frame_sequence = 0;
+std::atomic<uint32_t>        g_active_slot{ 0 };
+std::atomic<bool>            g_snapshot_published{ false };
+uint32_t                     g_writer_slot    = 0;
+uint64_t                     g_frame_sequence = 0;
 
 bool IsGuestPointer(uint32_t address)
 {
@@ -72,8 +72,8 @@ bool IsGuestPointer(uint32_t address)
 }
 
 bool IsGuestReadableRange(rex::memory::Memory* memory,
-                          uint32_t address,
-                          uint32_t extent)
+                          uint32_t             address,
+                          uint32_t             extent)
 {
     if (!memory || extent == 0 || address > UINT32_MAX - extent)
     {
@@ -121,8 +121,8 @@ bool TryReadU32(rex::memory::Memory* memory, uint32_t address, uint32_t& value)
 static Snapshot ReadGuestSnapshot()
 {
     Snapshot state{};
-    auto* runtime = rex::Runtime::instance();
-    auto* memory  = runtime ? runtime->memory() : nullptr;
+    auto*    runtime = rex::Runtime::instance();
+    auto*    memory  = runtime ? runtime->memory() : nullptr;
     if (!memory)
     {
         return state;
@@ -196,8 +196,8 @@ static Snapshot ReadGuestSnapshot()
 void PublishFrameSnapshot()
 {
     const uint32_t next_slot = g_writer_slot ^ 1u;
-    auto& slot               = g_published_slots[next_slot];
-    int32_t expected         = 0;
+    auto&          slot      = g_published_slots[next_slot];
+    int32_t        expected  = 0;
     if (!slot.users.compare_exchange_strong(expected,
                                             -1,
                                             std::memory_order_acquire,
@@ -226,7 +226,7 @@ static bool GetPublishedSnapshot(Snapshot& out)
     {
         const uint32_t slot_index =
             g_active_slot.load(std::memory_order_acquire);
-        auto& slot       = g_published_slots[slot_index];
+        auto&   slot     = g_published_slots[slot_index];
         int32_t expected = slot.users.load(std::memory_order_relaxed);
         if (expected < 0 ||
             !slot.users.compare_exchange_weak(expected,
@@ -260,7 +260,7 @@ extern "C" uint32_t ReRevvedGameplayAbiVersion(void)
 
 extern "C" int ReRevvedGetGameplayState(
     ReRevvedGameplayState* out,
-    uint32_t out_size)
+    uint32_t               out_size)
 {
     if (!out)
     {

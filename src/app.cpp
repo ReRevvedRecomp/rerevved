@@ -1,4 +1,4 @@
-#include "rerevved_app.h"
+#include "app.h"
 
 #if defined(_WIN32)
 #include <Windows.h>
@@ -50,9 +50,9 @@ REXCVAR_DEFINE_STRING(native_renderer_fence_trace_output, "", "ReRevved", "Ignor
 namespace
 {
 
-constexpr std::size_t kMaxReportedErrors   = 10;
-constexpr std::size_t kCoverageInputZOrder = 1000;
-constexpr uint32_t kFinalCoverageSegment   = 7;
+constexpr std::size_t kMaxReportedErrors    = 10;
+constexpr std::size_t kCoverageInputZOrder  = 1000;
+constexpr uint32_t    kFinalCoverageSegment = 7;
 
 bool IsContainedPath(const std::filesystem::path& root,
                      const std::filesystem::path& path)
@@ -109,7 +109,7 @@ bool ContainsExistingReparsePoint(const std::filesystem::path& root,
     auto is_symlink = [](const std::filesystem::path& candidate)
     {
         std::error_code error;
-        const auto status = std::filesystem::symlink_status(candidate, error);
+        const auto      status = std::filesystem::symlink_status(candidate, error);
         if (error)
         {
             return true;
@@ -134,10 +134,10 @@ bool ContainsExistingReparsePoint(const std::filesystem::path& root,
 #endif
 }
 
-bool ResolvePassiveTracePath(std::string_view configured,
+bool ResolvePassiveTracePath(std::string_view       configured,
                              std::filesystem::path& output_path)
 {
-    std::error_code error;
+    std::error_code             error;
     const std::filesystem::path scratch_root =
         std::filesystem::absolute("out", error).lexically_normal();
     if (error)
@@ -198,7 +198,10 @@ rerevved::native_renderer::SnapshotFields ReadCoverageSnapshot() noexcept
 
 } // namespace
 
-void ReRevvedApp::OnPreSetup(rex::RuntimeConfig& config)
+namespace rerevved
+{
+
+void App::OnPreSetup(rex::RuntimeConfig& config)
 {
     REXLOG_INFO("{}", REREVVED_BUILD_INFO);
     config.game_version = REREVVED_VERSION;
@@ -209,7 +212,7 @@ void ReRevvedApp::OnPreSetup(rex::RuntimeConfig& config)
     }
 }
 
-std::filesystem::path ReRevvedApp::GetDefaultUserDataRoot() const
+std::filesystem::path App::GetDefaultUserDataRoot() const
 {
     const auto user_folder = rex::filesystem::GetUserFolder();
 #if defined(_WIN32)
@@ -219,13 +222,13 @@ std::filesystem::path ReRevvedApp::GetDefaultUserDataRoot() const
 #endif
 }
 
-void ReRevvedApp::OnConfigurePaths(rex::PathConfig& paths)
+void App::OnConfigurePaths(rex::PathConfig& paths)
 {
     // Keep user state outside a potentially read-only install directory.
     paths.config_path = paths.user_data_root / "rerevved.toml";
 }
 
-std::optional<rex::system::ProfileCopySpecification> ReRevvedApp::GetProfileCopySpecification() const
+std::optional<rex::system::ProfileCopySpecification> App::GetProfileCopySpecification() const
 {
     return rex::system::ProfileCopySpecification{
         .config_relative_path = "rerevved.toml",
@@ -233,7 +236,7 @@ std::optional<rex::system::ProfileCopySpecification> ReRevvedApp::GetProfileCopy
     };
 }
 
-bool ReRevvedApp::SetupEnvironment()
+bool App::SetupEnvironment()
 {
     if (!rex::ReXApp::SetupEnvironment())
     {
@@ -310,7 +313,7 @@ bool ReRevvedApp::SetupEnvironment()
     return rex::system::GameDataSelector::EnsureGameData(settings);
 }
 
-bool ReRevvedApp::SetupPresentation()
+bool App::SetupPresentation()
 {
     if (!rex::ReXApp::SetupPresentation())
     {
@@ -351,8 +354,8 @@ bool ReRevvedApp::SetupPresentation()
 
         const std::filesystem::path output_directory =
             run_root / output_name;
-        const std::string output_directory_text = output_directory.string();
-        const std::string run_root_text         = run_root.string();
+        const std::string                       output_directory_text = output_directory.string();
+        const std::string                       run_root_text         = run_root.string();
         rerevved::native_renderer::StartOptions options{};
         options.run_id           = run_id.c_str();
         options.transition_id    = transition_id.c_str();
@@ -406,7 +409,7 @@ bool ReRevvedApp::SetupPresentation()
     return true;
 }
 
-std::optional<rex::PathConfig> ReRevvedApp::OnFinalizePaths(const rex::PathConfig& defaults, std::function<void(rex::PathConfig)> resume)
+std::optional<rex::PathConfig> App::OnFinalizePaths(const rex::PathConfig& defaults, std::function<void(rex::PathConfig)> resume)
 {
     (void)resume;
 
@@ -451,7 +454,7 @@ std::optional<rex::PathConfig> ReRevvedApp::OnFinalizePaths(const rex::PathConfi
     return paths;
 }
 
-void ReRevvedApp::OnPostSetup()
+void App::OnPostSetup()
 {
     rex::ReXApp::OnPostSetup();
 
@@ -486,7 +489,7 @@ void ReRevvedApp::OnPostSetup()
     }
 }
 
-void ReRevvedApp::OnGuestThreadExit(rex::system::XThread* thread)
+void App::OnGuestThreadExit(rex::system::XThread* thread)
 {
     (void)thread;
     FinalizeFenceTrace();
@@ -494,7 +497,7 @@ void ReRevvedApp::OnGuestThreadExit(rex::system::XThread* thread)
     FinalizeCoverage(rerevved::native_renderer::ExitClass::GuestComplete);
 }
 
-void ReRevvedApp::OnShutdown()
+void App::OnShutdown()
 {
     FinalizeFenceTrace();
     FinalizePassiveTrace();
@@ -508,7 +511,7 @@ void ReRevvedApp::OnShutdown()
     native_renderer_.Shutdown();
 }
 
-bool ReRevvedApp::OnWindowCloseRequested()
+bool App::OnWindowCloseRequested()
 {
     FinalizeFenceTrace();
     FinalizePassiveTrace();
@@ -518,12 +521,12 @@ bool ReRevvedApp::OnWindowCloseRequested()
     return true;
 }
 
-void ReRevvedApp::OnWindowFocusChanged(bool focused)
+void App::OnWindowFocusChanged(bool focused)
 {
     window_focused_ = focused;
 }
 
-void ReRevvedApp::OnWindowPixelSizeChanged(uint32_t pixel_width, uint32_t pixel_height)
+void App::OnWindowPixelSizeChanged(uint32_t pixel_width, uint32_t pixel_height)
 {
     if (native_renderer_.initialized() && pixel_width != 0 && pixel_height != 0 &&
         !native_renderer_.Resize(pixel_width, pixel_height))
@@ -535,7 +538,7 @@ void ReRevvedApp::OnWindowPixelSizeChanged(uint32_t pixel_width, uint32_t pixel_
     }
 }
 
-void ReRevvedApp::OnKeyDown(rex::ui::KeyEvent& event)
+void App::OnKeyDown(rex::ui::KeyEvent& event)
 {
     if (coverage_bind_registered_ &&
         event.virtual_key() == rex::ui::VirtualKey::kF10 &&
@@ -547,7 +550,7 @@ void ReRevvedApp::OnKeyDown(rex::ui::KeyEvent& event)
     rex::ui::ProcessKeyEvent(event);
 }
 
-bool ReRevvedApp::RecordCoverageCheckpoint(bool final_segment)
+bool App::RecordCoverageCheckpoint(bool final_segment)
 {
     const std::lock_guard checkpoint_lock(coverage_checkpoint_mutex_);
     if (!coverage_started_.load(std::memory_order_acquire))
@@ -584,7 +587,7 @@ bool ReRevvedApp::RecordCoverageCheckpoint(bool final_segment)
     return false;
 }
 
-void ReRevvedApp::FinalizeCoverage(
+void App::FinalizeCoverage(
     rerevved::native_renderer::ExitClass exit_class)
 {
     if (!coverage_started_.load(std::memory_order_acquire) ||
@@ -606,7 +609,7 @@ void ReRevvedApp::FinalizeCoverage(
     }
 }
 
-void ReRevvedApp::FinalizePassiveTrace()
+void App::FinalizePassiveTrace()
 {
     if (!passive_trace_started_.load(std::memory_order_acquire))
     {
@@ -648,7 +651,7 @@ void ReRevvedApp::FinalizePassiveTrace()
     }
 }
 
-void ReRevvedApp::FinalizeFenceTrace()
+void App::FinalizeFenceTrace()
 {
     if (!fence_trace_started_.load(std::memory_order_acquire))
     {
@@ -705,3 +708,5 @@ void ReRevvedApp::FinalizeFenceTrace()
             return false;
         });
 }
+
+} // namespace rerevved

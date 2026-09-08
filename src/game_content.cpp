@@ -11,16 +11,16 @@
 namespace rerevved
 {
 
-const char* const kBaseXexSha256    = "b59b8957a3ed9dd90e9296c96d5c7ab1b16078d3f08b015582714a06c7d6a7bd";
-const char* const kUpdateXexpSha256 = "c1fc6149a63550987d991efdbb80e3697845a9a49d3f2ec180ea9817db8d12d4";
-const std::uint32_t kTitleId        = 0x545407E5u;
+const char* const   kBaseXexSha256    = "b59b8957a3ed9dd90e9296c96d5c7ab1b16078d3f08b015582714a06c7d6a7bd";
+const char* const   kUpdateXexpSha256 = "c1fc6149a63550987d991efdbb80e3697845a9a49d3f2ec180ea9817db8d12d4";
+const std::uint32_t kTitleId          = 0x545407E5u;
 
 namespace
 {
 
 struct ManifestEntry
 {
-    const char* relative_path;
+    const char*   relative_path;
     std::uint64_t size;
 };
 
@@ -183,7 +183,7 @@ std::vector<std::string> DiagnoseUpdateXexp(const std::filesystem::path& file)
 void CheckRequiredFile(const std::filesystem::path& root, const char* relative, std::uint64_t expected_size, std::vector<std::string>& errors)
 {
     std::error_code ec;
-    auto file = root / std::filesystem::path(relative);
+    auto            file = root / std::filesystem::path(relative);
     if (!std::filesystem::is_regular_file(file, ec))
     {
         errors.push_back(fmt::format("Missing: {}", relative));
@@ -202,7 +202,7 @@ template <typename Diagnose>
 void CheckExecutable(const std::filesystem::path& root, const char* relative, std::uint64_t expected_size, const char* expected_sha256, ContentDepth depth, Diagnose diagnose, std::vector<std::string>& errors)
 {
     std::error_code ec;
-    auto file = root / std::filesystem::path(relative);
+    auto            file = root / std::filesystem::path(relative);
     if (!std::filesystem::is_regular_file(file, ec))
     {
         errors.push_back(fmt::format("Missing: {}", relative));
@@ -234,7 +234,7 @@ void CheckExecutable(const std::filesystem::path& root, const char* relative, st
 ContentCheckResult VerifyContentRoot(const std::filesystem::path& root, ContentDepth depth)
 {
     ContentCheckResult result;
-    std::error_code ec;
+    std::error_code    ec;
 
     if (root.empty() || !std::filesystem::is_directory(root, ec))
     {

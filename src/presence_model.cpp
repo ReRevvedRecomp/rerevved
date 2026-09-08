@@ -68,7 +68,7 @@ std::string FormatYear(int32_t year)
 } // namespace
 
 bool TryBuildGameplayPresence(const ReRevvedGameplayState& state,
-                              PresenceModel& presence)
+                              PresenceModel&               presence)
 {
     constexpr uint32_t kRequiredFields =
         REREVVED_GAMEPLAY_VALID_CIVILIZATION |
@@ -97,7 +97,7 @@ bool TryBuildGameplayPresence(const ReRevvedGameplayState& state,
 }
 
 PresenceModel SelectPresence(
-    const ReRevvedGameplayState* state,
+    const ReRevvedGameplayState*        state,
     const std::optional<PresenceModel>& retained_gameplay)
 {
     const bool gameplay_known =

@@ -37,9 +37,9 @@ language level in [CMakeLists.txt](../CMakeLists.txt).
 - Keep one statement per line and use early returns where they clarify error
   handling.
 - Keep include sorting and declaration spacing under formatter control.
-- Use one space between a type and its variable, field, or parameter name.
-  Do not pad names into vertical columns. The formatter aligns consecutive
-  assignments, enum values, macros, and trailing comments separately.
+- Align consecutive declarations, assignments, enum values, macros, and
+  trailing comments with the formatter. Declaration alignment also applies
+  to parameter names in multiline function-pointer declarations.
 - There is no fixed column limit. Break long signatures at meaningful
   boundaries, using one parameter per line for multiline declarations. Do not
   shorten meaningful public names just to fit a line.
@@ -51,9 +51,9 @@ if (!IsReady())
 }
 
 typedef int32_t (*ReRevvedGetUnitMovementRuleFn)(
-    uint32_t index,
+    uint32_t                      index,
     ReRevvedUnitMovementRuleInfo* out,
-    uint32_t out_size);
+    uint32_t                      out_size);
 ```
 
 Put short comments about individual enum values, structure fields, and list
@@ -63,18 +63,33 @@ policy.
 
 ### Naming and headers
 
-- Use `lower_snake_case` filenames and namespaces, such as
-  `main_menu_logo_asset.h` and `rerevved::main_menu_logo`.
-- Follow the surrounding title code: `PascalCase` types and functions,
-  `lower_snake_case` locals and parameters, and `kPascalCase` constants.
-  Preserve established API and accessor names, including `snake_case`
-  accessors, and interface-required names when overriding SDK methods.
-- Public C types and exports use the `ReRevved` prefix. Public macros and
-  enumerators use `REREVVED_` with uppercase underscore-separated words.
+- Use `lower_snake_case` filenames, such as `main_menu_logo_asset.h`.
+- Use `UpperCamelCase` for types, scoped enum values, and namespaced functions;
+  `lowerCamelCase` for variables, parameters, fields, and private helpers; and
+  `kLowerCamelCase` for internal constants. Plain enum values use
+  `UPPER_SNAKE_CASE`.
+- Organize internal C++ under `rerevved` and its feature namespaces. Type and
+  member names describe their role without repeating the product or enclosing
+  enum name: `TextSurface::LeaderName`, for example. Variables and parameters
+  do not need a product prefix.
+- Public C types and exports use the `ReRevved` prefix. Public C macros and
+  unscoped enumerators use `REREVVED_` with uppercase underscore-separated
+  words because C has no namespaces. Keep these names when using the public
+  API from C++; do not add aliases solely to hide the prefix.
 - Name APIs by their supported feature or screen. Keep public identifiers,
   numeric values, and mirrored headers coordinated under the API contract.
 - Use `#pragma once` and include a header's direct dependencies. Keep private
   helpers out of public headers unless callers need them.
+
+### Interface exceptions
+
+Public C API names and member spellings, SDK overrides, generated hook symbols,
+and external entry points follow their interface contracts. Preserve names
+resolved from configuration or by other binaries. Generated global hooks keep
+their distinguishing prefix; their internal helpers follow the C++ rules above.
+Serialized keys, package IDs, and guest identifiers follow their owning schemas.
+The C++23 language level and C-compatible public headers remain title build and
+ABI requirements.
 
 ### Ownership and errors
 
@@ -82,7 +97,9 @@ Prefer explicit ownership and standard-library value types in host code.
 Use fixed-width types where width or signedness is part of an ABI or guest
 layout. Use `auto` when the initializer makes the type and ownership clear.
 
-Use named casts for intentional conversions. Guest address translation and
+Use `static_cast` for intentional value conversions and `dynamic_cast` for
+checked downcasts of polymorphic C++ objects. Do not use C-style casts or
+substitute `static_cast` for a checked downcast. Guest address translation and
 platform function-pointer resolution require their existing boundary-specific
 handling; do not substitute generic casts as a style cleanup. Validate foreign
 inputs before reading or copying them. Preserve documented error ordering,

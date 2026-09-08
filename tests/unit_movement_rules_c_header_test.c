@@ -10,12 +10,12 @@ int main(void)
         ReRevvedRegisterUnitMovementRule;
     ReRevvedGetUnitMovementRuleCountFn count_fn =
         ReRevvedGetUnitMovementRuleCount;
-    ReRevvedGetUnitMovementRuleFn get_fn       = ReRevvedGetUnitMovementRule;
+    ReRevvedGetUnitMovementRuleFn  get_fn      = ReRevvedGetUnitMovementRule;
     ReRevvedEvaluateUnitMovementFn evaluate_fn = ReRevvedEvaluateUnitMovement;
 
-    ReRevvedUnitMovementRule rule             = { 0 };
-    ReRevvedUnitMovementRuleInfo info         = { 0 };
-    ReRevvedUnitMovementQuery query           = { 0 };
+    ReRevvedUnitMovementRule       rule       = { 0 };
+    ReRevvedUnitMovementRuleInfo   info       = { 0 };
+    ReRevvedUnitMovementQuery      query      = { 0 };
     ReRevvedUnitMovementEvaluation evaluation = { 0 };
 
     if (!version_fn || !register_fn || !count_fn || !get_fn || !evaluate_fn ||

@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-APP_CPP = (ROOT / "src" / "rerevved_app.cpp").read_text(encoding="ascii")
+APP_CPP = (ROOT / "src" / "app.cpp").read_text(encoding="ascii")
 CAPTURE = (ROOT / "scripts" / "capture-window.ps1").read_text(encoding="ascii")
 MANIFEST = (ROOT / "rerevved_manifest.toml").read_text(encoding="ascii")
 LOCK = json.loads((ROOT / "rexglue-sdk.lock.json").read_text(encoding="ascii"))
@@ -21,8 +21,8 @@ class CoverageIntegrationTests(unittest.TestCase):
         self.assertIn(
             'REXCVAR_DEFINE_STRING(native_renderer_coverage_run, ""', APP_CPP
         )
-        setup = APP_CPP.index("bool ReRevvedApp::SetupPresentation()")
-        post_setup = APP_CPP.index("void ReRevvedApp::OnPostSetup()")
+        setup = APP_CPP.index("bool App::SetupPresentation()")
+        post_setup = APP_CPP.index("void App::OnPostSetup()")
         start = APP_CPP.index("native_renderer::Start(options)")
         self.assertLess(setup, start)
         self.assertLess(start, post_setup)
@@ -43,7 +43,7 @@ class CoverageIntegrationTests(unittest.TestCase):
             'REXLOG_INFO("NRD-COVERAGE-CHECKPOINT accepted={}"', APP_CPP
         )
         self.assertIn("rex::ui::ProcessKeyEvent(event);", APP_CPP)
-        repeat_filter = APP_CPP.index("void ReRevvedApp::OnKeyDown")
+        repeat_filter = APP_CPP.index("void App::OnKeyDown")
         handled = APP_CPP.index("event.set_handled(true);", repeat_filter)
         bind_dispatch = APP_CPP.index("rex::ui::ProcessKeyEvent(event);", repeat_filter)
         handler = APP_CPP[repeat_filter:bind_dispatch]

@@ -56,10 +56,10 @@ enum PassiveTraceValidField : std::uint32_t
 // guest ownership, publication, completion, or acknowledgement semantics.
 struct PassiveTraceEvent
 {
-    std::uint64_t sequence  = 0;
-    std::uint32_t thread_id = 0;
-    std::uint32_t epoch     = 0;
-    PassiveTracePoint point = PassiveTracePoint::kTraceStarted;
+    std::uint64_t     sequence  = 0;
+    std::uint32_t     thread_id = 0;
+    std::uint32_t     epoch     = 0;
+    PassiveTracePoint point     = PassiveTracePoint::kTraceStarted;
 
     std::uint32_t valid_fields             = 0;
     std::uint32_t device_address           = 0;
@@ -81,7 +81,7 @@ struct PassiveTraceEvent
     std::uint32_t read_pointer_writeback_address = 0;
     std::uint32_t read_pointer_writeback         = 0;
 
-    std::array<std::uint32_t, kPassiveTraceDescriptorDwords> descriptor{};
+    std::array<std::uint32_t, kPassiveTraceDescriptorDwords>  descriptor{};
     std::array<std::uint32_t, kPassiveTraceReservationDwords> reservation_words{};
 };
 
@@ -110,17 +110,17 @@ public:
     PassiveTraceRecordLease& operator=(PassiveTraceRecordLease&& other) noexcept;
 
     explicit operator bool() const noexcept;
-    bool Commit(PassiveTraceEvent event) noexcept;
+    bool     Commit(PassiveTraceEvent event) noexcept;
 
 private:
     friend class PassiveTraceBuffer;
 
     PassiveTraceRecordLease(PassiveTraceBuffer* buffer,
-                            std::uint64_t ticket) noexcept;
+                            std::uint64_t       ticket) noexcept;
     void Release() noexcept;
 
     PassiveTraceBuffer* buffer_ = nullptr;
-    std::uint64_t ticket_       = 0;
+    std::uint64_t       ticket_ = 0;
 };
 
 class PassiveTraceBuffer final
@@ -133,8 +133,8 @@ public:
     bool enabled() const noexcept;
 
     PassiveTraceRecordLease BeginRecord() noexcept;
-    bool Record(PassiveTraceEvent event) noexcept;
-    bool BeginObservationEpoch(PassiveTraceEvent event) noexcept;
+    bool                    Record(PassiveTraceEvent event) noexcept;
+    bool                    BeginObservationEpoch(PassiveTraceEvent event) noexcept;
 
     PassiveTraceStatistics statistics() const noexcept;
 
@@ -151,23 +151,23 @@ private:
     static constexpr std::uint32_t kGateEpoch       = 0x40000000u;
     static constexpr std::uint32_t kGateWritersMask = ~(kGateClosed | kGateEpoch);
 
-    bool EnterWriter() noexcept;
-    void LeaveWriter() noexcept;
-    bool Store(PassiveTraceEvent event, std::uint64_t ticket) noexcept;
+    bool          EnterWriter() noexcept;
+    void          LeaveWriter() noexcept;
+    bool          Store(PassiveTraceEvent event, std::uint64_t ticket) noexcept;
     std::uint64_t NextTicket() noexcept;
     std::uint64_t NextEpochTicket() noexcept;
-    bool Serialize(std::uint32_t in_flight);
+    bool          Serialize(std::uint32_t in_flight);
 
     std::array<Slot, kPassiveTraceCapacity> slots_{};
-    std::atomic<std::uint32_t> gate_{ kGateClosed };
-    std::atomic<std::uint32_t> next_slot_{ 0 };
-    std::atomic<std::uint32_t> overflow_{ 0 };
-    std::atomic<std::uint32_t> in_flight_at_flush_{ 0 };
-    std::atomic<std::uint32_t> epoch_transition_failures_{ 0 };
-    std::atomic<std::uint64_t> epoch_sequence_{ 0 };
-    std::atomic<bool> started_{ false };
-    std::atomic<bool> flushed_{ false };
-    std::filesystem::path output_path_;
+    std::atomic<std::uint32_t>              gate_{ kGateClosed };
+    std::atomic<std::uint32_t>              next_slot_{ 0 };
+    std::atomic<std::uint32_t>              overflow_{ 0 };
+    std::atomic<std::uint32_t>              in_flight_at_flush_{ 0 };
+    std::atomic<std::uint32_t>              epoch_transition_failures_{ 0 };
+    std::atomic<std::uint64_t>              epoch_sequence_{ 0 };
+    std::atomic<bool>                       started_{ false };
+    std::atomic<bool>                       flushed_{ false };
+    std::filesystem::path                   output_path_;
 };
 
 PassiveTraceBuffer& GetPassiveTraceBuffer() noexcept;

@@ -1,5 +1,5 @@
 #include "generated/default/rerevved_init.h"
 
-#include "rerevved_app.h"
+#include "app.h"
 
-REX_DEFINE_APP(rerevved, ReRevvedApp::Create)
+REX_DEFINE_APP(rerevved, ::rerevved::App::Create)

@@ -19,16 +19,16 @@ void Require(bool condition, std::string_view message)
 }
 
 ReRevvedNationSelectTextRule MakeFieldRule(
-    const char* provider,
-    const char* rule_id,
+    const char*                     provider,
+    const char*                     rule_id,
     ReRevvedNationSelectTextSurface surface,
-    ReRevvedCivilizationId civilization,
-    ReRevvedUniqueEraUnlockEra unlock_era,
-    ReRevvedUniqueEraAbilityId ability,
-    ReRevvedUnitTypeId base_unit_type,
-    ReRevvedUnitIdentityId identity,
-    ReRevvedUnitDisplayForm display_form,
-    const char* text)
+    ReRevvedCivilizationId          civilization,
+    ReRevvedUniqueEraUnlockEra      unlock_era,
+    ReRevvedUniqueEraAbilityId      ability,
+    ReRevvedUnitTypeId              base_unit_type,
+    ReRevvedUnitIdentityId          identity,
+    ReRevvedUnitDisplayForm         display_form,
+    const char*                     text)
 {
     ReRevvedNationSelectTextRule rule{};
     rule.struct_size    = sizeof(rule);
@@ -193,7 +193,7 @@ void TestReadbackAndSizedOutput()
                 REREVVED_NATION_SELECT_TEXT_ERR_BUFFER_TOO_SMALL,
             "short presentation readback accepted");
 
-    const auto rule                           = MakeEraRule("test.provider", "horseback", "unused");
+    const auto                          rule  = MakeEraRule("test.provider", "horseback", "unused");
     const ReRevvedNationSelectTextQuery query = {
         sizeof(ReRevvedNationSelectTextQuery),
         rule.surface,

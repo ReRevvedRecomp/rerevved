@@ -25,7 +25,7 @@ HOOK_SOURCES = [
 ]
 GENERAL_SOURCE = ROOT / "src" / "great_general_attachment.cpp"
 NATION_SELECT_TEXT_SOURCE = ROOT / "src" / "nation_select_text_hooks.cpp"
-APP_SOURCE = ROOT / "src" / "rerevved_app.cpp"
+APP_SOURCE = ROOT / "src" / "app.cpp"
 GENERATED = ROOT / "generated" / "default"
 
 EXPECTED_HOOKS = [

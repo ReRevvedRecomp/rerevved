@@ -43,9 +43,9 @@ using rerevved::native_renderer::Observer;
 
 constexpr std::size_t kMaxAnomaly =
     static_cast<std::size_t>(AnomalyId::CheckpointSequence);
-constexpr std::size_t kPathCapacity      = 1024;
-constexpr std::size_t kFinalizeSpinLimit = 100000;
-constexpr std::uint32_t kCasAttempts     = 4;
+constexpr std::size_t   kPathCapacity      = 1024;
+constexpr std::size_t   kFinalizeSpinLimit = 100000;
+constexpr std::uint32_t kCasAttempts       = 4;
 static_assert(kCasAttempts > 0, "hot-path CAS attempts must be bounded");
 
 const char* ExpectedInputDigest() noexcept
@@ -161,7 +161,7 @@ bool HasParentComponent(const char* path) noexcept
         return true;
     }
     const std::size_t length = StringLength(path, kPathCapacity);
-    std::size_t begin        = 0;
+    std::size_t       begin  = 0;
     for (std::size_t i = 0; i <= length; ++i)
     {
         if (i != length && path[i] != '/' && path[i] != '\\')
@@ -455,7 +455,7 @@ StartStatus Observer::Start(const StartOptions& options) noexcept
         return StartStatus::InvalidOutputDirectory;
     }
 
-    std::error_code error;
+    std::error_code             error;
     const std::filesystem::path output_path(options.output_directory);
     const std::filesystem::path canonical_output =
         std::filesystem::weakly_canonical(output_path, error);
@@ -639,7 +639,7 @@ void RecordSiteFixedValue(std::uint32_t site_index, std::int64_t value) noexcept
 
 void Observer::RecordAnomaly(AnomalyId id) noexcept
 {
-    const std::size_t index = static_cast<std::size_t>(id);
+    const std::size_t     index = static_cast<std::size_t>(id);
     const IncrementResult count_result =
         IncrementSaturating(anomaly_counts_[index]);
     if (count_result == IncrementResult::Saturated)
@@ -664,8 +664,8 @@ void Observer::RecordAnomaly(AnomalyId id) noexcept
     }
 }
 
-void Observer::StoreSnapshot(CheckpointSlot& slot,
-                             std::uint32_t segment_index,
+void Observer::StoreSnapshot(CheckpointSlot&       slot,
+                             std::uint32_t         segment_index,
                              const SnapshotFields& fields) noexcept
 {
     slot.segment.store(segment_index, std::memory_order_relaxed);
@@ -685,7 +685,7 @@ void Observer::StoreSnapshot(CheckpointSlot& slot,
 }
 
 void Observer::LoadSnapshot(const CheckpointSlot& slot,
-                            SnapshotFields& fields) noexcept
+                            SnapshotFields&       fields) noexcept
 {
     fields.frame_sequence    = slot.frame_sequence.load(std::memory_order_relaxed);
     fields.valid_fields      = slot.valid_fields.load(std::memory_order_relaxed);
@@ -702,7 +702,7 @@ void Observer::LoadSnapshot(const CheckpointSlot& slot,
     fields.turn              = slot.turn.load(std::memory_order_relaxed);
 }
 
-CheckpointStatus Observer::RecordSegment(std::uint32_t segment_index,
+CheckpointStatus Observer::RecordSegment(std::uint32_t         segment_index,
                                          const SnapshotFields& fields) noexcept
 {
     if (!started_.load(std::memory_order_acquire))
@@ -726,8 +726,8 @@ CheckpointStatus Observer::RecordSegment(std::uint32_t segment_index,
     return CheckpointStatus::Accepted;
 }
 
-CheckpointStatus Observer::RecordCheckpoint(std::uint32_t segment_index,
-                                            std::uint32_t mark_index,
+CheckpointStatus Observer::RecordCheckpoint(std::uint32_t         segment_index,
+                                            std::uint32_t         mark_index,
                                             const SnapshotFields& fields) noexcept
 {
     if (!started_.load(std::memory_order_acquire))
@@ -759,9 +759,9 @@ CheckpointStatus Observer::RecordCheckpoint(std::uint32_t segment_index,
         RecordAnomaly(AnomalyId::CheckpointSequence);
         return CheckpointStatus::InvalidMark;
     }
-    CheckpointSlot& checkpoint  = checkpoints_[mark_index];
-    CheckpointSlot& segment     = segments_[segment_index];
-    std::uint32_t expected_mark = mark_index;
+    CheckpointSlot& checkpoint    = checkpoints_[mark_index];
+    CheckpointSlot& segment       = segments_[segment_index];
+    std::uint32_t   expected_mark = mark_index;
     if (!next_checkpoint_mark_.compare_exchange_strong(
             expected_mark, mark_index + 1u, std::memory_order_acq_rel, std::memory_order_acquire))
     {
@@ -854,7 +854,7 @@ bool Observer::SetCounterForTest(std::uint32_t segment,
 }
 
 void Observer::RecordSiteFixedValueForTest(std::uint32_t site_index,
-                                           std::int64_t value) noexcept
+                                           std::int64_t  value) noexcept
 {
     if (!enabled_.load(std::memory_order_acquire) || site_index >= kHookSiteCount)
     {
@@ -884,7 +884,7 @@ bool WriteCoverageFile(const Observer& observer, const char* directory, const ch
     const std::filesystem::path directory_path(directory);
     const std::filesystem::path temporary_path = directory_path / "coverage.json.tmp";
     const std::filesystem::path final_path     = directory_path / "coverage.json";
-    std::ofstream output(temporary_path, std::ios::binary | std::ios::trunc);
+    std::ofstream               output(temporary_path, std::ios::binary | std::ios::trunc);
     if (!output)
     {
         return false;
@@ -1158,14 +1158,14 @@ FinalizeStatus Finalize(ExitClass exit_class) noexcept
     return Observer::Instance().Finalize(exit_class);
 }
 
-CheckpointStatus RecordCheckpoint(std::uint32_t segment_index,
-                                  std::uint32_t mark_index,
+CheckpointStatus RecordCheckpoint(std::uint32_t         segment_index,
+                                  std::uint32_t         mark_index,
                                   const SnapshotFields& fields) noexcept
 {
     return Observer::Instance().RecordCheckpoint(segment_index, mark_index, fields);
 }
 
-CheckpointStatus RecordSegment(std::uint32_t segment_index,
+CheckpointStatus RecordSegment(std::uint32_t         segment_index,
                                const SnapshotFields& fields) noexcept
 {
     return Observer::Instance().RecordSegment(segment_index, fields);

@@ -30,8 +30,8 @@ void Require(bool condition, std::string_view message)
 struct DefinitionFixture
 {
     ReRevvedUnitTypeId unit_type;
-    int32_t attack;
-    int32_t defense;
+    int32_t            attack;
+    int32_t            defense;
 };
 
 constexpr std::array<DefinitionFixture, REREVVED_UNIT_TYPE_COUNT>
@@ -374,7 +374,7 @@ void TestDefinitions()
     for (int32_t unit_type = 0; unit_type < REREVVED_UNIT_TYPE_COUNT;
          ++unit_type)
     {
-        const auto& fixture = kDefinitions[unit_type];
+        const auto&            fixture = kDefinitions[unit_type];
         ReRevvedUnitDefinition result{};
         Require(ReRevvedGetUnitDefinition(unit_type, &result, sizeof(result)) ==
                     REREVVED_UNIT_CATALOG_OK,
@@ -682,10 +682,10 @@ void TestEnlargedProducerContract()
     struct FutureOutput
     {
         uint32_t struct_size;
-        int32_t first;
-        int32_t second;
-        int32_t third;
-        int32_t added[5];
+        int32_t  first;
+        int32_t  second;
+        int32_t  third;
+        int32_t  added[5];
     };
 
     static_assert(sizeof(FutureOutput) == 36);

@@ -19,7 +19,7 @@ namespace
 constexpr uint32_t kRuleInfoPrefix   = 420;
 constexpr uint32_t kEvaluationPrefix = 268;
 
-std::shared_mutex registry_mutex;
+std::shared_mutex                         registry_mutex;
 std::vector<ReRevvedNationSelectTextRule> registry;
 
 bool IsIdentifierValid(const char* value)
@@ -167,7 +167,7 @@ ReRevvedNationSelectTextQuery QueryFromRule(
     };
 }
 
-bool TargetMatches(const ReRevvedNationSelectTextRule& rule,
+bool TargetMatches(const ReRevvedNationSelectTextRule&  rule,
                    const ReRevvedNationSelectTextQuery& query)
 {
     return rule.surface == query.surface &&
@@ -215,8 +215,8 @@ void ClearOutput(Record* out, uint32_t out_size)
 }
 
 template <typename Record>
-int32_t CopyOutput(Record* out,
-                   uint32_t out_size,
+int32_t CopyOutput(Record*       out,
+                   uint32_t      out_size,
                    const Record& producer)
 {
     uint32_t copy_size = std::min<uint32_t>(out_size, sizeof(Record));
@@ -228,7 +228,7 @@ int32_t CopyOutput(Record* out,
 } // namespace
 
 bool TryEvaluate(const ReRevvedNationSelectTextQuery& query,
-                 ReRevvedNationSelectTextEvaluation& evaluation)
+                 ReRevvedNationSelectTextEvaluation&  evaluation)
 {
     if (!IsQueryValid(query))
     {
@@ -302,7 +302,7 @@ extern "C" int32_t ReRevvedRegisterNationSelectTextRule(
     try
     {
         std::unique_lock lock(registry_mutex);
-        const auto duplicate = std::find_if(
+        const auto       duplicate = std::find_if(
             registry.begin(), registry.end(), [&](const auto& candidate)
             {
                 return RuleKeyMatches(candidate, normalized);
@@ -336,9 +336,9 @@ extern "C" int32_t ReRevvedGetNationSelectTextRuleCount(uint32_t* out_count)
 }
 
 extern "C" int32_t ReRevvedGetNationSelectTextRule(
-    uint32_t index,
+    uint32_t                          index,
     ReRevvedNationSelectTextRuleInfo* out,
-    uint32_t out_size)
+    uint32_t                          out_size)
 {
     using namespace rerevved::nation_select_text;
     if (!out)
@@ -356,7 +356,7 @@ extern "C" int32_t ReRevvedGetNationSelectTextRule(
         return REREVVED_NATION_SELECT_TEXT_ERR_INVALID_ARGUMENT;
     }
 
-    const auto& rule = registry[index];
+    const auto&                      rule = registry[index];
     ReRevvedNationSelectTextRuleInfo result{};
     result.struct_size    = sizeof(result);
     result.surface        = rule.surface;
@@ -379,8 +379,8 @@ extern "C" int32_t ReRevvedGetNationSelectTextRule(
 
 extern "C" int32_t ReRevvedEvaluateNationSelectText(
     const ReRevvedNationSelectTextQuery* query,
-    ReRevvedNationSelectTextEvaluation* out,
-    uint32_t out_size)
+    ReRevvedNationSelectTextEvaluation*  out,
+    uint32_t                             out_size)
 {
     using namespace rerevved::nation_select_text;
     if (!out)

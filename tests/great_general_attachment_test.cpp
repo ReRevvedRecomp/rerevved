@@ -32,10 +32,10 @@ rerevved::GreatGeneralUnitState LiveUnit(int32_t player,
 
 int main()
 {
-    const auto carrier = LiveUnit(2, 4, 13, 22, 13, -1);
-    const auto general = LiveUnit(2, 12, 30, 23, 13, 4);
-    int16_t repaired_x = 0;
-    int16_t repaired_y = 0;
+    const auto carrier    = LiveUnit(2, 4, 13, 22, 13, -1);
+    const auto general    = LiveUnit(2, 12, 30, 23, 13, 4);
+    int16_t    repaired_x = 0;
+    int16_t    repaired_y = 0;
     Require(rerevved::TryPlanGreatGeneralCoordinateRepair(
                 carrier, general, repaired_x, repaired_y) &&
                 repaired_x == 22 && repaired_y == 13,

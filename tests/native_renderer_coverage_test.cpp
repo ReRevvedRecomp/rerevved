@@ -28,8 +28,8 @@ void Require(bool condition, const char* message)
 
 std::filesystem::path MakeDirectory(const char* suffix)
 {
-    const auto path = std::filesystem::temp_directory_path() /
-                      (std::string("rerevved-b1b-") + suffix);
+    const auto      path = std::filesystem::temp_directory_path() /
+                           (std::string("rerevved-b1b-") + suffix);
     std::error_code error;
     std::filesystem::remove_all(path, error);
     std::filesystem::create_directories(path, error);
@@ -174,8 +174,8 @@ void TestDisabledAndHooks()
 
 void TestValidationAndCheckpoints()
 {
-    const auto directory = MakeDirectory("validation");
-    Observer invalid;
+    const auto   directory = MakeDirectory("validation");
+    Observer     invalid;
     StartOptions options = Options(directory);
     options.run_id       = "NRD-RUN-2026X829-0001";
     Require(invalid.Start(options) == StartStatus::InvalidRunId,
@@ -200,7 +200,7 @@ void TestValidationAndCheckpoints()
     const auto child = root / "capture";
     std::filesystem::create_directories(child);
     std::string root_text = root.string();
-    Observer contained;
+    Observer    contained;
     options             = Options(child);
     options.output_root = root_text.c_str();
     Require(contained.Start(options) == StartStatus::Accepted,
@@ -208,7 +208,7 @@ void TestValidationAndCheckpoints()
     Require(contained.Finalize() == FinalizeStatus::Accepted,
             "finalize contained output directory");
     const auto outside = MakeDirectory("outside-root");
-    Observer outside_observer;
+    Observer   outside_observer;
     options             = Options(outside);
     options.output_root = root_text.c_str();
     Require(outside_observer.Start(options) == StartStatus::InvalidOutputRoot,
@@ -282,9 +282,9 @@ void TestValidationAndCheckpoints()
             "counter rows stay separated by accepted segment");
     for (std::size_t mark = 0; mark < kCheckpointCapacity; ++mark)
     {
-        const std::size_t segment_index = mark + 1u;
-        const CheckpointSnapshot& saved = snapshot.checkpoints[mark];
-        const SegmentSnapshot& segment  = snapshot.segments[segment_index];
+        const std::size_t         segment_index = mark + 1u;
+        const CheckpointSnapshot& saved         = snapshot.checkpoints[mark];
+        const SegmentSnapshot&    segment       = snapshot.segments[segment_index];
         Require(saved.accepted && saved.segment == segment_index &&
                     segment.accepted && SameFields(saved.fields, segment.fields) &&
                     SameFields(saved.fields, fields),
@@ -302,12 +302,12 @@ void TestValidationAndCheckpoints()
 void TestConcurrencyAndDeterminism()
 {
     constexpr int kThreads = 8;
-    const auto first       = MakeDirectory("concurrency-a");
-    Observer first_observer;
+    const auto    first    = MakeDirectory("concurrency-a");
+    Observer      first_observer;
     StartFresh(first_observer, first);
-    constexpr int kCalls = 2000;
-    std::atomic<int> ready{ 0 };
-    std::atomic<bool> go{ false };
+    constexpr int            kCalls = 2000;
+    std::atomic<int>         ready{ 0 };
+    std::atomic<bool>        go{ false };
     std::vector<std::thread> workers;
     for (int thread = 0; thread < kThreads; ++thread)
     {
@@ -357,7 +357,7 @@ void TestConcurrencyAndDeterminism()
     const std::string first_json = ReadFile(first / "coverage.json");
 
     const auto second = MakeDirectory("deterministic-a");
-    Observer second_observer;
+    Observer   second_observer;
     StartFresh(second_observer, second);
     for (int call = 0; call < kThreads * kCalls; ++call)
     {
@@ -412,7 +412,7 @@ void TestConcurrencyAndDeterminism()
                 const std::uint64_t expected_count = segment == 0 && domain == 0
                                                          ? expected_site_count
                                                          : 0;
-                const std::string row =
+                const std::string   row =
                     "    {\"segment\":" + std::to_string(segment) +
                     ",\"operation\":0,\"operation_id\":\"NRD-OP-0002\""
                     ",\"runtime_join_key\":\"d3d:0x826A3568\""
@@ -429,7 +429,7 @@ void TestConcurrencyAndDeterminism()
     }
 
     const auto third = MakeDirectory("deterministic-b");
-    Observer third_observer;
+    Observer   third_observer;
     StartFresh(third_observer, third);
     for (int call = 0; call < kThreads * kCalls; ++call)
     {
@@ -447,7 +447,7 @@ void TestConcurrencyAndDeterminism()
 void TestExitClassesAndRecovery()
 {
     const auto close = MakeDirectory("window-close");
-    Observer close_observer;
+    Observer   close_observer;
     StartFresh(close_observer, close);
     Require(close_observer.Finalize(ExitClass::WindowClose) ==
                 FinalizeStatus::Accepted,
@@ -491,7 +491,7 @@ void TestExitClassesAndRecovery()
 void TestFinalizationDrainTimeout()
 {
     const auto directory = MakeDirectory("drain-timeout");
-    Observer observer;
+    Observer   observer;
     StartFresh(observer, directory);
     observer.SetInFlightForTest(1);
     Require(observer.Finalize() == FinalizeStatus::Incomplete,

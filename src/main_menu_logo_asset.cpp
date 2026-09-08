@@ -19,7 +19,7 @@ constexpr uint32_t kDdsWidth  = 1024;
 constexpr uint32_t kDdsHeight = 256;
 
 std::shared_mutex selection_mutex;
-Payload selected_logo;
+Payload           selected_logo;
 
 uint32_t ReadLittleEndianU32(const uint8_t* value)
 {
@@ -86,7 +86,7 @@ bool IsValidLogoDds(std::span<const uint8_t> data)
 
 bool ResolveSelectedLogo(
     std::span<const rex::system::AssetOverlayPackage> packages,
-    Resolver resolver)
+    Resolver                                          resolver)
 {
     ClearSelection();
     if (!resolver)

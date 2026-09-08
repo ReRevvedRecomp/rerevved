@@ -61,7 +61,7 @@ constexpr std::array<UnitDefinitionEntry, REREVVED_UNIT_TYPE_COUNT>
 struct UnitIdentityEntry
 {
     ReRevvedCivilizationId civilization;
-    ReRevvedUnitTypeId unit_type;
+    ReRevvedUnitTypeId     unit_type;
     ReRevvedUnitIdentityId identity;
 };
 
@@ -179,11 +179,11 @@ void ClearOutput(void* out, uint32_t out_size, uint32_t producer_size)
 
 } // namespace
 
-int32_t CopySizedOutput(void* out,
-                        uint32_t out_size,
+int32_t CopySizedOutput(void*       out,
+                        uint32_t    out_size,
                         const void* producer,
-                        uint32_t producer_size,
-                        uint32_t minimum_prefix)
+                        uint32_t    producer_size,
+                        uint32_t    minimum_prefix)
 {
     if (!out || !producer)
     {
@@ -202,8 +202,8 @@ int32_t CopySizedOutput(void* out,
     return REREVVED_UNIT_CATALOG_OK;
 }
 
-bool TryResolveUnitIdentity(ReRevvedCivilizationId civilization,
-                            ReRevvedUnitTypeId unit_type,
+bool TryResolveUnitIdentity(ReRevvedCivilizationId  civilization,
+                            ReRevvedUnitTypeId      unit_type,
                             ReRevvedUnitIdentityId& identity)
 {
     if (!IsCivilizationIdValid(civilization) ||
@@ -250,9 +250,9 @@ extern "C" uint32_t ReRevvedUnitCatalogAbiVersion(void)
 }
 
 extern "C" int32_t ReRevvedGetUnitDefinition(
-    ReRevvedUnitTypeId unit_type,
+    ReRevvedUnitTypeId      unit_type,
     ReRevvedUnitDefinition* out,
-    uint32_t out_size)
+    uint32_t                out_size)
 {
     constexpr uint32_t kProducerSize = sizeof(ReRevvedUnitDefinition);
     if (!out)
@@ -270,7 +270,7 @@ extern "C" int32_t ReRevvedGetUnitDefinition(
         return REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT;
     }
 
-    const auto& entry                   = rerevved::unit_catalog::kUnitDefinitions[unit_type];
+    const auto&                  entry  = rerevved::unit_catalog::kUnitDefinitions[unit_type];
     const ReRevvedUnitDefinition result = {
         kProducerSize,
         unit_type,
@@ -287,11 +287,11 @@ extern "C" int32_t ReRevvedGetUnitDefinition(
 }
 
 extern "C" int32_t ReRevvedResolveUnitIdentity(
-    ReRevvedCivilizationId civilization,
-    ReRevvedUnitTypeId base_unit_type,
+    ReRevvedCivilizationId  civilization,
+    ReRevvedUnitTypeId      base_unit_type,
     ReRevvedUnitDisplayForm display_form,
-    ReRevvedUnitIdentity* out,
-    uint32_t out_size)
+    ReRevvedUnitIdentity*   out,
+    uint32_t                out_size)
 {
     constexpr uint32_t kProducerSize = sizeof(ReRevvedUnitIdentity);
     if (!out)

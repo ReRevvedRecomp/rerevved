@@ -22,7 +22,7 @@ void Require(bool condition, std::string_view message)
 
 ReRevvedUnitMovementRule MakeRule(const char* provider,
                                   const char* rule_id,
-                                  int32_t value)
+                                  int32_t     value)
 {
     ReRevvedUnitMovementRule rule{};
     rule.struct_size = sizeof(rule);

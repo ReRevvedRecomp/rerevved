@@ -10,12 +10,12 @@ int main(void)
         ReRevvedRegisterTerrainYieldRule;
     ReRevvedGetTerrainYieldRuleCountFn count_fn =
         ReRevvedGetTerrainYieldRuleCount;
-    ReRevvedGetTerrainYieldRuleFn get_fn       = ReRevvedGetTerrainYieldRule;
+    ReRevvedGetTerrainYieldRuleFn  get_fn      = ReRevvedGetTerrainYieldRule;
     ReRevvedEvaluateTerrainYieldFn evaluate_fn = ReRevvedEvaluateTerrainYield;
 
-    ReRevvedTerrainYieldRule rule             = { 0 };
-    ReRevvedTerrainYieldRuleInfo info         = { 0 };
-    ReRevvedTerrainYieldQuery query           = { 0 };
+    ReRevvedTerrainYieldRule       rule       = { 0 };
+    ReRevvedTerrainYieldRuleInfo   info       = { 0 };
+    ReRevvedTerrainYieldQuery      query      = { 0 };
     ReRevvedTerrainYieldEvaluation evaluation = { 0 };
 
     if (!version_fn || !register_fn || !count_fn || !get_fn || !evaluate_fn ||

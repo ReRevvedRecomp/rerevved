@@ -43,7 +43,7 @@ include(cmake/build_info.cmake)
 rerevved_write_build_info("${CMAKE_CURRENT_BINARY_DIR}/generated/build_info.h")
 
 set(REREVVED_SOURCES
-    src/rerevved_app.cpp
+    src/app.cpp
     src/rerevved_hooks.cpp
     src/game_content.cpp
     src/great_general_attachment.cpp

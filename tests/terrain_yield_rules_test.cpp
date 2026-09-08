@@ -31,12 +31,12 @@ void Require(bool condition, const char* message)
 }
 
 ReRevvedTerrainYieldRule MakeRule(
-    const char* provider,
-    const char* rule_id,
-    ReRevvedTerrainId terrain,
+    const char*                   provider,
+    const char*                   rule_id,
+    ReRevvedTerrainId             terrain,
     ReRevvedTerrainYieldComponent component,
     ReRevvedTerrainYieldOperation operation,
-    int32_t value)
+    int32_t                       value)
 {
     ReRevvedTerrainYieldRule rule{};
     rule.struct_size = sizeof(rule);
@@ -49,9 +49,9 @@ ReRevvedTerrainYieldRule MakeRule(
     return rule;
 }
 
-ReRevvedTerrainYieldEvaluation Evaluate(ReRevvedTerrainId terrain,
+ReRevvedTerrainYieldEvaluation Evaluate(ReRevvedTerrainId             terrain,
                                         ReRevvedTerrainYieldComponent component,
-                                        int32_t native_value)
+                                        int32_t                       native_value)
 {
     const ReRevvedTerrainYieldQuery query = {
         sizeof(ReRevvedTerrainYieldQuery), terrain, component, native_value, {}
@@ -171,7 +171,7 @@ void TestValidation()
 
 void TestGuestTerrainMapping()
 {
-    const int32_t guest_values[]              = { 0, 2, 3, 4, 5, 6 };
+    const int32_t           guest_values[]    = { 0, 2, 3, 4, 5, 6 };
     const ReRevvedTerrainId semantic_values[] = {
         REREVVED_TERRAIN_SEA,
         REREVVED_TERRAIN_PLAINS,
@@ -279,12 +279,12 @@ void TestComposition()
 {
     struct CompositionCase
     {
-        ReRevvedTerrainId terrain;
+        ReRevvedTerrainId             terrain;
         ReRevvedTerrainYieldComponent component;
-        int32_t native_value;
-        int32_t replacement;
-        int32_t positive_add;
-        int32_t negative_add;
+        int32_t                       native_value;
+        int32_t                       replacement;
+        int32_t                       positive_add;
+        int32_t                       negative_add;
     };
 
     constexpr CompositionCase cases[] = {
@@ -398,7 +398,7 @@ void TestBridges()
     struct BridgeCase
     {
         ReRevvedTerrainYieldComponent component;
-        int32_t guest_terrain;
+        int32_t                       guest_terrain;
         void (*bridge)(PPCRegister&, PPCRegister&);
     };
 
@@ -472,9 +472,9 @@ void TestBridges()
     for (const auto& test_case : bridges)
     {
         rerevved::terrain_yield_rules::ResetForTests();
-        const bool plains_target  = test_case.guest_terrain == 2;
-        const int32_t wrong_guest = plains_target ? 3 : 2;
-        const auto wrong_terrain  = MakeRule(
+        const bool    plains_target = test_case.guest_terrain == 2;
+        const int32_t wrong_guest   = plains_target ? 3 : 2;
+        const auto    wrong_terrain = MakeRule(
             "a.wrong-terrain", "add", REREVVED_TERRAIN_HILL, test_case.component, REREVVED_TERRAIN_YIELD_ADD, 1);
         Require(ReRevvedRegisterTerrainYieldRule(&wrong_terrain) == 0,
                 "wrong terrain bridge rule register");
@@ -583,7 +583,7 @@ void TestCopiedInputAndConcurrentAccess()
     std::atomic<bool> start{ false };
     std::atomic<bool> writer_done{ false };
     std::atomic<bool> failed{ false };
-    auto read_registry = [&]
+    auto              read_registry = [&]
     {
         while (!start.load(std::memory_order_acquire))
         {
@@ -592,11 +592,11 @@ void TestCopiedInputAndConcurrentAccess()
         do
         {
             ReRevvedTerrainYieldEvaluation evaluation{};
-            const int32_t result = ReRevvedEvaluateTerrainYield(
+            const int32_t                  result = ReRevvedEvaluateTerrainYield(
                 &query, &evaluation, sizeof(evaluation));
-            uint32_t count = 0;
+            uint32_t                     count = 0;
             ReRevvedTerrainYieldRuleInfo info{};
-            const int32_t count_result =
+            const int32_t                count_result =
                 ReRevvedGetTerrainYieldRuleCount(&count);
             const int32_t readback_result =
                 count == 0

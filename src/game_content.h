@@ -17,16 +17,16 @@ enum class ContentDepth
 
 struct ContentCheckResult
 {
-    bool ok = false;
+    bool                     ok = false;
     std::vector<std::string> errors;
 };
 
 // Checks required files before runtime construction and ignores unknown extras.
 ContentCheckResult VerifyContentRoot(const std::filesystem::path& root, ContentDepth depth);
 
-// Shared with the game data selector configuration in rerevved_app.cpp.
+// Shared with the game data selector configuration in app.cpp.
 extern const std::uint32_t kTitleId;
-extern const char* const kBaseXexSha256;
-extern const char* const kUpdateXexpSha256;
+extern const char* const   kBaseXexSha256;
+extern const char* const   kUpdateXexpSha256;
 
 } // namespace rerevved

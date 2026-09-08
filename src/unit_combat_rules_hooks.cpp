@@ -17,8 +17,8 @@ namespace
 
 constexpr uint32_t kUnitTable            = 0x830F2BF0;
 constexpr uint32_t kUnitRecordSize       = 0x54;
-constexpr int32_t kPlayerCount           = 6;
-constexpr int32_t kUnitsPerPlayer        = 256;
+constexpr int32_t  kPlayerCount          = 6;
+constexpr int32_t  kUnitsPerPlayer       = 256;
 constexpr uint32_t kTerrainTable         = 0x8312B288;
 constexpr uint32_t kAttackerPlayerOffset = 1572;
 constexpr uint32_t kAttackerUnitOffset   = 1580;
@@ -128,8 +128,8 @@ bool TryGetUnitAddress(int32_t player, int32_t unit, uint32_t& address)
     return true;
 }
 
-bool TryReadUnitCoordinates(int32_t player,
-                            int32_t unit,
+bool TryReadUnitCoordinates(int32_t  player,
+                            int32_t  unit,
                             int16_t& x,
                             int16_t& y)
 {
@@ -147,8 +147,8 @@ bool TryReadUnitCoordinates(int32_t player,
     return true;
 }
 
-bool TryReadUnitBaseType(int32_t player,
-                         int32_t unit,
+bool TryReadUnitBaseType(int32_t             player,
+                         int32_t             unit,
                          ReRevvedUnitTypeId& base_unit_type)
 {
     uint32_t address = 0;
@@ -191,15 +191,15 @@ bool IsForestDefenderTile(int32_t defender_player, int32_t defender_unit)
     return terrain == 3; // Guest Forest.
 }
 
-bool TryResolveIdentity(uint32_t stack,
-                        uint32_t player_offset,
-                        uint32_t unit_offset,
+bool TryResolveIdentity(uint32_t                stack,
+                        uint32_t                player_offset,
+                        uint32_t                unit_offset,
                         ReRevvedCivilizationId& civilization,
-                        ReRevvedUnitTypeId& unit_type,
+                        ReRevvedUnitTypeId&     unit_type,
                         ReRevvedUnitIdentityId& identity)
 {
-    int32_t player                    = 0;
-    int32_t unit                      = 0;
+    int32_t            player         = 0;
+    int32_t            unit           = 0;
     ReRevvedUnitTypeId base_unit_type = REREVVED_UNIT_TYPE_UNKNOWN;
     if (!TryReadStackI32(stack, player_offset, player) ||
         !TryReadStackI32(stack, unit_offset, unit) ||
@@ -220,7 +220,7 @@ constexpr uint32_t kCombatTextBufferSize = 256;
 
 bool TryAppendForestCombatLine(uint32_t stack,
                                uint32_t buffer_offset,
-                               int32_t percentage_delta)
+                               int32_t  percentage_delta)
 {
     if (stack > UINT32_MAX - buffer_offset)
     {
@@ -233,9 +233,9 @@ bool TryAppendForestCombatLine(uint32_t stack,
         return false;
     }
 
-    auto* memory = REX_KERNEL_MEMORY();
-    auto* buffer = memory->TranslateVirtual<uint8_t*>(buffer_address);
-    uint32_t end = 0;
+    auto*    memory = REX_KERNEL_MEMORY();
+    auto*    buffer = memory->TranslateVirtual<uint8_t*>(buffer_address);
+    uint32_t end    = 0;
     while (end < kCombatTextBufferSize && buffer[end] != 0)
     {
         ++end;
@@ -245,17 +245,17 @@ bool TryAppendForestCombatLine(uint32_t stack,
         return false;
     }
 
-    const char* prefix     = "Woodsman ";
-    uint32_t prefix_length = 0;
+    const char* prefix        = "Woodsman ";
+    uint32_t    prefix_length = 0;
     while (prefix[prefix_length] != '\0')
     {
         ++prefix_length;
     }
 
-    const int64_t magnitude = percentage_delta < 0
-                                  ? -static_cast<int64_t>(percentage_delta)
-                                  : static_cast<int64_t>(percentage_delta);
-    uint32_t digit_count    = 1;
+    const int64_t magnitude   = percentage_delta < 0
+                                    ? -static_cast<int64_t>(percentage_delta)
+                                    : static_cast<int64_t>(percentage_delta);
+    uint32_t      digit_count = 1;
     for (int64_t divisor = 10; magnitude >= divisor; divisor *= 10)
     {
         ++digit_count;
@@ -268,7 +268,7 @@ bool TryAppendForestCombatLine(uint32_t stack,
         return false;
     }
 
-    auto* target      = buffer + end;
+    auto*    target   = buffer + end;
     uint32_t position = 0;
     for (; position < prefix_length; ++position)
     {
@@ -295,12 +295,12 @@ bool TryAppendForestCombatLine(uint32_t stack,
     return true;
 }
 
-void ApplyCombatRule(uint32_t stack,
-                     uint32_t identity_player_offset,
-                     uint32_t identity_unit_offset,
+void ApplyCombatRule(uint32_t                   stack,
+                     uint32_t                   identity_player_offset,
+                     uint32_t                   identity_unit_offset,
                      ReRevvedUnitCombatProperty property,
-                     uint32_t text_buffer_offset,
-                     PPCRegister& accumulator)
+                     uint32_t                   text_buffer_offset,
+                     PPCRegister&               accumulator)
 {
     int32_t defender_player = 0;
     int32_t defender_unit   = 0;
@@ -312,7 +312,7 @@ void ApplyCombatRule(uint32_t stack,
     }
 
     ReRevvedCivilizationId civilization = REREVVED_CIVILIZATION_UNKNOWN;
-    ReRevvedUnitTypeId unit_type        = REREVVED_UNIT_TYPE_UNKNOWN;
+    ReRevvedUnitTypeId     unit_type    = REREVVED_UNIT_TYPE_UNKNOWN;
     ReRevvedUnitIdentityId identity     = REREVVED_UNIT_IDENTITY_BASE;
     if (!TryResolveIdentity(stack,
                             identity_player_offset,

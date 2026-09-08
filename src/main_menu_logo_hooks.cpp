@@ -14,14 +14,14 @@
 namespace
 {
 
-constexpr uint32_t kLengthPrefixSize    = sizeof(uint32_t);
-thread_local uint32_t logo_guest_buffer = 0;
-thread_local bool logo_override_logged  = false;
+constexpr uint32_t    kLengthPrefixSize    = sizeof(uint32_t);
+thread_local uint32_t logo_guest_buffer    = 0;
+thread_local bool     logo_override_logged = false;
 
 bool IsGuestRangeAccessible(rex::memory::Memory* memory,
-                            uint32_t address,
-                            uint32_t size,
-                            bool writable)
+                            uint32_t             address,
+                            uint32_t             size,
+                            bool                 writable)
 {
     if (!memory || size == 0 ||
         address > std::numeric_limits<uint32_t>::max() - (size - 1))
@@ -30,7 +30,7 @@ bool IsGuestRangeAccessible(rex::memory::Memory* memory,
     }
 
     const uint32_t end_address = address + size - 1;
-    auto* heap                 = memory->LookupHeap(address);
+    auto*          heap        = memory->LookupHeap(address);
     if (!heap || memory->LookupHeap(end_address) != heap)
     {
         return false;

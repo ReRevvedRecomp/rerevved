@@ -24,14 +24,14 @@ void Require(bool condition, const char* message)
 }
 
 ReRevvedUniqueUnitScalarRule MakeRule(
-    const char* provider,
-    const char* rule_id,
-    ReRevvedCivilizationId civilization,
-    ReRevvedUnitTypeId base_unit_type,
-    ReRevvedUnitIdentityId identity,
-    ReRevvedUniqueUnitScalarProperty property,
+    const char*                       provider,
+    const char*                       rule_id,
+    ReRevvedCivilizationId            civilization,
+    ReRevvedUnitTypeId                base_unit_type,
+    ReRevvedUnitIdentityId            identity,
+    ReRevvedUniqueUnitScalarProperty  property,
     ReRevvedUniqueUnitScalarOperation operation,
-    int32_t value)
+    int32_t                           value)
 {
     ReRevvedUniqueUnitScalarRule rule{};
     rule.struct_size    = sizeof(rule);
@@ -47,10 +47,10 @@ ReRevvedUniqueUnitScalarRule MakeRule(
 }
 
 ReRevvedUniqueUnitScalarRule CataphractRule(
-    const char* provider,
-    const char* rule_id,
+    const char*                       provider,
+    const char*                       rule_id,
     ReRevvedUniqueUnitScalarOperation operation,
-    int32_t value)
+    int32_t                           value)
 {
     return MakeRule(provider,
                     rule_id,
@@ -63,11 +63,11 @@ ReRevvedUniqueUnitScalarRule CataphractRule(
 }
 
 ReRevvedUniqueUnitScalarEvaluation Evaluate(
-    ReRevvedCivilizationId civilization,
-    ReRevvedUnitTypeId base_unit_type,
-    ReRevvedUnitIdentityId identity,
+    ReRevvedCivilizationId           civilization,
+    ReRevvedUnitTypeId               base_unit_type,
+    ReRevvedUnitIdentityId           identity,
     ReRevvedUniqueUnitScalarProperty property,
-    int32_t native_value)
+    int32_t                          native_value)
 {
     const ReRevvedUniqueUnitScalarQuery query = {
         sizeof(ReRevvedUniqueUnitScalarQuery),
@@ -383,7 +383,7 @@ void TestCopiedInputAndConcurrentAccess()
         do
         {
             ReRevvedUniqueUnitScalarEvaluation evaluation{};
-            const int32_t result = ReRevvedEvaluateUniqueUnitScalar(
+            const int32_t                      result = ReRevvedEvaluateUniqueUnitScalar(
                 &query, &evaluation, sizeof(evaluation));
             const int32_t additions = evaluation.final_value - 50;
             if (result != REREVVED_UNIQUE_UNIT_RULES_OK || additions < 0 ||

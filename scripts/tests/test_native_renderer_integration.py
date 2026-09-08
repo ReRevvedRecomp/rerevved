@@ -10,8 +10,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-APP_H = (ROOT / "src" / "rerevved_app.h").read_text(encoding="ascii")
-APP_CPP = (ROOT / "src" / "rerevved_app.cpp").read_text(encoding="ascii")
+APP_H = (ROOT / "src" / "app.h").read_text(encoding="ascii")
+APP_CPP = (ROOT / "src" / "app.cpp").read_text(encoding="ascii")
 GAME_CONTENT_H = (ROOT / "src" / "game_content.h").read_text(encoding="ascii")
 GAME_CONTENT_CPP = (ROOT / "src" / "game_content.cpp").read_text(encoding="ascii")
 NATIVE_CPP = (
@@ -76,7 +76,7 @@ class NativeRendererIntegrationTests(unittest.TestCase):
             APP_CPP,
         )
 
-        environment = APP_CPP.index("bool ReRevvedApp::SetupEnvironment()")
+        environment = APP_CPP.index("bool App::SetupEnvironment()")
         base_environment = APP_CPP.index(
             "rex::ReXApp::SetupEnvironment()", environment
         )
@@ -87,7 +87,7 @@ class NativeRendererIntegrationTests(unittest.TestCase):
             'SetFlagAsApplicationDefault("gpu_plugin", "xenos")', environment
         )
         presentation = APP_CPP.index(
-            "bool ReRevvedApp::SetupPresentation()"
+            "bool App::SetupPresentation()"
         )
         base_presentation = APP_CPP.index(
             "rex::ReXApp::SetupPresentation()", presentation
@@ -141,11 +141,11 @@ class NativeRendererIntegrationTests(unittest.TestCase):
                 continue
             if "NativeGuestGpuService" in source.read_text(encoding="ascii"):
                 consumers.append(source.relative_to(ROOT).as_posix())
-        self.assertEqual(consumers, ["src/rerevved_app.cpp"])
+        self.assertEqual(consumers, ["src/app.cpp"])
 
         pre_setup = APP_CPP[
-            APP_CPP.index("void ReRevvedApp::OnPreSetup") :
-            APP_CPP.index("void ReRevvedApp::OnConfigurePaths")
+            APP_CPP.index("void App::OnPreSetup") :
+            APP_CPP.index("void App::OnConfigurePaths")
         ]
         self.assertIn("RendererBackend::Native", pre_setup)
         self.assertIn("std::make_unique<rerevved::gpu::NativeGuestGpuService>()", pre_setup)
@@ -227,7 +227,7 @@ class NativeRendererIntegrationTests(unittest.TestCase):
         self.assertIn("UnbindMmioBridge(this);", GUEST_SERVICE_CPP)
 
     def test_native_surface_is_created_after_sdk_window_open(self) -> None:
-        presentation = APP_CPP.index("bool ReRevvedApp::SetupPresentation()")
+        presentation = APP_CPP.index("bool App::SetupPresentation()")
         base_presentation = APP_CPP.index(
             "rex::ReXApp::SetupPresentation()", presentation
         )
@@ -303,8 +303,8 @@ class NativeRendererIntegrationTests(unittest.TestCase):
 
     def test_ui_resize_callback_only_latches_renderer_request(self) -> None:
         resize_callback = APP_CPP[
-            APP_CPP.index("void ReRevvedApp::OnWindowPixelSizeChanged") :
-            APP_CPP.index("void ReRevvedApp::OnKeyDown")
+            APP_CPP.index("void App::OnWindowPixelSizeChanged") :
+            APP_CPP.index("void App::OnKeyDown")
         ]
         self.assertIn("native_renderer_.Resize(pixel_width, pixel_height)", resize_callback)
         self.assertNotIn("ResizeBuffers", resize_callback)

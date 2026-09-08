@@ -34,9 +34,9 @@ void Require(bool condition, std::string_view message)
 }
 
 ReRevvedUniqueEraAbilityReplacement MakeRule(
-    const char* provider,
-    const char* rule_id,
-    ReRevvedCivilizationId civilization,
+    const char*                provider,
+    const char*                rule_id,
+    ReRevvedCivilizationId     civilization,
     ReRevvedUniqueEraUnlockEra unlock_era,
     ReRevvedUniqueEraAbilityId replacement)
 {
@@ -51,7 +51,7 @@ ReRevvedUniqueEraAbilityReplacement MakeRule(
 }
 
 ReRevvedUniqueEraAbilityCellEvaluation Evaluate(
-    ReRevvedCivilizationId civilization,
+    ReRevvedCivilizationId     civilization,
     ReRevvedUniqueEraUnlockEra unlock_era,
     ReRevvedUniqueEraAbilityId native_ability)
 {
@@ -212,7 +212,7 @@ void TestAcceptedSemanticRegistry()
         query.unlock_era     = REREVVED_UNIQUE_ERA_ANCIENT;
         query.native_ability = ability;
         ReRevvedUniqueEraAbilityCellEvaluation result{};
-        const bool expected =
+        const bool                             expected =
             std::find(abilities.begin(), abilities.end(), ability) !=
             abilities.end();
         Require((ReRevvedEvaluateUniqueEraAbilityCell(

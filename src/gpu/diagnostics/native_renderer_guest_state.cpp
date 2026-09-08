@@ -7,34 +7,34 @@ namespace rerevved::gpu
 namespace
 {
 
-constexpr std::size_t kResolveHistorySize = 64;
-constexpr std::uint32_t kFetchBaseMask    = 0xFFFFF000u;
+constexpr std::size_t   kResolveHistorySize = 64;
+constexpr std::uint32_t kFetchBaseMask      = 0xFFFFF000u;
 
 struct GuestResolveRecord
 {
     GuestFetchDescriptor descriptor{};
-    std::uint64_t sequence     = 0;
-    std::uint32_t call_address = 0;
-    std::uint32_t flags        = 0;
-    std::uint32_t mip_level    = 0;
-    std::uint32_t slice        = 0;
+    std::uint64_t        sequence     = 0;
+    std::uint32_t        call_address = 0;
+    std::uint32_t        flags        = 0;
+    std::uint32_t        mip_level    = 0;
+    std::uint32_t        slice        = 0;
 };
 
 struct GuestSwapState
 {
     std::array<GuestResolveRecord, kResolveHistorySize> resolves{};
-    std::uint64_t resolve_sequence               = 0;
-    std::uint64_t previous_swap_resolve_sequence = 0;
-    std::uint64_t swap_sequence                  = 0;
-    std::uint64_t matched_count                  = 0;
-    std::uint64_t candidate_count                = 0;
-    std::uint64_t unmatched_count                = 0;
+    std::uint64_t                                       resolve_sequence               = 0;
+    std::uint64_t                                       previous_swap_resolve_sequence = 0;
+    std::uint64_t                                       swap_sequence                  = 0;
+    std::uint64_t                                       matched_count                  = 0;
+    std::uint64_t                                       candidate_count                = 0;
+    std::uint64_t                                       unmatched_count                = 0;
 };
 
 std::atomic_uint64_t guest_device_publication = 0;
-std::atomic_flag guest_state_lock             = ATOMIC_FLAG_INIT;
-std::uint64_t guest_texture_sequence          = 0;
-GuestSwapState guest_swap_state;
+std::atomic_flag     guest_state_lock         = ATOMIC_FLAG_INIT;
+std::uint64_t        guest_texture_sequence   = 0;
+GuestSwapState       guest_swap_state;
 
 std::uint64_t Pack(std::uint32_t cell_address,
                    std::uint32_t device_address) noexcept
@@ -89,10 +89,10 @@ void ResetGuestTextureObservation() noexcept
 
 std::uint64_t ObserveGuestResolve(
     const GuestFetchDescriptor& descriptor,
-    std::uint32_t call_address,
-    std::uint32_t flags,
-    std::uint32_t mip_level,
-    std::uint32_t slice) noexcept
+    std::uint32_t               call_address,
+    std::uint32_t               flags,
+    std::uint32_t               mip_level,
+    std::uint32_t               slice) noexcept
 {
     LockGuestState();
     const std::uint64_t sequence = ++guest_swap_state.resolve_sequence;

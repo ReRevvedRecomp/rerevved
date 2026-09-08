@@ -39,47 +39,47 @@ enum
 
 typedef struct ReRevvedUnitMovementRule
 {
-    uint32_t struct_size;
-    char provider_id[REREVVED_UNIT_MOVEMENT_RULE_ID_CAPACITY];
-    char rule_id[REREVVED_UNIT_MOVEMENT_RULE_ID_CAPACITY];
+    uint32_t               struct_size;
+    char                   provider_id[REREVVED_UNIT_MOVEMENT_RULE_ID_CAPACITY];
+    char                   rule_id[REREVVED_UNIT_MOVEMENT_RULE_ID_CAPACITY];
     ReRevvedCivilizationId civilization;
-    ReRevvedUnitTypeId base_unit_type;
+    ReRevvedUnitTypeId     base_unit_type;
     ReRevvedUnitIdentityId identity;
-    int32_t value;
-    int32_t reserved[5];
+    int32_t                value;
+    int32_t                reserved[5];
 } ReRevvedUnitMovementRule;
 
 typedef struct ReRevvedUnitMovementRuleInfo
 {
-    uint32_t struct_size; // Current producer size. Callers may pass any buffer at least 152 bytes.
-    char provider_id[REREVVED_UNIT_MOVEMENT_RULE_ID_CAPACITY];
-    char rule_id[REREVVED_UNIT_MOVEMENT_RULE_ID_CAPACITY];
+    uint32_t               struct_size; // Current producer size. Callers may pass any buffer at least 152 bytes.
+    char                   provider_id[REREVVED_UNIT_MOVEMENT_RULE_ID_CAPACITY];
+    char                   rule_id[REREVVED_UNIT_MOVEMENT_RULE_ID_CAPACITY];
     ReRevvedCivilizationId civilization;
-    ReRevvedUnitTypeId base_unit_type;
+    ReRevvedUnitTypeId     base_unit_type;
     ReRevvedUnitIdentityId identity;
-    int32_t value;
-    uint32_t status_flags;
-    int32_t reserved[10];
+    int32_t                value;
+    uint32_t               status_flags;
+    int32_t                reserved[10];
 } ReRevvedUnitMovementRuleInfo;
 
 typedef struct ReRevvedUnitMovementQuery
 {
-    uint32_t struct_size;
+    uint32_t               struct_size;
     ReRevvedCivilizationId civilization;
-    ReRevvedUnitTypeId base_unit_type;
+    ReRevvedUnitTypeId     base_unit_type;
     ReRevvedUnitIdentityId identity;
-    int32_t native_value;
-    int32_t reserved[5];
+    int32_t                native_value;
+    int32_t                reserved[5];
 } ReRevvedUnitMovementQuery;
 
 typedef struct ReRevvedUnitMovementEvaluation
 {
     uint32_t struct_size; // Current producer size. Callers may pass any buffer at least 20 bytes.
-    int32_t native_value;
-    int32_t final_value;
+    int32_t  native_value;
+    int32_t  final_value;
     uint32_t status_flags;
     uint32_t additive_count;
-    int32_t reserved[5];
+    int32_t  reserved[5];
 } ReRevvedUnitMovementEvaluation;
 
 typedef uint32_t (*ReRevvedUnitMovementRulesAbiVersionFn)(void);
@@ -87,33 +87,31 @@ typedef int32_t (*ReRevvedRegisterUnitMovementRuleFn)(
     const ReRevvedUnitMovementRule* rule);
 typedef int32_t (*ReRevvedGetUnitMovementRuleCountFn)(uint32_t* out_count);
 typedef int32_t (*ReRevvedGetUnitMovementRuleFn)(
-    uint32_t index,
+    uint32_t                      index,
     ReRevvedUnitMovementRuleInfo* out,
-    uint32_t out_size);
+    uint32_t                      out_size);
 typedef int32_t (*ReRevvedEvaluateUnitMovementFn)(
     const ReRevvedUnitMovementQuery* query,
-    ReRevvedUnitMovementEvaluation* out,
-    uint32_t out_size);
+    ReRevvedUnitMovementEvaluation*  out,
+    uint32_t                         out_size);
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-    REREVVED_UNIT_MOVEMENT_RULES_API uint32_t
-    ReRevvedUnitMovementRulesAbiVersion(void);
-    REREVVED_UNIT_MOVEMENT_RULES_API int32_t ReRevvedRegisterUnitMovementRule(
+    REREVVED_UNIT_MOVEMENT_RULES_API uint32_t ReRevvedUnitMovementRulesAbiVersion(void);
+    REREVVED_UNIT_MOVEMENT_RULES_API int32_t  ReRevvedRegisterUnitMovementRule(
         const ReRevvedUnitMovementRule* rule);
-    REREVVED_UNIT_MOVEMENT_RULES_API int32_t
-    ReRevvedGetUnitMovementRuleCount(uint32_t* out_count);
+    REREVVED_UNIT_MOVEMENT_RULES_API int32_t ReRevvedGetUnitMovementRuleCount(uint32_t* out_count);
     REREVVED_UNIT_MOVEMENT_RULES_API int32_t ReRevvedGetUnitMovementRule(
-        uint32_t index,
+        uint32_t                      index,
         ReRevvedUnitMovementRuleInfo* out,
-        uint32_t out_size);
+        uint32_t                      out_size);
     REREVVED_UNIT_MOVEMENT_RULES_API int32_t ReRevvedEvaluateUnitMovement(
         const ReRevvedUnitMovementQuery* query,
-        ReRevvedUnitMovementEvaluation* out,
-        uint32_t out_size);
+        ReRevvedUnitMovementEvaluation*  out,
+        uint32_t                         out_size);
 
 #ifdef __cplusplus
 } // extern "C"
