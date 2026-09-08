@@ -336,7 +336,6 @@ COVERAGE_HOOKS = [
 
 TERRAIN_YIELD_HOOK_SITES = [
     {
-        "file": "rerevved_recomp.158.cpp",
         "function": "sub_82CF17C8",
         "name": "ReRevvedApplyTerrainTradeBase",
         "registers": ["r9", "r29"],
@@ -351,7 +350,6 @@ TERRAIN_YIELD_HOOK_SITES = [
         ),
     },
     {
-        "file": "rerevved_recomp.71.cpp",
         "function": "sub_82CF1AF0",
         "name": "ReRevvedApplyTerrainProductionBase",
         "registers": ["r10", "r31"],
@@ -366,7 +364,6 @@ TERRAIN_YIELD_HOOK_SITES = [
         ),
     },
     {
-        "file": "rerevved_recomp.109.cpp",
         "function": "sub_82CF1CE8",
         "name": "ReRevvedApplyTerrainFoodBase",
         "registers": ["r10", "r30"],
@@ -895,10 +892,18 @@ class HookContractTests(unittest.TestCase):
         if not paths:
             self.skipTest("generated sources are not available")
 
-        for site in TERRAIN_YIELD_HOOK_SITES:
-            path = GENERATED / site["file"]
-            self.assertTrue(path.is_file(), f"missing generated map row: {path}")
+        sources = {}
+        for path in paths:
             source = path.read_text(encoding="utf-8")
+            for site in TERRAIN_YIELD_HOOK_SITES:
+                name = site["function"]
+                if f"DEFINE_REX_FUNC({name})" in source:
+                    self.assertNotIn(name, sources, f"duplicate generated function: {name}")
+                    sources[name] = source
+
+        for site in TERRAIN_YIELD_HOOK_SITES:
+            self.assertIn(site["function"], sources)
+            source = sources[site["function"]]
             function_marker = f"DEFINE_REX_FUNC({site['function']})"
             self.assertEqual(source.count(function_marker), 1)
             function = source.split(function_marker, 1)[1].split(
