@@ -11,7 +11,7 @@ namespace
 
 int failures = 0;
 
-void Require(bool condition, std::string_view message)
+void require(bool condition, std::string_view message)
 {
     if (!condition)
     {
@@ -20,24 +20,24 @@ void Require(bool condition, std::string_view message)
     }
 }
 
-ReRevvedGameplayState GameplayState(int32_t civilization,
+ReRevvedGameplayState gameplayState(int32_t civilization,
                                     int32_t era,
                                     int32_t year,
                                     int32_t turn = 61)
 {
     ReRevvedGameplayState state{};
-    state.struct_size     = sizeof(state);
-    state.valid_fields    = REREVVED_GAMEPLAY_VALID_FRONTEND |
-                            REREVVED_GAMEPLAY_VALID_CIVILIZATION |
-                            REREVVED_GAMEPLAY_VALID_ERA |
-                            REREVVED_GAMEPLAY_VALID_YEAR |
-                            REREVVED_GAMEPLAY_VALID_TURN_NUMBER;
-    state.gameplay_active = 1;
-    state.available       = 1;
-    state.civilization    = civilization;
-    state.era             = era;
-    state.year            = year;
-    state.turn            = turn;
+    state.structSize     = sizeof(state);
+    state.validFields    = REREVVED_GAMEPLAY_VALID_FRONTEND |
+                           REREVVED_GAMEPLAY_VALID_CIVILIZATION |
+                           REREVVED_GAMEPLAY_VALID_ERA |
+                           REREVVED_GAMEPLAY_VALID_YEAR |
+                           REREVVED_GAMEPLAY_VALID_TURN_NUMBER;
+    state.gameplayActive = 1;
+    state.available      = 1;
+    state.civilization   = civilization;
+    state.era            = era;
+    state.year           = year;
+    state.turn           = turn;
     return state;
 }
 
@@ -74,82 +74,82 @@ int main()
 
     for (int32_t civilization = 0; civilization < 16; ++civilization)
     {
-        const auto              state = GameplayState(civilization, civilization % 4, 1025);
+        const auto              state = gameplayState(civilization, civilization % 4, 1025);
         rerevved::PresenceModel presence;
-        Require(rerevved::TryBuildGameplayPresence(state, presence),
+        require(rerevved::TryBuildGameplayPresence(state, presence),
                 "playable civilization formats");
-        Require(presence.large_image_key == kCivilizationAssets[civilization],
+        require(presence.largeImageKey == kCivilizationAssets[civilization],
                 "image asset key matches civilization");
-        Require(presence.small_image_key.empty(),
+        require(presence.smallImageKey.empty(),
                 "civilization uses one image asset");
     }
 
-    auto                    americans = GameplayState(7, 1, 1025);
+    auto                    americans = gameplayState(7, 1, 1025);
     rerevved::PresenceModel presence;
-    Require(rerevved::TryBuildGameplayPresence(americans, presence),
+    require(rerevved::TryBuildGameplayPresence(americans, presence),
             "American checkpoint formats");
-    Require(presence.details == "Playing as the Americans.",
+    require(presence.details == "Playing as the Americans.",
             "American details text");
-    Require(presence.state == "Turn 61 | Medieval Era - 1025 AD",
+    require(presence.state == "Turn 61 | Medieval Era - 1025 AD",
             "American calendar text");
 
-    auto bc = GameplayState(0, 0, -4000, 0);
-    Require(rerevved::TryBuildGameplayPresence(bc, presence) &&
+    auto bc = gameplayState(0, 0, -4000, 0);
+    require(rerevved::TryBuildGameplayPresence(bc, presence) &&
                 presence.state == "Turn 0 | Ancient Era - 4000 BC",
             "BC year formatting");
-    auto zero = GameplayState(0, 0, 0);
-    Require(rerevved::TryBuildGameplayPresence(zero, presence) &&
+    auto zero = gameplayState(0, 0, 0);
+    require(rerevved::TryBuildGameplayPresence(zero, presence) &&
                 presence.state == "Turn 61 | Ancient Era - Year 0",
             "year-zero formatting");
 
-    auto unknown = GameplayState(16, 1, 1050);
-    Require(!rerevved::TryBuildGameplayPresence(unknown, presence),
+    auto unknown = gameplayState(16, 1, 1050);
+    require(!rerevved::TryBuildGameplayPresence(unknown, presence),
             "unknown civilization rejected atomically");
     unknown.civilization = REREVVED_GAMEPLAY_CIVILIZATION_UNKNOWN;
-    Require(!rerevved::TryBuildGameplayPresence(unknown, presence),
+    require(!rerevved::TryBuildGameplayPresence(unknown, presence),
             "negative civilization rejected atomically");
     unknown.civilization = 7;
     unknown.era          = 4;
-    Require(!rerevved::TryBuildGameplayPresence(unknown, presence),
+    require(!rerevved::TryBuildGameplayPresence(unknown, presence),
             "out-of-range era rejected atomically");
     unknown.era = REREVVED_GAMEPLAY_ERA_UNKNOWN;
-    Require(!rerevved::TryBuildGameplayPresence(unknown, presence),
+    require(!rerevved::TryBuildGameplayPresence(unknown, presence),
             "negative era rejected atomically");
     unknown.era = 1;
-    unknown.valid_fields &= ~REREVVED_GAMEPLAY_VALID_YEAR;
+    unknown.validFields &= ~REREVVED_GAMEPLAY_VALID_YEAR;
     unknown.year = REREVVED_GAMEPLAY_YEAR_UNKNOWN;
-    Require(!rerevved::TryBuildGameplayPresence(unknown, presence),
+    require(!rerevved::TryBuildGameplayPresence(unknown, presence),
             "invalid year rejected atomically");
-    unknown.valid_fields |= REREVVED_GAMEPLAY_VALID_YEAR;
-    unknown.valid_fields &= ~REREVVED_GAMEPLAY_VALID_TURN_NUMBER;
+    unknown.validFields |= REREVVED_GAMEPLAY_VALID_YEAR;
+    unknown.validFields &= ~REREVVED_GAMEPLAY_VALID_TURN_NUMBER;
     unknown.turn = REREVVED_GAMEPLAY_TURN_UNKNOWN;
-    Require(!rerevved::TryBuildGameplayPresence(unknown, presence),
+    require(!rerevved::TryBuildGameplayPresence(unknown, presence),
             "invalid turn rejected atomically");
-    unknown.valid_fields |= REREVVED_GAMEPLAY_VALID_TURN_NUMBER;
+    unknown.validFields |= REREVVED_GAMEPLAY_VALID_TURN_NUMBER;
     unknown.civilization = 16;
     const auto generic   = rerevved::SelectPresence(&unknown, std::nullopt);
-    Require(generic.large_image_key == "rerevved" &&
+    require(generic.largeImageKey == "rerevved" &&
                 generic.details == "In game" && generic.state.empty() &&
-                generic.small_image_key.empty(),
+                generic.smallImageKey.empty(),
             "unknown gameplay uses complete logo fallback");
 
     rerevved::PresenceModel retained;
-    Require(rerevved::TryBuildGameplayPresence(americans, retained),
+    require(rerevved::TryBuildGameplayPresence(americans, retained),
             "retained gameplay seed formats");
     auto changed  = retained;
     changed.state = "Turn 62 | Medieval Era - 1050 AD";
-    Require(changed != retained, "complete activity equality supports deduplication");
+    require(changed != retained, "complete activity equality supports deduplication");
     americans.available = 0;
-    Require(rerevved::SelectPresence(&americans, retained) == retained,
+    require(rerevved::SelectPresence(&americans, retained) == retained,
             "temporary gameplay gate retains last complete activity");
-    americans.gameplay_active = 0;
-    const auto menu           = rerevved::SelectPresence(&americans, retained);
-    Require(menu.large_image_key == "rerevved" &&
+    americans.gameplayActive = 0;
+    const auto menu          = rerevved::SelectPresence(&americans, retained);
+    require(menu.largeImageKey == "rerevved" &&
                 menu.details == "Idle" && menu.state.empty() &&
-                menu.small_image_key.empty(),
+                menu.smallImageKey.empty(),
             "menu transition clears gameplay presentation");
 
-    Require(rerevved::kPresencePublishInterval == std::chrono::seconds{ 5 },
+    require(rerevved::kPresencePublishInterval == std::chrono::seconds{ 5 },
             "publish interval is five seconds");
     return failures == 0 ? 0 : 1;
 }

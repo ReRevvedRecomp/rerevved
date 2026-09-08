@@ -20,7 +20,7 @@ namespace
 
 struct ManifestEntry
 {
-    const char*   relative_path;
+    const char*   relativePath;
     std::uint64_t size;
 };
 
@@ -41,7 +41,7 @@ constexpr std::uint32_t kXex2Magic          = 0x58455832u; // 'XEX2'
 constexpr std::uint32_t kKeyExecutionInfo   = 0x00040006u;
 constexpr std::uint32_t kKeyDeltaDescriptor = 0x000005FFu;
 
-std::optional<std::vector<std::uint8_t>> ReadBytes(const std::filesystem::path& file, std::uint64_t offset, std::size_t count)
+std::optional<std::vector<std::uint8_t>> readBytes(const std::filesystem::path& file, std::uint64_t offset, std::size_t count)
 {
     std::ifstream stream(file, std::ios::binary);
     if (!stream)
@@ -59,86 +59,86 @@ std::optional<std::vector<std::uint8_t>> ReadBytes(const std::filesystem::path& 
     return bytes;
 }
 
-std::uint32_t ReadBe32(const std::vector<std::uint8_t>& bytes, std::size_t offset)
+std::uint32_t readBe32(const std::vector<std::uint8_t>& bytes, std::size_t offset)
 {
     return (static_cast<std::uint32_t>(bytes[offset]) << 24) | (static_cast<std::uint32_t>(bytes[offset + 1]) << 16) |
            (static_cast<std::uint32_t>(bytes[offset + 2]) << 8) | static_cast<std::uint32_t>(bytes[offset + 3]);
 }
 
-std::string FormatXexVersion(std::uint32_t value)
+std::string formatXexVersion(std::uint32_t value)
 {
     return fmt::format("{}.{}.{}.{}", (value >> 28) & 0xF, (value >> 24) & 0xF, (value >> 8) & 0xFFFF, value & 0xFF);
 }
 
 // Multi-word XEX2 optional headers store a file offset in the table value.
-std::optional<std::uint32_t> FindOptionalHeader(const std::filesystem::path& file, std::uint32_t key)
+std::optional<std::uint32_t> findOptionalHeader(const std::filesystem::path& file, std::uint32_t key)
 {
-    auto base = ReadBytes(file, 0, 0x18);
-    if (!base || ReadBe32(*base, 0) != kXex2Magic)
+    auto base = readBytes(file, 0, 0x18);
+    if (!base || readBe32(*base, 0) != kXex2Magic)
     {
         return std::nullopt;
     }
 
-    auto header_count = ReadBe32(*base, 0x14);
-    if (header_count == 0 || header_count > 1024)
+    auto headerCount = readBe32(*base, 0x14);
+    if (headerCount == 0 || headerCount > 1024)
     {
         return std::nullopt;
     }
 
-    auto table = ReadBytes(file, 0x18, static_cast<std::size_t>(header_count) * 8);
+    auto table = readBytes(file, 0x18, static_cast<std::size_t>(headerCount) * 8);
     if (!table)
     {
         return std::nullopt;
     }
 
-    for (std::uint32_t index = 0; index < header_count; ++index)
+    for (std::uint32_t index = 0; index < headerCount; ++index)
     {
-        if (ReadBe32(*table, index * 8) == key)
+        if (readBe32(*table, index * 8) == key)
         {
-            return ReadBe32(*table, index * 8 + 4);
+            return readBe32(*table, index * 8 + 4);
         }
     }
     return std::nullopt;
 }
 
-std::vector<std::string> DiagnoseBaseXex(const std::filesystem::path& file)
+std::vector<std::string> diagnoseBaseXex(const std::filesystem::path& file)
 {
     std::vector<std::string> errors;
 
-    auto base = ReadBytes(file, 0, 0x18);
-    if (!base || ReadBe32(*base, 0) != kXex2Magic)
+    auto base = readBytes(file, 0, 0x18);
+    if (!base || readBe32(*base, 0) != kXex2Magic)
     {
         errors.push_back("default.xex is not an Xbox 360 executable.");
         return errors;
     }
 
-    if (auto info_offset = FindOptionalHeader(file, kKeyExecutionInfo))
+    if (auto infoOffset = findOptionalHeader(file, kKeyExecutionInfo))
     {
-        if (auto info = ReadBytes(file, *info_offset, 0x18))
+        if (auto info = readBytes(file, *infoOffset, 0x18))
         {
-            auto media_id = ReadBe32(*info, 0x0);
-            auto version  = ReadBe32(*info, 0x4);
-            auto title_id = ReadBe32(*info, 0xC);
-            if (title_id != kTitleId)
+            auto mediaId = readBe32(*info, 0x0);
+            auto version = readBe32(*info, 0x4);
+            auto titleId = readBe32(*info, 0xC);
+            if (titleId != kTitleId)
             {
-                errors.push_back(fmt::format("default.xex is not Civilization Revolution (title ID {:08X}, expected {:08X}).", title_id, kTitleId));
+                errors.push_back(fmt::format("default.xex is not Civilization Revolution (title ID {:08X}, expected {:08X}).", titleId, kTitleId));
                 return errors;
             }
             if (version != kBaseVersionValue)
             {
-                errors.push_back(fmt::format("default.xex is version {}; the supported base version is {}.", FormatXexVersion(version), FormatXexVersion(kBaseVersionValue)));
+                errors.push_back(fmt::format("default.xex is version {}; the supported base version is {}.", formatXexVersion(version), formatXexVersion(kBaseVersionValue)));
             }
-            if (media_id != kMediaId)
+            if (mediaId != kMediaId)
             {
-                errors.push_back(fmt::format("default.xex media ID {:08X} is not the supported release ({:08X}).", media_id, kMediaId));
+                errors.push_back(fmt::format("default.xex media ID {:08X} is not the supported release ({:08X}).", mediaId, kMediaId));
             }
         }
     }
 
-    auto security_offset = ReadBe32(*base, 0x10);
-    if (auto region_bytes = ReadBytes(file, security_offset + 0x178u, 4))
+    auto securityOffset = readBe32(*base, 0x10);
+    if (auto regionBytes = readBytes(file, securityOffset + 0x178u, 4))
     {
-        auto region = ReadBe32(*region_bytes, 0);
+        auto region = readBe32(*regionBytes, 0);
         if (region != kRegionFree)
         {
             errors.push_back(fmt::format("default.xex region flags {:08X} do not match the supported region-free release.", region));
@@ -152,25 +152,25 @@ std::vector<std::string> DiagnoseBaseXex(const std::filesystem::path& file)
     return errors;
 }
 
-std::vector<std::string> DiagnoseUpdateXexp(const std::filesystem::path& file)
+std::vector<std::string> diagnoseUpdateXexp(const std::filesystem::path& file)
 {
     std::vector<std::string> errors;
 
-    auto base = ReadBytes(file, 0, 0x18);
-    if (!base || ReadBe32(*base, 0) != kXex2Magic)
+    auto base = readBytes(file, 0, 0x18);
+    if (!base || readBe32(*base, 0) != kXex2Magic)
     {
         errors.push_back("default.xexp is not an Xbox 360 title update.");
         return errors;
     }
 
-    if (auto descriptor_offset = FindOptionalHeader(file, kKeyDeltaDescriptor))
+    if (auto descriptorOffset = findOptionalHeader(file, kKeyDeltaDescriptor))
     {
-        if (auto descriptor = ReadBytes(file, *descriptor_offset, 12))
+        if (auto descriptor = readBytes(file, *descriptorOffset, 12))
         {
-            auto target_version = ReadBe32(*descriptor, 4);
-            if (target_version != kUpdateTargetValue)
+            auto targetVersion = readBe32(*descriptor, 4);
+            if (targetVersion != kUpdateTargetValue)
             {
-                errors.push_back(fmt::format("default.xexp updates the game to version {}; the supported title update is 1.3 ({}).", FormatXexVersion(target_version), FormatXexVersion(kUpdateTargetValue)));
+                errors.push_back(fmt::format("default.xexp updates the game to version {}; the supported title update is 1.3 ({}).", formatXexVersion(targetVersion), formatXexVersion(kUpdateTargetValue)));
                 return errors;
             }
         }
@@ -180,7 +180,7 @@ std::vector<std::string> DiagnoseUpdateXexp(const std::filesystem::path& file)
     return errors;
 }
 
-void CheckRequiredFile(const std::filesystem::path& root, const char* relative, std::uint64_t expected_size, std::vector<std::string>& errors)
+void checkRequiredFile(const std::filesystem::path& root, const char* relative, std::uint64_t expectedSize, std::vector<std::string>& errors)
 {
     std::error_code ec;
     auto            file = root / std::filesystem::path(relative);
@@ -191,15 +191,15 @@ void CheckRequiredFile(const std::filesystem::path& root, const char* relative, 
     }
 
     auto size = std::filesystem::file_size(file, ec);
-    if (ec || size != expected_size)
+    if (ec || size != expectedSize)
     {
-        errors.push_back(fmt::format("Wrong size: {} (expected {} bytes, found {}).", relative, expected_size, ec ? 0 : size));
+        errors.push_back(fmt::format("Wrong size: {} (expected {} bytes, found {}).", relative, expectedSize, ec ? 0 : size));
     }
 }
 
 // Diagnose all deep mismatches so foreign copies still report version details.
 template <typename Diagnose>
-void CheckExecutable(const std::filesystem::path& root, const char* relative, std::uint64_t expected_size, const char* expected_sha256, ContentDepth depth, Diagnose diagnose, std::vector<std::string>& errors)
+void checkExecutable(const std::filesystem::path& root, const char* relative, std::uint64_t expectedSize, const char* expectedSha256, ContentDepth depth, Diagnose diagnose, std::vector<std::string>& errors)
 {
     std::error_code ec;
     auto            file = root / std::filesystem::path(relative);
@@ -209,18 +209,18 @@ void CheckExecutable(const std::filesystem::path& root, const char* relative, st
         return;
     }
 
-    auto size    = std::filesystem::file_size(file, ec);
-    bool size_ok = !ec && size == expected_size;
-    if (depth == ContentDepth::kQuick)
+    auto size   = std::filesystem::file_size(file, ec);
+    bool sizeOk = !ec && size == expectedSize;
+    if (depth == ContentDepth::Quick)
     {
-        if (!size_ok)
+        if (!sizeOk)
         {
-            errors.push_back(fmt::format("Wrong size: {} (expected {} bytes, found {}).", relative, expected_size, ec ? 0 : size));
+            errors.push_back(fmt::format("Wrong size: {} (expected {} bytes, found {}).", relative, expectedSize, ec ? 0 : size));
         }
         return;
     }
 
-    if (size_ok && rex::crypto::sha256_file(file) == expected_sha256)
+    if (sizeOk && rex::crypto::sha256_file(file) == expectedSha256)
     {
         return;
     }
@@ -242,11 +242,11 @@ ContentCheckResult VerifyContentRoot(const std::filesystem::path& root, ContentD
         return result;
     }
 
-    CheckExecutable(root, "default.xex", kBaseXexSize, kBaseXexSha256, depth, DiagnoseBaseXex, result.errors);
-    CheckExecutable(root, "default.xexp", kUpdateXexpSize, kUpdateXexpSha256, depth, DiagnoseUpdateXexp, result.errors);
+    checkExecutable(root, "default.xex", kBaseXexSize, kBaseXexSha256, depth, diagnoseBaseXex, result.errors);
+    checkExecutable(root, "default.xexp", kUpdateXexpSize, kUpdateXexpSha256, depth, diagnoseUpdateXexp, result.errors);
     for (const auto& entry : kResourceManifest)
     {
-        CheckRequiredFile(root, entry.relative_path, entry.size, result.errors);
+        checkRequiredFile(root, entry.relativePath, entry.size, result.errors);
     }
 
     result.ok = result.errors.empty();

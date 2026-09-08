@@ -39,60 +39,60 @@ enum
 
 typedef struct ReRevvedUnitProductionCostRule
 {
-    uint32_t               struct_size;
-    char                   provider_id[REREVVED_UNIT_PRODUCTION_COST_RULE_ID_CAPACITY];
-    char                   rule_id[REREVVED_UNIT_PRODUCTION_COST_RULE_ID_CAPACITY];
+    uint32_t               structSize;
+    char                   providerId[REREVVED_UNIT_PRODUCTION_COST_RULE_ID_CAPACITY];
+    char                   ruleId[REREVVED_UNIT_PRODUCTION_COST_RULE_ID_CAPACITY];
     ReRevvedCivilizationId civilization;
-    ReRevvedUnitTypeId     base_unit_type;
+    ReRevvedUnitTypeId     baseUnitType;
     ReRevvedUnitIdentityId identity;
-    int32_t                percentage_delta; // Additive percentage points relative to the native cost (100 percent).
+    int32_t                percentageDelta; // Additive percentage points relative to the native cost (100 percent).
     int32_t                reserved[5];
 } ReRevvedUnitProductionCostRule;
 
 typedef struct ReRevvedUnitProductionCostRuleInfo
 {
-    uint32_t               struct_size; // Current producer size. Callers may pass any buffer at least 152 bytes.
-    char                   provider_id[REREVVED_UNIT_PRODUCTION_COST_RULE_ID_CAPACITY];
-    char                   rule_id[REREVVED_UNIT_PRODUCTION_COST_RULE_ID_CAPACITY];
+    uint32_t               structSize; // Current producer size. Callers may pass any buffer at least 152 bytes.
+    char                   providerId[REREVVED_UNIT_PRODUCTION_COST_RULE_ID_CAPACITY];
+    char                   ruleId[REREVVED_UNIT_PRODUCTION_COST_RULE_ID_CAPACITY];
     ReRevvedCivilizationId civilization;
-    ReRevvedUnitTypeId     base_unit_type;
+    ReRevvedUnitTypeId     baseUnitType;
     ReRevvedUnitIdentityId identity;
-    int32_t                percentage_delta;
-    uint32_t               status_flags;
+    int32_t                percentageDelta;
+    uint32_t               statusFlags;
     int32_t                reserved[10];
 } ReRevvedUnitProductionCostRuleInfo;
 
 typedef struct ReRevvedUnitProductionCostQuery
 {
-    uint32_t               struct_size;
+    uint32_t               structSize;
     ReRevvedCivilizationId civilization;
-    ReRevvedUnitTypeId     base_unit_type;
+    ReRevvedUnitTypeId     baseUnitType;
     ReRevvedUnitIdentityId identity;
     int32_t                reserved[6];
 } ReRevvedUnitProductionCostQuery;
 
 typedef struct ReRevvedUnitProductionCostEvaluation
 {
-    uint32_t struct_size; // Current producer size. Callers may pass any buffer at least 20 bytes.
-    int32_t  native_percent;
-    int32_t  final_percent;
-    uint32_t status_flags;
-    uint32_t additive_count;
+    uint32_t structSize; // Current producer size. Callers may pass any buffer at least 20 bytes.
+    int32_t  nativePercent;
+    int32_t  finalPercent;
+    uint32_t statusFlags;
+    uint32_t additiveCount;
     int32_t  reserved[5];
 } ReRevvedUnitProductionCostEvaluation;
 
 typedef uint32_t (*ReRevvedUnitProductionCostRulesAbiVersionFn)(void);
 typedef int32_t (*ReRevvedRegisterUnitProductionCostRuleFn)(
     const ReRevvedUnitProductionCostRule* rule);
-typedef int32_t (*ReRevvedGetUnitProductionCostRuleCountFn)(uint32_t* out_count);
+typedef int32_t (*ReRevvedGetUnitProductionCostRuleCountFn)(uint32_t* outCount);
 typedef int32_t (*ReRevvedGetUnitProductionCostRuleFn)(
     uint32_t                            index,
     ReRevvedUnitProductionCostRuleInfo* out,
-    uint32_t                            out_size);
+    uint32_t                            outSize);
 typedef int32_t (*ReRevvedEvaluateUnitProductionCostFn)(
     const ReRevvedUnitProductionCostQuery* query,
     ReRevvedUnitProductionCostEvaluation*  out,
-    uint32_t                               out_size);
+    uint32_t                               outSize);
 
 #ifdef __cplusplus
 extern "C"
@@ -102,15 +102,15 @@ extern "C"
     REREVVED_UNIT_PRODUCTION_COST_RULES_API uint32_t ReRevvedUnitProductionCostRulesAbiVersion(void);
     REREVVED_UNIT_PRODUCTION_COST_RULES_API int32_t  ReRevvedRegisterUnitProductionCostRule(
         const ReRevvedUnitProductionCostRule* rule);
-    REREVVED_UNIT_PRODUCTION_COST_RULES_API int32_t ReRevvedGetUnitProductionCostRuleCount(uint32_t* out_count);
+    REREVVED_UNIT_PRODUCTION_COST_RULES_API int32_t ReRevvedGetUnitProductionCostRuleCount(uint32_t* outCount);
     REREVVED_UNIT_PRODUCTION_COST_RULES_API int32_t ReRevvedGetUnitProductionCostRule(
         uint32_t                            index,
         ReRevvedUnitProductionCostRuleInfo* out,
-        uint32_t                            out_size);
+        uint32_t                            outSize);
     REREVVED_UNIT_PRODUCTION_COST_RULES_API int32_t ReRevvedEvaluateUnitProductionCost(
         const ReRevvedUnitProductionCostQuery* query,
         ReRevvedUnitProductionCostEvaluation*  out,
-        uint32_t                               out_size);
+        uint32_t                               outSize);
 
 #ifdef __cplusplus
 } // extern "C"

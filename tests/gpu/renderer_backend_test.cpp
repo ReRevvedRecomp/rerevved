@@ -7,7 +7,7 @@
 namespace
 {
 
-void Require(bool condition, const char* message)
+void require(bool condition, const char* message)
 {
     if (!condition)
     {
@@ -24,21 +24,21 @@ int main()
     using rerevved::gpu::RendererBackend;
     using rerevved::gpu::RendererBackendName;
 
-    Require(ParseRendererBackend("xenos") == RendererBackend::Xenos,
+    require(ParseRendererBackend("xenos") == RendererBackend::Xenos,
             "xenos selection");
-    Require(ParseRendererBackend("native") == RendererBackend::Native,
+    require(ParseRendererBackend("native") == RendererBackend::Native,
             "native selection");
-    Require(ParseRendererBackend("") == RendererBackend::Invalid,
+    require(ParseRendererBackend("") == RendererBackend::Invalid,
             "empty selection rejection");
-    Require(ParseRendererBackend("Native") == RendererBackend::Invalid,
+    require(ParseRendererBackend("Native") == RendererBackend::Invalid,
             "case drift rejection");
-    Require(ParseRendererBackend("vulkan") == RendererBackend::Invalid,
+    require(ParseRendererBackend("vulkan") == RendererBackend::Invalid,
             "unknown selection rejection");
-    Require(std::string_view(RendererBackendName(RendererBackend::Xenos)) == "xenos",
+    require(std::string_view(RendererBackendName(RendererBackend::Xenos)) == "xenos",
             "xenos name");
-    Require(std::string_view(RendererBackendName(RendererBackend::Native)) == "native",
+    require(std::string_view(RendererBackendName(RendererBackend::Native)) == "native",
             "native name");
-    Require(std::string_view(RendererBackendName(RendererBackend::Invalid)) == "invalid",
+    require(std::string_view(RendererBackendName(RendererBackend::Invalid)) == "invalid",
             "invalid name");
 
     std::cout << "renderer_backend_test: PASS\n";

@@ -21,7 +21,7 @@ inline constexpr std::size_t kObserverByteBudget = 3456;
 
 // Generated metadata is included by the implementation unit only; this public
 // header remains independent of SDK and generator headers.
-void RecordSiteFixedValue(std::uint32_t site_index, std::int64_t value) noexcept;
+void RecordSiteFixedValue(std::uint32_t siteIndex, std::int64_t value) noexcept;
 
 enum class StartStatus : std::uint8_t
 {
@@ -75,39 +75,39 @@ enum class AnomalyId : std::uint32_t
 
 struct StartOptions
 {
-    const char* run_id           = nullptr;
-    const char* transition_id    = nullptr;
-    const char* input_digest     = nullptr;
-    const char* output_directory = nullptr;
-    const char* output_root      = nullptr;
-    bool        xenos_enabled    = false;
-    bool        rov_enabled      = false;
+    const char* runId           = nullptr;
+    const char* transitionId    = nullptr;
+    const char* inputDigest     = nullptr;
+    const char* outputDirectory = nullptr;
+    const char* outputRoot      = nullptr;
+    bool        xenosEnabled    = false;
+    bool        rovEnabled      = false;
 };
 
 // These fields deliberately contain only caller-owned conservative gameplay
 // snapshots. A checkpoint never reads renderer state.
 struct SnapshotFields
 {
-    std::uint64_t frame_sequence    = 0;
-    std::uint32_t valid_fields      = 0;
-    bool          gameplay_active   = false;
-    bool          interface_update  = false;
-    std::int32_t  active_player     = -1;
-    std::uint32_t human_player_mask = 0;
-    bool          turn_owner_known  = false;
-    bool          human_turn        = false;
-    bool          available         = false;
-    std::int32_t  civilization      = 0;
-    std::int32_t  era               = 0;
-    std::int32_t  year              = 0;
-    std::int32_t  turn              = 0;
+    std::uint64_t frameSequence   = 0;
+    std::uint32_t validFields     = 0;
+    bool          gameplayActive  = false;
+    bool          interfaceUpdate = false;
+    std::int32_t  activePlayer    = -1;
+    std::uint32_t humanPlayerMask = 0;
+    bool          turnOwnerKnown  = false;
+    bool          humanTurn       = false;
+    bool          available       = false;
+    std::int32_t  civilization    = 0;
+    std::int32_t  era             = 0;
+    std::int32_t  year            = 0;
+    std::int32_t  turn            = 0;
 };
 
 struct CounterSnapshot
 {
     std::uint64_t values[kSegmentCount][kOperationCount][kValueDomainCount][kHookSiteCount]{};
-    std::uint64_t saturated_failures = 0;
-    std::uint64_t rejected_in_flight = 0;
+    std::uint64_t saturatedFailures = 0;
+    std::uint64_t rejectedInFlight  = 0;
 };
 
 struct SegmentSnapshot
@@ -135,12 +135,12 @@ struct ObserverSnapshot
     bool               enabled    = false;
     bool               finalized  = false;
     bool               incomplete = false;
-    ExitClass          exit_class = ExitClass::GuestComplete;
+    ExitClass          exitClass  = ExitClass::GuestComplete;
     CounterSnapshot    counters{};
     SegmentSnapshot    segments[kSegmentCount]{};
     CheckpointSnapshot checkpoints[kCheckpointCapacity]{};
     AnomalySnapshot    anomalies[static_cast<std::size_t>(AnomalyId::CheckpointSequence) + 1]{};
-    bool               transition_attribution_valid = true;
+    bool               transitionAttributionValid = true;
 };
 
 class Observer final
@@ -150,12 +150,12 @@ public:
     static Observer& Instance() noexcept;
 
     StartStatus    Start(const StartOptions& options) noexcept;
-    FinalizeStatus Finalize(ExitClass exit_class = ExitClass::GuestComplete) noexcept;
+    FinalizeStatus Finalize(ExitClass exitClass = ExitClass::GuestComplete) noexcept;
 
-    CheckpointStatus RecordSegment(std::uint32_t         segment_index,
+    CheckpointStatus RecordSegment(std::uint32_t         segmentIndex,
                                    const SnapshotFields& fields) noexcept;
-    CheckpointStatus RecordCheckpoint(std::uint32_t         segment_index,
-                                      std::uint32_t         mark_index,
+    CheckpointStatus RecordCheckpoint(std::uint32_t         segmentIndex,
+                                      std::uint32_t         markIndex,
                                       const SnapshotFields& fields) noexcept;
 
     void Snapshot(ObserverSnapshot& result) const noexcept;
@@ -167,7 +167,7 @@ public:
                            std::uint32_t site,
                            std::uint64_t value) noexcept;
     void SetInFlightForTest(std::uint32_t value) noexcept;
-    void RecordSiteFixedValueForTest(std::uint32_t site_index,
+    void RecordSiteFixedValueForTest(std::uint32_t siteIndex,
                                      std::int64_t  value) noexcept;
 
     std::size_t ObjectSizeBytes() const noexcept
@@ -183,14 +183,14 @@ private:
     {
         std::atomic<bool>          accepted{ false };
         std::atomic<std::uint32_t> segment{ 0 };
-        std::atomic<std::uint64_t> frame_sequence{ 0 };
-        std::atomic<std::uint32_t> valid_fields{ 0 };
-        std::atomic<bool>          gameplay_active{ false };
-        std::atomic<bool>          interface_update{ false };
-        std::atomic<std::int32_t>  active_player{ -1 };
-        std::atomic<std::uint32_t> human_player_mask{ 0 };
-        std::atomic<bool>          turn_owner_known{ false };
-        std::atomic<bool>          human_turn{ false };
+        std::atomic<std::uint64_t> frameSequence{ 0 };
+        std::atomic<std::uint32_t> validFields{ 0 };
+        std::atomic<bool>          gameplayActive{ false };
+        std::atomic<bool>          interfaceUpdate{ false };
+        std::atomic<std::int32_t>  activePlayer{ -1 };
+        std::atomic<std::uint32_t> humanPlayerMask{ 0 };
+        std::atomic<bool>          turnOwnerKnown{ false };
+        std::atomic<bool>          humanTurn{ false };
         std::atomic<bool>          available{ false };
         std::atomic<std::int32_t>  civilization{ 0 };
         std::atomic<std::int32_t>  era{ 0 };
@@ -208,56 +208,56 @@ private:
     Observer(const Observer&)            = delete;
     Observer& operator=(const Observer&) = delete;
 
-    static Observer storage_;
+    static Observer storage;
 
-    void                       ResetForStart() noexcept;
-    void                       RecordSiteHot(std::uint32_t site_index, std::int64_t value) noexcept;
-    IncrementResult            IncrementSaturating(std::atomic<std::uint64_t>& counter) noexcept;
-    void                       RecordIncrementResult(IncrementResult result) noexcept;
-    void                       IncrementAggregate(std::atomic<std::uint64_t>& counter) noexcept;
-    bool                       BeginAdmission() noexcept;
-    void                       EndAdmission() noexcept;
-    void                       RecordAnomaly(AnomalyId id) noexcept;
-    static void                StoreSnapshot(CheckpointSlot& slot, std::uint32_t segment_index, const SnapshotFields& fields) noexcept;
-    static void                LoadSnapshot(const CheckpointSlot& slot,
+    void                       resetForStart() noexcept;
+    void                       recordSiteHot(std::uint32_t siteIndex, std::int64_t value) noexcept;
+    IncrementResult            incrementSaturating(std::atomic<std::uint64_t>& counter) noexcept;
+    void                       recordIncrementResult(IncrementResult result) noexcept;
+    void                       incrementAggregate(std::atomic<std::uint64_t>& counter) noexcept;
+    bool                       beginAdmission() noexcept;
+    void                       endAdmission() noexcept;
+    void                       recordAnomaly(AnomalyId id) noexcept;
+    static void                storeSnapshot(CheckpointSlot& slot, std::uint32_t segmentIndex, const SnapshotFields& fields) noexcept;
+    static void                loadSnapshot(const CheckpointSlot& slot,
                                             SnapshotFields&       fields) noexcept;
-    std::atomic<bool>          started_{ false };
-    std::atomic<bool>          enabled_{ false };
-    std::atomic<bool>          finalized_{ false };
-    std::atomic<bool>          finalizing_{ false };
-    std::atomic<bool>          incomplete_{ false };
-    std::atomic<std::uint32_t> active_segment_{ 0 };
-    std::atomic<std::uint32_t> next_checkpoint_mark_{ 0 };
-    std::atomic<std::uint32_t> in_flight_{ 0 };
+    std::atomic<bool>          started{ false };
+    std::atomic<bool>          enabled{ false };
+    std::atomic<bool>          finalized{ false };
+    std::atomic<bool>          finalizing{ false };
+    std::atomic<bool>          incomplete{ false };
+    std::atomic<std::uint32_t> activeSegment{ 0 };
+    std::atomic<std::uint32_t> nextCheckpointMark{ 0 };
+    std::atomic<std::uint32_t> inFlight{ 0 };
 
     std::atomic<std::uint64_t>
-                               counters_[kSegmentCount][kOperationCount][kValueDomainCount][kHookSiteCount]{};
-    std::atomic<std::uint64_t> anomaly_counts_[static_cast<std::size_t>(AnomalyId::CheckpointSequence) + 1]{};
+                               counters[kSegmentCount][kOperationCount][kValueDomainCount][kHookSiteCount]{};
+    std::atomic<std::uint64_t> anomalyCounts[static_cast<std::size_t>(AnomalyId::CheckpointSequence) + 1]{};
 
-    CheckpointSlot checkpoints_[kCheckpointCapacity]{};
-    CheckpointSlot segments_[kSegmentCount]{};
+    CheckpointSlot checkpoints[kCheckpointCapacity]{};
+    CheckpointSlot segments[kSegmentCount]{};
 
-    std::atomic<std::uint64_t> saturated_failures_{ 0 };
-    std::atomic<std::uint64_t> rejected_in_flight_{ 0 };
-    std::atomic<bool>          transition_attribution_valid_{ true };
+    std::atomic<std::uint64_t> saturatedFailures{ 0 };
+    std::atomic<std::uint64_t> rejectedInFlight{ 0 };
+    std::atomic<bool>          transitionAttributionValid{ true };
 
-    ExitClass exit_class_           = ExitClass::GuestComplete;
-    bool      recovered_incomplete_ = false;
-    char      run_id_[32]{};
-    char      transition_id_[32]{};
-    char      input_digest_[129]{};
-    char      output_directory_[1024]{};
-    char      output_root_[1024]{};
+    ExitClass exitClass           = ExitClass::GuestComplete;
+    bool      recoveredIncomplete = false;
+    char      runId[32]{};
+    char      transitionId[32]{};
+    char      inputDigest[129]{};
+    char      outputDirectory[1024]{};
+    char      outputRoot[1024]{};
 };
 
 // Process-wide wrappers keep generated code independent from observer object
 // ownership and preserve the required zero-allocation call boundary.
 StartStatus      Start(const StartOptions& options) noexcept;
-FinalizeStatus   Finalize(ExitClass exit_class = ExitClass::GuestComplete) noexcept;
-CheckpointStatus RecordCheckpoint(std::uint32_t         segment_index,
-                                  std::uint32_t         mark_index,
+FinalizeStatus   Finalize(ExitClass exitClass = ExitClass::GuestComplete) noexcept;
+CheckpointStatus RecordCheckpoint(std::uint32_t         segmentIndex,
+                                  std::uint32_t         markIndex,
                                   const SnapshotFields& fields) noexcept;
-CheckpointStatus RecordSegment(std::uint32_t         segment_index,
+CheckpointStatus RecordSegment(std::uint32_t         segmentIndex,
                                const SnapshotFields& fields) noexcept;
 void             Snapshot(ObserverSnapshot& result) noexcept;
 

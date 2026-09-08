@@ -6,7 +6,7 @@ int main(void)
 {
     if (sizeof(ReRevvedUnitCombatRule) != 168 ||
         offsetof(ReRevvedUnitCombatRule, terrain) != 144 ||
-        offsetof(ReRevvedUnitCombatRule, percentage_delta) != 152 ||
+        offsetof(ReRevvedUnitCombatRule, percentageDelta) != 152 ||
         sizeof(ReRevvedUnitCombatRuleInfo) != 192 ||
         sizeof(ReRevvedUnitCombatQuery) != 40 ||
         sizeof(ReRevvedUnitCombatEvaluation) != 40 ||

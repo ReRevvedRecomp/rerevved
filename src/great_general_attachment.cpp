@@ -16,7 +16,7 @@ namespace
 
 constexpr uint8_t kGreatGeneralType = 30;
 
-bool IsLive(const GreatGeneralUnitState& unit)
+bool isLive(const GreatGeneralUnitState& unit)
 {
     return unit.slot != 0xFF && (unit.flags & 0x80000000) == 0;
 }
@@ -26,20 +26,20 @@ bool IsLive(const GreatGeneralUnitState& unit)
 bool TryPlanGreatGeneralCoordinateRepair(
     const GreatGeneralUnitState& carrier,
     const GreatGeneralUnitState& general,
-    int16_t&                     repaired_x,
-    int16_t&                     repaired_y)
+    int16_t&                     repairedX,
+    int16_t&                     repairedY)
 {
-    if (!IsLive(carrier) || !IsLive(general) ||
+    if (!isLive(carrier) || !isLive(general) ||
         general.type != kGreatGeneralType ||
         carrier.player != general.player ||
-        general.carrier_link != carrier.unit ||
+        general.carrierLink != carrier.unit ||
         (carrier.x == general.x && carrier.y == general.y))
     {
         return false;
     }
 
-    repaired_x = carrier.x;
-    repaired_y = carrier.y;
+    repairedX = carrier.x;
+    repairedY = carrier.y;
     return true;
 }
 
@@ -53,12 +53,12 @@ constexpr uint32_t kUnitRecordSize = 0x54;
 constexpr int32_t  kPlayerCount    = 6;
 constexpr int32_t  kUnitsPerPlayer = 256;
 
-bool IsGuestPointer(uint32_t address)
+bool isGuestPointer(uint32_t address)
 {
     return address >= 0x10000 && address < 0xFFFFF000;
 }
 
-bool IsGuestReadableRange(uint32_t address, uint32_t extent)
+bool isGuestReadableRange(uint32_t address, uint32_t extent)
 {
     if (extent == 0 || address > UINT32_MAX - extent)
     {
@@ -66,7 +66,7 @@ bool IsGuestReadableRange(uint32_t address, uint32_t extent)
     }
 
     const uint32_t end = address + extent;
-    if (!IsGuestPointer(address) || !IsGuestPointer(end - 1))
+    if (!isGuestPointer(address) || !isGuestPointer(end - 1))
     {
         return false;
     }
@@ -78,18 +78,18 @@ bool IsGuestReadableRange(uint32_t address, uint32_t extent)
                rex::memory::PageAccess::kNoAccess;
 }
 
-uint16_t ReadBigEndianU16(const uint8_t* value)
+uint16_t readBigEndianU16(const uint8_t* value)
 {
     return (uint16_t{ value[0] } << 8) | uint16_t{ value[1] };
 }
 
-uint32_t ReadBigEndianU32(const uint8_t* value)
+uint32_t readBigEndianU32(const uint8_t* value)
 {
     return (uint32_t{ value[0] } << 24) | (uint32_t{ value[1] } << 16) |
            (uint32_t{ value[2] } << 8) | uint32_t{ value[3] };
 }
 
-bool TryGetUnitAddress(int32_t player, int32_t unit, uint32_t& address)
+bool tryGetUnitAddress(int32_t player, int32_t unit, uint32_t& address)
 {
     if (player < 0 || player >= kPlayerCount || unit < 0 ||
         unit >= kUnitsPerPlayer)
@@ -103,13 +103,13 @@ bool TryGetUnitAddress(int32_t player, int32_t unit, uint32_t& address)
     return true;
 }
 
-bool CaptureUnit(int32_t                          player,
+bool captureUnit(int32_t                          player,
                  int32_t                          unit,
                  rerevved::GreatGeneralUnitState& state)
 {
     uint32_t address = 0;
-    if (!TryGetUnitAddress(player, unit, address) ||
-        !IsGuestReadableRange(address, kUnitRecordSize))
+    if (!tryGetUnitAddress(player, unit, address) ||
+        !isGuestReadableRange(address, kUnitRecordSize))
     {
         return false;
     }
@@ -121,86 +121,86 @@ bool CaptureUnit(int32_t                          player,
         unit,
         record[0x00],
         record[0x01],
-        ReadBigEndianU32(record + 0x0C),
-        std::bit_cast<int16_t>(ReadBigEndianU16(record + 0x1C)),
-        std::bit_cast<int16_t>(ReadBigEndianU16(record + 0x1E)),
-        std::bit_cast<int16_t>(ReadBigEndianU16(record + 0x50)),
+        readBigEndianU32(record + 0x0C),
+        std::bit_cast<int16_t>(readBigEndianU16(record + 0x1C)),
+        std::bit_cast<int16_t>(readBigEndianU16(record + 0x1E)),
+        std::bit_cast<int16_t>(readBigEndianU16(record + 0x50)),
     };
     return true;
 }
 
-void WriteCoordinates(int32_t player, int32_t unit, int16_t x, int16_t y)
+void writeCoordinates(int32_t player, int32_t unit, int16_t x, int16_t y)
 {
     constexpr uint32_t kCoordinatesOffset = 0x1C;
     uint32_t           address            = 0;
-    if (!TryGetUnitAddress(player, unit, address) ||
-        !IsGuestReadableRange(address + kCoordinatesOffset,
+    if (!tryGetUnitAddress(player, unit, address) ||
+        !isGuestReadableRange(address + kCoordinatesOffset,
                               sizeof(uint32_t)))
     {
         return;
     }
 
-    const uint16_t x_bits      = std::bit_cast<uint16_t>(x);
-    const uint16_t y_bits      = std::bit_cast<uint16_t>(y);
+    const uint16_t xBits       = std::bit_cast<uint16_t>(x);
+    const uint16_t yBits       = std::bit_cast<uint16_t>(y);
     auto*          memory      = REX_KERNEL_MEMORY();
     auto*          destination = memory->TranslateVirtual<uint8_t*>(
         address + kCoordinatesOffset);
-    destination[0] = static_cast<uint8_t>(x_bits >> 8);
-    destination[1] = static_cast<uint8_t>(x_bits);
-    destination[2] = static_cast<uint8_t>(y_bits >> 8);
-    destination[3] = static_cast<uint8_t>(y_bits);
+    destination[0] = static_cast<uint8_t>(xBits >> 8);
+    destination[1] = static_cast<uint8_t>(xBits);
+    destination[2] = static_cast<uint8_t>(yBits >> 8);
+    destination[3] = static_cast<uint8_t>(yBits);
 }
 
-void RepairPair(const rerevved::GreatGeneralUnitState& carrier,
+void repairPair(const rerevved::GreatGeneralUnitState& carrier,
                 const rerevved::GreatGeneralUnitState& general)
 {
-    int16_t repaired_x = 0;
-    int16_t repaired_y = 0;
+    int16_t repairedX = 0;
+    int16_t repairedY = 0;
     if (!rerevved::TryPlanGreatGeneralCoordinateRepair(
-            carrier, general, repaired_x, repaired_y))
+            carrier, general, repairedX, repairedY))
     {
         return;
     }
 
-    WriteCoordinates(general.player, general.unit, repaired_x, repaired_y);
+    writeCoordinates(general.player, general.unit, repairedX, repairedY);
 }
 
-void RepairPairsForCarrier(int32_t player, int32_t carrier_unit)
+void repairPairsForCarrier(int32_t player, int32_t carrierUnit)
 {
     rerevved::GreatGeneralUnitState carrier{};
-    if (!CaptureUnit(player, carrier_unit, carrier))
+    if (!captureUnit(player, carrierUnit, carrier))
     {
         return;
     }
 
-    for (int32_t general_unit = 0; general_unit < kUnitsPerPlayer;
-         ++general_unit)
+    for (int32_t generalUnit = 0; generalUnit < kUnitsPerPlayer;
+         ++generalUnit)
     {
         rerevved::GreatGeneralUnitState general{};
-        if (CaptureUnit(player, general_unit, general))
+        if (captureUnit(player, generalUnit, general))
         {
-            RepairPair(carrier, general);
+            repairPair(carrier, general);
         }
     }
 }
 
-void RepairAllPairs()
+void repairAllPairs()
 {
     for (int32_t player = 0; player < kPlayerCount; ++player)
     {
-        for (int32_t general_unit = 0; general_unit < kUnitsPerPlayer;
-             ++general_unit)
+        for (int32_t generalUnit = 0; generalUnit < kUnitsPerPlayer;
+             ++generalUnit)
         {
             rerevved::GreatGeneralUnitState general{};
-            if (!CaptureUnit(player, general_unit, general))
+            if (!captureUnit(player, generalUnit, general))
             {
                 continue;
             }
 
             rerevved::GreatGeneralUnitState carrier{};
-            if (CaptureUnit(player, general.carrier_link, carrier))
+            if (captureUnit(player, general.carrierLink, carrier))
             {
-                RepairPair(carrier, general);
+                repairPair(carrier, general);
             }
         }
     }
@@ -210,11 +210,11 @@ void RepairAllPairs()
 
 void ReRevvedFixGreatGeneralBorderCompletion()
 {
-    RepairAllPairs();
+    repairAllPairs();
 }
 
 void ReRevvedFixGreatGeneralPostCombat(PPCRegister& player,
                                        PPCRegister& unit)
 {
-    RepairPairsForCarrier(player.s32, unit.s32);
+    repairPairsForCarrier(player.s32, unit.s32);
 }

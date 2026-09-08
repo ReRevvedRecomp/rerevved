@@ -8,10 +8,10 @@ namespace rerevved::unit_effect_rules
 {
 
 bool TryEvaluate(ReRevvedCivilizationId        civilization,
-                 ReRevvedUnitTypeId            base_unit_type,
+                 ReRevvedUnitTypeId            baseUnitType,
                  ReRevvedUnitIdentityId        identity,
                  ReRevvedUnitEffectId          effect,
-                 int32_t                       native_level,
+                 int32_t                       nativeLevel,
                  ReRevvedUnitEffectEvaluation& evaluation);
 
 // Returns the title-owned storage mask for a named native special upgrade.

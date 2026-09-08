@@ -9,10 +9,10 @@ namespace rerevved::terrain_yield_rules
 
 bool TryEvaluate(ReRevvedTerrainId               terrain,
                  ReRevvedTerrainYieldComponent   component,
-                 int32_t                         native_value,
+                 int32_t                         nativeValue,
                  ReRevvedTerrainYieldEvaluation& evaluation);
 
-bool TryMapGuestTerrain(int32_t guest_terrain, ReRevvedTerrainId& terrain);
+bool TryMapGuestTerrain(int32_t guestTerrain, ReRevvedTerrainId& terrain);
 
 bool TryAddChecked(int64_t accumulator, int64_t value, int64_t& result);
 

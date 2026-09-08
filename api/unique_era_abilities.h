@@ -116,58 +116,58 @@ enum
 
 typedef struct ReRevvedUniqueEraAbilityReplacement
 {
-    uint32_t                   struct_size;
-    char                       provider_id[REREVVED_UNIQUE_ERA_ABILITY_RULE_ID_CAPACITY];
-    char                       rule_id[REREVVED_UNIQUE_ERA_ABILITY_RULE_ID_CAPACITY];
+    uint32_t                   structSize;
+    char                       providerId[REREVVED_UNIQUE_ERA_ABILITY_RULE_ID_CAPACITY];
+    char                       ruleId[REREVVED_UNIQUE_ERA_ABILITY_RULE_ID_CAPACITY];
     ReRevvedCivilizationId     civilization;
-    ReRevvedUniqueEraUnlockEra unlock_era;
-    ReRevvedUniqueEraAbilityId replacement_ability;
+    ReRevvedUniqueEraUnlockEra unlockEra;
+    ReRevvedUniqueEraAbilityId replacementAbility;
     int32_t                    reserved[8];
 } ReRevvedUniqueEraAbilityReplacement;
 
 typedef struct ReRevvedUniqueEraAbilityRuleInfo
 {
-    uint32_t                   struct_size; // Current producer size. Callers may pass any buffer at least 148 bytes.
-    char                       provider_id[REREVVED_UNIQUE_ERA_ABILITY_RULE_ID_CAPACITY];
-    char                       rule_id[REREVVED_UNIQUE_ERA_ABILITY_RULE_ID_CAPACITY];
+    uint32_t                   structSize; // Current producer size. Callers may pass any buffer at least 148 bytes.
+    char                       providerId[REREVVED_UNIQUE_ERA_ABILITY_RULE_ID_CAPACITY];
+    char                       ruleId[REREVVED_UNIQUE_ERA_ABILITY_RULE_ID_CAPACITY];
     ReRevvedCivilizationId     civilization;
-    ReRevvedUniqueEraUnlockEra unlock_era;
-    ReRevvedUniqueEraAbilityId replacement_ability;
-    uint32_t                   status_flags;
+    ReRevvedUniqueEraUnlockEra unlockEra;
+    ReRevvedUniqueEraAbilityId replacementAbility;
+    uint32_t                   statusFlags;
     int32_t                    reserved[8];
 } ReRevvedUniqueEraAbilityRuleInfo;
 
 typedef struct ReRevvedUniqueEraAbilityCellQuery
 {
-    uint32_t                   struct_size;
+    uint32_t                   structSize;
     ReRevvedCivilizationId     civilization;
-    ReRevvedUniqueEraUnlockEra unlock_era;
-    ReRevvedUniqueEraAbilityId native_ability;
+    ReRevvedUniqueEraUnlockEra unlockEra;
+    ReRevvedUniqueEraAbilityId nativeAbility;
     int32_t                    reserved[6];
 } ReRevvedUniqueEraAbilityCellQuery;
 
 typedef struct ReRevvedUniqueEraAbilityCellEvaluation
 {
-    uint32_t                   struct_size; // Current producer size. Callers may pass any buffer at least 20 bytes.
-    ReRevvedUniqueEraAbilityId native_ability;
-    ReRevvedUniqueEraAbilityId effective_ability;
-    uint32_t                   replacement_count;
-    uint32_t                   status_flags;
+    uint32_t                   structSize; // Current producer size. Callers may pass any buffer at least 20 bytes.
+    ReRevvedUniqueEraAbilityId nativeAbility;
+    ReRevvedUniqueEraAbilityId effectiveAbility;
+    uint32_t                   replacementCount;
+    uint32_t                   statusFlags;
     int32_t                    reserved[5];
 } ReRevvedUniqueEraAbilityCellEvaluation;
 
 typedef uint32_t (*ReRevvedUniqueEraAbilitiesAbiVersionFn)(void);
 typedef int32_t (*ReRevvedRegisterUniqueEraAbilityReplacementFn)(
     const ReRevvedUniqueEraAbilityReplacement* rule);
-typedef int32_t (*ReRevvedGetUniqueEraAbilityRuleCountFn)(uint32_t* out_count);
+typedef int32_t (*ReRevvedGetUniqueEraAbilityRuleCountFn)(uint32_t* outCount);
 typedef int32_t (*ReRevvedGetUniqueEraAbilityRuleFn)(
     uint32_t                          index,
     ReRevvedUniqueEraAbilityRuleInfo* out,
-    uint32_t                          out_size);
+    uint32_t                          outSize);
 typedef int32_t (*ReRevvedEvaluateUniqueEraAbilityCellFn)(
     const ReRevvedUniqueEraAbilityCellQuery* query,
     ReRevvedUniqueEraAbilityCellEvaluation*  out,
-    uint32_t                                 out_size);
+    uint32_t                                 outSize);
 
 #ifdef __cplusplus
 extern "C"
@@ -177,15 +177,15 @@ extern "C"
     REREVVED_UNIQUE_ERA_ABILITIES_API uint32_t ReRevvedUniqueEraAbilitiesAbiVersion(void);
     REREVVED_UNIQUE_ERA_ABILITIES_API int32_t  ReRevvedRegisterUniqueEraAbilityReplacement(
         const ReRevvedUniqueEraAbilityReplacement* rule);
-    REREVVED_UNIQUE_ERA_ABILITIES_API int32_t ReRevvedGetUniqueEraAbilityRuleCount(uint32_t* out_count);
+    REREVVED_UNIQUE_ERA_ABILITIES_API int32_t ReRevvedGetUniqueEraAbilityRuleCount(uint32_t* outCount);
     REREVVED_UNIQUE_ERA_ABILITIES_API int32_t ReRevvedGetUniqueEraAbilityRule(
         uint32_t                          index,
         ReRevvedUniqueEraAbilityRuleInfo* out,
-        uint32_t                          out_size);
+        uint32_t                          outSize);
     REREVVED_UNIQUE_ERA_ABILITIES_API int32_t ReRevvedEvaluateUniqueEraAbilityCell(
         const ReRevvedUniqueEraAbilityCellQuery* query,
         ReRevvedUniqueEraAbilityCellEvaluation*  out,
-        uint32_t                                 out_size);
+        uint32_t                                 outSize);
 
 #ifdef __cplusplus
 } // extern "C"

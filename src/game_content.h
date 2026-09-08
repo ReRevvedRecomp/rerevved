@@ -11,8 +11,8 @@ namespace rerevved
 // Quick checks layout and sizes; full also hashes and diagnoses executables.
 enum class ContentDepth
 {
-    kQuick,
-    kFull,
+    Quick,
+    Full,
 };
 
 struct ContentCheckResult

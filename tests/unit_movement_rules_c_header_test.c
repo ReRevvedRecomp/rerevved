@@ -4,31 +4,31 @@
 
 int main(void)
 {
-    ReRevvedUnitMovementRulesAbiVersionFn version_fn =
+    ReRevvedUnitMovementRulesAbiVersionFn versionFn =
         ReRevvedUnitMovementRulesAbiVersion;
-    ReRevvedRegisterUnitMovementRuleFn register_fn =
+    ReRevvedRegisterUnitMovementRuleFn registerFn =
         ReRevvedRegisterUnitMovementRule;
-    ReRevvedGetUnitMovementRuleCountFn count_fn =
+    ReRevvedGetUnitMovementRuleCountFn countFn =
         ReRevvedGetUnitMovementRuleCount;
-    ReRevvedGetUnitMovementRuleFn  get_fn      = ReRevvedGetUnitMovementRule;
-    ReRevvedEvaluateUnitMovementFn evaluate_fn = ReRevvedEvaluateUnitMovement;
+    ReRevvedGetUnitMovementRuleFn  getFn      = ReRevvedGetUnitMovementRule;
+    ReRevvedEvaluateUnitMovementFn evaluateFn = ReRevvedEvaluateUnitMovement;
 
     ReRevvedUnitMovementRule       rule       = { 0 };
     ReRevvedUnitMovementRuleInfo   info       = { 0 };
     ReRevvedUnitMovementQuery      query      = { 0 };
     ReRevvedUnitMovementEvaluation evaluation = { 0 };
 
-    if (!version_fn || !register_fn || !count_fn || !get_fn || !evaluate_fn ||
+    if (!versionFn || !registerFn || !countFn || !getFn || !evaluateFn ||
         sizeof(rule) != 168 || sizeof(info) != 192 || sizeof(query) != 40 ||
         sizeof(evaluation) != 40 ||
         offsetof(ReRevvedUnitMovementRule, civilization) != 132 ||
         offsetof(ReRevvedUnitMovementRule, value) != 144 ||
-        offsetof(ReRevvedUnitMovementRuleInfo, status_flags) != 148 ||
-        offsetof(ReRevvedUnitMovementQuery, native_value) != 16 ||
-        offsetof(ReRevvedUnitMovementEvaluation, final_value) != 8 ||
+        offsetof(ReRevvedUnitMovementRuleInfo, statusFlags) != 148 ||
+        offsetof(ReRevvedUnitMovementQuery, nativeValue) != 16 ||
+        offsetof(ReRevvedUnitMovementEvaluation, finalValue) != 8 ||
         REREVVED_UNIT_MOVEMENT_RULES_ABI_VERSION != 1u)
     {
         return 1;
     }
-    return version_fn() == REREVVED_UNIT_MOVEMENT_RULES_ABI_VERSION ? 0 : 2;
+    return versionFn() == REREVVED_UNIT_MOVEMENT_RULES_ABI_VERSION ? 0 : 2;
 }

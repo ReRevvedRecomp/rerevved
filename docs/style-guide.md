@@ -53,7 +53,7 @@ if (!IsReady())
 typedef int32_t (*ReRevvedGetUnitMovementRuleFn)(
     uint32_t                      index,
     ReRevvedUnitMovementRuleInfo* out,
-    uint32_t                      out_size);
+    uint32_t                      outSize);
 ```
 
 Put short comments about individual enum values, structure fields, and list
@@ -66,8 +66,8 @@ policy.
 - Use `lower_snake_case` filenames, such as `main_menu_logo_asset.h`.
 - Use `UpperCamelCase` for types, scoped enum values, and namespaced functions;
   `lowerCamelCase` for variables, parameters, fields, and private helpers; and
-  `kLowerCamelCase` for internal constants. Plain enum values use
-  `UPPER_SNAKE_CASE`.
+  `k` followed by `UpperCamelCase` for internal constants, such as
+  `kExampleValue`. Plain enum values use `UPPER_SNAKE_CASE`.
 - Organize internal C++ under `rerevved` and its feature namespaces. Type and
   member names describe their role without repeating the product or enclosing
   enum name: `TextSurface::LeaderName`, for example. Variables and parameters
@@ -84,12 +84,16 @@ policy.
 ### Interface exceptions
 
 Public C API names and member spellings, SDK overrides, generated hook symbols,
-and external entry points follow their interface contracts. Preserve names
-resolved from configuration or by other binaries. Generated global hooks keep
-their distinguishing prefix; their internal helpers follow the C++ rules above.
-Serialized keys, package IDs, and guest identifiers follow their owning schemas.
-The C++23 language level and C-compatible public headers remain title build and
-ABI requirements.
+and external entry points follow their interface contracts. Owned public C
+fields and parameters use `lowerCamelCase`; coordinate Title and consumer
+updates while preserving the C type, field order, offsets, and exports. Keep
+SDK-owned declarations exact. Parameters on Title-owned override declarations
+remain Title-owned and use `lowerCamelCase` while the override method spelling
+and signature stay unchanged. Preserve names resolved from configuration or by other
+binaries. Generated global hooks keep their distinguishing prefix; their
+internal helpers follow the C++ rules above. Serialized keys, package IDs, and
+guest identifiers follow their owning schemas. The C++23 language level and
+C-compatible public headers remain title build and ABI requirements.
 
 ### Ownership and errors
 

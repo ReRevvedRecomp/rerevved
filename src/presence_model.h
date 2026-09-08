@@ -13,10 +13,10 @@ struct PresenceModel
 {
     std::string details;
     std::string state;
-    std::string large_image_key;
-    std::string large_image_text;
-    std::string small_image_key;
-    std::string small_image_text;
+    std::string largeImageKey;
+    std::string largeImageText;
+    std::string smallImageKey;
+    std::string smallImageText;
 
     bool operator==(const PresenceModel&) const = default;
 };
@@ -27,6 +27,6 @@ bool          TryBuildGameplayPresence(const ReRevvedGameplayState& state,
                                        PresenceModel&               presence);
 PresenceModel SelectPresence(
     const ReRevvedGameplayState*        state,
-    const std::optional<PresenceModel>& retained_gameplay);
+    const std::optional<PresenceModel>& retainedGameplay);
 
 } // namespace rerevved

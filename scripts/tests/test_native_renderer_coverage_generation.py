@@ -67,7 +67,7 @@ class NativeRendererCoverageGenerationTests(unittest.TestCase):
         self.assertIn(b"ReRevvedNativeRendererCoverageSite82303E3C", include)
         self.assertIn(b"ReRevvedNativeRendererCoverageSite82303E8C", include)
         self.assertIn(
-            b"rerevved::native_renderer::RecordSiteFixedValue(site_index, 4);",
+            b"rerevved::native_renderer::RecordSiteFixedValue(kSiteIndex, 4);",
             include,
         )
 

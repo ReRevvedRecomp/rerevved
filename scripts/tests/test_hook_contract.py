@@ -410,19 +410,19 @@ class HookContractTests(unittest.TestCase):
         source = (
             ROOT / "src" / "unit_combat_rules_hooks.cpp"
         ).read_text(encoding="ascii")
-        identity = source.split("bool TryResolveIdentity", 1)[1].split(
-            "bool TryAppendForestCombatLine", 1
+        identity = source.split("bool tryResolveIdentity", 1)[1].split(
+            "bool tryAppendForestCombatLine", 1
         )[0]
         self.assertRegex(
             identity,
-            r"TryReadUnitBaseType\(player,\s*unit,\s*base_unit_type\)",
+            r"tryReadUnitBaseType\(player,\s*unit,\s*baseUnitType\)",
         )
         self.assertRegex(
             identity,
             r"TryResolveUnitIdentity\(\s*"
-            r"civilization,\s*base_unit_type,\s*identity\)",
+            r"civilization,\s*baseUnitType,\s*identity\)",
         )
-        self.assertIn("unit_type = base_unit_type;", identity)
+        self.assertIn("unitType = baseUnitType;", identity)
         self.assertNotRegex(
             identity,
             r"TryResolveUnitIdentity\(\s*civilization,\s*unit,\s*identity\)",
@@ -503,12 +503,12 @@ class HookContractTests(unittest.TestCase):
         source = (
             ROOT / "src" / "main_menu_logo_hooks.cpp"
         ).read_text(encoding="ascii")
-        self.assertIn("stack_pointer.u32 == 0", source)
-        self.assertIn("requested_name.u32 == 0", source)
+        self.assertIn("stackPointer.u32 == 0", source)
+        self.assertIn("requestedName.u32 == 0", source)
         self.assertIn("TryGetPayload(payload)", source)
         self.assertIn("kGuestFileName", source)
         self.assertIn("kLogoDdsSize", source)
-        self.assertIn("SystemHeapAlloc(allocation_size)", source)
+        self.assertIn("SystemHeapAlloc(allocationSize)", source)
         self.assertIn("std::memcmp(", source)
         self.assertGreaterEqual(source.count("return;"), 4)
 
@@ -555,8 +555,8 @@ class HookContractTests(unittest.TestCase):
             "void ReRevvedObserveNativeDevicePublication", 1
         )[1].split("void ReRevvedRememberGfxRenderConfig", 1)[0]
         self.assertIn('REXCVAR_GET(renderer) != "native"', observer)
-        self.assertIn("IsGuestReadableRange", observer)
-        self.assertIn("ReadGuestU32", observer)
+        self.assertIn("isGuestReadableRange", observer)
+        self.assertIn("readGuestU32", observer)
         self.assertIn("PublishGuestDevice", observer)
         self.assertNotIn("WriteGuest", observer)
 
@@ -581,8 +581,8 @@ class HookContractTests(unittest.TestCase):
             "void ReRevvedObserveNativeTexturePublication", 1
         )[1].split("void ReRevvedObserveRendererResolve", 1)[0]
         self.assertIn('REXCVAR_GET(renderer) != "native"', observer)
-        self.assertIn("IsGuestReadableRange", observer)
-        self.assertIn("ReadGuestU32", observer)
+        self.assertIn("isGuestReadableRange", observer)
+        self.assertIn("readGuestU32", observer)
         self.assertIn("ObserveGuestTexture", observer)
         self.assertNotIn("texture_address, backend_address", observer)
         self.assertNotIn("WriteGuest", observer)
@@ -620,16 +620,16 @@ class HookContractTests(unittest.TestCase):
         )[1].split("void ReRevvedObserveRendererResolve", 1)[0]
         for observer in (provider, factory):
             self.assertIn('REXCVAR_GET(renderer) != "native"', observer)
-            self.assertIn("IsGuestReadableRange", observer)
+            self.assertIn("isGuestReadableRange", observer)
             self.assertNotIn("WriteGuest", observer)
             self.assertNotIn("TranslateVirtual<uint8_t*>", observer)
-        self.assertIn("ReadGuestU32", source)
+        self.assertIn("readGuestU32", source)
         self.assertIn("std::atomic_flag", source)
-        self.assertIn("native_resolve_provider_match_log_count", source)
-        self.assertIn("native_resolve_provider_mismatch_log_count", source)
+        self.assertIn("nativeResolveProviderMatchLogCount", source)
+        self.assertIn("nativeResolveProviderMismatchLogCount", source)
         self.assertIn("vptr != kExplicitBuffersVtable", provider)
         self.assertIn("vptr_matches", factory)
-        self.assertIn("native_explicit_factory_log_count", source)
+        self.assertIn("nativeExplicitFactoryLogCount", source)
 
     def test_generated_resolve_observer_preserves_body_when_available(self) -> None:
         paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
@@ -675,7 +675,7 @@ class HookContractTests(unittest.TestCase):
             encoding="utf-8"
         )
 
-        self.assertIn("ReadGuestFetchDescriptor", observers)
+        self.assertIn("readGuestFetchDescriptor", observers)
         self.assertIn("ObserveGuestResolve", observers)
         self.assertIn("ObserveGuestSwap", observers)
         self.assertNotIn("WriteGuest", observers)
@@ -713,7 +713,7 @@ class HookContractTests(unittest.TestCase):
             "selected != kNativeStandard && selected != kNativeAlternate",
             override,
         )
-        self.assertEqual(override.count("WriteGuestU32Safely("), 1)
+        self.assertEqual(override.count("writeGuestU32Safely("), 1)
         self.assertNotIn("REXLOG_", override)
 
     def test_generated_combat_speed_hook_when_available(self) -> None:
@@ -743,19 +743,19 @@ class HookContractTests(unittest.TestCase):
         self.assertRegex(
             source,
             r"void ReRevvedFixGreatGeneralBorderCompletion\(\)\s*"
-            r"\{\s*RepairAllPairs\(\);\s*\}",
+            r"\{\s*repairAllPairs\(\);\s*\}",
         )
         self.assertRegex(
             source,
             r"void ReRevvedFixGreatGeneralPostCombat\(PPCRegister& player,\s*"
             r"PPCRegister& unit\)\s*\{\s*"
-            r"RepairPairsForCarrier\(player\.s32, unit\.s32\);\s*\}",
+            r"repairPairsForCarrier\(player\.s32, unit\.s32\);\s*\}",
         )
         for offset in ["0x00", "0x01", "0x0C", "0x1C", "0x1E", "0x50"]:
             self.assertIn(offset, source)
         self.assertNotIn("REX_STORE_", source)
         self.assertEqual(source.count("TranslateVirtual<uint8_t*>"), 1)
-        self.assertEqual(source.count("WriteCoordinates("), 2)
+        self.assertEqual(source.count("writeCoordinates("), 2)
         self.assertNotIn("REXLOG_", source)
         self.assertNotIn("0x26", source)
         self.assertNotIn("unload", source.lower())
@@ -937,7 +937,7 @@ class HookContractTests(unittest.TestCase):
 
     def test_era_presentation_buffer_has_native_length_header(self) -> None:
         source = NATION_SELECT_TEXT_SOURCE.read_text(encoding="ascii")
-        parser = source.split("bool TryReplaceEraLines", 1)[1].split(
+        parser = source.split("bool tryReplaceEraLines", 1)[1].split(
             "} // namespace", 1
         )[0]
         self.assertIn("std::array<const char*, 9>", parser)
@@ -946,21 +946,21 @@ class HookContractTests(unittest.TestCase):
         self.assertIn("REREVVED_NATION_SELECT_TEXT_SURFACE_ERA_HEADING", parser)
         self.assertIn("(index - 1) / 2", parser)
         self.assertIn("(index - 2) / 2", parser)
-        publish = source.split("bool TryPublishText", 1)[1].split(
-            "bool TryEvaluateEraText", 1
+        publish = source.split("bool tryPublishText", 1)[1].split(
+            "bool tryEvaluateEraText", 1
         )[0]
-        self.assertIn("include_length_header", publish)
-        self.assertIn("WriteBigEndianU32", publish)
+        self.assertIn("includeLengthHeader", publish)
+        self.assertIn("writeBigEndianU32", publish)
         self.assertRegex(
             publish,
-            r"out\.u64\s*=\s*text_address;",
+            r"out\.u64\s*=\s*textAddress;",
         )
         era_hook = source.split(
             "void ReRevvedApplyEraAbilityNationSelectText", 1
         )[1].split("void ReRevvedApplyUniqueUnitNationSelectText", 1)[0]
         self.assertRegex(
             era_hook,
-            r"TryPublishText\(replacement\.data\(\),\s*"
+            r"tryPublishText\(replacement\.data\(\),\s*"
             r"replacement\.size\(\),\s*true,",
         )
 
@@ -991,8 +991,8 @@ class HookContractTests(unittest.TestCase):
         )[1].split(
             "void ReRevvedApplyUniqueUnitSectionHeadingNationSelectText", 1
         )[0]
-        self.assertIn("TryReplaceText(trait_text", trait_hook)
-        self.assertIn("true,\n                   trait_text_buffer", trait_hook)
+        self.assertIn("tryReplaceText(traitText", trait_hook)
+        self.assertIn("true,\n                   traitTextBuffer", trait_hook)
 
     def test_generated_presentation_hooks_when_available(self) -> None:
         paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))

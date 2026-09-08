@@ -8,10 +8,10 @@ namespace rerevved::unique_unit_rules
 {
 
 bool TryEvaluate(ReRevvedCivilizationId              civilization,
-                 ReRevvedUnitTypeId                  base_unit_type,
+                 ReRevvedUnitTypeId                  baseUnitType,
                  ReRevvedUnitIdentityId              identity,
                  ReRevvedUniqueUnitScalarProperty    property,
-                 int32_t                             native_value,
+                 int32_t                             nativeValue,
                  ReRevvedUniqueUnitScalarEvaluation& evaluation);
 
 void ResetForTests();

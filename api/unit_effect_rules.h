@@ -55,11 +55,11 @@ enum
 
 typedef struct ReRevvedUnitEffectRule
 {
-    uint32_t               struct_size;
-    char                   provider_id[REREVVED_UNIT_EFFECT_RULE_ID_CAPACITY];
-    char                   rule_id[REREVVED_UNIT_EFFECT_RULE_ID_CAPACITY];
+    uint32_t               structSize;
+    char                   providerId[REREVVED_UNIT_EFFECT_RULE_ID_CAPACITY];
+    char                   ruleId[REREVVED_UNIT_EFFECT_RULE_ID_CAPACITY];
     ReRevvedCivilizationId civilization;
-    ReRevvedUnitTypeId     base_unit_type;
+    ReRevvedUnitTypeId     baseUnitType;
     ReRevvedUnitIdentityId identity;
     ReRevvedUnitEffectId   effect;
     int32_t                reserved[5];
@@ -67,50 +67,50 @@ typedef struct ReRevvedUnitEffectRule
 
 typedef struct ReRevvedUnitEffectRuleInfo
 {
-    uint32_t               struct_size; // Current producer size. Callers may pass any buffer at least 152 bytes.
-    char                   provider_id[REREVVED_UNIT_EFFECT_RULE_ID_CAPACITY];
-    char                   rule_id[REREVVED_UNIT_EFFECT_RULE_ID_CAPACITY];
+    uint32_t               structSize; // Current producer size. Callers may pass any buffer at least 152 bytes.
+    char                   providerId[REREVVED_UNIT_EFFECT_RULE_ID_CAPACITY];
+    char                   ruleId[REREVVED_UNIT_EFFECT_RULE_ID_CAPACITY];
     ReRevvedCivilizationId civilization;
-    ReRevvedUnitTypeId     base_unit_type;
+    ReRevvedUnitTypeId     baseUnitType;
     ReRevvedUnitIdentityId identity;
     ReRevvedUnitEffectId   effect;
-    uint32_t               status_flags;
+    uint32_t               statusFlags;
     int32_t                reserved[10];
 } ReRevvedUnitEffectRuleInfo;
 
 typedef struct ReRevvedUnitEffectQuery
 {
-    uint32_t               struct_size;
+    uint32_t               structSize;
     ReRevvedCivilizationId civilization;
-    ReRevvedUnitTypeId     base_unit_type;
+    ReRevvedUnitTypeId     baseUnitType;
     ReRevvedUnitIdentityId identity;
     ReRevvedUnitEffectId   effect;
-    int32_t                native_level;
+    int32_t                nativeLevel;
     int32_t                reserved[5];
 } ReRevvedUnitEffectQuery;
 
 typedef struct ReRevvedUnitEffectEvaluation
 {
-    uint32_t struct_size; // Current producer size. Callers may pass any buffer at least 20 bytes.
-    int32_t  native_level;
-    int32_t  final_level;
-    uint32_t status_flags;
-    uint32_t grant_count;
+    uint32_t structSize; // Current producer size. Callers may pass any buffer at least 20 bytes.
+    int32_t  nativeLevel;
+    int32_t  finalLevel;
+    uint32_t statusFlags;
+    uint32_t grantCount;
     int32_t  reserved[5];
 } ReRevvedUnitEffectEvaluation;
 
 typedef uint32_t (*ReRevvedUnitEffectRulesAbiVersionFn)(void);
 typedef int32_t (*ReRevvedRegisterUnitEffectRuleFn)(
     const ReRevvedUnitEffectRule* rule);
-typedef int32_t (*ReRevvedGetUnitEffectRuleCountFn)(uint32_t* out_count);
+typedef int32_t (*ReRevvedGetUnitEffectRuleCountFn)(uint32_t* outCount);
 typedef int32_t (*ReRevvedGetUnitEffectRuleFn)(
     uint32_t                    index,
     ReRevvedUnitEffectRuleInfo* out,
-    uint32_t                    out_size);
+    uint32_t                    outSize);
 typedef int32_t (*ReRevvedEvaluateUnitEffectFn)(
     const ReRevvedUnitEffectQuery* query,
     ReRevvedUnitEffectEvaluation*  out,
-    uint32_t                       out_size);
+    uint32_t                       outSize);
 
 #ifdef __cplusplus
 extern "C"
@@ -120,15 +120,15 @@ extern "C"
     REREVVED_UNIT_EFFECT_RULES_API uint32_t ReRevvedUnitEffectRulesAbiVersion(void);
     REREVVED_UNIT_EFFECT_RULES_API int32_t  ReRevvedRegisterUnitEffectRule(
         const ReRevvedUnitEffectRule* rule);
-    REREVVED_UNIT_EFFECT_RULES_API int32_t ReRevvedGetUnitEffectRuleCount(uint32_t* out_count);
+    REREVVED_UNIT_EFFECT_RULES_API int32_t ReRevvedGetUnitEffectRuleCount(uint32_t* outCount);
     REREVVED_UNIT_EFFECT_RULES_API int32_t ReRevvedGetUnitEffectRule(
         uint32_t                    index,
         ReRevvedUnitEffectRuleInfo* out,
-        uint32_t                    out_size);
+        uint32_t                    outSize);
     REREVVED_UNIT_EFFECT_RULES_API int32_t ReRevvedEvaluateUnitEffect(
         const ReRevvedUnitEffectQuery* query,
         ReRevvedUnitEffectEvaluation*  out,
-        uint32_t                       out_size);
+        uint32_t                       outSize);
 
 #ifdef __cplusplus
 } // extern "C"

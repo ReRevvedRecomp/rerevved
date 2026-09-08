@@ -55,31 +55,31 @@ protected:
 
     void OnWindowFocusChanged(bool focused) override;
 
-    void OnWindowPixelSizeChanged(uint32_t pixel_width, uint32_t pixel_height) override;
+    void OnWindowPixelSizeChanged(uint32_t pixelWidth, uint32_t pixelHeight) override;
 
     void OnKeyDown(rex::ui::KeyEvent& event) override;
 
 private:
-    bool RecordCoverageCheckpoint(bool final_segment);
-    void FinalizeCoverage(rerevved::native_renderer::ExitClass exit_class);
-    void FinalizePassiveTrace();
-    void FinalizeFenceTrace();
+    bool recordCoverageCheckpoint(bool finalSegment);
+    void finalizeCoverage(rerevved::native_renderer::ExitClass exitClass);
+    void finalizePassiveTrace();
+    void finalizeFenceTrace();
 
-    std::atomic<bool>                                 coverage_started_{ false };
-    std::atomic<bool>                                 coverage_finalize_started_{ false };
-    std::mutex                                        coverage_checkpoint_mutex_;
-    bool                                              coverage_bind_registered_ = false;
-    bool                                              window_focused_           = false;
-    uint32_t                                          coverage_mark_count_      = 0;
-    std::atomic<bool>                                 passive_trace_started_{ false };
-    std::atomic<bool>                                 passive_trace_finalize_started_{ false };
-    std::filesystem::path                             passive_trace_output_path_;
-    std::atomic<bool>                                 fence_trace_started_{ false };
-    rerevved::diagnostics::FenceTraceFinalizationGate fence_trace_finalization_;
-    std::filesystem::path                             fence_trace_output_path_;
-    rerevved::gpu::RendererBackend                    renderer_backend_ =
+    std::atomic<bool>                                 coverageStarted{ false };
+    std::atomic<bool>                                 coverageFinalizeStarted{ false };
+    std::mutex                                        coverageCheckpointMutex;
+    bool                                              coverageBindRegistered = false;
+    bool                                              windowFocused          = false;
+    uint32_t                                          coverageMarkCount      = 0;
+    std::atomic<bool>                                 passiveTraceStarted{ false };
+    std::atomic<bool>                                 passiveTraceFinalizeStarted{ false };
+    std::filesystem::path                             passiveTraceOutputPath;
+    std::atomic<bool>                                 fenceTraceStarted{ false };
+    rerevved::diagnostics::FenceTraceFinalizationGate fenceTraceFinalization;
+    std::filesystem::path                             fenceTraceOutputPath;
+    rerevved::gpu::RendererBackend                    rendererBackend =
         rerevved::gpu::RendererBackend::Xenos;
-    rerevved::gpu::NativeRendererD3D12 native_renderer_;
+    rerevved::gpu::NativeRendererD3D12 nativeRenderer;
 };
 
 } // namespace rerevved

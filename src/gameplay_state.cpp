@@ -15,28 +15,28 @@ namespace rerevved::gameplay
 
 struct Snapshot
 {
-    uint64_t frame_sequence     = 0;
-    uint32_t frontend_root      = 0;
-    uint32_t frontend_state     = 0;
-    uint32_t frontend_key       = UINT32_MAX;
-    uint32_t active_player      = UINT32_MAX;
-    uint32_t human_player_mask  = 0;
-    uint32_t interface_gate     = 0;
-    uint32_t civilization       = UINT32_MAX;
-    uint32_t era                = UINT32_MAX;
-    int32_t  year               = REREVVED_GAMEPLAY_YEAR_UNKNOWN;
-    uint32_t turn               = UINT32_MAX;
-    bool     frontend_known     = false;
-    bool     gameplay_active    = false;
-    bool     turn_owner_known   = false;
-    bool     human_turn         = false;
-    bool     interface_known    = false;
-    bool     interface_update   = false;
-    bool     civilization_known = false;
-    bool     era_known          = false;
-    bool     year_known         = false;
-    bool     turn_number_known  = false;
-    bool     available          = false;
+    uint64_t frameSequence     = 0;
+    uint32_t frontendRoot      = 0;
+    uint32_t frontendState     = 0;
+    uint32_t frontendKey       = UINT32_MAX;
+    uint32_t activePlayer      = UINT32_MAX;
+    uint32_t humanPlayerMask   = 0;
+    uint32_t interfaceGate     = 0;
+    uint32_t civilization      = UINT32_MAX;
+    uint32_t era               = UINT32_MAX;
+    int32_t  year              = REREVVED_GAMEPLAY_YEAR_UNKNOWN;
+    uint32_t turn              = UINT32_MAX;
+    bool     frontendKnown     = false;
+    bool     gameplayActive    = false;
+    bool     turnOwnerKnown    = false;
+    bool     humanTurn         = false;
+    bool     interfaceKnown    = false;
+    bool     interfaceUpdate   = false;
+    bool     civilizationKnown = false;
+    bool     eraKnown          = false;
+    bool     yearKnown         = false;
+    bool     turnNumberKnown   = false;
+    bool     available         = false;
 };
 
 namespace
@@ -60,18 +60,18 @@ struct PublishedSlot
 
 // UI readers may make the inactive slot temporarily unavailable, but the guest
 // frame writer never waits for them. Skipping one publication is harmless.
-std::array<PublishedSlot, 2> g_published_slots;
-std::atomic<uint32_t>        g_active_slot{ 0 };
-std::atomic<bool>            g_snapshot_published{ false };
-uint32_t                     g_writer_slot    = 0;
-uint64_t                     g_frame_sequence = 0;
+std::array<PublishedSlot, 2> gPublishedSlots;
+std::atomic<uint32_t>        gActiveSlot{ 0 };
+std::atomic<bool>            gSnapshotPublished{ false };
+uint32_t                     gWriterSlot    = 0;
+uint64_t                     gFrameSequence = 0;
 
-bool IsGuestPointer(uint32_t address)
+bool isGuestPointer(uint32_t address)
 {
     return address >= 0x10000 && address < 0xFFFFF000;
 }
 
-bool IsGuestReadableRange(rex::memory::Memory* memory,
+bool isGuestReadableRange(rex::memory::Memory* memory,
                           uint32_t             address,
                           uint32_t             extent)
 {
@@ -81,7 +81,7 @@ bool IsGuestReadableRange(rex::memory::Memory* memory,
     }
 
     const uint32_t end = address + extent;
-    if (!IsGuestPointer(address) || !IsGuestPointer(end - 1))
+    if (!isGuestPointer(address) || !isGuestPointer(end - 1))
     {
         return false;
     }
@@ -92,9 +92,9 @@ bool IsGuestReadableRange(rex::memory::Memory* memory,
                rex::memory::PageAccess::kNoAccess;
 }
 
-bool TryReadU8(rex::memory::Memory* memory, uint32_t address, uint8_t& value)
+bool tryReadU8(rex::memory::Memory* memory, uint32_t address, uint8_t& value)
 {
-    if (!IsGuestReadableRange(memory, address, sizeof(value)))
+    if (!isGuestReadableRange(memory, address, sizeof(value)))
     {
         return false;
     }
@@ -102,9 +102,9 @@ bool TryReadU8(rex::memory::Memory* memory, uint32_t address, uint8_t& value)
     return true;
 }
 
-bool TryReadU32(rex::memory::Memory* memory, uint32_t address, uint32_t& value)
+bool tryReadU32(rex::memory::Memory* memory, uint32_t address, uint32_t& value)
 {
-    if (!IsGuestReadableRange(memory, address, sizeof(value)))
+    if (!isGuestReadableRange(memory, address, sizeof(value)))
     {
         return false;
     }
@@ -118,7 +118,7 @@ bool TryReadU32(rex::memory::Memory* memory, uint32_t address, uint32_t& value)
 
 } // namespace
 
-static Snapshot ReadGuestSnapshot()
+static Snapshot readGuestSnapshot()
 {
     Snapshot state{};
     auto*    runtime = rex::Runtime::instance();
@@ -128,76 +128,76 @@ static Snapshot ReadGuestSnapshot()
         return state;
     }
 
-    if (TryReadU32(memory, kFrontendRootGlobal, state.frontend_root) &&
-        state.frontend_root != 0 &&
-        TryReadU32(memory,
-                   state.frontend_root + 0x70,
-                   state.frontend_state) &&
-        state.frontend_state != 0 &&
-        TryReadU32(memory,
-                   state.frontend_state + 0x4,
-                   state.frontend_key))
+    if (tryReadU32(memory, kFrontendRootGlobal, state.frontendRoot) &&
+        state.frontendRoot != 0 &&
+        tryReadU32(memory,
+                   state.frontendRoot + 0x70,
+                   state.frontendState) &&
+        state.frontendState != 0 &&
+        tryReadU32(memory,
+                   state.frontendState + 0x4,
+                   state.frontendKey))
     {
-        state.frontend_known  = true;
-        state.gameplay_active = state.frontend_key == 2;
+        state.frontendKnown  = true;
+        state.gameplayActive = state.frontendKey == 2;
     }
 
-    if (TryReadU32(memory, kActivePlayerGlobal, state.active_player) &&
-        TryReadU32(memory,
+    if (tryReadU32(memory, kActivePlayerGlobal, state.activePlayer) &&
+        tryReadU32(memory,
                    kHumanPlayerMaskGlobal,
-                   state.human_player_mask) &&
-        state.active_player < 32 && state.human_player_mask != 0)
+                   state.humanPlayerMask) &&
+        state.activePlayer < 32 && state.humanPlayerMask != 0)
     {
-        state.turn_owner_known = true;
-        state.human_turn =
-            (state.human_player_mask &
-             (uint32_t{ 1 } << state.active_player)) != 0;
+        state.turnOwnerKnown = true;
+        state.humanTurn =
+            (state.humanPlayerMask &
+             (uint32_t{ 1 } << state.activePlayer)) != 0;
     }
 
-    if (state.gameplay_active && state.human_turn &&
-        state.active_player < kPlayerCount)
+    if (state.gameplayActive && state.humanTurn &&
+        state.activePlayer < kPlayerCount)
     {
-        state.civilization_known =
-            TryReadU32(memory,
+        state.civilizationKnown =
+            tryReadU32(memory,
                        kPlayerCivilizationArray +
-                           state.active_player * sizeof(uint32_t),
+                           state.activePlayer * sizeof(uint32_t),
                        state.civilization);
-        state.era_known =
-            TryReadU32(memory,
+        state.eraKnown =
+            tryReadU32(memory,
                        kPlayerEraArray +
-                           state.active_player * sizeof(uint32_t),
+                           state.activePlayer * sizeof(uint32_t),
                        state.era);
-        state.turn_number_known =
-            TryReadU32(memory, kCurrentTurnGlobal, state.turn);
-        uint32_t year    = 0;
-        state.year_known = TryReadU32(memory, kCurrentYearGlobal, year);
-        state.year       = static_cast<int32_t>(year);
+        state.turnNumberKnown =
+            tryReadU32(memory, kCurrentTurnGlobal, state.turn);
+        uint32_t year   = 0;
+        state.yearKnown = tryReadU32(memory, kCurrentYearGlobal, year);
+        state.year      = static_cast<int32_t>(year);
     }
 
-    uint8_t interface_byte = 0;
-    if (TryReadU32(memory,
+    uint8_t interfaceByte = 0;
+    if (tryReadU32(memory,
                    kInterfaceGateGlobal,
-                   state.interface_gate) &&
-        state.interface_gate != 0 &&
-        TryReadU8(memory,
-                  state.interface_gate + 0x5,
-                  interface_byte))
+                   state.interfaceGate) &&
+        state.interfaceGate != 0 &&
+        tryReadU8(memory,
+                  state.interfaceGate + 0x5,
+                  interfaceByte))
     {
-        state.interface_known  = true;
-        state.interface_update = interface_byte != 0;
+        state.interfaceKnown  = true;
+        state.interfaceUpdate = interfaceByte != 0;
     }
 
-    state.available = state.frontend_known && state.gameplay_active &&
-                      state.interface_known && state.interface_update &&
-                      state.turn_owner_known && state.human_turn;
+    state.available = state.frontendKnown && state.gameplayActive &&
+                      state.interfaceKnown && state.interfaceUpdate &&
+                      state.turnOwnerKnown && state.humanTurn;
     return state;
 }
 
 void PublishFrameSnapshot()
 {
-    const uint32_t next_slot = g_writer_slot ^ 1u;
-    auto&          slot      = g_published_slots[next_slot];
-    int32_t        expected  = 0;
+    const uint32_t nextSlot = gWriterSlot ^ 1u;
+    auto&          slot     = gPublishedSlots[nextSlot];
+    int32_t        expected = 0;
     if (!slot.users.compare_exchange_strong(expected,
                                             -1,
                                             std::memory_order_acquire,
@@ -206,27 +206,27 @@ void PublishFrameSnapshot()
         return;
     }
 
-    Snapshot state       = ReadGuestSnapshot();
-    state.frame_sequence = ++g_frame_sequence;
-    slot.snapshot        = state;
+    Snapshot state      = readGuestSnapshot();
+    state.frameSequence = ++gFrameSequence;
+    slot.snapshot       = state;
     slot.users.store(0, std::memory_order_release);
-    g_writer_slot = next_slot;
-    g_active_slot.store(next_slot, std::memory_order_release);
-    g_snapshot_published.store(true, std::memory_order_release);
+    gWriterSlot = nextSlot;
+    gActiveSlot.store(nextSlot, std::memory_order_release);
+    gSnapshotPublished.store(true, std::memory_order_release);
 }
 
-static bool GetPublishedSnapshot(Snapshot& out)
+static bool getPublishedSnapshot(Snapshot& out)
 {
-    if (!g_snapshot_published.load(std::memory_order_acquire))
+    if (!gSnapshotPublished.load(std::memory_order_acquire))
     {
         return false;
     }
 
     for (;;)
     {
-        const uint32_t slot_index =
-            g_active_slot.load(std::memory_order_acquire);
-        auto&   slot     = g_published_slots[slot_index];
+        const uint32_t slotIndex =
+            gActiveSlot.load(std::memory_order_acquire);
+        auto&   slot     = gPublishedSlots[slotIndex];
         int32_t expected = slot.users.load(std::memory_order_relaxed);
         if (expected < 0 ||
             !slot.users.compare_exchange_weak(expected,
@@ -237,7 +237,7 @@ static bool GetPublishedSnapshot(Snapshot& out)
             continue;
         }
 
-        if (slot_index != g_active_slot.load(std::memory_order_acquire))
+        if (slotIndex != gActiveSlot.load(std::memory_order_acquire))
         {
             slot.users.fetch_sub(1, std::memory_order_release);
             continue;
@@ -260,72 +260,72 @@ extern "C" uint32_t ReRevvedGameplayAbiVersion(void)
 
 extern "C" int ReRevvedGetGameplayState(
     ReRevvedGameplayState* out,
-    uint32_t               out_size)
+    uint32_t               outSize)
 {
     if (!out)
     {
         return REREVVED_GAMEPLAY_ERR_INVALID_ARGUMENT;
     }
 
-    std::memset(out, 0, std::min<size_t>(out_size, sizeof(*out)));
-    if (out_size < sizeof(*out))
+    std::memset(out, 0, std::min<size_t>(outSize, sizeof(*out)));
+    if (outSize < sizeof(*out))
     {
         return REREVVED_GAMEPLAY_ERR_BUFFER_TOO_SMALL;
     }
 
-    out->struct_size   = sizeof(*out);
-    out->active_player = REREVVED_GAMEPLAY_PLAYER_UNKNOWN;
-    out->civilization  = REREVVED_GAMEPLAY_CIVILIZATION_UNKNOWN;
-    out->era           = REREVVED_GAMEPLAY_ERA_UNKNOWN;
-    out->year          = REREVVED_GAMEPLAY_YEAR_UNKNOWN;
-    out->turn          = REREVVED_GAMEPLAY_TURN_UNKNOWN;
+    out->structSize   = sizeof(*out);
+    out->activePlayer = REREVVED_GAMEPLAY_PLAYER_UNKNOWN;
+    out->civilization = REREVVED_GAMEPLAY_CIVILIZATION_UNKNOWN;
+    out->era          = REREVVED_GAMEPLAY_ERA_UNKNOWN;
+    out->year         = REREVVED_GAMEPLAY_YEAR_UNKNOWN;
+    out->turn         = REREVVED_GAMEPLAY_TURN_UNKNOWN;
 
     rerevved::gameplay::Snapshot snapshot{};
-    if (!rerevved::gameplay::GetPublishedSnapshot(snapshot))
+    if (!rerevved::gameplay::getPublishedSnapshot(snapshot))
     {
         return REREVVED_GAMEPLAY_ERR_UNAVAILABLE;
     }
 
-    if (snapshot.frontend_known)
+    if (snapshot.frontendKnown)
     {
-        out->valid_fields |= REREVVED_GAMEPLAY_VALID_FRONTEND;
+        out->validFields |= REREVVED_GAMEPLAY_VALID_FRONTEND;
     }
-    if (snapshot.turn_owner_known)
+    if (snapshot.turnOwnerKnown)
     {
-        out->valid_fields |= REREVVED_GAMEPLAY_VALID_TURN;
-        out->active_player     = static_cast<int32_t>(snapshot.active_player);
-        out->human_player_mask = snapshot.human_player_mask;
+        out->validFields |= REREVVED_GAMEPLAY_VALID_TURN;
+        out->activePlayer    = static_cast<int32_t>(snapshot.activePlayer);
+        out->humanPlayerMask = snapshot.humanPlayerMask;
     }
-    if (snapshot.interface_known)
+    if (snapshot.interfaceKnown)
     {
-        out->valid_fields |= REREVVED_GAMEPLAY_VALID_INTERFACE;
+        out->validFields |= REREVVED_GAMEPLAY_VALID_INTERFACE;
     }
-    if (snapshot.civilization_known)
+    if (snapshot.civilizationKnown)
     {
-        out->valid_fields |= REREVVED_GAMEPLAY_VALID_CIVILIZATION;
+        out->validFields |= REREVVED_GAMEPLAY_VALID_CIVILIZATION;
         out->civilization = static_cast<int32_t>(snapshot.civilization);
     }
-    if (snapshot.era_known)
+    if (snapshot.eraKnown)
     {
-        out->valid_fields |= REREVVED_GAMEPLAY_VALID_ERA;
+        out->validFields |= REREVVED_GAMEPLAY_VALID_ERA;
         out->era = static_cast<int32_t>(snapshot.era);
     }
-    if (snapshot.year_known)
+    if (snapshot.yearKnown)
     {
-        out->valid_fields |= REREVVED_GAMEPLAY_VALID_YEAR;
+        out->validFields |= REREVVED_GAMEPLAY_VALID_YEAR;
         out->year = snapshot.year;
     }
-    if (snapshot.turn_number_known)
+    if (snapshot.turnNumberKnown)
     {
-        out->valid_fields |= REREVVED_GAMEPLAY_VALID_TURN_NUMBER;
+        out->validFields |= REREVVED_GAMEPLAY_VALID_TURN_NUMBER;
         out->turn = static_cast<int32_t>(snapshot.turn);
     }
 
-    out->frame_sequence   = snapshot.frame_sequence;
-    out->gameplay_active  = snapshot.gameplay_active ? 1 : 0;
-    out->interface_update = snapshot.interface_update ? 1 : 0;
-    out->turn_owner_known = snapshot.turn_owner_known ? 1 : 0;
-    out->human_turn       = snapshot.human_turn ? 1 : 0;
-    out->available        = snapshot.available ? 1 : 0;
+    out->frameSequence   = snapshot.frameSequence;
+    out->gameplayActive  = snapshot.gameplayActive ? 1 : 0;
+    out->interfaceUpdate = snapshot.interfaceUpdate ? 1 : 0;
+    out->turnOwnerKnown  = snapshot.turnOwnerKnown ? 1 : 0;
+    out->humanTurn       = snapshot.humanTurn ? 1 : 0;
+    out->available       = snapshot.available ? 1 : 0;
     return REREVVED_GAMEPLAY_OK;
 }

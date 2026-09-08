@@ -21,9 +21,9 @@ inline constexpr uint32_t         kLogoDdsSize   = 1048704u;
 
 using Payload  = std::shared_ptr<const std::vector<uint8_t>>;
 using Resolver = rex::Result<rex::system::AssetOverlayResolution> (*)(
-    std::span<const rex::system::AssetOverlayPackage> selected_packages,
-    std::string_view                                  asset_key,
-    size_t                                            max_bytes);
+    std::span<const rex::system::AssetOverlayPackage> selectedPackages,
+    std::string_view                                  assetKey,
+    size_t                                            maxBytes);
 
 bool IsValidLogoDds(std::span<const uint8_t> data);
 

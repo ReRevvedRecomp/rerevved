@@ -7,7 +7,7 @@
 namespace rerevved::native_renderer
 {
 
-void RecordSiteFixedValue(std::uint32_t site_index, std::int64_t value) noexcept;
+void RecordSiteFixedValue(std::uint32_t siteIndex, std::int64_t value) noexcept;
 
 } // namespace rerevved::native_renderer
 
@@ -42,12 +42,12 @@ inline constexpr std::uint32_t kSiteAddress82303E8C      = 0x82303E8C;
 
 void ReRevvedNativeRendererCoverageSite82303E3C() noexcept
 {
-    constexpr std::uint32_t site_index = rerevved::native_renderer::generated::kSiteIndex82303E3C;
-    rerevved::native_renderer::RecordSiteFixedValue(site_index, 4);
+    constexpr std::uint32_t kSiteIndex = rerevved::native_renderer::generated::kSiteIndex82303E3C;
+    rerevved::native_renderer::RecordSiteFixedValue(kSiteIndex, 4);
 }
 
 void ReRevvedNativeRendererCoverageSite82303E8C() noexcept
 {
-    constexpr std::uint32_t site_index = rerevved::native_renderer::generated::kSiteIndex82303E8C;
-    rerevved::native_renderer::RecordSiteFixedValue(site_index, 4);
+    constexpr std::uint32_t kSiteIndex = rerevved::native_renderer::generated::kSiteIndex82303E8C;
+    rerevved::native_renderer::RecordSiteFixedValue(kSiteIndex, 4);
 }

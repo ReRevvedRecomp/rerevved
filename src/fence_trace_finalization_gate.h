@@ -13,23 +13,23 @@ public:
     template <typename Finalizer>
     bool Run(Finalizer&& finalizer)
     {
-        std::unique_lock lock(mutex_);
-        completed_.wait(lock, [this]()
-                        {
-                            return state_ != State::Running;
-                        });
-        if (state_ == State::Succeeded)
+        std::unique_lock lock(mutex);
+        completed.wait(lock, [this]()
+                       {
+                           return state != State::Running;
+                       });
+        if (state == State::Succeeded)
         {
             return true;
         }
 
-        state_ = State::Running;
+        state = State::Running;
         lock.unlock();
         const bool succeeded = std::forward<Finalizer>(finalizer)();
         lock.lock();
-        state_ = succeeded ? State::Succeeded : State::Idle;
+        state = succeeded ? State::Succeeded : State::Idle;
         lock.unlock();
-        completed_.notify_all();
+        completed.notify_all();
         return succeeded;
     }
 
@@ -41,9 +41,9 @@ private:
         Succeeded,
     };
 
-    std::mutex              mutex_;
-    std::condition_variable completed_;
-    State                   state_ = State::Idle;
+    std::mutex              mutex;
+    std::condition_variable completed;
+    State                   state = State::Idle;
 };
 
 } // namespace rerevved::diagnostics

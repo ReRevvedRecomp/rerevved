@@ -40,7 +40,7 @@ constexpr uint32_t kAvivoD1GraphPrimarySurfaceAddress = 0x1844;
 constexpr uint32_t kDefaultCpu       = 2;
 constexpr uint32_t kMaxVblankCatchUp = 4;
 
-void ReportUnsupported(const char* operation)
+void reportUnsupported(const char* operation)
 {
     REXGPU_ERROR("NativeGuestGpuService: {} is unsupported", operation);
 }
@@ -49,11 +49,11 @@ struct MmioBridge
 {
     std::mutex              mutex;
     std::condition_variable idle;
-    NativeGuestGpuService*  service             = nullptr;
-    uint32_t                callbacks_in_flight = 0;
+    NativeGuestGpuService*  service           = nullptr;
+    uint32_t                callbacksInFlight = 0;
 };
 
-MmioBridge& GetMmioBridge()
+MmioBridge& getMmioBridge()
 {
     // The SDK permits only one process-wide MMIO handler. A process-lifetime
     // bridge remains valid after that handler has copied its callback context.
@@ -61,11 +61,11 @@ MmioBridge& GetMmioBridge()
     return bridge;
 }
 
-bool BindMmioBridge(NativeGuestGpuService* service)
+bool bindMmioBridge(NativeGuestGpuService* service)
 {
-    auto&           bridge = GetMmioBridge();
+    auto&           bridge = getMmioBridge();
     std::lock_guard lock(bridge.mutex);
-    if (bridge.service || bridge.callbacks_in_flight != 0)
+    if (bridge.service || bridge.callbacksInFlight != 0)
     {
         return false;
     }
@@ -73,9 +73,9 @@ bool BindMmioBridge(NativeGuestGpuService* service)
     return true;
 }
 
-void UnbindMmioBridge(NativeGuestGpuService* service)
+void unbindMmioBridge(NativeGuestGpuService* service)
 {
-    auto&            bridge = GetMmioBridge();
+    auto&            bridge = getMmioBridge();
     std::unique_lock lock(bridge.mutex);
     if (bridge.service != service)
     {
@@ -84,50 +84,50 @@ void UnbindMmioBridge(NativeGuestGpuService* service)
     bridge.service = nullptr;
     bridge.idle.wait(lock, [&bridge]
                      {
-                         return bridge.callbacks_in_flight == 0;
+                         return bridge.callbacksInFlight == 0;
                      });
 }
 
 class MmioCallbackLease
 {
 public:
-    explicit MmioCallbackLease(void* callback_context)
-    : bridge_(static_cast<MmioBridge*>(callback_context))
+    explicit MmioCallbackLease(void* callbackContext)
+    : bridge(static_cast<MmioBridge*>(callbackContext))
     {
-        if (!bridge_)
+        if (!bridge)
         {
             return;
         }
-        std::lock_guard lock(bridge_->mutex);
-        service_ = bridge_->service;
-        if (service_)
+        std::lock_guard lock(bridge->mutex);
+        boundService = bridge->service;
+        if (boundService)
         {
-            ++bridge_->callbacks_in_flight;
+            ++bridge->callbacksInFlight;
         }
     }
 
     ~MmioCallbackLease()
     {
-        if (!service_)
+        if (!boundService)
         {
             return;
         }
-        std::lock_guard lock(bridge_->mutex);
-        --bridge_->callbacks_in_flight;
-        if (bridge_->callbacks_in_flight == 0)
+        std::lock_guard lock(bridge->mutex);
+        --bridge->callbacksInFlight;
+        if (bridge->callbacksInFlight == 0)
         {
-            bridge_->idle.notify_all();
+            bridge->idle.notify_all();
         }
     }
 
     NativeGuestGpuService* service() const
     {
-        return service_;
+        return boundService;
     }
 
 private:
-    MmioBridge*            bridge_  = nullptr;
-    NativeGuestGpuService* service_ = nullptr;
+    MmioBridge*            bridge       = nullptr;
+    NativeGuestGpuService* boundService = nullptr;
 };
 
 } // namespace
@@ -136,29 +136,29 @@ struct NativeGuestGpuService::Impl
 {
     mutable std::mutex mutex;
 
-    rex::runtime::FunctionDispatcher* function_dispatcher = nullptr;
-    rex::system::KernelState*         kernel_state        = nullptr;
-    rex::memory::Memory*              memory              = nullptr;
+    rex::runtime::FunctionDispatcher* functionDispatcher = nullptr;
+    rex::system::KernelState*         kernelState        = nullptr;
+    rex::memory::Memory*              memory             = nullptr;
 
-    rex::system::object_ref<rex::system::XHostThread> vblank_worker_thread;
-    std::atomic<bool>                                 vblank_worker_running{ false };
+    rex::system::object_ref<rex::system::XHostThread> vblankWorkerThread;
+    std::atomic<bool>                                 vblankWorkerRunning{ false };
 
-    bool active           = false;
-    bool mmio_registered  = false;
-    bool shutdown_started = false;
+    bool active          = false;
+    bool mmioRegistered  = false;
+    bool shutdownStarted = false;
 
-    uint32_t interrupt_callback  = 0;
-    uint32_t interrupt_user_data = 0;
+    uint32_t interruptCallback = 0;
+    uint32_t interruptUserData = 0;
 
-    std::array<uint32_t, 0x10000 / 4> register_values{};
+    std::array<uint32_t, 0x10000 / 4> registerValues{};
 
-    bool unknown_mmio_logged   = false;
-    bool held_write_logged     = false;
-    bool missing_thread_logged = false;
+    bool unknownMmioLogged   = false;
+    bool heldWriteLogged     = false;
+    bool missingThreadLogged = false;
 };
 
 NativeGuestGpuService::NativeGuestGpuService()
-: impl_(std::make_unique<Impl>())
+: impl(std::make_unique<Impl>())
 {
 }
 
@@ -174,74 +174,74 @@ rex::X_STATUS NativeGuestGpuService::SetupPresentation(rex::ui::WindowedAppConte
 }
 
 rex::X_STATUS NativeGuestGpuService::SetupGuestGpu(
-    rex::runtime::FunctionDispatcher* function_dispatcher,
-    rex::system::KernelState*         kernel_state)
+    rex::runtime::FunctionDispatcher* functionDispatcher,
+    rex::system::KernelState*         kernelState)
 {
-    if (!function_dispatcher || !kernel_state)
+    if (!functionDispatcher || !kernelState)
     {
         return X_STATUS_INVALID_PARAMETER;
     }
 
-    std::unique_lock lock(impl_->mutex);
-    if (impl_->active || impl_->mmio_registered || impl_->vblank_worker_thread ||
-        impl_->shutdown_started)
+    std::unique_lock lock(impl->mutex);
+    if (impl->active || impl->mmioRegistered || impl->vblankWorkerThread ||
+        impl->shutdownStarted)
     {
         return X_STATUS_INVALID_PARAMETER;
     }
 
-    auto* memory = function_dispatcher->memory();
+    auto* memory = functionDispatcher->memory();
     if (!memory)
     {
         return X_STATUS_UNSUCCESSFUL;
     }
 
-    impl_->function_dispatcher = function_dispatcher;
-    impl_->kernel_state        = kernel_state;
-    impl_->memory              = memory;
-    impl_->vblank_worker_running.store(true, std::memory_order_release);
+    impl->functionDispatcher = functionDispatcher;
+    impl->kernelState        = kernelState;
+    impl->memory             = memory;
+    impl->vblankWorkerRunning.store(true, std::memory_order_release);
 
     try
     {
-        impl_->vblank_worker_thread = rex::system::object_ref<rex::system::XHostThread>(
-            new rex::system::XHostThread(kernel_state, 128 * 1024, 0, [this]()
+        impl->vblankWorkerThread = rex::system::object_ref<rex::system::XHostThread>(
+            new rex::system::XHostThread(kernelState, 128 * 1024, 0, [this]()
                                          {
-                                             return RunVblankWorker();
+                                             return runVblankWorker();
                                          }));
-        impl_->vblank_worker_thread->set_name("GPU VSync");
+        impl->vblankWorkerThread->set_name("GPU VSync");
     }
     catch (...)
     {
-        impl_->vblank_worker_running.store(false, std::memory_order_release);
-        impl_->active              = false;
-        impl_->function_dispatcher = nullptr;
-        impl_->kernel_state        = nullptr;
-        impl_->memory              = nullptr;
-        impl_->vblank_worker_thread.reset();
+        impl->vblankWorkerRunning.store(false, std::memory_order_release);
+        impl->active             = false;
+        impl->functionDispatcher = nullptr;
+        impl->kernelState        = nullptr;
+        impl->memory             = nullptr;
+        impl->vblankWorkerThread.reset();
         return X_STATUS_UNSUCCESSFUL;
     }
 
-    const X_STATUS create_status = impl_->vblank_worker_thread->Create();
-    if (XFAILED(create_status))
+    const X_STATUS createStatus = impl->vblankWorkerThread->Create();
+    if (XFAILED(createStatus))
     {
-        impl_->vblank_worker_running.store(false, std::memory_order_release);
-        impl_->function_dispatcher = nullptr;
-        impl_->kernel_state        = nullptr;
-        impl_->memory              = nullptr;
-        impl_->vblank_worker_thread.reset();
-        return create_status;
+        impl->vblankWorkerRunning.store(false, std::memory_order_release);
+        impl->functionDispatcher = nullptr;
+        impl->kernelState        = nullptr;
+        impl->memory             = nullptr;
+        impl->vblankWorkerThread.reset();
+        return createStatus;
     }
 
-    if (!BindMmioBridge(this))
+    if (!bindMmioBridge(this))
     {
-        auto worker = impl_->vblank_worker_thread;
-        impl_->vblank_worker_running.store(false, std::memory_order_release);
+        auto worker = impl->vblankWorkerThread;
+        impl->vblankWorkerRunning.store(false, std::memory_order_release);
         lock.unlock();
         worker->Wait(0, 0, 0, nullptr);
         lock.lock();
-        impl_->function_dispatcher = nullptr;
-        impl_->kernel_state        = nullptr;
-        impl_->memory              = nullptr;
-        impl_->vblank_worker_thread.reset();
+        impl->functionDispatcher = nullptr;
+        impl->kernelState        = nullptr;
+        impl->memory             = nullptr;
+        impl->vblankWorkerThread.reset();
         return X_STATUS_UNSUCCESSFUL;
     }
 
@@ -249,113 +249,113 @@ rex::X_STATUS NativeGuestGpuService::SetupGuestGpu(
             kGpuMmioBaseAddress,
             kGpuMmioAddressMask,
             kGpuMmioSize,
-            &GetMmioBridge(),
-            reinterpret_cast<rex::runtime::MMIOReadCallback>(ReadRegisterThunk),
-            reinterpret_cast<rex::runtime::MMIOWriteCallback>(WriteRegisterThunk)))
+            &getMmioBridge(),
+            reinterpret_cast<rex::runtime::MMIOReadCallback>(readRegisterThunk),
+            reinterpret_cast<rex::runtime::MMIOWriteCallback>(writeRegisterThunk)))
     {
-        auto worker = impl_->vblank_worker_thread;
-        impl_->vblank_worker_running.store(false, std::memory_order_release);
+        auto worker = impl->vblankWorkerThread;
+        impl->vblankWorkerRunning.store(false, std::memory_order_release);
         lock.unlock();
-        UnbindMmioBridge(this);
+        unbindMmioBridge(this);
         worker->Wait(0, 0, 0, nullptr);
         lock.lock();
-        impl_->function_dispatcher = nullptr;
-        impl_->kernel_state        = nullptr;
-        impl_->memory              = nullptr;
-        impl_->vblank_worker_thread.reset();
+        impl->functionDispatcher = nullptr;
+        impl->kernelState        = nullptr;
+        impl->memory             = nullptr;
+        impl->vblankWorkerThread.reset();
         return X_STATUS_UNSUCCESSFUL;
     }
 
-    impl_->mmio_registered = true;
-    impl_->active          = true;
+    impl->mmioRegistered = true;
+    impl->active         = true;
     REXGPU_INFO("NativeGuestGpuService: vblank active; ring command consumption disabled");
 
     return X_STATUS_SUCCESS;
 }
 
-void NativeGuestGpuService::SetInterruptCallback(uint32_t callback, uint32_t user_data)
+void NativeGuestGpuService::SetInterruptCallback(uint32_t callback, uint32_t userData)
 {
     {
-        std::lock_guard lock(impl_->mutex);
-        if (impl_->shutdown_started)
+        std::lock_guard lock(impl->mutex);
+        if (impl->shutdownStarted)
         {
             return;
         }
-        impl_->interrupt_callback  = callback;
-        impl_->interrupt_user_data = user_data;
+        impl->interruptCallback = callback;
+        impl->interruptUserData = userData;
     }
     REXGPU_INFO("NativeGuestGpuService: interrupt callback={:08X} user_data={:08X}",
                 callback,
-                user_data);
+                userData);
 }
 
-void NativeGuestGpuService::InitializeRingBuffer(uint32_t ptr, uint32_t size_log2)
+void NativeGuestGpuService::InitializeRingBuffer(uint32_t ptr, uint32_t sizeLog2)
 {
     {
-        std::lock_guard lock(impl_->mutex);
-        if (impl_->shutdown_started)
+        std::lock_guard lock(impl->mutex);
+        if (impl->shutdownStarted)
         {
             return;
         }
     }
     REXGPU_INFO("NativeGuestGpuService: ring captured ptr={:08X} size_log2={}",
                 ptr,
-                size_log2);
+                sizeLog2);
 }
 
 void NativeGuestGpuService::EnableReadPointerWriteBack(uint32_t ptr,
-                                                       uint32_t block_size_log2)
+                                                       uint32_t blockSizeLog2)
 {
     {
-        std::lock_guard lock(impl_->mutex);
-        if (impl_->shutdown_started)
+        std::lock_guard lock(impl->mutex);
+        if (impl->shutdownStarted)
         {
             return;
         }
     }
     REXGPU_INFO("NativeGuestGpuService: read-pointer writeback held ptr={:08X} block_size_log2={}",
                 ptr,
-                block_size_log2);
+                blockSizeLog2);
 }
 
 void NativeGuestGpuService::InitializeShaderStorage(const std::filesystem::path&,
                                                     uint32_t,
                                                     bool)
 {
-    ReportUnsupported("InitializeShaderStorage");
+    reportUnsupported("InitializeShaderStorage");
 }
 
 bool NativeGuestGpuService::PauseAndResetGpuWritePointer()
 {
-    ReportUnsupported("PauseAndResetGpuWritePointer");
+    reportUnsupported("PauseAndResetGpuWritePointer");
     return false;
 }
 
 void NativeGuestGpuService::ResumeGpu()
 {
-    ReportUnsupported("ResumeGpu");
+    reportUnsupported("ResumeGpu");
 }
 
-uint32_t NativeGuestGpuService::ReadRegisterThunk(void*, void* callback_context, uint32_t addr)
+uint32_t NativeGuestGpuService::readRegisterThunk(void*, void* callbackContext, uint32_t addr)
 {
-    MmioCallbackLease lease(callback_context);
+    MmioCallbackLease lease(callbackContext);
     if (!lease.service())
     {
         return 0;
     }
-    return lease.service()->ReadRegister(addr);
+    return lease.service()->readRegister(addr);
 }
 
-void NativeGuestGpuService::WriteRegisterThunk(void*, void* callback_context, uint32_t addr, uint32_t value)
+void NativeGuestGpuService::writeRegisterThunk(void*, void* callbackContext, uint32_t addr, uint32_t value)
 {
-    MmioCallbackLease lease(callback_context);
+    MmioCallbackLease lease(callbackContext);
     if (lease.service())
     {
-        lease.service()->WriteRegister(addr, value);
+        lease.service()->writeRegister(addr, value);
     }
 }
 
-uint32_t NativeGuestGpuService::ReadRegister(uint32_t addr)
+uint32_t NativeGuestGpuService::readRegister(uint32_t addr)
 {
     const uint32_t reg = (addr & 0xFFFF) / 4;
 
@@ -367,127 +367,127 @@ uint32_t NativeGuestGpuService::ReadRegister(uint32_t addr)
             return 0x0000200E;
         case kR500D1ModeVCounter:
         {
-            rex::system::X_VIDEO_MODE video_mode;
-            rex::kernel::xboxkrnl::VdQueryVideoMode(&video_mode);
-            return std::min(uint32_t(video_mode.display_height), uint32_t(0x0FFF));
+            rex::system::X_VIDEO_MODE videoMode;
+            rex::kernel::xboxkrnl::VdQueryVideoMode(&videoMode);
+            return std::min(uint32_t(videoMode.display_height), uint32_t(0x0FFF));
         }
         case kInterruptStatus:
             return 1;
         case kAvivoD1ModeViewportSize:
         {
-            rex::system::X_VIDEO_MODE video_mode;
-            rex::kernel::xboxkrnl::VdQueryVideoMode(&video_mode);
-            const uint32_t width  = std::min(uint32_t(video_mode.display_width), uint32_t(0x0FFF));
-            const uint32_t height = std::min(uint32_t(video_mode.display_height), uint32_t(0x0FFF));
+            rex::system::X_VIDEO_MODE videoMode;
+            rex::kernel::xboxkrnl::VdQueryVideoMode(&videoMode);
+            const uint32_t width  = std::min(uint32_t(videoMode.display_width), uint32_t(0x0FFF));
+            const uint32_t height = std::min(uint32_t(videoMode.display_height), uint32_t(0x0FFF));
             return (width << 16) | height;
         }
         default:
             break;
     }
 
-    bool     report_unknown = false;
-    uint32_t value          = 0;
+    bool     reportUnknown = false;
+    uint32_t value         = 0;
     {
-        std::lock_guard lock(impl_->mutex);
-        value = impl_->register_values[reg];
-        if (!impl_->unknown_mmio_logged)
+        std::lock_guard lock(impl->mutex);
+        value = impl->registerValues[reg];
+        if (!impl->unknownMmioLogged)
         {
-            impl_->unknown_mmio_logged = true;
-            report_unknown             = true;
+            impl->unknownMmioLogged = true;
+            reportUnknown           = true;
         }
     }
-    if (report_unknown)
+    if (reportUnknown)
     {
         REXGPU_WARN("NativeGuestGpuService: unknown GPU register read {:04X}", reg);
     }
     return value;
 }
 
-void NativeGuestGpuService::WriteRegister(uint32_t addr, uint32_t value)
+void NativeGuestGpuService::writeRegister(uint32_t addr, uint32_t value)
 {
-    const uint32_t reg            = (addr & 0xFFFF) / 4;
-    bool           report_unknown = false;
-    bool           report_held    = false;
+    const uint32_t reg           = (addr & 0xFFFF) / 4;
+    bool           reportUnknown = false;
+    bool           reportHeld    = false;
     {
-        std::lock_guard lock(impl_->mutex);
-        impl_->register_values[reg] = value;
+        std::lock_guard lock(impl->mutex);
+        impl->registerValues[reg] = value;
         if (reg == kCpRbWptr)
         {
-            if (!impl_->held_write_logged)
+            if (!impl->heldWriteLogged)
             {
-                impl_->held_write_logged = true;
-                report_held              = true;
+                impl->heldWriteLogged = true;
+                reportHeld            = true;
             }
         }
         else if (reg != kAvivoD1GraphPrimarySurfaceAddress)
         {
-            if (!impl_->unknown_mmio_logged)
+            if (!impl->unknownMmioLogged)
             {
-                impl_->unknown_mmio_logged = true;
-                report_unknown             = true;
+                impl->unknownMmioLogged = true;
+                reportUnknown           = true;
             }
         }
     }
 
-    if (report_held)
+    if (reportHeld)
     {
         REXGPU_ERROR(
             "NativeGuestGpuService: holding CP_RB_WPTR write {:08X}; command consumption is unavailable",
             value);
     }
-    if (report_unknown)
+    if (reportUnknown)
     {
         REXGPU_WARN("NativeGuestGpuService: unknown GPU register write {:04X}={:08X}", reg, value);
     }
 }
 
-int NativeGuestGpuService::RunVblankWorker()
+int NativeGuestGpuService::runVblankWorker()
 {
-    rex::system::X_VIDEO_MODE video_mode;
-    rex::kernel::xboxkrnl::VdQueryVideoMode(&video_mode);
-    const double   refresh_rate_hz      = std::max(1.0, double(float(video_mode.refresh_rate)));
-    const uint64_t guest_tick_frequency = rex::chrono::Clock::guest_tick_frequency();
-    const uint64_t vsync_interval_ticks = std::max(
-        uint64_t(1), uint64_t(double(guest_tick_frequency) / refresh_rate_hz));
-    uint64_t last_frame_time = rex::chrono::Clock::QueryGuestTickCount();
+    rex::system::X_VIDEO_MODE videoMode;
+    rex::kernel::xboxkrnl::VdQueryVideoMode(&videoMode);
+    const double   refreshRateHz      = std::max(1.0, double(float(videoMode.refresh_rate)));
+    const uint64_t guestTickFrequency = rex::chrono::Clock::guest_tick_frequency();
+    const uint64_t vsyncIntervalTicks = std::max(
+        uint64_t(1), uint64_t(double(guestTickFrequency) / refreshRateHz));
+    uint64_t lastFrameTime = rex::chrono::Clock::QueryGuestTickCount();
 
-    while (impl_->vblank_worker_running.load(std::memory_order_acquire))
+    while (impl->vblankWorkerRunning.load(std::memory_order_acquire))
     {
-        const uint64_t current_time   = rex::chrono::Clock::QueryGuestTickCount();
-        const uint64_t interval_ticks = vsync_interval_ticks;
-        uint32_t       catch_up_count = 0;
-        while (current_time - last_frame_time >= interval_ticks &&
-               catch_up_count < kMaxVblankCatchUp &&
-               impl_->vblank_worker_running.load(std::memory_order_acquire))
+        const uint64_t currentTime   = rex::chrono::Clock::QueryGuestTickCount();
+        const uint64_t intervalTicks = vsyncIntervalTicks;
+        uint32_t       catchUpCount  = 0;
+        while (currentTime - lastFrameTime >= intervalTicks &&
+               catchUpCount < kMaxVblankCatchUp &&
+               impl->vblankWorkerRunning.load(std::memory_order_acquire))
         {
-            MarkVblank();
-            last_frame_time += interval_ticks;
-            ++catch_up_count;
+            markVblank();
+            lastFrameTime += intervalTicks;
+            ++catchUpCount;
         }
-        if (catch_up_count == kMaxVblankCatchUp &&
-            current_time - last_frame_time >= interval_ticks)
+        if (catchUpCount == kMaxVblankCatchUp &&
+            currentTime - lastFrameTime >= intervalTicks)
         {
-            last_frame_time = current_time;
+            lastFrameTime = currentTime;
         }
         rex::thread::Sleep(std::chrono::milliseconds(1));
     }
     return 0;
 }
 
-void NativeGuestGpuService::MarkVblank()
+void NativeGuestGpuService::markVblank()
 {
-    uint32_t                          callback            = 0;
-    uint32_t                          user_data           = 0;
-    rex::runtime::FunctionDispatcher* function_dispatcher = nullptr;
+    uint32_t                          callback           = 0;
+    uint32_t                          userData           = 0;
+    rex::runtime::FunctionDispatcher* functionDispatcher = nullptr;
     {
-        std::lock_guard lock(impl_->mutex);
-        if (!impl_->active || !impl_->interrupt_callback || !impl_->function_dispatcher)
+        std::lock_guard lock(impl->mutex);
+        if (!impl->active || !impl->interruptCallback || !impl->functionDispatcher)
         {
             return;
         }
-        callback            = impl_->interrupt_callback;
-        user_data           = impl_->interrupt_user_data;
-        function_dispatcher = impl_->function_dispatcher;
+        callback           = impl->interruptCallback;
+        userData           = impl->interruptUserData;
+        functionDispatcher = impl->functionDispatcher;
     }
 
     auto* thread = rex::system::XThread::GetCurrentThread();
@@ -495,11 +495,11 @@ void NativeGuestGpuService::MarkVblank()
     {
         bool report = false;
         {
-            std::lock_guard lock(impl_->mutex);
-            if (!impl_->missing_thread_logged)
+            std::lock_guard lock(impl->mutex);
+            if (!impl->missingThreadLogged)
             {
-                impl_->missing_thread_logged = true;
-                report                       = true;
+                impl->missingThreadLogged = true;
+                report                    = true;
             }
         }
         if (report)
@@ -510,35 +510,35 @@ void NativeGuestGpuService::MarkVblank()
     }
 
     thread->SetActiveCpu(kDefaultCpu);
-    uint64_t args[] = { 0, user_data };
-    function_dispatcher->ExecuteInterrupt(thread->thread_state(), callback, args, std::size(args));
+    uint64_t args[] = { 0, userData };
+    functionDispatcher->ExecuteInterrupt(thread->thread_state(), callback, args, std::size(args));
 }
 
 void NativeGuestGpuService::Shutdown()
 {
     rex::system::object_ref<rex::system::XHostThread> worker;
     {
-        std::lock_guard lock(impl_->mutex);
-        impl_->shutdown_started    = true;
-        impl_->interrupt_callback  = 0;
-        impl_->interrupt_user_data = 0;
-        impl_->active              = false;
-        impl_->vblank_worker_running.store(false, std::memory_order_release);
-        worker = impl_->vblank_worker_thread;
+        std::lock_guard lock(impl->mutex);
+        impl->shutdownStarted   = true;
+        impl->interruptCallback = 0;
+        impl->interruptUserData = 0;
+        impl->active            = false;
+        impl->vblankWorkerRunning.store(false, std::memory_order_release);
+        worker = impl->vblankWorkerThread;
     }
 
-    UnbindMmioBridge(this);
+    unbindMmioBridge(this);
 
     if (worker)
     {
         worker->Wait(0, 0, 0, nullptr);
     }
 
-    std::lock_guard lock(impl_->mutex);
-    impl_->vblank_worker_thread.reset();
-    impl_->function_dispatcher = nullptr;
-    impl_->kernel_state        = nullptr;
-    impl_->memory              = nullptr;
+    std::lock_guard lock(impl->mutex);
+    impl->vblankWorkerThread.reset();
+    impl->functionDispatcher = nullptr;
+    impl->kernelState        = nullptr;
+    impl->memory             = nullptr;
 }
 
 } // namespace rerevved::gpu

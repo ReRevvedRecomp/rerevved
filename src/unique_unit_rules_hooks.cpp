@@ -15,7 +15,7 @@ namespace
 constexpr uint32_t kPlayerCivilizations = 0x830ECD28;
 constexpr int32_t  kPlayerCount         = 6;
 
-bool TryReadCivilization(int32_t player, ReRevvedCivilizationId& civilization)
+bool tryReadCivilization(int32_t player, ReRevvedCivilizationId& civilization)
 {
     if (player < 0 || player >= kPlayerCount)
     {
@@ -48,20 +48,20 @@ bool TryReadCivilization(int32_t player, ReRevvedCivilizationId& civilization)
     return true;
 }
 
-void ApplyBaseValue(PPCRegister&                     player,
-                    PPCRegister&                     unit_type,
+void applyBaseValue(PPCRegister&                     player,
+                    PPCRegister&                     unitType,
                     PPCRegister&                     value,
                     ReRevvedUniqueUnitScalarProperty property)
 {
     ReRevvedCivilizationId civilization = REREVVED_CIVILIZATION_UNKNOWN;
-    if (!TryReadCivilization(player.s32, civilization))
+    if (!tryReadCivilization(player.s32, civilization))
     {
         return;
     }
 
     ReRevvedUnitIdentityId identity = REREVVED_UNIT_IDENTITY_BASE;
     if (!rerevved::unit_catalog::TryResolveUnitIdentity(
-            civilization, unit_type.s32, identity) ||
+            civilization, unitType.s32, identity) ||
         identity == REREVVED_UNIT_IDENTITY_BASE)
     {
         return;
@@ -69,34 +69,34 @@ void ApplyBaseValue(PPCRegister&                     player,
 
     ReRevvedUniqueUnitScalarEvaluation evaluation{};
     if (rerevved::unique_unit_rules::TryEvaluate(civilization,
-                                                 unit_type.s32,
+                                                 unitType.s32,
                                                  identity,
                                                  property,
                                                  value.s32,
                                                  evaluation))
     {
-        value.s64 = evaluation.final_value;
+        value.s64 = evaluation.finalValue;
     }
 }
 
 } // namespace
 
 void ReRevvedApplyUniqueUnitBaseAttack(PPCRegister& player,
-                                       PPCRegister& unit_type,
+                                       PPCRegister& unitType,
                                        PPCRegister& value)
 {
-    ApplyBaseValue(player,
-                   unit_type,
+    applyBaseValue(player,
+                   unitType,
                    value,
                    REREVVED_UNIQUE_UNIT_SCALAR_BASE_ATTACK);
 }
 
 void ReRevvedApplyUniqueUnitBaseDefense(PPCRegister& player,
-                                        PPCRegister& unit_type,
+                                        PPCRegister& unitType,
                                         PPCRegister& value)
 {
-    ApplyBaseValue(player,
-                   unit_type,
+    applyBaseValue(player,
+                   unitType,
                    value,
                    REREVVED_UNIQUE_UNIT_SCALAR_BASE_DEFENSE);
 }

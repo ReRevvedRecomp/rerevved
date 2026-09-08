@@ -7,51 +7,51 @@
 namespace
 {
 
-void ApplyBaseValue(PPCRegister&                  guest_terrain,
-                    PPCRegister&                  base_value,
+void applyBaseValue(PPCRegister&                  guestTerrain,
+                    PPCRegister&                  baseValue,
                     ReRevvedTerrainYieldComponent component)
 {
     ReRevvedTerrainId terrain = REREVVED_TERRAIN_UNKNOWN;
     if (!rerevved::terrain_yield_rules::TryMapGuestTerrain(
-            guest_terrain.s32, terrain))
+            guestTerrain.s32, terrain))
     {
         return;
     }
 
     ReRevvedTerrainYieldEvaluation evaluation{};
     if (rerevved::terrain_yield_rules::TryEvaluate(
-            terrain, component, base_value.s32, evaluation) &&
-        (evaluation.replacement_count != 0 ||
-         evaluation.additive_count != 0) &&
-        (evaluation.status_flags &
+            terrain, component, baseValue.s32, evaluation) &&
+        (evaluation.replacementCount != 0 ||
+         evaluation.additiveCount != 0) &&
+        (evaluation.statusFlags &
          REREVVED_TERRAIN_YIELD_EVALUATION_OVERFLOW) == 0)
     {
-        base_value.s64 = evaluation.final_value;
+        baseValue.s64 = evaluation.finalValue;
     }
 }
 
 } // namespace
 
-void ReRevvedApplyTerrainTradeBase(PPCRegister& guest_terrain,
-                                   PPCRegister& base_value)
+void ReRevvedApplyTerrainTradeBase(PPCRegister& guestTerrain,
+                                   PPCRegister& baseValue)
 {
-    ApplyBaseValue(guest_terrain,
-                   base_value,
+    applyBaseValue(guestTerrain,
+                   baseValue,
                    REREVVED_TERRAIN_YIELD_TRADE);
 }
 
-void ReRevvedApplyTerrainProductionBase(PPCRegister& guest_terrain,
-                                        PPCRegister& base_value)
+void ReRevvedApplyTerrainProductionBase(PPCRegister& guestTerrain,
+                                        PPCRegister& baseValue)
 {
-    ApplyBaseValue(guest_terrain,
-                   base_value,
+    applyBaseValue(guestTerrain,
+                   baseValue,
                    REREVVED_TERRAIN_YIELD_PRODUCTION);
 }
 
-void ReRevvedApplyTerrainFoodBase(PPCRegister& guest_terrain,
-                                  PPCRegister& base_value)
+void ReRevvedApplyTerrainFoodBase(PPCRegister& guestTerrain,
+                                  PPCRegister& baseValue)
 {
-    ApplyBaseValue(guest_terrain,
-                   base_value,
+    applyBaseValue(guestTerrain,
+                   baseValue,
                    REREVVED_TERRAIN_YIELD_FOOD);
 }

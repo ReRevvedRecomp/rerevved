@@ -27,16 +27,16 @@ public:
     bool Resize(std::uint32_t width, std::uint32_t height);
     void Shutdown();
 
-    bool initialized() const noexcept;
+    bool Initialized() const noexcept;
 
 private:
-    void RendererThreadMain(std::uintptr_t native_window,
+    void rendererThreadMain(std::uintptr_t nativeWindow,
                             std::uint32_t  width,
                             std::uint32_t  height);
-    void HandleRendererFailure();
+    void handleRendererFailure();
 
     struct Impl;
-    std::unique_ptr<Impl> impl_;
+    std::unique_ptr<Impl> impl;
 };
 
 } // namespace rerevved::gpu

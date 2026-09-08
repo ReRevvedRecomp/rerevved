@@ -66,10 +66,10 @@ constexpr std::array<ReRevvedUniqueEraAbilityId, 45> kRetailAbilities = {
     61,
 };
 
-std::shared_mutex                                registry_mutex;
+std::shared_mutex                                registryMutex;
 std::vector<ReRevvedUniqueEraAbilityReplacement> registry;
 
-bool IsRuleIdValid(const char* value)
+bool isRuleIdValid(const char* value)
 {
     const void* terminator =
         std::memchr(value, '\0', REREVVED_UNIQUE_ERA_ABILITY_RULE_ID_CAPACITY);
@@ -92,7 +92,7 @@ bool IsRuleIdValid(const char* value)
            (first >= '0' && first <= '9');
 }
 
-void NormalizeRuleId(char* value)
+void normalizeRuleId(char* value)
 {
     const size_t length = std::strlen(value);
     std::memset(value + length + 1,
@@ -101,7 +101,7 @@ void NormalizeRuleId(char* value)
 }
 
 template <size_t Size>
-bool IsZeroed(const int32_t (&values)[Size])
+bool isZeroed(const int32_t (&values)[Size])
 {
     return std::all_of(
         std::begin(values), std::end(values), [](int32_t value)
@@ -110,141 +110,141 @@ bool IsZeroed(const int32_t (&values)[Size])
         });
 }
 
-bool IsCellValid(ReRevvedCivilizationId     civilization,
-                 ReRevvedUniqueEraUnlockEra unlock_era)
+bool isCellValid(ReRevvedCivilizationId     civilization,
+                 ReRevvedUniqueEraUnlockEra unlockEra)
 {
     return civilization >= 0 && civilization < REREVVED_CIVILIZATION_COUNT &&
-           unlock_era >= REREVVED_UNIQUE_ERA_ANCIENT &&
-           unlock_era <= REREVVED_UNIQUE_ERA_MODERN;
+           unlockEra >= REREVVED_UNIQUE_ERA_ANCIENT &&
+           unlockEra <= REREVVED_UNIQUE_ERA_MODERN;
 }
 
-bool IsRetailAbilityValid(ReRevvedUniqueEraAbilityId ability)
+bool isRetailAbilityValid(ReRevvedUniqueEraAbilityId ability)
 {
     return std::binary_search(
         kRetailAbilities.begin(), kRetailAbilities.end(), ability);
 }
 
-bool IsReplacementAbilityValid(ReRevvedUniqueEraAbilityId ability)
+bool isReplacementAbilityValid(ReRevvedUniqueEraAbilityId ability)
 {
-    return IsRetailAbilityValid(ability) ||
+    return isRetailAbilityValid(ability) ||
            ability ==
                REREVVED_UNIQUE_ERA_ABILITY_KNOWLEDGE_OF_HORSEBACK_RIDING;
 }
 
-bool TargetMatches(const ReRevvedUniqueEraAbilityReplacement& rule,
+bool targetMatches(const ReRevvedUniqueEraAbilityReplacement& rule,
                    ReRevvedCivilizationId                     civilization,
-                   ReRevvedUniqueEraUnlockEra                 unlock_era)
+                   ReRevvedUniqueEraUnlockEra                 unlockEra)
 {
-    return rule.civilization == civilization && rule.unlock_era == unlock_era;
+    return rule.civilization == civilization && rule.unlockEra == unlockEra;
 }
 
-bool RuleKeyMatches(const ReRevvedUniqueEraAbilityReplacement& left,
+bool ruleKeyMatches(const ReRevvedUniqueEraAbilityReplacement& left,
                     const ReRevvedUniqueEraAbilityReplacement& right)
 {
-    return std::strcmp(left.provider_id, right.provider_id) == 0 &&
-           std::strcmp(left.rule_id, right.rule_id) == 0;
+    return std::strcmp(left.providerId, right.providerId) == 0 &&
+           std::strcmp(left.ruleId, right.ruleId) == 0;
 }
 
-bool RuleKeyLess(const ReRevvedUniqueEraAbilityReplacement& left,
+bool ruleKeyLess(const ReRevvedUniqueEraAbilityReplacement& left,
                  const ReRevvedUniqueEraAbilityReplacement& right)
 {
-    const int provider_order = std::strcmp(left.provider_id, right.provider_id);
-    return provider_order < 0 ||
-           (provider_order == 0 &&
-            std::strcmp(left.rule_id, right.rule_id) < 0);
+    const int providerOrder = std::strcmp(left.providerId, right.providerId);
+    return providerOrder < 0 ||
+           (providerOrder == 0 &&
+            std::strcmp(left.ruleId, right.ruleId) < 0);
 }
 
 template <typename Record>
-void ClearOutput(Record* out, uint32_t out_size)
+void clearOutput(Record* out, uint32_t outSize)
 {
     if (out)
     {
-        std::memset(out, 0, std::min<uint32_t>(out_size, sizeof(Record)));
+        std::memset(out, 0, std::min<uint32_t>(outSize, sizeof(Record)));
     }
 }
 
 template <typename Record>
-int32_t CopyOutput(Record*       out,
-                   uint32_t      out_size,
+int32_t copyOutput(Record*       out,
+                   uint32_t      outSize,
                    const Record& producer,
-                   uint32_t      minimum_prefix)
+                   uint32_t      minimumPrefix)
 {
     if (!out)
     {
         return REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT;
     }
-    ClearOutput(out, out_size);
-    if (out_size < minimum_prefix)
+    clearOutput(out, outSize);
+    if (outSize < minimumPrefix)
     {
         return REREVVED_UNIQUE_ERA_ABILITIES_ERR_BUFFER_TOO_SMALL;
     }
 
-    uint32_t copy_size = std::min<uint32_t>(out_size, sizeof(Record));
-    copy_size -= copy_size % sizeof(uint32_t);
-    std::memcpy(out, &producer, copy_size);
+    uint32_t copySize = std::min<uint32_t>(outSize, sizeof(Record));
+    copySize -= copySize % sizeof(uint32_t);
+    std::memcpy(out, &producer, copySize);
     return REREVVED_UNIQUE_ERA_ABILITIES_OK;
 }
 
-uint32_t ReplacementCount(const ReRevvedUniqueEraAbilityReplacement& target)
+uint32_t replacementCount(const ReRevvedUniqueEraAbilityReplacement& target)
 {
     return static_cast<uint32_t>(std::count_if(
         registry.begin(), registry.end(), [&](const auto& candidate)
         {
-            return TargetMatches(
-                candidate, target.civilization, target.unlock_era);
+            return targetMatches(
+                candidate, target.civilization, target.unlockEra);
         }));
 }
 
 } // namespace
 
 bool TryEvaluate(ReRevvedCivilizationId                  civilization,
-                 ReRevvedUniqueEraUnlockEra              unlock_era,
-                 ReRevvedUniqueEraAbilityId              native_ability,
+                 ReRevvedUniqueEraUnlockEra              unlockEra,
+                 ReRevvedUniqueEraAbilityId              nativeAbility,
                  ReRevvedUniqueEraAbilityCellEvaluation& evaluation)
 {
-    if (!IsCellValid(civilization, unlock_era) ||
-        !IsRetailAbilityValid(native_ability))
+    if (!isCellValid(civilization, unlockEra) ||
+        !isRetailAbilityValid(nativeAbility))
     {
         return false;
     }
 
     evaluation = {
         sizeof(ReRevvedUniqueEraAbilityCellEvaluation),
-        native_ability,
-        native_ability,
+        nativeAbility,
+        nativeAbility,
         0,
         0,
         {},
     };
 
-    std::shared_lock lock(registry_mutex);
+    std::shared_lock lock(registryMutex);
     for (const auto& rule : registry)
     {
-        if (!TargetMatches(rule, civilization, unlock_era))
+        if (!targetMatches(rule, civilization, unlockEra))
         {
             continue;
         }
-        ++evaluation.replacement_count;
-        evaluation.effective_ability = rule.replacement_ability;
+        ++evaluation.replacementCount;
+        evaluation.effectiveAbility = rule.replacementAbility;
     }
 
-    if (evaluation.replacement_count == 1)
+    if (evaluation.replacementCount == 1)
     {
-        evaluation.status_flags |=
+        evaluation.statusFlags |=
             REREVVED_UNIQUE_ERA_ABILITY_EVALUATION_REPLACED;
     }
-    else if (evaluation.replacement_count > 1)
+    else if (evaluation.replacementCount > 1)
     {
-        evaluation.status_flags |=
+        evaluation.statusFlags |=
             REREVVED_UNIQUE_ERA_ABILITY_EVALUATION_REPLACEMENT_CONFLICT;
-        evaluation.effective_ability = native_ability;
+        evaluation.effectiveAbility = nativeAbility;
     }
     return true;
 }
 
 void ResetForTests()
 {
-    std::unique_lock lock(registry_mutex);
+    std::unique_lock lock(registryMutex);
     registry.clear();
 }
 
@@ -267,27 +267,27 @@ extern "C" int32_t ReRevvedRegisterUniqueEraAbilityReplacement(
 {
     using namespace rerevved::unique_era_abilities;
     if (!rule ||
-        rule->struct_size < sizeof(ReRevvedUniqueEraAbilityReplacement) ||
-        !IsRuleIdValid(rule->provider_id) || !IsRuleIdValid(rule->rule_id) ||
-        !IsCellValid(rule->civilization, rule->unlock_era) ||
-        !IsReplacementAbilityValid(rule->replacement_ability) ||
-        !IsZeroed(rule->reserved))
+        rule->structSize < sizeof(ReRevvedUniqueEraAbilityReplacement) ||
+        !isRuleIdValid(rule->providerId) || !isRuleIdValid(rule->ruleId) ||
+        !isCellValid(rule->civilization, rule->unlockEra) ||
+        !isReplacementAbilityValid(rule->replacementAbility) ||
+        !isZeroed(rule->reserved))
     {
         return REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT;
     }
 
     ReRevvedUniqueEraAbilityReplacement normalized = *rule;
-    normalized.struct_size                         = sizeof(normalized);
-    NormalizeRuleId(normalized.provider_id);
-    NormalizeRuleId(normalized.rule_id);
+    normalized.structSize                          = sizeof(normalized);
+    normalizeRuleId(normalized.providerId);
+    normalizeRuleId(normalized.ruleId);
 
     try
     {
-        std::unique_lock lock(registry_mutex);
+        std::unique_lock lock(registryMutex);
         const auto       duplicate = std::find_if(
             registry.begin(), registry.end(), [&](const auto& candidate)
             {
-                return RuleKeyMatches(candidate, normalized);
+                return ruleKeyMatches(candidate, normalized);
             });
         if (duplicate != registry.end())
         {
@@ -297,7 +297,7 @@ extern "C" int32_t ReRevvedRegisterUniqueEraAbilityReplacement(
         }
 
         registry.push_back(normalized);
-        std::sort(registry.begin(), registry.end(), RuleKeyLess);
+        std::sort(registry.begin(), registry.end(), ruleKeyLess);
     }
     catch (...)
     {
@@ -306,15 +306,15 @@ extern "C" int32_t ReRevvedRegisterUniqueEraAbilityReplacement(
     return REREVVED_UNIQUE_ERA_ABILITIES_OK;
 }
 
-extern "C" int32_t ReRevvedGetUniqueEraAbilityRuleCount(uint32_t* out_count)
+extern "C" int32_t ReRevvedGetUniqueEraAbilityRuleCount(uint32_t* outCount)
 {
-    if (!out_count)
+    if (!outCount)
     {
         return REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT;
     }
 
-    std::shared_lock lock(rerevved::unique_era_abilities::registry_mutex);
-    *out_count = static_cast<uint32_t>(
+    std::shared_lock lock(rerevved::unique_era_abilities::registryMutex);
+    *outCount = static_cast<uint32_t>(
         rerevved::unique_era_abilities::registry.size());
     return REREVVED_UNIQUE_ERA_ABILITIES_OK;
 }
@@ -322,20 +322,20 @@ extern "C" int32_t ReRevvedGetUniqueEraAbilityRuleCount(uint32_t* out_count)
 extern "C" int32_t ReRevvedGetUniqueEraAbilityRule(
     uint32_t                          index,
     ReRevvedUniqueEraAbilityRuleInfo* out,
-    uint32_t                          out_size)
+    uint32_t                          outSize)
 {
     using namespace rerevved::unique_era_abilities;
     if (!out)
     {
         return REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT;
     }
-    ClearOutput(out, out_size);
-    if (out_size < kRuleInfoPrefix)
+    clearOutput(out, outSize);
+    if (outSize < kRuleInfoPrefix)
     {
         return REREVVED_UNIQUE_ERA_ABILITIES_ERR_BUFFER_TOO_SMALL;
     }
 
-    std::shared_lock lock(registry_mutex);
+    std::shared_lock lock(registryMutex);
     if (index >= registry.size())
     {
         return REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT;
@@ -343,49 +343,49 @@ extern "C" int32_t ReRevvedGetUniqueEraAbilityRule(
 
     const auto&                      rule = registry[index];
     ReRevvedUniqueEraAbilityRuleInfo result{};
-    result.struct_size         = sizeof(result);
-    result.civilization        = rule.civilization;
-    result.unlock_era          = rule.unlock_era;
-    result.replacement_ability = rule.replacement_ability;
-    std::memcpy(result.provider_id, rule.provider_id, sizeof(result.provider_id));
-    std::memcpy(result.rule_id, rule.rule_id, sizeof(result.rule_id));
-    if (ReplacementCount(rule) > 1)
+    result.structSize         = sizeof(result);
+    result.civilization       = rule.civilization;
+    result.unlockEra          = rule.unlockEra;
+    result.replacementAbility = rule.replacementAbility;
+    std::memcpy(result.providerId, rule.providerId, sizeof(result.providerId));
+    std::memcpy(result.ruleId, rule.ruleId, sizeof(result.ruleId));
+    if (replacementCount(rule) > 1)
     {
-        result.status_flags |=
+        result.statusFlags |=
             REREVVED_UNIQUE_ERA_ABILITY_RULE_REPLACEMENT_CONFLICT;
     }
-    return CopyOutput(out, out_size, result, kRuleInfoPrefix);
+    return copyOutput(out, outSize, result, kRuleInfoPrefix);
 }
 
 extern "C" int32_t ReRevvedEvaluateUniqueEraAbilityCell(
     const ReRevvedUniqueEraAbilityCellQuery* query,
     ReRevvedUniqueEraAbilityCellEvaluation*  out,
-    uint32_t                                 out_size)
+    uint32_t                                 outSize)
 {
     using namespace rerevved::unique_era_abilities;
     if (!out)
     {
         return REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT;
     }
-    ClearOutput(out, out_size);
-    if (out_size < kEvaluationPrefix)
+    clearOutput(out, outSize);
+    if (outSize < kEvaluationPrefix)
     {
         return REREVVED_UNIQUE_ERA_ABILITIES_ERR_BUFFER_TOO_SMALL;
     }
     if (!query ||
-        query->struct_size < sizeof(ReRevvedUniqueEraAbilityCellQuery) ||
-        !IsZeroed(query->reserved))
+        query->structSize < sizeof(ReRevvedUniqueEraAbilityCellQuery) ||
+        !isZeroed(query->reserved))
     {
         return REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT;
     }
 
     ReRevvedUniqueEraAbilityCellEvaluation result{};
     if (!TryEvaluate(query->civilization,
-                     query->unlock_era,
-                     query->native_ability,
+                     query->unlockEra,
+                     query->nativeAbility,
                      result))
     {
         return REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT;
     }
-    return CopyOutput(out, out_size, result, kEvaluationPrefix);
+    return copyOutput(out, outSize, result, kEvaluationPrefix);
 }

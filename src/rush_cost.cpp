@@ -28,29 +28,29 @@ bool TryCalculateRushCost(int32_t  multiplier,
 }
 
 bool TryCoordinateRushProduction(const RushCostRepair& repair,
-                                 uint32_t              city_offset,
+                                 uint32_t              cityOffset,
                                  int32_t               item,
-                                 int32_t               submitted_cost,
-                                 int32_t               production_before,
-                                 int32_t&              production_bought,
-                                 int32_t&              production_after)
+                                 int32_t               submittedCost,
+                                 int32_t               productionBefore,
+                                 int32_t&              productionBought,
+                                 int32_t&              productionAfter)
 {
-    if (!repair.valid || repair.city_offset != city_offset ||
-        repair.item != item || repair.cost != submitted_cost ||
-        repair.remaining < 0 || production_before < 0)
+    if (!repair.valid || repair.cityOffset != cityOffset ||
+        repair.item != item || repair.cost != submittedCost ||
+        repair.remaining < 0 || productionBefore < 0)
     {
         return false;
     }
 
     const int64_t after =
-        static_cast<int64_t>(production_before) + repair.remaining;
+        static_cast<int64_t>(productionBefore) + repair.remaining;
     if (after > std::numeric_limits<int32_t>::max())
     {
         return false;
     }
 
-    production_bought = repair.remaining;
-    production_after  = static_cast<int32_t>(after);
+    productionBought = repair.remaining;
+    productionAfter  = static_cast<int32_t>(after);
     return true;
 }
 

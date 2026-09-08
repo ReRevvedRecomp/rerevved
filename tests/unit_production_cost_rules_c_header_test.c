@@ -4,31 +4,31 @@
 
 int main(void)
 {
-    ReRevvedUnitProductionCostRulesAbiVersionFn version_fn =
+    ReRevvedUnitProductionCostRulesAbiVersionFn versionFn =
         ReRevvedUnitProductionCostRulesAbiVersion;
-    ReRevvedRegisterUnitProductionCostRuleFn register_fn =
+    ReRevvedRegisterUnitProductionCostRuleFn registerFn =
         ReRevvedRegisterUnitProductionCostRule;
-    ReRevvedGetUnitProductionCostRuleCountFn count_fn =
+    ReRevvedGetUnitProductionCostRuleCountFn countFn =
         ReRevvedGetUnitProductionCostRuleCount;
-    ReRevvedGetUnitProductionCostRuleFn  get_fn      = ReRevvedGetUnitProductionCostRule;
-    ReRevvedEvaluateUnitProductionCostFn evaluate_fn = ReRevvedEvaluateUnitProductionCost;
+    ReRevvedGetUnitProductionCostRuleFn  getFn      = ReRevvedGetUnitProductionCostRule;
+    ReRevvedEvaluateUnitProductionCostFn evaluateFn = ReRevvedEvaluateUnitProductionCost;
 
     ReRevvedUnitProductionCostRule       rule       = { 0 };
     ReRevvedUnitProductionCostRuleInfo   info       = { 0 };
     ReRevvedUnitProductionCostQuery      query      = { 0 };
     ReRevvedUnitProductionCostEvaluation evaluation = { 0 };
 
-    if (!version_fn || !register_fn || !count_fn || !get_fn || !evaluate_fn ||
+    if (!versionFn || !registerFn || !countFn || !getFn || !evaluateFn ||
         sizeof(rule) != 168 || sizeof(info) != 192 || sizeof(query) != 40 ||
         sizeof(evaluation) != 40 ||
         offsetof(ReRevvedUnitProductionCostRule, civilization) != 132 ||
-        offsetof(ReRevvedUnitProductionCostRule, percentage_delta) != 144 ||
-        offsetof(ReRevvedUnitProductionCostRuleInfo, status_flags) != 148 ||
+        offsetof(ReRevvedUnitProductionCostRule, percentageDelta) != 144 ||
+        offsetof(ReRevvedUnitProductionCostRuleInfo, statusFlags) != 148 ||
         offsetof(ReRevvedUnitProductionCostQuery, reserved) != 16 ||
-        offsetof(ReRevvedUnitProductionCostEvaluation, final_percent) != 8 ||
+        offsetof(ReRevvedUnitProductionCostEvaluation, finalPercent) != 8 ||
         REREVVED_UNIT_PRODUCTION_COST_RULES_ABI_VERSION != 1u)
     {
         return 1;
     }
-    return version_fn() == REREVVED_UNIT_PRODUCTION_COST_RULES_ABI_VERSION ? 0 : 2;
+    return versionFn() == REREVVED_UNIT_PRODUCTION_COST_RULES_ABI_VERSION ? 0 : 2;
 }

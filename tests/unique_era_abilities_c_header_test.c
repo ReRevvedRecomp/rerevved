@@ -9,15 +9,15 @@ int main(void)
     {
         return 1;
     }
-    ReRevvedUniqueEraAbilitiesAbiVersionFn version_fn =
+    ReRevvedUniqueEraAbilitiesAbiVersionFn versionFn =
         ReRevvedUniqueEraAbilitiesAbiVersion;
-    ReRevvedRegisterUniqueEraAbilityReplacementFn register_fn =
+    ReRevvedRegisterUniqueEraAbilityReplacementFn registerFn =
         ReRevvedRegisterUniqueEraAbilityReplacement;
-    ReRevvedGetUniqueEraAbilityRuleCountFn count_fn =
+    ReRevvedGetUniqueEraAbilityRuleCountFn countFn =
         ReRevvedGetUniqueEraAbilityRuleCount;
-    ReRevvedGetUniqueEraAbilityRuleFn get_fn =
+    ReRevvedGetUniqueEraAbilityRuleFn getFn =
         ReRevvedGetUniqueEraAbilityRule;
-    ReRevvedEvaluateUniqueEraAbilityCellFn evaluate_fn =
+    ReRevvedEvaluateUniqueEraAbilityCellFn evaluateFn =
         ReRevvedEvaluateUniqueEraAbilityCell;
 
     ReRevvedUniqueEraAbilityReplacement    rule       = { 0 };
@@ -25,21 +25,21 @@ int main(void)
     ReRevvedUniqueEraAbilityCellQuery      query      = { 0 };
     ReRevvedUniqueEraAbilityCellEvaluation evaluation = { 0 };
 
-    if (version_fn() != REREVVED_UNIQUE_ERA_ABILITIES_ABI_VERSION ||
+    if (versionFn() != REREVVED_UNIQUE_ERA_ABILITIES_ABI_VERSION ||
         sizeof(rule) != 176 || sizeof(info) != 180 || sizeof(query) != 40 ||
         sizeof(evaluation) != 40 ||
-        offsetof(ReRevvedUniqueEraAbilityReplacement, replacement_ability) !=
+        offsetof(ReRevvedUniqueEraAbilityReplacement, replacementAbility) !=
             140 ||
-        offsetof(ReRevvedUniqueEraAbilityRuleInfo, status_flags) != 144 ||
-        offsetof(ReRevvedUniqueEraAbilityCellEvaluation, effective_ability) !=
+        offsetof(ReRevvedUniqueEraAbilityRuleInfo, statusFlags) != 144 ||
+        offsetof(ReRevvedUniqueEraAbilityCellEvaluation, effectiveAbility) !=
             8)
     {
         return 1;
     }
 
-    (void)register_fn;
-    (void)count_fn;
-    (void)get_fn;
-    (void)evaluate_fn;
+    (void)registerFn;
+    (void)countFn;
+    (void)getFn;
+    (void)evaluateFn;
     return 0;
 }

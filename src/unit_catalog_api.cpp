@@ -61,7 +61,7 @@ constexpr std::array<UnitDefinitionEntry, REREVVED_UNIT_TYPE_COUNT>
 struct UnitIdentityEntry
 {
     ReRevvedCivilizationId civilization;
-    ReRevvedUnitTypeId     unit_type;
+    ReRevvedUnitTypeId     unitType;
     ReRevvedUnitIdentityId identity;
 };
 
@@ -153,61 +153,61 @@ constexpr std::array<UnitIdentityEntry, 27> kUnitIdentities = {
 
 static_assert(kUnitIdentities.size() == 27);
 
-bool IsCivilizationIdValid(ReRevvedCivilizationId civilization)
+bool isCivilizationIdValid(ReRevvedCivilizationId civilization)
 {
     return civilization >= 0 && civilization < REREVVED_CIVILIZATION_COUNT;
 }
 
-bool IsUnitTypeIdValid(ReRevvedUnitTypeId unit_type)
+bool isUnitTypeIdValid(ReRevvedUnitTypeId unitType)
 {
-    return unit_type >= 0 && unit_type < REREVVED_UNIT_TYPE_COUNT;
+    return unitType >= 0 && unitType < REREVVED_UNIT_TYPE_COUNT;
 }
 
-bool IsDisplayFormValid(ReRevvedUnitDisplayForm display_form)
+bool isDisplayFormValid(ReRevvedUnitDisplayForm displayForm)
 {
-    return display_form == REREVVED_UNIT_DISPLAY_FORM_UNIT ||
-           display_form == REREVVED_UNIT_DISPLAY_FORM_ARMY;
+    return displayForm == REREVVED_UNIT_DISPLAY_FORM_UNIT ||
+           displayForm == REREVVED_UNIT_DISPLAY_FORM_ARMY;
 }
 
-void ClearOutput(void* out, uint32_t out_size, uint32_t producer_size)
+void clearOutput(void* out, uint32_t outSize, uint32_t producerSize)
 {
     if (out)
     {
-        std::memset(out, 0, std::min(out_size, producer_size));
+        std::memset(out, 0, std::min(outSize, producerSize));
     }
 }
 
 } // namespace
 
 int32_t CopySizedOutput(void*       out,
-                        uint32_t    out_size,
+                        uint32_t    outSize,
                         const void* producer,
-                        uint32_t    producer_size,
-                        uint32_t    minimum_prefix)
+                        uint32_t    producerSize,
+                        uint32_t    minimumPrefix)
 {
     if (!out || !producer)
     {
         return REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT;
     }
 
-    ClearOutput(out, out_size, producer_size);
-    if (out_size < minimum_prefix)
+    clearOutput(out, outSize, producerSize);
+    if (outSize < minimumPrefix)
     {
         return REREVVED_UNIT_CATALOG_ERR_BUFFER_TOO_SMALL;
     }
 
-    uint32_t copy_size = std::min(out_size, producer_size);
-    copy_size -= copy_size % sizeof(uint32_t);
-    std::memcpy(out, producer, copy_size);
+    uint32_t copySize = std::min(outSize, producerSize);
+    copySize -= copySize % sizeof(uint32_t);
+    std::memcpy(out, producer, copySize);
     return REREVVED_UNIT_CATALOG_OK;
 }
 
 bool TryResolveUnitIdentity(ReRevvedCivilizationId  civilization,
-                            ReRevvedUnitTypeId      unit_type,
+                            ReRevvedUnitTypeId      unitType,
                             ReRevvedUnitIdentityId& identity)
 {
-    if (!IsCivilizationIdValid(civilization) ||
-        !IsUnitTypeIdValid(unit_type))
+    if (!isCivilizationIdValid(civilization) ||
+        !isUnitTypeIdValid(unitType))
     {
         return false;
     }
@@ -215,7 +215,7 @@ bool TryResolveUnitIdentity(ReRevvedCivilizationId  civilization,
     identity = REREVVED_UNIT_IDENTITY_BASE;
     for (const auto& entry : kUnitIdentities)
     {
-        if (entry.civilization == civilization && entry.unit_type == unit_type)
+        if (entry.civilization == civilization && entry.unitType == unitType)
         {
             identity = entry.identity;
             break;
@@ -231,17 +231,17 @@ static_assert(sizeof(ReRevvedUnitTypeId) == sizeof(int32_t));
 static_assert(sizeof(ReRevvedUnitIdentityId) == sizeof(int32_t));
 static_assert(sizeof(ReRevvedUnitDisplayForm) == sizeof(int32_t));
 static_assert(sizeof(ReRevvedUnitDefinition) == 32);
-static_assert(offsetof(ReRevvedUnitDefinition, struct_size) == 0);
-static_assert(offsetof(ReRevvedUnitDefinition, unit_type) == 4);
-static_assert(offsetof(ReRevvedUnitDefinition, base_attack) == 8);
-static_assert(offsetof(ReRevvedUnitDefinition, base_defense) == 12);
+static_assert(offsetof(ReRevvedUnitDefinition, structSize) == 0);
+static_assert(offsetof(ReRevvedUnitDefinition, unitType) == 4);
+static_assert(offsetof(ReRevvedUnitDefinition, baseAttack) == 8);
+static_assert(offsetof(ReRevvedUnitDefinition, baseDefense) == 12);
 static_assert(offsetof(ReRevvedUnitDefinition, reserved) == 16);
 static_assert(sizeof(ReRevvedUnitIdentity) == 32);
-static_assert(offsetof(ReRevvedUnitIdentity, struct_size) == 0);
+static_assert(offsetof(ReRevvedUnitIdentity, structSize) == 0);
 static_assert(offsetof(ReRevvedUnitIdentity, civilization) == 4);
-static_assert(offsetof(ReRevvedUnitIdentity, base_unit_type) == 8);
+static_assert(offsetof(ReRevvedUnitIdentity, baseUnitType) == 8);
 static_assert(offsetof(ReRevvedUnitIdentity, identity) == 12);
-static_assert(offsetof(ReRevvedUnitIdentity, display_form) == 16);
+static_assert(offsetof(ReRevvedUnitIdentity, displayForm) == 16);
 static_assert(offsetof(ReRevvedUnitIdentity, reserved) == 20);
 
 extern "C" uint32_t ReRevvedUnitCatalogAbiVersion(void)
@@ -250,9 +250,9 @@ extern "C" uint32_t ReRevvedUnitCatalogAbiVersion(void)
 }
 
 extern "C" int32_t ReRevvedGetUnitDefinition(
-    ReRevvedUnitTypeId      unit_type,
+    ReRevvedUnitTypeId      unitType,
     ReRevvedUnitDefinition* out,
-    uint32_t                out_size)
+    uint32_t                outSize)
 {
     constexpr uint32_t kProducerSize = sizeof(ReRevvedUnitDefinition);
     if (!out)
@@ -260,27 +260,27 @@ extern "C" int32_t ReRevvedGetUnitDefinition(
         return REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT;
     }
 
-    rerevved::unit_catalog::ClearOutput(out, out_size, kProducerSize);
-    if (out_size < rerevved::unit_catalog::kDefinitionPrefix)
+    rerevved::unit_catalog::clearOutput(out, outSize, kProducerSize);
+    if (outSize < rerevved::unit_catalog::kDefinitionPrefix)
     {
         return REREVVED_UNIT_CATALOG_ERR_BUFFER_TOO_SMALL;
     }
-    if (!rerevved::unit_catalog::IsUnitTypeIdValid(unit_type))
+    if (!rerevved::unit_catalog::isUnitTypeIdValid(unitType))
     {
         return REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT;
     }
 
-    const auto&                  entry  = rerevved::unit_catalog::kUnitDefinitions[unit_type];
+    const auto&                  entry  = rerevved::unit_catalog::kUnitDefinitions[unitType];
     const ReRevvedUnitDefinition result = {
         kProducerSize,
-        unit_type,
+        unitType,
         entry.attack,
         entry.defense,
         {},
     };
     return rerevved::unit_catalog::CopySizedOutput(
         out,
-        out_size,
+        outSize,
         &result,
         kProducerSize,
         rerevved::unit_catalog::kDefinitionPrefix);
@@ -288,10 +288,10 @@ extern "C" int32_t ReRevvedGetUnitDefinition(
 
 extern "C" int32_t ReRevvedResolveUnitIdentity(
     ReRevvedCivilizationId  civilization,
-    ReRevvedUnitTypeId      base_unit_type,
-    ReRevvedUnitDisplayForm display_form,
+    ReRevvedUnitTypeId      baseUnitType,
+    ReRevvedUnitDisplayForm displayForm,
     ReRevvedUnitIdentity*   out,
-    uint32_t                out_size)
+    uint32_t                outSize)
 {
     constexpr uint32_t kProducerSize = sizeof(ReRevvedUnitIdentity);
     if (!out)
@@ -299,21 +299,21 @@ extern "C" int32_t ReRevvedResolveUnitIdentity(
         return REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT;
     }
 
-    rerevved::unit_catalog::ClearOutput(out, out_size, kProducerSize);
-    if (out_size < rerevved::unit_catalog::kIdentityPrefix)
+    rerevved::unit_catalog::clearOutput(out, outSize, kProducerSize);
+    if (outSize < rerevved::unit_catalog::kIdentityPrefix)
     {
         return REREVVED_UNIT_CATALOG_ERR_BUFFER_TOO_SMALL;
     }
-    if (!rerevved::unit_catalog::IsCivilizationIdValid(civilization) ||
-        !rerevved::unit_catalog::IsUnitTypeIdValid(base_unit_type) ||
-        !rerevved::unit_catalog::IsDisplayFormValid(display_form))
+    if (!rerevved::unit_catalog::isCivilizationIdValid(civilization) ||
+        !rerevved::unit_catalog::isUnitTypeIdValid(baseUnitType) ||
+        !rerevved::unit_catalog::isDisplayFormValid(displayForm))
     {
         return REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT;
     }
 
     ReRevvedUnitIdentityId identity = REREVVED_UNIT_IDENTITY_BASE;
     if (!rerevved::unit_catalog::TryResolveUnitIdentity(
-            civilization, base_unit_type, identity))
+            civilization, baseUnitType, identity))
     {
         return REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT;
     }
@@ -321,14 +321,14 @@ extern "C" int32_t ReRevvedResolveUnitIdentity(
     const ReRevvedUnitIdentity result = {
         kProducerSize,
         civilization,
-        base_unit_type,
+        baseUnitType,
         identity,
-        display_form,
+        displayForm,
         {},
     };
     return rerevved::unit_catalog::CopySizedOutput(
         out,
-        out_size,
+        outSize,
         &result,
         kProducerSize,
         rerevved::unit_catalog::kIdentityPrefix);

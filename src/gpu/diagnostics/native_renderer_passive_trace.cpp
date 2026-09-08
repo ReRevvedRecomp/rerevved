@@ -19,63 +19,63 @@ namespace
 constexpr std::uint64_t kSequenceMask     = 0xFFFFFFFFull;
 constexpr auto          kWriterDrainLimit = std::chrono::milliseconds(100);
 
-std::string_view PointName(PassiveTracePoint point) noexcept
+std::string_view pointName(PassiveTracePoint point) noexcept
 {
     switch (point)
     {
-        case PassiveTracePoint::kTraceStarted:
+        case PassiveTracePoint::Started:
             return "trace_started";
-        case PassiveTracePoint::kRingResetBegin:
+        case PassiveTracePoint::RingResetBegin:
             return "ring_reset_begin";
-        case PassiveTracePoint::kRingResetReturn:
+        case PassiveTracePoint::RingResetReturn:
             return "ring_reset_return";
-        case PassiveTracePoint::kReservationEnter:
+        case PassiveTracePoint::ReservationEnter:
             return "reservation_enter";
-        case PassiveTracePoint::kReservationReturn:
+        case PassiveTracePoint::ReservationReturn:
             return "reservation_return";
-        case PassiveTracePoint::kVdSwapOwnerEnter:
+        case PassiveTracePoint::VdSwapOwnerEnter:
             return "vdswap_owner_enter";
-        case PassiveTracePoint::kVdSwapOwnerReturn:
+        case PassiveTracePoint::VdSwapOwnerReturn:
             return "vdswap_owner_return";
-        case PassiveTracePoint::kVdSwapCall:
+        case PassiveTracePoint::VdSwapCall:
             return "vdswap_call";
-        case PassiveTracePoint::kVdSwapReturn:
+        case PassiveTracePoint::VdSwapReturn:
             return "vdswap_return";
-        case PassiveTracePoint::kVdSwapPublished:
+        case PassiveTracePoint::VdSwapPublished:
             return "vdswap_published";
-        case PassiveTracePoint::kResolveEnter:
+        case PassiveTracePoint::ResolveEnter:
             return "resolve_enter";
-        case PassiveTracePoint::kResolveReturn:
+        case PassiveTracePoint::ResolveReturn:
             return "resolve_return";
-        case PassiveTracePoint::kPreSwapEnter:
+        case PassiveTracePoint::PreSwapEnter:
             return "pre_swap_enter";
-        case PassiveTracePoint::kPreSwapReturn:
+        case PassiveTracePoint::PreSwapReturn:
             return "pre_swap_return";
-        case PassiveTracePoint::kEmitterCd20Enter:
+        case PassiveTracePoint::EmitterCd20Enter:
             return "emitter_cd20_enter";
-        case PassiveTracePoint::kEmitterCd20Return:
+        case PassiveTracePoint::EmitterCd20Return:
             return "emitter_cd20_return";
-        case PassiveTracePoint::kEmitterBf40Enter:
+        case PassiveTracePoint::EmitterBf40Enter:
             return "emitter_bf40_enter";
-        case PassiveTracePoint::kEmitterBf40Return:
+        case PassiveTracePoint::EmitterBf40Return:
             return "emitter_bf40_return";
-        case PassiveTracePoint::kCallbackEnter:
+        case PassiveTracePoint::CallbackEnter:
             return "callback_enter";
-        case PassiveTracePoint::kCallbackReturn:
+        case PassiveTracePoint::CallbackReturn:
             return "callback_return";
-        case PassiveTracePoint::kOrdinaryCallerEnter:
+        case PassiveTracePoint::OrdinaryCallerEnter:
             return "ordinary_caller_enter";
-        case PassiveTracePoint::kOrdinaryCallerReturn:
+        case PassiveTracePoint::OrdinaryCallerReturn:
             return "ordinary_caller_return";
-        case PassiveTracePoint::kAlternateCallerEnter:
+        case PassiveTracePoint::AlternateCallerEnter:
             return "alternate_caller_enter";
-        case PassiveTracePoint::kAlternateCallerReturn:
+        case PassiveTracePoint::AlternateCallerReturn:
             return "alternate_caller_return";
     }
     return "invalid";
 }
 
-void SaturatingIncrement(std::atomic<std::uint32_t>& value) noexcept
+void saturatingIncrement(std::atomic<std::uint32_t>& value) noexcept
 {
     std::uint32_t current = value.load(std::memory_order_relaxed);
     while (current != std::numeric_limits<std::uint32_t>::max() &&
@@ -92,22 +92,22 @@ void SaturatingIncrement(std::atomic<std::uint32_t>& value) noexcept
 PassiveTraceRecordLease::PassiveTraceRecordLease(
     PassiveTraceBuffer* buffer,
     std::uint64_t       ticket) noexcept
-: buffer_(buffer)
-, ticket_(ticket)
+: buffer(buffer)
+, ticket(ticket)
 {
 }
 
 PassiveTraceRecordLease::~PassiveTraceRecordLease()
 {
-    Release();
+    release();
 }
 
 PassiveTraceRecordLease::PassiveTraceRecordLease(
     PassiveTraceRecordLease&& other) noexcept
-: buffer_(other.buffer_)
-, ticket_(other.ticket_)
+: buffer(other.buffer)
+, ticket(other.ticket)
 {
-    other.buffer_ = nullptr;
+    other.buffer = nullptr;
 }
 
 PassiveTraceRecordLease& PassiveTraceRecordLease::operator=(
@@ -115,92 +115,92 @@ PassiveTraceRecordLease& PassiveTraceRecordLease::operator=(
 {
     if (this != &other)
     {
-        Release();
-        buffer_       = other.buffer_;
-        ticket_       = other.ticket_;
-        other.buffer_ = nullptr;
+        release();
+        buffer       = other.buffer;
+        ticket       = other.ticket;
+        other.buffer = nullptr;
     }
     return *this;
 }
 
 PassiveTraceRecordLease::operator bool() const noexcept
 {
-    return buffer_ != nullptr;
+    return buffer != nullptr;
 }
 
 bool PassiveTraceRecordLease::Commit(PassiveTraceEvent event) noexcept
 {
-    if (!buffer_)
+    if (!buffer)
     {
         return false;
     }
-    PassiveTraceBuffer* buffer = buffer_;
-    buffer_                    = nullptr;
-    const bool stored          = buffer->Store(event, ticket_);
-    buffer->LeaveWriter();
+    PassiveTraceBuffer* buffer = this->buffer;
+    this->buffer               = nullptr;
+    const bool stored          = buffer->store(event, ticket);
+    buffer->leaveWriter();
     return stored;
 }
 
-void PassiveTraceRecordLease::Release() noexcept
+void PassiveTraceRecordLease::release() noexcept
 {
-    if (buffer_)
+    if (buffer)
     {
-        buffer_->LeaveWriter();
-        buffer_ = nullptr;
+        buffer->leaveWriter();
+        buffer = nullptr;
     }
 }
 
-bool PassiveTraceBuffer::Start(const std::filesystem::path& output_path)
+bool PassiveTraceBuffer::Start(const std::filesystem::path& outputPath)
 {
-    if (output_path.empty() ||
-        gate_.load(std::memory_order_acquire) != kGateClosed ||
-        started_.load(std::memory_order_acquire))
+    if (outputPath.empty() ||
+        gate.load(std::memory_order_acquire) != kGateClosed ||
+        started.load(std::memory_order_acquire))
     {
         return false;
     }
 
     std::error_code       error;
-    std::filesystem::path partial_path = output_path;
-    partial_path += ".partial";
-    if (std::filesystem::exists(output_path, error) || error ||
-        std::filesystem::exists(partial_path, error) || error)
+    std::filesystem::path partialPath = outputPath;
+    partialPath += ".partial";
+    if (std::filesystem::exists(outputPath, error) || error ||
+        std::filesystem::exists(partialPath, error) || error)
     {
         return false;
     }
 
-    output_path_ = output_path;
-    for (auto& slot : slots_)
+    this->outputPath = outputPath;
+    for (auto& slot : slots)
     {
         slot.committed.store(false, std::memory_order_relaxed);
         slot.event = {};
     }
-    next_slot_.store(0, std::memory_order_relaxed);
-    overflow_.store(0, std::memory_order_relaxed);
-    in_flight_at_flush_.store(0, std::memory_order_relaxed);
-    epoch_transition_failures_.store(0, std::memory_order_relaxed);
-    epoch_sequence_.store((std::uint64_t{ 1 } << 32) | 1,
-                          std::memory_order_relaxed);
-    flushed_.store(false, std::memory_order_relaxed);
-    started_.store(true, std::memory_order_release);
-    gate_.store(0, std::memory_order_release);
+    nextSlot.store(0, std::memory_order_relaxed);
+    overflow.store(0, std::memory_order_relaxed);
+    inFlightAtFlush.store(0, std::memory_order_relaxed);
+    epochTransitionFailures.store(0, std::memory_order_relaxed);
+    epochSequence.store((std::uint64_t{ 1 } << 32) | 1,
+                        std::memory_order_relaxed);
+    flushed.store(false, std::memory_order_relaxed);
+    started.store(true, std::memory_order_release);
+    gate.store(0, std::memory_order_release);
 
     PassiveTraceEvent started{};
-    started.point = PassiveTracePoint::kTraceStarted;
+    started.point = PassiveTracePoint::Started;
     return Record(started);
 }
 
 bool PassiveTraceBuffer::StopAndFlush()
 {
-    if (!started_.load(std::memory_order_acquire) ||
-        flushed_.load(std::memory_order_acquire))
+    if (!started.load(std::memory_order_acquire) ||
+        flushed.load(std::memory_order_acquire))
     {
         return true;
     }
 
     std::uint32_t state =
-        gate_.fetch_or(kGateClosed, std::memory_order_acq_rel) | kGateClosed;
-    gate_.fetch_and(~kGateEpoch, std::memory_order_acq_rel);
-    state = gate_.load(std::memory_order_acquire);
+        gate.fetch_or(kGateClosed, std::memory_order_acq_rel) | kGateClosed;
+    gate.fetch_and(~kGateEpoch, std::memory_order_acq_rel);
+    state = gate.load(std::memory_order_acquire);
 
     const auto deadline = std::chrono::steady_clock::now() +
                           kWriterDrainLimit;
@@ -208,41 +208,41 @@ bool PassiveTraceBuffer::StopAndFlush()
            std::chrono::steady_clock::now() < deadline)
     {
         std::this_thread::yield();
-        state = gate_.load(std::memory_order_acquire);
+        state = gate.load(std::memory_order_acquire);
     }
-    const std::uint32_t in_flight = state & kGateWritersMask;
-    in_flight_at_flush_.store(in_flight, std::memory_order_release);
-    if (in_flight != 0)
+    const std::uint32_t inFlight = state & kGateWritersMask;
+    inFlightAtFlush.store(inFlight, std::memory_order_release);
+    if (inFlight != 0)
     {
         return false;
     }
 
-    if (!Serialize(0))
+    if (!serialize(0))
     {
         return false;
     }
-    flushed_.store(true, std::memory_order_release);
+    flushed.store(true, std::memory_order_release);
     return true;
 }
 
-bool PassiveTraceBuffer::enabled() const noexcept
+bool PassiveTraceBuffer::Enabled() const noexcept
 {
-    return (gate_.load(std::memory_order_acquire) & kGateClosed) == 0;
+    return (gate.load(std::memory_order_acquire) & kGateClosed) == 0;
 }
 
-bool PassiveTraceBuffer::EnterWriter() noexcept
+bool PassiveTraceBuffer::enterWriter() noexcept
 {
-    std::uint32_t state = gate_.load(std::memory_order_acquire);
+    std::uint32_t state = gate.load(std::memory_order_acquire);
     while ((state & kGateClosed) == 0)
     {
         if ((state & kGateWritersMask) == kGateWritersMask)
         {
             return false;
         }
-        if (gate_.compare_exchange_weak(state,
-                                        state + 1,
-                                        std::memory_order_acq_rel,
-                                        std::memory_order_acquire))
+        if (gate.compare_exchange_weak(state,
+                                       state + 1,
+                                       std::memory_order_acq_rel,
+                                       std::memory_order_acquire))
         {
             return true;
         }
@@ -250,28 +250,28 @@ bool PassiveTraceBuffer::EnterWriter() noexcept
     return false;
 }
 
-void PassiveTraceBuffer::LeaveWriter() noexcept
+void PassiveTraceBuffer::leaveWriter() noexcept
 {
-    gate_.fetch_sub(1, std::memory_order_release);
+    gate.fetch_sub(1, std::memory_order_release);
 }
 
-std::uint64_t PassiveTraceBuffer::NextTicket() noexcept
+std::uint64_t PassiveTraceBuffer::nextTicket() noexcept
 {
-    return epoch_sequence_.fetch_add(1, std::memory_order_relaxed);
+    return epochSequence.fetch_add(1, std::memory_order_relaxed);
 }
 
-std::uint64_t PassiveTraceBuffer::NextEpochTicket() noexcept
+std::uint64_t PassiveTraceBuffer::nextEpochTicket() noexcept
 {
-    std::uint64_t current = epoch_sequence_.load(std::memory_order_relaxed);
+    std::uint64_t current = epochSequence.load(std::memory_order_relaxed);
     for (;;)
     {
         const std::uint64_t epoch    = current >> 32;
         const std::uint64_t sequence = current & kSequenceMask;
         const std::uint64_t next     = ((epoch + 1) << 32) | (sequence + 1);
-        if (epoch_sequence_.compare_exchange_weak(current,
-                                                  next,
-                                                  std::memory_order_relaxed,
-                                                  std::memory_order_relaxed))
+        if (epochSequence.compare_exchange_weak(current,
+                                                next,
+                                                std::memory_order_relaxed,
+                                                std::memory_order_relaxed))
         {
             return ((epoch + 1) << 32) | sequence;
         }
@@ -280,35 +280,35 @@ std::uint64_t PassiveTraceBuffer::NextEpochTicket() noexcept
 
 PassiveTraceRecordLease PassiveTraceBuffer::BeginRecord() noexcept
 {
-    if (!EnterWriter())
+    if (!enterWriter())
     {
         return {};
     }
-    return PassiveTraceRecordLease(this, NextTicket());
+    return PassiveTraceRecordLease(this, nextTicket());
 }
 
-bool PassiveTraceBuffer::Store(PassiveTraceEvent event,
+bool PassiveTraceBuffer::store(PassiveTraceEvent event,
                                std::uint64_t     ticket) noexcept
 {
-    std::uint32_t slot_index = next_slot_.load(std::memory_order_relaxed);
-    while (slot_index < kPassiveTraceCapacity &&
-           !next_slot_.compare_exchange_weak(slot_index,
-                                             slot_index + 1,
-                                             std::memory_order_relaxed,
-                                             std::memory_order_relaxed))
+    std::uint32_t slotIndex = nextSlot.load(std::memory_order_relaxed);
+    while (slotIndex < kPassiveTraceCapacity &&
+           !nextSlot.compare_exchange_weak(slotIndex,
+                                           slotIndex + 1,
+                                           std::memory_order_relaxed,
+                                           std::memory_order_relaxed))
     {
     }
-    if (slot_index >= kPassiveTraceCapacity)
+    if (slotIndex >= kPassiveTraceCapacity)
     {
-        SaturatingIncrement(overflow_);
+        saturatingIncrement(overflow);
         return false;
     }
 
-    event.sequence           = ticket & kSequenceMask;
-    event.epoch              = static_cast<std::uint32_t>(ticket >> 32);
-    event.thread_id          = rex::thread::current_thread_id();
-    slots_[slot_index].event = event;
-    slots_[slot_index].committed.store(true, std::memory_order_release);
+    event.sequence         = ticket & kSequenceMask;
+    event.epoch            = static_cast<std::uint32_t>(ticket >> 32);
+    event.threadId         = rex::thread::current_thread_id();
+    slots[slotIndex].event = event;
+    slots[slotIndex].committed.store(true, std::memory_order_release);
     return true;
 }
 
@@ -325,27 +325,27 @@ bool PassiveTraceBuffer::Record(PassiveTraceEvent event) noexcept
 bool PassiveTraceBuffer::BeginObservationEpoch(
     PassiveTraceEvent event) noexcept
 {
-    std::uint32_t state           = gate_.load(std::memory_order_acquire);
-    bool          owns_transition = false;
+    std::uint32_t state          = gate.load(std::memory_order_acquire);
+    bool          ownsTransition = false;
     while ((state & kGateClosed) == 0)
     {
         if ((state & kGateWritersMask) == kGateWritersMask)
         {
             return false;
         }
-        const std::uint32_t epoch_state =
+        const std::uint32_t epochState =
             state + 1 + kGateClosed + kGateEpoch;
-        if (gate_.compare_exchange_weak(state,
-                                        epoch_state,
-                                        std::memory_order_acq_rel,
-                                        std::memory_order_acquire))
+        if (gate.compare_exchange_weak(state,
+                                       epochState,
+                                       std::memory_order_acq_rel,
+                                       std::memory_order_acquire))
         {
-            state           = epoch_state;
-            owns_transition = true;
+            state          = epochState;
+            ownsTransition = true;
             break;
         }
     }
-    if (!owns_transition)
+    if (!ownsTransition)
     {
         return false;
     }
@@ -356,56 +356,56 @@ bool PassiveTraceBuffer::BeginObservationEpoch(
            std::chrono::steady_clock::now() < deadline)
     {
         std::this_thread::yield();
-        state = gate_.load(std::memory_order_acquire);
+        state = gate.load(std::memory_order_acquire);
     }
     if ((state & kGateWritersMask) != 1)
     {
-        SaturatingIncrement(epoch_transition_failures_);
-        gate_.fetch_and(~kGateEpoch, std::memory_order_acq_rel);
-        LeaveWriter();
+        saturatingIncrement(epochTransitionFailures);
+        gate.fetch_and(~kGateEpoch, std::memory_order_acq_rel);
+        leaveWriter();
         return false;
     }
     if ((state & kGateEpoch) == 0)
     {
-        LeaveWriter();
+        leaveWriter();
         return false;
     }
 
-    const bool    stored   = Store(event, NextEpochTicket());
+    const bool    stored   = store(event, nextEpochTicket());
     std::uint32_t expected = kGateClosed | kGateEpoch | 1;
-    if (!gate_.compare_exchange_strong(expected,
-                                       0,
-                                       std::memory_order_release,
-                                       std::memory_order_acquire))
+    if (!gate.compare_exchange_strong(expected,
+                                      0,
+                                      std::memory_order_release,
+                                      std::memory_order_acquire))
     {
-        LeaveWriter();
+        leaveWriter();
         return false;
     }
     return stored;
 }
 
-PassiveTraceStatistics PassiveTraceBuffer::statistics() const noexcept
+PassiveTraceStatistics PassiveTraceBuffer::Statistics() const noexcept
 {
-    const std::uint64_t epoch_sequence =
-        epoch_sequence_.load(std::memory_order_acquire);
-    const std::uint32_t slots = next_slot_.load(std::memory_order_acquire);
+    const std::uint64_t epochSequenceValue =
+        epochSequence.load(std::memory_order_acquire);
+    const std::uint32_t slots = nextSlot.load(std::memory_order_acquire);
     return {
         std::min<std::uint32_t>(slots,
                                 static_cast<std::uint32_t>(kPassiveTraceCapacity)),
-        overflow_.load(std::memory_order_acquire),
-        in_flight_at_flush_.load(std::memory_order_acquire),
-        epoch_transition_failures_.load(std::memory_order_acquire),
-        static_cast<std::uint32_t>(epoch_sequence >> 32),
-        (epoch_sequence & kSequenceMask) == 0
+        overflow.load(std::memory_order_acquire),
+        inFlightAtFlush.load(std::memory_order_acquire),
+        epochTransitionFailures.load(std::memory_order_acquire),
+        static_cast<std::uint32_t>(epochSequenceValue >> 32),
+        (epochSequenceValue & kSequenceMask) == 0
             ? 0
-            : (epoch_sequence & kSequenceMask) - 1,
+            : (epochSequenceValue & kSequenceMask) - 1,
     };
 }
 
-bool PassiveTraceBuffer::Serialize(std::uint32_t in_flight)
+bool PassiveTraceBuffer::serialize(std::uint32_t inFlight)
 {
     std::error_code error;
-    if (const auto parent = output_path_.parent_path(); !parent.empty())
+    if (const auto parent = outputPath.parent_path(); !parent.empty())
     {
         std::filesystem::create_directories(parent, error);
         if (error)
@@ -414,9 +414,9 @@ bool PassiveTraceBuffer::Serialize(std::uint32_t in_flight)
         }
     }
 
-    std::filesystem::path partial_path = output_path_;
-    partial_path += ".partial";
-    std::ofstream output(partial_path, std::ios::out | std::ios::trunc);
+    std::filesystem::path partialPath = outputPath;
+    partialPath += ".partial";
+    std::ofstream output(partialPath, std::ios::out | std::ios::trunc);
     if (!output)
     {
         return false;
@@ -424,7 +424,7 @@ bool PassiveTraceBuffer::Serialize(std::uint32_t in_flight)
 
     std::vector<PassiveTraceEvent> records;
     records.reserve(kPassiveTraceCapacity);
-    for (const auto& slot : slots_)
+    for (const auto& slot : slots)
     {
         if (slot.committed.load(std::memory_order_acquire))
         {
@@ -442,10 +442,10 @@ bool PassiveTraceBuffer::Serialize(std::uint32_t in_flight)
     output << "# schema=native_resolve_vdswap_passive_trace_v1\n";
     output << "# capacity=" << kPassiveTraceCapacity << '\n';
     output << "# stored=" << records.size() << '\n';
-    output << "# overflow=" << overflow_.load(std::memory_order_acquire) << '\n';
-    output << "# in_flight_at_flush=" << in_flight << '\n';
+    output << "# overflow=" << overflow.load(std::memory_order_acquire) << '\n';
+    output << "# in_flight_at_flush=" << inFlight << '\n';
     output << "# epoch_transition_failures="
-           << epoch_transition_failures_.load(std::memory_order_acquire) << '\n';
+           << epochTransitionFailures.load(std::memory_order_acquire) << '\n';
     output << "sequence,thread_id,epoch,event,valid_fields,device_address,"
               "requested_dwords,reservation_address,vdswap_argument,return_value,"
               "resolve_resource_address,descriptor_address,resolve_call_address,"
@@ -465,24 +465,24 @@ bool PassiveTraceBuffer::Serialize(std::uint32_t in_flight)
 
     for (const auto& event : records)
     {
-        output << std::dec << event.sequence << ',' << event.thread_id << ','
-               << event.epoch << ',' << PointName(event.point) << std::hex
-               << ',' << event.valid_fields << ',' << event.device_address
-               << ',' << event.requested_dwords << ',' << event.reservation_address
-               << ',' << event.vdswap_argument << ',' << event.return_value
-               << ',' << event.resolve_resource_address << ','
-               << event.descriptor_address << ',' << event.resolve_call_address
-               << ',' << event.resolve_flags << ',' << event.resolve_mip_level
-               << ',' << event.resolve_slice << ',' << event.device_position
-               << ',' << event.device_end << ',' << event.system_state_2a94
-               << ',' << event.published_write_pointer << ','
-               << event.read_pointer_writeback_address << ','
-               << event.read_pointer_writeback;
+        output << std::dec << event.sequence << ',' << event.threadId << ','
+               << event.epoch << ',' << pointName(event.point) << std::hex
+               << ',' << event.validFields << ',' << event.deviceAddress
+               << ',' << event.requestedDwords << ',' << event.reservationAddress
+               << ',' << event.vdswapArgument << ',' << event.returnValue
+               << ',' << event.resolveResourceAddress << ','
+               << event.descriptorAddress << ',' << event.resolveCallAddress
+               << ',' << event.resolveFlags << ',' << event.resolveMipLevel
+               << ',' << event.resolveSlice << ',' << event.devicePosition
+               << ',' << event.deviceEnd << ',' << event.systemState2a94
+               << ',' << event.publishedWritePointer << ','
+               << event.readPointerWritebackAddress << ','
+               << event.readPointerWriteback;
         for (const std::uint32_t word : event.descriptor)
         {
             output << ',' << word;
         }
-        for (const std::uint32_t word : event.reservation_words)
+        for (const std::uint32_t word : event.reservationWords)
         {
             output << ',' << word;
         }
@@ -490,11 +490,11 @@ bool PassiveTraceBuffer::Serialize(std::uint32_t in_flight)
     }
     const bool written = output.good();
     output.close();
-    if (!written || std::filesystem::exists(output_path_, error) || error)
+    if (!written || std::filesystem::exists(outputPath, error) || error)
     {
         return false;
     }
-    std::filesystem::rename(partial_path, output_path_, error);
+    std::filesystem::rename(partialPath, outputPath, error);
     return !error;
 }
 

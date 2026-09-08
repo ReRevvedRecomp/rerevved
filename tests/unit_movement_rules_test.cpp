@@ -11,7 +11,7 @@
 namespace
 {
 
-void Require(bool condition, std::string_view message)
+void require(bool condition, std::string_view message)
 {
     if (!condition)
     {
@@ -20,33 +20,33 @@ void Require(bool condition, std::string_view message)
     }
 }
 
-ReRevvedUnitMovementRule MakeRule(const char* provider,
-                                  const char* rule_id,
+ReRevvedUnitMovementRule makeRule(const char* provider,
+                                  const char* ruleId,
                                   int32_t     value)
 {
     ReRevvedUnitMovementRule rule{};
-    rule.struct_size = sizeof(rule);
-    std::memcpy(rule.provider_id, provider, std::strlen(provider) + 1);
-    std::memcpy(rule.rule_id, rule_id, std::strlen(rule_id) + 1);
-    rule.civilization   = REREVVED_CIVILIZATION_AZTEC;
-    rule.base_unit_type = REREVVED_UNIT_TYPE_WARRIOR;
-    rule.identity       = REREVVED_UNIT_IDENTITY_JAGUAR_WARRIOR;
-    rule.value          = value;
+    rule.structSize = sizeof(rule);
+    std::memcpy(rule.providerId, provider, std::strlen(provider) + 1);
+    std::memcpy(rule.ruleId, ruleId, std::strlen(ruleId) + 1);
+    rule.civilization = REREVVED_CIVILIZATION_AZTEC;
+    rule.baseUnitType = REREVVED_UNIT_TYPE_WARRIOR;
+    rule.identity     = REREVVED_UNIT_IDENTITY_JAGUAR_WARRIOR;
+    rule.value        = value;
     return rule;
 }
 
-ReRevvedUnitMovementEvaluation Evaluate(int32_t native_value)
+ReRevvedUnitMovementEvaluation evaluate(int32_t nativeValue)
 {
     const ReRevvedUnitMovementQuery query = {
         sizeof(ReRevvedUnitMovementQuery),
         REREVVED_CIVILIZATION_AZTEC,
         REREVVED_UNIT_TYPE_WARRIOR,
         REREVVED_UNIT_IDENTITY_JAGUAR_WARRIOR,
-        native_value,
+        nativeValue,
         {},
     };
     ReRevvedUnitMovementEvaluation evaluation{};
-    Require(ReRevvedEvaluateUnitMovement(
+    require(ReRevvedEvaluateUnitMovement(
                 &query, &evaluation, sizeof(evaluation)) ==
                 REREVVED_UNIT_MOVEMENT_RULES_OK,
             "movement evaluation failed");
@@ -59,26 +59,26 @@ void TestLayoutAndValidation()
     static_assert(offsetof(ReRevvedUnitMovementRule, civilization) == 132);
     static_assert(offsetof(ReRevvedUnitMovementRule, value) == 144);
     static_assert(sizeof(ReRevvedUnitMovementRuleInfo) == 192);
-    static_assert(offsetof(ReRevvedUnitMovementRuleInfo, status_flags) == 148);
+    static_assert(offsetof(ReRevvedUnitMovementRuleInfo, statusFlags) == 148);
     static_assert(sizeof(ReRevvedUnitMovementQuery) == 40);
     static_assert(sizeof(ReRevvedUnitMovementEvaluation) == 40);
-    static_assert(offsetof(ReRevvedUnitMovementEvaluation, final_value) == 8);
-    Require(ReRevvedUnitMovementRulesAbiVersion() ==
+    static_assert(offsetof(ReRevvedUnitMovementEvaluation, finalValue) == 8);
+    require(ReRevvedUnitMovementRulesAbiVersion() ==
                 REREVVED_UNIT_MOVEMENT_RULES_ABI_VERSION,
             "movement ABI version mismatch");
 
     rerevved::unit_movement_rules::ResetForTests();
-    Require(ReRevvedRegisterUnitMovementRule(nullptr) ==
+    require(ReRevvedRegisterUnitMovementRule(nullptr) ==
                 REREVVED_UNIT_MOVEMENT_RULES_ERR_INVALID_ARGUMENT,
             "null movement rule accepted");
-    auto invalid     = MakeRule("test.provider", "invalid", 1);
+    auto invalid     = makeRule("test.provider", "invalid", 1);
     invalid.identity = REREVVED_UNIT_IDENTITY_BASE;
-    Require(ReRevvedRegisterUnitMovementRule(&invalid) ==
+    require(ReRevvedRegisterUnitMovementRule(&invalid) ==
                 REREVVED_UNIT_MOVEMENT_RULES_ERR_INVALID_ARGUMENT,
             "base identity movement rule accepted");
-    invalid             = MakeRule("test.provider", "invalid", 1);
+    invalid             = makeRule("test.provider", "invalid", 1);
     invalid.reserved[0] = 1;
-    Require(ReRevvedRegisterUnitMovementRule(&invalid) ==
+    require(ReRevvedRegisterUnitMovementRule(&invalid) ==
                 REREVVED_UNIT_MOVEMENT_RULES_ERR_INVALID_ARGUMENT,
             "nonzero movement reserved field accepted");
 }
@@ -86,39 +86,39 @@ void TestLayoutAndValidation()
 void TestRegistrationReadbackAndEvaluation()
 {
     rerevved::unit_movement_rules::ResetForTests();
-    auto later   = MakeRule("z.provider", "late", -2);
-    auto earlier = MakeRule("a.provider", "early", 3);
-    Require(ReRevvedRegisterUnitMovementRule(&later) ==
+    auto later   = makeRule("z.provider", "late", -2);
+    auto earlier = makeRule("a.provider", "early", 3);
+    require(ReRevvedRegisterUnitMovementRule(&later) ==
                     REREVVED_UNIT_MOVEMENT_RULES_OK &&
                 ReRevvedRegisterUnitMovementRule(&earlier) ==
                     REREVVED_UNIT_MOVEMENT_RULES_OK,
             "movement rules did not register");
-    Require(ReRevvedRegisterUnitMovementRule(&earlier) ==
+    require(ReRevvedRegisterUnitMovementRule(&earlier) ==
                 REREVVED_UNIT_MOVEMENT_RULES_OK,
             "idempotent movement registration failed");
     earlier.value = 4;
-    Require(ReRevvedRegisterUnitMovementRule(&earlier) ==
+    require(ReRevvedRegisterUnitMovementRule(&earlier) ==
                 REREVVED_UNIT_MOVEMENT_RULES_ERR_DUPLICATE_RULE_ID,
             "conflicting movement rule id accepted");
 
     uint32_t count = 0;
-    Require(ReRevvedGetUnitMovementRuleCount(&count) ==
+    require(ReRevvedGetUnitMovementRuleCount(&count) ==
                     REREVVED_UNIT_MOVEMENT_RULES_OK &&
                 count == 2,
             "movement rule count mismatch");
     ReRevvedUnitMovementRuleInfo info{};
-    Require(ReRevvedGetUnitMovementRule(0, &info, sizeof(info)) ==
+    require(ReRevvedGetUnitMovementRule(0, &info, sizeof(info)) ==
                     REREVVED_UNIT_MOVEMENT_RULES_OK &&
-                std::string_view(info.provider_id) == "a.provider" &&
+                std::string_view(info.providerId) == "a.provider" &&
                 info.value == 3,
             "movement readback ordering mismatch");
 
-    const auto evaluation = Evaluate(10);
-    Require(evaluation.native_value == 10 && evaluation.final_value == 11 &&
-                evaluation.additive_count == 2 && evaluation.status_flags == 0,
+    const auto evaluation = evaluate(10);
+    require(evaluation.nativeValue == 10 && evaluation.finalValue == 11 &&
+                evaluation.additiveCount == 2 && evaluation.statusFlags == 0,
             "movement additive composition mismatch");
 
-    const ReRevvedUnitMovementQuery impi_query = {
+    const ReRevvedUnitMovementQuery impiQuery = {
         sizeof(ReRevvedUnitMovementQuery),
         REREVVED_CIVILIZATION_ZULU,
         REREVVED_UNIT_TYPE_WARRIOR,
@@ -127,23 +127,23 @@ void TestRegistrationReadbackAndEvaluation()
         {},
     };
     ReRevvedUnitMovementEvaluation impi{};
-    Require(ReRevvedEvaluateUnitMovement(
-                &impi_query, &impi, sizeof(impi)) ==
+    require(ReRevvedEvaluateUnitMovement(
+                &impiQuery, &impi, sizeof(impi)) ==
                     REREVVED_UNIT_MOVEMENT_RULES_OK &&
-                impi.final_value == 10 && impi.additive_count == 0,
+                impi.finalValue == 10 && impi.additiveCount == 0,
             "movement identity target leaked to control unit");
 }
 
 void TestOverflowAndSizedOutput()
 {
     rerevved::unit_movement_rules::ResetForTests();
-    auto overflow = MakeRule("a.provider", "overflow", 1);
-    Require(ReRevvedRegisterUnitMovementRule(&overflow) ==
+    auto overflow = makeRule("a.provider", "overflow", 1);
+    require(ReRevvedRegisterUnitMovementRule(&overflow) ==
                 REREVVED_UNIT_MOVEMENT_RULES_OK,
             "movement overflow rule did not register");
-    const auto evaluation = Evaluate(std::numeric_limits<int32_t>::max());
-    Require(evaluation.final_value == evaluation.native_value &&
-                (evaluation.status_flags &
+    const auto evaluation = evaluate(std::numeric_limits<int32_t>::max());
+    require(evaluation.finalValue == evaluation.nativeValue &&
+                (evaluation.statusFlags &
                  REREVVED_UNIT_MOVEMENT_RULE_EVALUATION_OVERFLOW) != 0,
             "movement overflow did not preserve native value");
 
@@ -156,19 +156,19 @@ void TestOverflowAndSizedOutput()
         {},
     };
     ReRevvedUnitMovementEvaluation output{};
-    Require(ReRevvedEvaluateUnitMovement(&query, &output, 19) ==
+    require(ReRevvedEvaluateUnitMovement(&query, &output, 19) ==
                 REREVVED_UNIT_MOVEMENT_RULES_ERR_BUFFER_TOO_SMALL,
             "short movement evaluation output accepted");
     std::memset(&output, 0x5a, sizeof(output));
-    Require(ReRevvedEvaluateUnitMovement(&query, &output, 20) ==
+    require(ReRevvedEvaluateUnitMovement(&query, &output, 20) ==
                     REREVVED_UNIT_MOVEMENT_RULES_OK &&
-                output.struct_size ==
+                output.structSize ==
                     sizeof(output),
             "movement minimum evaluation prefix rejected");
     const auto* bytes = reinterpret_cast<const unsigned char*>(&output);
     for (size_t index = 20; index < sizeof(output); ++index)
     {
-        Require(bytes[index] == 0x5a,
+        require(bytes[index] == 0x5a,
                 "movement minimum prefix overwrote caller tail");
     }
 }

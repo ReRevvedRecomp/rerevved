@@ -4,28 +4,28 @@
 
 int main(void)
 {
-    ReRevvedNationSelectTextAbiVersionFn version_fn =
+    ReRevvedNationSelectTextAbiVersionFn versionFn =
         ReRevvedNationSelectTextAbiVersion;
-    ReRevvedRegisterNationSelectTextRuleFn register_fn =
+    ReRevvedRegisterNationSelectTextRuleFn registerFn =
         ReRevvedRegisterNationSelectTextRule;
-    ReRevvedGetNationSelectTextRuleCountFn count_fn =
+    ReRevvedGetNationSelectTextRuleCountFn countFn =
         ReRevvedGetNationSelectTextRuleCount;
-    ReRevvedGetNationSelectTextRuleFn  get_fn = ReRevvedGetNationSelectTextRule;
-    ReRevvedEvaluateNationSelectTextFn evaluate_fn =
+    ReRevvedGetNationSelectTextRuleFn  getFn = ReRevvedGetNationSelectTextRule;
+    ReRevvedEvaluateNationSelectTextFn evaluateFn =
         ReRevvedEvaluateNationSelectText;
 
     ReRevvedNationSelectTextRule       rule       = { 0 };
     ReRevvedNationSelectTextRuleInfo   info       = { 0 };
     ReRevvedNationSelectTextQuery      query      = { 0 };
     ReRevvedNationSelectTextEvaluation evaluation = { 0 };
-    if (!version_fn || !register_fn || !count_fn || !get_fn || !evaluate_fn ||
+    if (!versionFn || !registerFn || !countFn || !getFn || !evaluateFn ||
         sizeof(rule) != 448 || sizeof(info) != 452 || sizeof(query) != 64 ||
         sizeof(evaluation) != 300 ||
         offsetof(ReRevvedNationSelectTextRule, text) != 160 ||
-        offsetof(ReRevvedNationSelectTextRuleInfo, status_flags) != 416 ||
+        offsetof(ReRevvedNationSelectTextRuleInfo, statusFlags) != 416 ||
         REREVVED_NATION_SELECT_TEXT_ABI_VERSION != 1u)
     {
         return 1;
     }
-    return version_fn() == REREVVED_NATION_SELECT_TEXT_ABI_VERSION ? 0 : 2;
+    return versionFn() == REREVVED_NATION_SELECT_TEXT_ABI_VERSION ? 0 : 2;
 }

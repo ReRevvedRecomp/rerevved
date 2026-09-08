@@ -18,7 +18,7 @@ namespace
 
 int failures = 0;
 
-void Require(bool condition, std::string_view message)
+void require(bool condition, std::string_view message)
 {
     if (!condition)
     {
@@ -29,7 +29,7 @@ void Require(bool condition, std::string_view message)
 
 struct DefinitionFixture
 {
-    ReRevvedUnitTypeId unit_type;
+    ReRevvedUnitTypeId unitType;
     int32_t            attack;
     int32_t            defense;
 };
@@ -72,7 +72,7 @@ constexpr std::array<DefinitionFixture, REREVVED_UNIT_TYPE_COUNT>
 struct IdentityFixture
 {
     int32_t civilization;
-    int32_t unit_type;
+    int32_t unitType;
     int32_t identity;
 };
 
@@ -246,11 +246,11 @@ constexpr std::array<int32_t, REREVVED_UNIT_IDENTITY_COUNT> kIdentityIds = {
     REREVVED_UNIT_IDENTITY_KESHIK,
 };
 
-constexpr int32_t ExpectedIdentity(int32_t civilization, int32_t unit_type)
+constexpr int32_t expectedIdentity(int32_t civilization, int32_t unitType)
 {
     for (const auto& entry : kIdentities)
     {
-        if (entry.civilization == civilization && entry.unit_type == unit_type)
+        if (entry.civilization == civilization && entry.unitType == unitType)
         {
             return entry.identity;
         }
@@ -270,39 +270,39 @@ struct GuardedOutput
         bytes.fill(kCanary);
     }
 
-    void* Data()
+    void* data()
     {
         return bytes.data() + kPrefix;
     }
 
     template <typename T>
-    T Read(uint32_t out_size) const
+    T read(uint32_t outSize) const
     {
         T result{};
         std::memcpy(&result,
                     bytes.data() + kPrefix,
-                    std::min<size_t>(out_size, sizeof(T)));
+                    std::min<size_t>(outSize, sizeof(T)));
         return result;
     }
 
-    bool OutsideCallerIsIntact(uint32_t out_size) const
+    bool outsideCallerIsIntact(uint32_t outSize) const
     {
-        const bool prefix_ok = std::all_of(
+        const bool prefixOk = std::all_of(
             bytes.begin(), bytes.begin() + kPrefix, [](uint8_t value)
             {
                 return value == kCanary;
             });
-        const bool suffix_ok = std::all_of(
-            bytes.begin() + kPrefix + out_size,
+        const bool suffixOk = std::all_of(
+            bytes.begin() + kPrefix + outSize,
             bytes.end(),
             [](uint8_t value)
             {
                 return value == kCanary;
             });
-        return prefix_ok && suffix_ok;
+        return prefixOk && suffixOk;
     }
 
-    bool BytesAre(uint32_t begin, uint32_t end, uint8_t value) const
+    bool bytesAre(uint32_t begin, uint32_t end, uint8_t value) const
     {
         return std::all_of(bytes.begin() + kPrefix + begin,
                            bytes.begin() + kPrefix + end,
@@ -321,15 +321,15 @@ void TestLayoutsAndIds()
     static_assert(std::is_same_v<ReRevvedUnitDisplayForm, int32_t>);
 
     static_assert(sizeof(ReRevvedGameplayState) == 80);
-    static_assert(offsetof(ReRevvedGameplayState, struct_size) == 0);
-    static_assert(offsetof(ReRevvedGameplayState, valid_fields) == 4);
-    static_assert(offsetof(ReRevvedGameplayState, frame_sequence) == 8);
-    static_assert(offsetof(ReRevvedGameplayState, gameplay_active) == 16);
-    static_assert(offsetof(ReRevvedGameplayState, interface_update) == 20);
-    static_assert(offsetof(ReRevvedGameplayState, active_player) == 24);
-    static_assert(offsetof(ReRevvedGameplayState, human_player_mask) == 28);
-    static_assert(offsetof(ReRevvedGameplayState, turn_owner_known) == 32);
-    static_assert(offsetof(ReRevvedGameplayState, human_turn) == 36);
+    static_assert(offsetof(ReRevvedGameplayState, structSize) == 0);
+    static_assert(offsetof(ReRevvedGameplayState, validFields) == 4);
+    static_assert(offsetof(ReRevvedGameplayState, frameSequence) == 8);
+    static_assert(offsetof(ReRevvedGameplayState, gameplayActive) == 16);
+    static_assert(offsetof(ReRevvedGameplayState, interfaceUpdate) == 20);
+    static_assert(offsetof(ReRevvedGameplayState, activePlayer) == 24);
+    static_assert(offsetof(ReRevvedGameplayState, humanPlayerMask) == 28);
+    static_assert(offsetof(ReRevvedGameplayState, turnOwnerKnown) == 32);
+    static_assert(offsetof(ReRevvedGameplayState, humanTurn) == 36);
     static_assert(offsetof(ReRevvedGameplayState, available) == 40);
     static_assert(offsetof(ReRevvedGameplayState, civilization) == 44);
     static_assert(offsetof(ReRevvedGameplayState, era) == 48);
@@ -338,57 +338,57 @@ void TestLayoutsAndIds()
     static_assert(offsetof(ReRevvedGameplayState, reserved) == 60);
 
     static_assert(sizeof(ReRevvedUnitDefinition) == 32);
-    static_assert(offsetof(ReRevvedUnitDefinition, unit_type) == 4);
-    static_assert(offsetof(ReRevvedUnitDefinition, base_attack) == 8);
-    static_assert(offsetof(ReRevvedUnitDefinition, base_defense) == 12);
+    static_assert(offsetof(ReRevvedUnitDefinition, unitType) == 4);
+    static_assert(offsetof(ReRevvedUnitDefinition, baseAttack) == 8);
+    static_assert(offsetof(ReRevvedUnitDefinition, baseDefense) == 12);
     static_assert(offsetof(ReRevvedUnitDefinition, reserved) == 16);
     static_assert(sizeof(ReRevvedUnitIdentity) == 32);
     static_assert(offsetof(ReRevvedUnitIdentity, civilization) == 4);
-    static_assert(offsetof(ReRevvedUnitIdentity, base_unit_type) == 8);
+    static_assert(offsetof(ReRevvedUnitIdentity, baseUnitType) == 8);
     static_assert(offsetof(ReRevvedUnitIdentity, identity) == 12);
-    static_assert(offsetof(ReRevvedUnitIdentity, display_form) == 16);
+    static_assert(offsetof(ReRevvedUnitIdentity, displayForm) == 16);
     static_assert(offsetof(ReRevvedUnitIdentity, reserved) == 20);
 
-    Require(REREVVED_CIVILIZATION_UNKNOWN == -1,
+    require(REREVVED_CIVILIZATION_UNKNOWN == -1,
             "civilization unknown value");
-    Require(REREVVED_UNIT_TYPE_UNKNOWN == -1, "unit type unknown value");
+    require(REREVVED_UNIT_TYPE_UNKNOWN == -1, "unit type unknown value");
     for (size_t index = 0; index < kCivilizationIds.size(); ++index)
     {
-        Require(kCivilizationIds[index] == static_cast<int32_t>(index),
+        require(kCivilizationIds[index] == static_cast<int32_t>(index),
                 "civilization ID ordering");
     }
     for (size_t index = 0; index < kUnitTypeIds.size(); ++index)
     {
-        Require(kUnitTypeIds[index] == static_cast<int32_t>(index),
+        require(kUnitTypeIds[index] == static_cast<int32_t>(index),
                 "unit type ID ordering");
     }
     for (size_t index = 0; index < kIdentityIds.size(); ++index)
     {
-        Require(kIdentityIds[index] == static_cast<int32_t>(index),
+        require(kIdentityIds[index] == static_cast<int32_t>(index),
                 "unit identity ID ordering");
     }
 }
 
 void TestDefinitions()
 {
-    for (int32_t unit_type = 0; unit_type < REREVVED_UNIT_TYPE_COUNT;
-         ++unit_type)
+    for (int32_t unitType = 0; unitType < REREVVED_UNIT_TYPE_COUNT;
+         ++unitType)
     {
-        const auto&            fixture = kDefinitions[unit_type];
+        const auto&            fixture = kDefinitions[unitType];
         ReRevvedUnitDefinition result{};
-        Require(ReRevvedGetUnitDefinition(unit_type, &result, sizeof(result)) ==
+        require(ReRevvedGetUnitDefinition(unitType, &result, sizeof(result)) ==
                     REREVVED_UNIT_CATALOG_OK,
                 "definition query succeeds");
-        Require(result.struct_size == sizeof(result),
+        require(result.structSize == sizeof(result),
                 "definition producer size");
-        Require(fixture.unit_type == unit_type,
+        require(fixture.unitType == unitType,
                 "definition fixture covers each unit ID once");
-        Require(result.unit_type == unit_type, "definition unit type");
-        Require(result.base_attack == fixture.attack,
+        require(result.unitType == unitType, "definition unit type");
+        require(result.baseAttack == fixture.attack,
                 "definition base attack");
-        Require(result.base_defense == fixture.defense,
+        require(result.baseDefense == fixture.defense,
                 "definition base defense");
-        Require(std::ranges::all_of(result.reserved,
+        require(std::ranges::all_of(result.reserved,
                                     [](int32_t value)
                                     {
                                         return value == 0;
@@ -397,48 +397,48 @@ void TestDefinitions()
     }
 
     ReRevvedUnitDefinition knights{};
-    Require(ReRevvedGetUnitDefinition(
+    require(ReRevvedGetUnitDefinition(
                 REREVVED_UNIT_TYPE_KNIGHTS, &knights, sizeof(knights)) ==
                     REREVVED_UNIT_CATALOG_OK &&
-                knights.base_attack == 4,
+                knights.baseAttack == 4,
             "first-party Knights base attack readback");
 }
 
 void TestResolverMatrix()
 {
-    int32_t non_base_count = 0;
+    int32_t nonBaseCount = 0;
     for (int32_t civilization = 0;
          civilization < REREVVED_CIVILIZATION_COUNT;
          ++civilization)
     {
-        for (int32_t unit_type = 0; unit_type < REREVVED_UNIT_TYPE_COUNT;
-             ++unit_type)
+        for (int32_t unitType = 0; unitType < REREVVED_UNIT_TYPE_COUNT;
+             ++unitType)
         {
-            int32_t prior_identity = -1;
-            for (int32_t display_form = REREVVED_UNIT_DISPLAY_FORM_UNIT;
-                 display_form <= REREVVED_UNIT_DISPLAY_FORM_ARMY;
-                 ++display_form)
+            int32_t priorIdentity = -1;
+            for (int32_t displayForm = REREVVED_UNIT_DISPLAY_FORM_UNIT;
+                 displayForm <= REREVVED_UNIT_DISPLAY_FORM_ARMY;
+                 ++displayForm)
             {
                 ReRevvedUnitIdentity result{};
-                Require(ReRevvedResolveUnitIdentity(civilization,
-                                                    unit_type,
-                                                    display_form,
+                require(ReRevvedResolveUnitIdentity(civilization,
+                                                    unitType,
+                                                    displayForm,
                                                     &result,
                                                     sizeof(result)) ==
                             REREVVED_UNIT_CATALOG_OK,
                         "identity resolver succeeds");
-                Require(result.struct_size == sizeof(result),
+                require(result.structSize == sizeof(result),
                         "identity producer size");
-                Require(result.civilization == civilization,
+                require(result.civilization == civilization,
                         "identity civilization");
-                Require(result.base_unit_type == unit_type,
+                require(result.baseUnitType == unitType,
                         "identity base unit type");
-                Require(result.identity ==
-                            ExpectedIdentity(civilization, unit_type),
+                require(result.identity ==
+                            expectedIdentity(civilization, unitType),
                         "resolved identity");
-                Require(result.display_form == display_form,
+                require(result.displayForm == displayForm,
                         "identity display form");
-                Require(std::ranges::all_of(
+                require(std::ranges::all_of(
                             result.reserved,
                             [](int32_t value)
                             {
@@ -447,26 +447,26 @@ void TestResolverMatrix()
                         "identity reserved words");
                 if (result.identity != REREVVED_UNIT_IDENTITY_BASE)
                 {
-                    ++non_base_count;
+                    ++nonBaseCount;
                 }
-                if (display_form == REREVVED_UNIT_DISPLAY_FORM_UNIT)
+                if (displayForm == REREVVED_UNIT_DISPLAY_FORM_UNIT)
                 {
-                    prior_identity = result.identity;
+                    priorIdentity = result.identity;
                 }
                 else
                 {
-                    Require(result.identity == prior_identity,
+                    require(result.identity == priorIdentity,
                             "display form does not change identity");
                 }
             }
         }
     }
 
-    Require(non_base_count == 54, "resolver has 54 non-base outputs");
-    Require(ExpectedIdentity(REREVVED_CIVILIZATION_SPANISH,
+    require(nonBaseCount == 54, "resolver has 54 non-base outputs");
+    require(expectedIdentity(REREVVED_CIVILIZATION_SPANISH,
                              REREVVED_UNIT_TYPE_ARCHER) ==
                     REREVVED_UNIT_IDENTITY_CROSSBOW_ARCHER &&
-                ExpectedIdentity(REREVVED_CIVILIZATION_CHINESE,
+                expectedIdentity(REREVVED_CIVILIZATION_CHINESE,
                                  REREVVED_UNIT_TYPE_ARCHER) ==
                     REREVVED_UNIT_IDENTITY_CROSSBOW_ARCHER,
             "Spanish and Chinese share Crossbow Archer");
@@ -474,36 +474,36 @@ void TestResolverMatrix()
 
 void TestDefinitionBufferContract()
 {
-    for (uint32_t out_size = 0; out_size <= 40; ++out_size)
+    for (uint32_t outSize = 0; outSize <= 40; ++outSize)
     {
         GuardedOutput output;
         const int32_t status = ReRevvedGetUnitDefinition(
             REREVVED_UNIT_TYPE_KNIGHTS,
-            static_cast<ReRevvedUnitDefinition*>(output.Data()),
-            out_size);
-        Require(status == (out_size < 16
+            static_cast<ReRevvedUnitDefinition*>(output.data()),
+            outSize);
+        require(status == (outSize < 16
                                ? REREVVED_UNIT_CATALOG_ERR_BUFFER_TOO_SMALL
                                : REREVVED_UNIT_CATALOG_OK),
                 "definition prefix status");
-        Require(output.OutsideCallerIsIntact(out_size),
+        require(output.outsideCallerIsIntact(outSize),
                 "definition caller canaries");
-        if (out_size < 16)
+        if (outSize < 16)
         {
-            Require(output.BytesAre(0, out_size, 0),
+            require(output.bytesAre(0, outSize, 0),
                     "small definition buffer cleared");
             continue;
         }
 
-        const auto result = output.Read<ReRevvedUnitDefinition>(out_size);
-        Require(result.struct_size == 32 &&
-                    result.unit_type == REREVVED_UNIT_TYPE_KNIGHTS &&
-                    result.base_attack == 4 && result.base_defense == 2,
+        const auto result = output.read<ReRevvedUnitDefinition>(outSize);
+        require(result.structSize == 32 &&
+                    result.unitType == REREVVED_UNIT_TYPE_KNIGHTS &&
+                    result.baseAttack == 4 && result.baseDefense == 2,
                 "definition prefix fields");
-        Require(output.BytesAre(16, std::min(out_size, uint32_t{ 32 }), 0),
+        require(output.bytesAre(16, std::min(outSize, uint32_t{ 32 }), 0),
                 "definition partial reserved bytes are zero");
-        if (out_size > 32)
+        if (outSize > 32)
         {
-            Require(output.BytesAre(32, out_size, kCanary),
+            require(output.bytesAre(32, outSize, kCanary),
                     "definition leaves extended caller bytes untouched");
         }
     }
@@ -511,65 +511,65 @@ void TestDefinitionBufferContract()
 
 void TestIdentityBufferContract()
 {
-    for (uint32_t out_size = 0; out_size <= 40; ++out_size)
+    for (uint32_t outSize = 0; outSize <= 40; ++outSize)
     {
         GuardedOutput output;
         const int32_t status = ReRevvedResolveUnitIdentity(
             REREVVED_CIVILIZATION_ROMAN,
             REREVVED_UNIT_TYPE_KNIGHTS,
             REREVVED_UNIT_DISPLAY_FORM_ARMY,
-            static_cast<ReRevvedUnitIdentity*>(output.Data()),
-            out_size);
-        Require(status == (out_size < 20
+            static_cast<ReRevvedUnitIdentity*>(output.data()),
+            outSize);
+        require(status == (outSize < 20
                                ? REREVVED_UNIT_CATALOG_ERR_BUFFER_TOO_SMALL
                                : REREVVED_UNIT_CATALOG_OK),
                 "identity prefix status");
-        Require(output.OutsideCallerIsIntact(out_size),
+        require(output.outsideCallerIsIntact(outSize),
                 "identity caller canaries");
-        if (out_size < 20)
+        if (outSize < 20)
         {
-            Require(output.BytesAre(0, out_size, 0),
+            require(output.bytesAre(0, outSize, 0),
                     "small identity buffer cleared");
             continue;
         }
 
-        const auto result = output.Read<ReRevvedUnitIdentity>(out_size);
-        Require(result.struct_size == 32 &&
+        const auto result = output.read<ReRevvedUnitIdentity>(outSize);
+        require(result.structSize == 32 &&
                     result.civilization == REREVVED_CIVILIZATION_ROMAN &&
-                    result.base_unit_type == REREVVED_UNIT_TYPE_KNIGHTS &&
+                    result.baseUnitType == REREVVED_UNIT_TYPE_KNIGHTS &&
                     result.identity == REREVVED_UNIT_IDENTITY_CATAPHRACT &&
-                    result.display_form == REREVVED_UNIT_DISPLAY_FORM_ARMY,
+                    result.displayForm == REREVVED_UNIT_DISPLAY_FORM_ARMY,
                 "identity prefix fields");
-        Require(output.BytesAre(20, std::min(out_size, uint32_t{ 32 }), 0),
+        require(output.bytesAre(20, std::min(outSize, uint32_t{ 32 }), 0),
                 "identity partial reserved bytes are zero");
-        if (out_size > 32)
+        if (outSize > 32)
         {
-            Require(output.BytesAre(32, out_size, kCanary),
+            require(output.bytesAre(32, outSize, kCanary),
                     "identity leaves extended caller bytes untouched");
         }
     }
 }
 
 template <typename Call>
-void RequireInvalidCallClears(Call call, std::string_view message)
+void requireInvalidCallClears(Call call, std::string_view message)
 {
     GuardedOutput output;
     const int32_t status = call(output);
-    Require(status == REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT, message);
-    Require(output.BytesAre(0, 32, 0), "invalid call clears producer bytes");
-    Require(output.BytesAre(32, 40, kCanary),
+    require(status == REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT, message);
+    require(output.bytesAre(0, 32, 0), "invalid call clears producer bytes");
+    require(output.bytesAre(32, 40, kCanary),
             "invalid call leaves extended caller bytes untouched");
-    Require(output.OutsideCallerIsIntact(40), "invalid call canaries");
+    require(output.outsideCallerIsIntact(40), "invalid call canaries");
 }
 
 void TestInvalidArguments()
 {
-    Require(ReRevvedGetUnitDefinition(REREVVED_UNIT_TYPE_KNIGHTS,
+    require(ReRevvedGetUnitDefinition(REREVVED_UNIT_TYPE_KNIGHTS,
                                       nullptr,
                                       32) ==
                 REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT,
             "definition null output");
-    Require(ReRevvedResolveUnitIdentity(REREVVED_CIVILIZATION_ROMAN,
+    require(ReRevvedResolveUnitIdentity(REREVVED_CIVILIZATION_ROMAN,
                                         REREVVED_UNIT_TYPE_KNIGHTS,
                                         REREVVED_UNIT_DISPLAY_FORM_UNIT,
                                         nullptr,
@@ -577,28 +577,28 @@ void TestInvalidArguments()
                 REREVVED_UNIT_CATALOG_ERR_INVALID_ARGUMENT,
             "identity null output");
 
-    GuardedOutput invalid_small_definition;
-    Require(ReRevvedGetUnitDefinition(
+    GuardedOutput invalidSmallDefinition;
+    require(ReRevvedGetUnitDefinition(
                 REREVVED_UNIT_TYPE_UNKNOWN,
                 static_cast<ReRevvedUnitDefinition*>(
-                    invalid_small_definition.Data()),
+                    invalidSmallDefinition.data()),
                 15) == REREVVED_UNIT_CATALOG_ERR_BUFFER_TOO_SMALL,
             "definition size validation precedes ID validation");
-    Require(invalid_small_definition.BytesAre(0, 15, 0) &&
-                invalid_small_definition.OutsideCallerIsIntact(15),
+    require(invalidSmallDefinition.bytesAre(0, 15, 0) &&
+                invalidSmallDefinition.outsideCallerIsIntact(15),
             "invalid small definition buffer is bounded and cleared");
 
-    GuardedOutput invalid_small_identity;
-    Require(ReRevvedResolveUnitIdentity(
+    GuardedOutput invalidSmallIdentity;
+    require(ReRevvedResolveUnitIdentity(
                 REREVVED_CIVILIZATION_UNKNOWN,
                 REREVVED_UNIT_TYPE_UNKNOWN,
                 -1,
                 static_cast<ReRevvedUnitIdentity*>(
-                    invalid_small_identity.Data()),
+                    invalidSmallIdentity.data()),
                 19) == REREVVED_UNIT_CATALOG_ERR_BUFFER_TOO_SMALL,
             "identity size validation precedes ID validation");
-    Require(invalid_small_identity.BytesAre(0, 19, 0) &&
-                invalid_small_identity.OutsideCallerIsIntact(19),
+    require(invalidSmallIdentity.bytesAre(0, 19, 0) &&
+                invalidSmallIdentity.outsideCallerIsIntact(19),
             "invalid small identity buffer is bounded and cleared");
 
     constexpr std::array<int32_t, 4> kInvalidUnitTypes = {
@@ -607,14 +607,14 @@ void TestInvalidArguments()
         REREVVED_UNIT_TYPE_COUNT + 1,
         std::numeric_limits<int32_t>::max(),
     };
-    for (int32_t unit_type : kInvalidUnitTypes)
+    for (int32_t unitType : kInvalidUnitTypes)
     {
-        RequireInvalidCallClears(
-            [unit_type](GuardedOutput& output)
+        requireInvalidCallClears(
+            [unitType](GuardedOutput& output)
             {
                 return ReRevvedGetUnitDefinition(
-                    unit_type,
-                    static_cast<ReRevvedUnitDefinition*>(output.Data()),
+                    unitType,
+                    static_cast<ReRevvedUnitDefinition*>(output.data()),
                     40);
             },
             "invalid definition unit type");
@@ -628,28 +628,28 @@ void TestInvalidArguments()
     };
     for (int32_t civilization : kInvalidCivilizations)
     {
-        RequireInvalidCallClears(
+        requireInvalidCallClears(
             [civilization](GuardedOutput& output)
             {
                 return ReRevvedResolveUnitIdentity(
                     civilization,
                     REREVVED_UNIT_TYPE_KNIGHTS,
                     REREVVED_UNIT_DISPLAY_FORM_UNIT,
-                    static_cast<ReRevvedUnitIdentity*>(output.Data()),
+                    static_cast<ReRevvedUnitIdentity*>(output.data()),
                     40);
             },
             "invalid identity civilization");
     }
-    for (int32_t unit_type : kInvalidUnitTypes)
+    for (int32_t unitType : kInvalidUnitTypes)
     {
-        RequireInvalidCallClears(
-            [unit_type](GuardedOutput& output)
+        requireInvalidCallClears(
+            [unitType](GuardedOutput& output)
             {
                 return ReRevvedResolveUnitIdentity(
                     REREVVED_CIVILIZATION_ROMAN,
-                    unit_type,
+                    unitType,
                     REREVVED_UNIT_DISPLAY_FORM_UNIT,
-                    static_cast<ReRevvedUnitIdentity*>(output.Data()),
+                    static_cast<ReRevvedUnitIdentity*>(output.data()),
                     40);
             },
             "invalid identity unit type");
@@ -661,16 +661,16 @@ void TestInvalidArguments()
         3,
         std::numeric_limits<int32_t>::max(),
     };
-    for (int32_t display_form : kInvalidForms)
+    for (int32_t displayForm : kInvalidForms)
     {
-        RequireInvalidCallClears(
-            [display_form](GuardedOutput& output)
+        requireInvalidCallClears(
+            [displayForm](GuardedOutput& output)
             {
                 return ReRevvedResolveUnitIdentity(
                     REREVVED_CIVILIZATION_ROMAN,
                     REREVVED_UNIT_TYPE_KNIGHTS,
-                    display_form,
-                    static_cast<ReRevvedUnitIdentity*>(output.Data()),
+                    displayForm,
+                    static_cast<ReRevvedUnitIdentity*>(output.data()),
                     40);
             },
             "invalid identity display form");
@@ -681,7 +681,7 @@ void TestEnlargedProducerContract()
 {
     struct FutureOutput
     {
-        uint32_t struct_size;
+        uint32_t structSize;
         int32_t  first;
         int32_t  second;
         int32_t  third;
@@ -699,37 +699,37 @@ void TestEnlargedProducerContract()
     };
 
     GuardedOutput prefix;
-    Require(rerevved::unit_catalog::CopySizedOutput(
-                prefix.Data(), 16, &producer, sizeof(producer), 16) ==
+    require(rerevved::unit_catalog::CopySizedOutput(
+                prefix.data(), 16, &producer, sizeof(producer), 16) ==
                 REREVVED_UNIT_CATALOG_OK,
             "enlarged producer accepts ABI 1 prefix");
-    const auto prefix_result = prefix.Read<FutureOutput>(16);
-    Require(prefix_result.struct_size == 36 && prefix_result.first == 11 &&
-                prefix_result.second == 22 && prefix_result.third == 33,
+    const auto prefixResult = prefix.read<FutureOutput>(16);
+    require(prefixResult.structSize == 36 && prefixResult.first == 11 &&
+                prefixResult.second == 22 && prefixResult.third == 33,
             "enlarged producer retains prefix meanings");
-    Require(prefix.OutsideCallerIsIntact(16),
+    require(prefix.outsideCallerIsIntact(16),
             "enlarged producer prefix canaries");
 
-    GuardedOutput partial_field;
-    Require(rerevved::unit_catalog::CopySizedOutput(partial_field.Data(),
+    GuardedOutput partialField;
+    require(rerevved::unit_catalog::CopySizedOutput(partialField.data(),
                                                     17,
                                                     &producer,
                                                     sizeof(producer),
                                                     16) == REREVVED_UNIT_CATALOG_OK,
             "enlarged producer accepts partial trailing storage");
-    Require(partial_field.BytesAre(16, 17, 0),
+    require(partialField.bytesAre(16, 17, 0),
             "enlarged producer writes only complete fields");
-    Require(partial_field.OutsideCallerIsIntact(17),
+    require(partialField.outsideCallerIsIntact(17),
             "partial field caller canaries");
 
     GuardedOutput extended;
-    Require(rerevved::unit_catalog::CopySizedOutput(
-                extended.Data(), 40, &producer, sizeof(producer), 16) ==
+    require(rerevved::unit_catalog::CopySizedOutput(
+                extended.data(), 40, &producer, sizeof(producer), 16) ==
                 REREVVED_UNIT_CATALOG_OK,
             "enlarged producer writes its full record");
-    Require(extended.BytesAre(36, 40, kCanary),
+    require(extended.bytesAre(36, 40, kCanary),
             "enlarged producer leaves later bytes untouched");
-    Require(extended.OutsideCallerIsIntact(40),
+    require(extended.outsideCallerIsIntact(40),
             "enlarged producer full canaries");
 }
 
@@ -737,7 +737,7 @@ void TestEnlargedProducerContract()
 
 int main()
 {
-    Require(ReRevvedUnitCatalogAbiVersion() == REREVVED_UNIT_CATALOG_ABI_VERSION,
+    require(ReRevvedUnitCatalogAbiVersion() == REREVVED_UNIT_CATALOG_ABI_VERSION,
             "Unit Catalog ABI version");
     TestLayoutsAndIds();
     TestDefinitions();

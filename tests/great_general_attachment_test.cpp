@@ -9,7 +9,7 @@ namespace
 
 int failures = 0;
 
-void Require(bool condition, std::string_view message)
+void require(bool condition, std::string_view message)
 {
     if (!condition)
     {
@@ -18,7 +18,7 @@ void Require(bool condition, std::string_view message)
     }
 }
 
-rerevved::GreatGeneralUnitState LiveUnit(int32_t player,
+rerevved::GreatGeneralUnitState liveUnit(int32_t player,
                                          int32_t unit,
                                          uint8_t type,
                                          int16_t x,
@@ -32,49 +32,49 @@ rerevved::GreatGeneralUnitState LiveUnit(int32_t player,
 
 int main()
 {
-    const auto carrier    = LiveUnit(2, 4, 13, 22, 13, -1);
-    const auto general    = LiveUnit(2, 12, 30, 23, 13, 4);
-    int16_t    repaired_x = 0;
-    int16_t    repaired_y = 0;
-    Require(rerevved::TryPlanGreatGeneralCoordinateRepair(
-                carrier, general, repaired_x, repaired_y) &&
-                repaired_x == 22 && repaired_y == 13,
+    const auto carrier   = liveUnit(2, 4, 13, 22, 13, -1);
+    const auto general   = liveUnit(2, 12, 30, 23, 13, 4);
+    int16_t    repairedX = 0;
+    int16_t    repairedY = 0;
+    require(rerevved::TryPlanGreatGeneralCoordinateRepair(
+                carrier, general, repairedX, repairedY) &&
+                repairedX == 22 && repairedY == 13,
             "copy the final carrier tile to its live General");
 
-    auto already_attached = general;
-    already_attached.x    = carrier.x;
-    Require(!rerevved::TryPlanGreatGeneralCoordinateRepair(
-                carrier, already_attached, repaired_x, repaired_y),
+    auto alreadyAttached = general;
+    alreadyAttached.x    = carrier.x;
+    require(!rerevved::TryPlanGreatGeneralCoordinateRepair(
+                carrier, alreadyAttached, repairedX, repairedY),
             "leave an attached General unchanged");
 
-    auto deleted_general = general;
-    deleted_general.slot = 0xFF;
-    Require(!rerevved::TryPlanGreatGeneralCoordinateRepair(
-                carrier, deleted_general, repaired_x, repaired_y),
+    auto deletedGeneral = general;
+    deletedGeneral.slot = 0xFF;
+    require(!rerevved::TryPlanGreatGeneralCoordinateRepair(
+                carrier, deletedGeneral, repairedX, repairedY),
             "do not resurrect a deleted General");
 
-    auto dead_carrier  = carrier;
-    dead_carrier.flags = 0x80000000;
-    Require(!rerevved::TryPlanGreatGeneralCoordinateRepair(
-                dead_carrier, general, repaired_x, repaired_y),
+    auto deadCarrier  = carrier;
+    deadCarrier.flags = 0x80000000;
+    require(!rerevved::TryPlanGreatGeneralCoordinateRepair(
+                deadCarrier, general, repairedX, repairedY),
             "do not follow a dead carrier");
 
-    auto ordinary_unit = general;
-    ordinary_unit.type = 29;
-    Require(!rerevved::TryPlanGreatGeneralCoordinateRepair(
-                carrier, ordinary_unit, repaired_x, repaired_y),
+    auto ordinaryUnit = general;
+    ordinaryUnit.type = 29;
+    require(!rerevved::TryPlanGreatGeneralCoordinateRepair(
+                carrier, ordinaryUnit, repairedX, repairedY),
             "require the Great General type discriminator");
 
-    auto wrong_link         = general;
-    wrong_link.carrier_link = 5;
-    Require(!rerevved::TryPlanGreatGeneralCoordinateRepair(
-                carrier, wrong_link, repaired_x, repaired_y),
+    auto wrongLink        = general;
+    wrongLink.carrierLink = 5;
+    require(!rerevved::TryPlanGreatGeneralCoordinateRepair(
+                carrier, wrongLink, repairedX, repairedY),
             "require the live carrier link");
 
-    auto other_player   = general;
-    other_player.player = 3;
-    Require(!rerevved::TryPlanGreatGeneralCoordinateRepair(
-                carrier, other_player, repaired_x, repaired_y),
+    auto otherPlayer   = general;
+    otherPlayer.player = 3;
+    require(!rerevved::TryPlanGreatGeneralCoordinateRepair(
+                carrier, otherPlayer, repairedX, repairedY),
             "never cross player ownership");
 
     return failures == 0 ? 0 : 1;

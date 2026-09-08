@@ -6,7 +6,7 @@ namespace rerevved::unit_combat_rules
 {
 
 bool TryEvaluate(ReRevvedCivilizationId        civilization,
-                 ReRevvedUnitTypeId            base_unit_type,
+                 ReRevvedUnitTypeId            baseUnitType,
                  ReRevvedUnitIdentityId        identity,
                  ReRevvedTerrainId             terrain,
                  ReRevvedUnitCombatProperty    property,

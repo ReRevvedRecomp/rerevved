@@ -15,7 +15,7 @@ namespace
 constexpr uint32_t kPlayerCivilizations = 0x830ECD28;
 constexpr int32_t  kPlayerCount         = 6;
 
-bool TryReadCivilization(int32_t player, ReRevvedCivilizationId& civilization)
+bool tryReadCivilization(int32_t player, ReRevvedCivilizationId& civilization)
 {
     if (player < 0 || player >= kPlayerCount)
     {
@@ -51,18 +51,18 @@ bool TryReadCivilization(int32_t player, ReRevvedCivilizationId& civilization)
 } // namespace
 
 void ReRevvedApplyUnitMovementBase(PPCRegister& player,
-                                   PPCRegister& unit_type,
-                                   PPCRegister& movement_result)
+                                   PPCRegister& unitType,
+                                   PPCRegister& movementResult)
 {
     ReRevvedCivilizationId civilization = REREVVED_CIVILIZATION_UNKNOWN;
-    if (!TryReadCivilization(player.s32, civilization))
+    if (!tryReadCivilization(player.s32, civilization))
     {
         return;
     }
 
     ReRevvedUnitIdentityId identity = REREVVED_UNIT_IDENTITY_BASE;
     if (!rerevved::unit_catalog::TryResolveUnitIdentity(
-            civilization, unit_type.s32, identity) ||
+            civilization, unitType.s32, identity) ||
         identity == REREVVED_UNIT_IDENTITY_BASE)
     {
         return;
@@ -70,13 +70,13 @@ void ReRevvedApplyUnitMovementBase(PPCRegister& player,
 
     ReRevvedUnitMovementEvaluation evaluation{};
     if (rerevved::unit_movement_rules::TryEvaluate(civilization,
-                                                   unit_type.s32,
+                                                   unitType.s32,
                                                    identity,
-                                                   movement_result.s32,
+                                                   movementResult.s32,
                                                    evaluation) &&
-        (evaluation.status_flags &
+        (evaluation.statusFlags &
          REREVVED_UNIT_MOVEMENT_RULE_EVALUATION_OVERFLOW) == 0)
     {
-        movement_result.s64 = evaluation.final_value;
+        movementResult.s64 = evaluation.finalValue;
     }
 }

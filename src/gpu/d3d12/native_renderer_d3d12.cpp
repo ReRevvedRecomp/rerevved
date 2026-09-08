@@ -34,13 +34,13 @@ namespace
 constexpr std::uint32_t kFrameCount         = 2;
 constexpr DWORD         kFenceWaitTimeoutMs = 5000;
 
-bool LogFailure(const char* operation, HRESULT result)
+bool logFailure(const char* operation, HRESULT result)
 {
     REXLOG_ERROR("Native D3D12 {} failed: HRESULT 0x{:08X}", operation, static_cast<std::uint32_t>(result));
     return false;
 }
 
-void EnableDred()
+void enableDred()
 {
     ComPtr<ID3D12DeviceRemovedExtendedDataSettings1> settings;
     const HRESULT                                    result = D3D12GetDebugInterface(IID_PPV_ARGS(&settings));
@@ -61,52 +61,52 @@ void EnableDred()
 
 struct NativeRendererD3D12::Impl
 {
-    std::thread             renderer_thread;
-    std::mutex              state_mutex;
-    std::condition_variable state_cv;
-    bool                    stop_requested           = false;
-    bool                    initialization_done      = false;
-    bool                    initialization_succeeded = false;
-    bool                    resize_pending           = false;
-    std::uint32_t           requested_width          = 0;
-    std::uint32_t           requested_height         = 0;
-    bool                    runtime_failed           = false;
-    std::function<void()>   request_deferred_quit;
+    std::thread             rendererThread;
+    std::mutex              stateMutex;
+    std::condition_variable stateCv;
+    bool                    stopRequested           = false;
+    bool                    initializationDone      = false;
+    bool                    initializationSucceeded = false;
+    bool                    resizePending           = false;
+    std::uint32_t           requestedWidth          = 0;
+    std::uint32_t           requestedHeight         = 0;
+    bool                    runtimeFailed           = false;
+    std::function<void()>   requestDeferredQuit;
     std::atomic<bool>       initialized{ false };
-    std::atomic<bool>       gpu_objects_abandoned{ false };
+    std::atomic<bool>       gpuObjectsAbandoned{ false };
 
 #if defined(_WIN32)
     ComPtr<IDXGIFactory6>                                   factory;
     ComPtr<IDXGIAdapter1>                                   adapter;
     ComPtr<ID3D12Device>                                    device;
     ComPtr<ID3D12CommandQueue>                              queue;
-    ComPtr<IDXGISwapChain3>                                 swap_chain;
-    ComPtr<ID3D12DescriptorHeap>                            rtv_heap;
-    std::array<ComPtr<ID3D12Resource>, kFrameCount>         back_buffers;
+    ComPtr<IDXGISwapChain3>                                 swapChain;
+    ComPtr<ID3D12DescriptorHeap>                            rtvHeap;
+    std::array<ComPtr<ID3D12Resource>, kFrameCount>         backBuffers;
     std::array<ComPtr<ID3D12CommandAllocator>, kFrameCount> allocators;
-    ComPtr<ID3D12GraphicsCommandList>                       command_list;
+    ComPtr<ID3D12GraphicsCommandList>                       commandList;
     ComPtr<ID3D12Fence>                                     fence;
-    std::array<std::uint64_t, kFrameCount>                  fence_values{};
-    std::uint64_t                                           next_fence_value = 1;
-    HANDLE                                                  fence_event      = nullptr;
-    std::uint32_t                                           rtv_stride       = 0;
-    std::uint32_t                                           width            = 0;
-    std::uint32_t                                           height           = 0;
+    std::array<std::uint64_t, kFrameCount>                  fenceValues{};
+    std::uint64_t                                           nextFenceValue = 1;
+    HANDLE                                                  fenceEvent     = nullptr;
+    std::uint32_t                                           rtvStride      = 0;
+    std::uint32_t                                           width          = 0;
+    std::uint32_t                                           height         = 0;
 
-    bool WaitForFence(std::uint64_t value)
+    bool waitForFence(std::uint64_t value)
     {
         if (value == 0 || fence->GetCompletedValue() >= value)
         {
             return true;
         }
-        const HRESULT result = fence->SetEventOnCompletion(value, fence_event);
+        const HRESULT result = fence->SetEventOnCompletion(value, fenceEvent);
         if (FAILED(result))
         {
-            return LogDeviceRemoval("fence event", result);
+            return logDeviceRemoval("fence event", result);
         }
-        const DWORD wait_result =
-            WaitForSingleObject(fence_event, kFenceWaitTimeoutMs);
-        if (wait_result == WAIT_TIMEOUT)
+        const DWORD waitResult =
+            WaitForSingleObject(fenceEvent, kFenceWaitTimeoutMs);
+        if (waitResult == WAIT_TIMEOUT)
         {
             REXLOG_ERROR("Native D3D12 fence wait timed out after {} ms",
                          kFenceWaitTimeoutMs);
@@ -118,7 +118,7 @@ struct NativeRendererD3D12::Impl
             }
             return false;
         }
-        if (wait_result != WAIT_OBJECT_0)
+        if (waitResult != WAIT_OBJECT_0)
         {
             REXLOG_ERROR("Native D3D12 fence wait failed: Win32 error {}",
                          GetLastError());
@@ -127,45 +127,45 @@ struct NativeRendererD3D12::Impl
         return true;
     }
 
-    bool WaitForGpu()
+    bool waitForGpu()
     {
-        const std::uint64_t value  = next_fence_value++;
+        const std::uint64_t value  = nextFenceValue++;
         const HRESULT       result = queue->Signal(fence.Get(), value);
         if (FAILED(result))
         {
-            return LogDeviceRemoval("queue signal", result);
+            return logDeviceRemoval("queue signal", result);
         }
-        return WaitForFence(value);
+        return waitForFence(value);
     }
 
-    void ReleaseBackBuffers()
+    void releaseBackBuffers()
     {
-        for (auto& buffer : back_buffers)
+        for (auto& buffer : backBuffers)
         {
             buffer.Reset();
         }
     }
 
-    bool CreateBackBuffers()
+    bool createBackBuffers()
     {
-        const D3D12_CPU_DESCRIPTOR_HANDLE heap_start =
-            rtv_heap->GetCPUDescriptorHandleForHeapStart();
+        const D3D12_CPU_DESCRIPTOR_HANDLE heapStart =
+            rtvHeap->GetCPUDescriptorHandleForHeapStart();
         for (std::uint32_t index = 0; index < kFrameCount; ++index)
         {
             const HRESULT result =
-                swap_chain->GetBuffer(index, IID_PPV_ARGS(&back_buffers[index]));
+                swapChain->GetBuffer(index, IID_PPV_ARGS(&backBuffers[index]));
             if (FAILED(result))
             {
-                return LogFailure("swap-chain buffer", result);
+                return logFailure("swap-chain buffer", result);
             }
-            D3D12_CPU_DESCRIPTOR_HANDLE handle = heap_start;
-            handle.ptr += static_cast<SIZE_T>(index) * rtv_stride;
-            device->CreateRenderTargetView(back_buffers[index].Get(), nullptr, handle);
+            D3D12_CPU_DESCRIPTOR_HANDLE handle = heapStart;
+            handle.ptr += static_cast<SIZE_T>(index) * rtvStride;
+            device->CreateRenderTargetView(backBuffers[index].Get(), nullptr, handle);
         }
         return true;
     }
 
-    bool LogDeviceRemoval(const char* operation, HRESULT result)
+    bool logDeviceRemoval(const char* operation, HRESULT result)
     {
         REXLOG_ERROR("Native D3D12 {} failed: HRESULT 0x{:08X}", operation, static_cast<std::uint32_t>(result));
         const HRESULT reason = device ? device->GetDeviceRemovedReason() : S_OK;
@@ -177,17 +177,17 @@ struct NativeRendererD3D12::Impl
         return false;
     }
 
-    bool InitializeOnRendererThread(std::uintptr_t native_window,
-                                    std::uint32_t  initial_width,
-                                    std::uint32_t  initial_height);
-    bool ResizeOnRendererThread(std::uint32_t width, std::uint32_t height);
-    bool PresentOnRendererThread();
-    void ShutdownOnRendererThread();
+    bool initializeOnRendererThread(std::uintptr_t nativeWindow,
+                                    std::uint32_t  initialWidth,
+                                    std::uint32_t  initialHeight);
+    bool resizeOnRendererThread(std::uint32_t width, std::uint32_t height);
+    bool presentOnRendererThread();
+    void shutdownOnRendererThread();
 #endif
 };
 
 NativeRendererD3D12::NativeRendererD3D12()
-: impl_(std::make_unique<Impl>())
+: impl(std::make_unique<Impl>())
 {
 }
 
@@ -198,32 +198,32 @@ NativeRendererD3D12::~NativeRendererD3D12()
 
 #if defined(_WIN32)
 
-bool NativeRendererD3D12::Impl::InitializeOnRendererThread(
-    std::uintptr_t native_window,
-    std::uint32_t  initial_width,
-    std::uint32_t  initial_height)
+bool NativeRendererD3D12::Impl::initializeOnRendererThread(
+    std::uintptr_t nativeWindow,
+    std::uint32_t  initialWidth,
+    std::uint32_t  initialHeight)
 {
-    const HWND hwnd = reinterpret_cast<HWND>(native_window);
-    if (!hwnd || initial_width == 0 || initial_height == 0)
+    const HWND hwnd = reinterpret_cast<HWND>(nativeWindow);
+    if (!hwnd || initialWidth == 0 || initialHeight == 0)
     {
         REXLOG_ERROR("Native D3D12 surface has no drawable HWND extent");
         return false;
     }
-    width  = initial_width;
-    height = initial_height;
+    width  = initialWidth;
+    height = initialHeight;
 
-    const auto fail_initialization = [this]()
+    const auto failInitialization = [this]()
     {
-        ShutdownOnRendererThread();
+        shutdownOnRendererThread();
         return false;
     };
 
-    EnableDred();
+    enableDred();
     HRESULT result = CreateDXGIFactory2(0, IID_PPV_ARGS(&factory));
     if (FAILED(result))
     {
-        LogFailure("factory creation", result);
-        return fail_initialization();
+        logFailure("factory creation", result);
+        return failInitialization();
     }
 
     for (std::uint32_t index = 0;; ++index)
@@ -237,8 +237,8 @@ bool NativeRendererD3D12::Impl::InitializeOnRendererThread(
         }
         if (FAILED(result))
         {
-            LogFailure("adapter enumeration", result);
-            return fail_initialization();
+            logFailure("adapter enumeration", result);
+            return failInitialization();
         }
 
         DXGI_ADAPTER_DESC1 description{};
@@ -248,13 +248,13 @@ bool NativeRendererD3D12::Impl::InitializeOnRendererThread(
             continue;
         }
 
-        ComPtr<ID3D12Device> candidate_device;
+        ComPtr<ID3D12Device> candidateDevice;
         if (SUCCEEDED(D3D12CreateDevice(candidate.Get(),
                                         D3D_FEATURE_LEVEL_11_0,
-                                        IID_PPV_ARGS(&candidate_device))))
+                                        IID_PPV_ARGS(&candidateDevice))))
         {
             adapter = std::move(candidate);
-            device  = std::move(candidate_device);
+            device  = std::move(candidateDevice);
             device->SetName(L"ReRevved native renderer device");
             REXLOG_INFO("Native D3D12 adapter selected: vendor={:04X} device={:04X}",
                         description.VendorId,
@@ -265,62 +265,62 @@ bool NativeRendererD3D12::Impl::InitializeOnRendererThread(
     if (!device)
     {
         REXLOG_ERROR("Native D3D12 found no compatible hardware adapter");
-        return fail_initialization();
+        return failInitialization();
     }
 
-    D3D12_COMMAND_QUEUE_DESC queue_desc{};
-    queue_desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-    result          = device->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&queue));
+    D3D12_COMMAND_QUEUE_DESC queueDesc{};
+    queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+    result         = device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&queue));
     if (FAILED(result))
     {
-        LogFailure("command queue creation", result);
-        return fail_initialization();
+        logFailure("command queue creation", result);
+        return failInitialization();
     }
     queue->SetName(L"ReRevved native renderer direct queue");
 
-    DXGI_SWAP_CHAIN_DESC1 swap_chain_desc{};
-    swap_chain_desc.Width       = width;
-    swap_chain_desc.Height      = height;
-    swap_chain_desc.Format      = DXGI_FORMAT_R8G8B8A8_UNORM;
-    swap_chain_desc.SampleDesc  = { 1, 0 };
-    swap_chain_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    swap_chain_desc.BufferCount = kFrameCount;
-    swap_chain_desc.SwapEffect  = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+    DXGI_SWAP_CHAIN_DESC1 swapChainDesc{};
+    swapChainDesc.Width       = width;
+    swapChainDesc.Height      = height;
+    swapChainDesc.Format      = DXGI_FORMAT_R8G8B8A8_UNORM;
+    swapChainDesc.SampleDesc  = { 1, 0 };
+    swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    swapChainDesc.BufferCount = kFrameCount;
+    swapChainDesc.SwapEffect  = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 
-    ComPtr<IDXGISwapChain1> new_swap_chain;
+    ComPtr<IDXGISwapChain1> newSwapChain;
     result = factory->CreateSwapChainForHwnd(
-        queue.Get(), hwnd, &swap_chain_desc, nullptr, nullptr, &new_swap_chain);
+        queue.Get(), hwnd, &swapChainDesc, nullptr, nullptr, &newSwapChain);
     if (FAILED(result))
     {
-        LogFailure("swap chain creation", result);
-        return fail_initialization();
+        logFailure("swap chain creation", result);
+        return failInitialization();
     }
-    result = new_swap_chain.As(&swap_chain);
+    result = newSwapChain.As(&swapChain);
     if (FAILED(result))
     {
-        LogFailure("swap chain interface", result);
-        return fail_initialization();
+        logFailure("swap chain interface", result);
+        return failInitialization();
     }
     result = factory->MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER);
     if (FAILED(result))
     {
-        LogFailure("window association", result);
-        return fail_initialization();
+        logFailure("window association", result);
+        return failInitialization();
     }
 
-    D3D12_DESCRIPTOR_HEAP_DESC rtv_desc{};
-    rtv_desc.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-    rtv_desc.NumDescriptors = kFrameCount;
-    result                  = device->CreateDescriptorHeap(&rtv_desc, IID_PPV_ARGS(&rtv_heap));
+    D3D12_DESCRIPTOR_HEAP_DESC rtvDesc{};
+    rtvDesc.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+    rtvDesc.NumDescriptors = kFrameCount;
+    result                 = device->CreateDescriptorHeap(&rtvDesc, IID_PPV_ARGS(&rtvHeap));
     if (FAILED(result))
     {
-        LogFailure("RTV heap creation", result);
-        return fail_initialization();
+        logFailure("RTV heap creation", result);
+        return failInitialization();
     }
-    rtv_stride = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-    if (!CreateBackBuffers())
+    rtvStride = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+    if (!createBackBuffers())
     {
-        return fail_initialization();
+        return failInitialization();
     }
 
     for (std::uint32_t index = 0; index < kFrameCount; ++index)
@@ -330,8 +330,8 @@ bool NativeRendererD3D12::Impl::InitializeOnRendererThread(
             D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&allocator));
         if (FAILED(result))
         {
-            LogFailure("command allocator creation", result);
-            return fail_initialization();
+            logFailure("command allocator creation", result);
+            return failInitialization();
         }
         allocator->SetName(index == 0 ? L"ReRevved native frame allocator 0"
                                       : L"ReRevved native frame allocator 1");
@@ -340,159 +340,159 @@ bool NativeRendererD3D12::Impl::InitializeOnRendererThread(
                                        D3D12_COMMAND_LIST_TYPE_DIRECT,
                                        allocators[0].Get(),
                                        nullptr,
-                                       IID_PPV_ARGS(&command_list));
+                                       IID_PPV_ARGS(&commandList));
     if (FAILED(result))
     {
-        LogFailure("command list creation", result);
-        return fail_initialization();
+        logFailure("command list creation", result);
+        return failInitialization();
     }
-    command_list->SetName(L"ReRevved native frame command list");
-    result = command_list->Close();
+    commandList->SetName(L"ReRevved native frame command list");
+    result = commandList->Close();
     if (FAILED(result))
     {
-        LogFailure("initial command list close", result);
-        return fail_initialization();
+        logFailure("initial command list close", result);
+        return failInitialization();
     }
     result = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
     if (FAILED(result))
     {
-        LogFailure("fence creation", result);
-        return fail_initialization();
+        logFailure("fence creation", result);
+        return failInitialization();
     }
     fence->SetName(L"ReRevved native frame fence");
-    fence_event = CreateEventW(nullptr, FALSE, FALSE, nullptr);
-    if (!fence_event)
+    fenceEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+    if (!fenceEvent)
     {
         REXLOG_ERROR("Native D3D12 fence event creation failed: Win32 error {}",
                      GetLastError());
-        return fail_initialization();
+        return failInitialization();
     }
 
     initialized.store(true, std::memory_order_release);
     REXLOG_INFO("Native D3D12 initialized: {}x{} frames={}", width, height, kFrameCount);
-    if (!PresentOnRendererThread())
+    if (!presentOnRendererThread())
     {
-        ShutdownOnRendererThread();
+        shutdownOnRendererThread();
         return false;
     }
     REXLOG_INFO("Native D3D12 diagnostic frame presented");
     return true;
 }
 
-bool NativeRendererD3D12::Impl::ResizeOnRendererThread(std::uint32_t new_width,
-                                                       std::uint32_t new_height)
+bool NativeRendererD3D12::Impl::resizeOnRendererThread(std::uint32_t newWidth,
+                                                       std::uint32_t newHeight)
 {
-    if (new_width == 0 || new_height == 0 || !initialized.load(std::memory_order_acquire))
+    if (newWidth == 0 || newHeight == 0 || !initialized.load(std::memory_order_acquire))
     {
-        return new_width == 0 || new_height == 0;
+        return newWidth == 0 || newHeight == 0;
     }
-    if (new_width == width && new_height == height)
+    if (newWidth == width && newHeight == height)
     {
         return true;
     }
-    if (!WaitForGpu())
+    if (!waitForGpu())
     {
         return false;
     }
 
-    ReleaseBackBuffers();
-    fence_values.fill(0);
-    const HRESULT result = swap_chain->ResizeBuffers(
-        kFrameCount, new_width, new_height, DXGI_FORMAT_R8G8B8A8_UNORM, 0);
+    releaseBackBuffers();
+    fenceValues.fill(0);
+    const HRESULT result = swapChain->ResizeBuffers(
+        kFrameCount, newWidth, newHeight, DXGI_FORMAT_R8G8B8A8_UNORM, 0);
     if (FAILED(result))
     {
-        LogDeviceRemoval("swap chain resize", result);
+        logDeviceRemoval("swap chain resize", result);
         return false;
     }
-    width  = new_width;
-    height = new_height;
-    if (!CreateBackBuffers())
+    width  = newWidth;
+    height = newHeight;
+    if (!createBackBuffers())
     {
         return false;
     }
-    REXLOG_INFO("Native D3D12 resized: {}x{}", new_width, new_height);
-    return PresentOnRendererThread();
+    REXLOG_INFO("Native D3D12 resized: {}x{}", newWidth, newHeight);
+    return presentOnRendererThread();
 }
 
-bool NativeRendererD3D12::Impl::PresentOnRendererThread()
+bool NativeRendererD3D12::Impl::presentOnRendererThread()
 {
     if (!initialized.load(std::memory_order_acquire))
     {
         return false;
     }
 
-    const std::uint32_t frame_index = swap_chain->GetCurrentBackBufferIndex();
-    if (!WaitForFence(fence_values[frame_index]))
+    const std::uint32_t frameIndex = swapChain->GetCurrentBackBufferIndex();
+    if (!waitForFence(fenceValues[frameIndex]))
     {
         return false;
     }
 
-    HRESULT result = allocators[frame_index]->Reset();
+    HRESULT result = allocators[frameIndex]->Reset();
     if (FAILED(result))
     {
-        LogFailure("command allocator reset", result);
+        logFailure("command allocator reset", result);
         return false;
     }
-    result = command_list->Reset(allocators[frame_index].Get(), nullptr);
+    result = commandList->Reset(allocators[frameIndex].Get(), nullptr);
     if (FAILED(result))
     {
-        LogFailure("command list reset", result);
+        logFailure("command list reset", result);
         return false;
     }
 
-    D3D12_RESOURCE_BARRIER to_render_target{};
-    to_render_target.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    to_render_target.Transition.pResource   = back_buffers[frame_index].Get();
-    to_render_target.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    to_render_target.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-    to_render_target.Transition.StateAfter  = D3D12_RESOURCE_STATE_RENDER_TARGET;
-    command_list->ResourceBarrier(1, &to_render_target);
+    D3D12_RESOURCE_BARRIER toRenderTarget{};
+    toRenderTarget.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    toRenderTarget.Transition.pResource   = backBuffers[frameIndex].Get();
+    toRenderTarget.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    toRenderTarget.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+    toRenderTarget.Transition.StateAfter  = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    commandList->ResourceBarrier(1, &toRenderTarget);
 
-    D3D12_CPU_DESCRIPTOR_HANDLE rtv = rtv_heap->GetCPUDescriptorHandleForHeapStart();
-    rtv.ptr += static_cast<SIZE_T>(frame_index) * rtv_stride;
-    constexpr float clear_color[4] = { 0.015F, 0.02F, 0.04F, 1.0F };
-    command_list->ClearRenderTargetView(rtv, clear_color, 0, nullptr);
+    D3D12_CPU_DESCRIPTOR_HANDLE rtv = rtvHeap->GetCPUDescriptorHandleForHeapStart();
+    rtv.ptr += static_cast<SIZE_T>(frameIndex) * rtvStride;
+    constexpr float clearColor[4] = { 0.015F, 0.02F, 0.04F, 1.0F };
+    commandList->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
 
-    D3D12_RESOURCE_BARRIER to_present = to_render_target;
-    to_present.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-    to_present.Transition.StateAfter  = D3D12_RESOURCE_STATE_PRESENT;
-    command_list->ResourceBarrier(1, &to_present);
+    D3D12_RESOURCE_BARRIER toPresent = toRenderTarget;
+    toPresent.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    toPresent.Transition.StateAfter  = D3D12_RESOURCE_STATE_PRESENT;
+    commandList->ResourceBarrier(1, &toPresent);
 
-    result = command_list->Close();
+    result = commandList->Close();
     if (FAILED(result))
     {
-        LogFailure("command list close", result);
+        logFailure("command list close", result);
         return false;
     }
-    ID3D12CommandList* lists[] = { command_list.Get() };
+    ID3D12CommandList* lists[] = { commandList.Get() };
     queue->ExecuteCommandLists(1, lists);
 
-    const std::uint64_t fence_value = next_fence_value++;
-    result                          = queue->Signal(fence.Get(), fence_value);
+    const std::uint64_t fenceValue = nextFenceValue++;
+    result                         = queue->Signal(fence.Get(), fenceValue);
     if (FAILED(result))
     {
-        LogDeviceRemoval("frame signal", result);
+        logDeviceRemoval("frame signal", result);
         return false;
     }
-    fence_values[frame_index] = fence_value;
+    fenceValues[frameIndex] = fenceValue;
 
-    result = swap_chain->Present(1, 0);
+    result = swapChain->Present(1, 0);
     if (FAILED(result))
     {
-        LogDeviceRemoval("present", result);
+        logDeviceRemoval("present", result);
         return false;
     }
     return true;
 }
 
-void NativeRendererD3D12::Impl::ShutdownOnRendererThread()
+void NativeRendererD3D12::Impl::shutdownOnRendererThread()
 {
-    bool abandon_gpu_objects = false;
-    if (initialized.load(std::memory_order_acquire) && queue && fence && !WaitForGpu())
+    bool abandonGpuObjects = false;
+    if (initialized.load(std::memory_order_acquire) && queue && fence && !waitForGpu())
     {
         const HRESULT reason = device ? device->GetDeviceRemovedReason() : E_FAIL;
-        abandon_gpu_objects  = !FAILED(reason);
-        if (abandon_gpu_objects)
+        abandonGpuObjects    = !FAILED(reason);
+        if (abandonGpuObjects)
         {
             // A live device with an uncompleted fence may still reference every
             // submitted object. Let process teardown reclaim them instead of
@@ -501,138 +501,138 @@ void NativeRendererD3D12::Impl::ShutdownOnRendererThread()
         }
     }
     initialized.store(false, std::memory_order_release);
-    if (abandon_gpu_objects)
+    if (abandonGpuObjects)
     {
-        (void)command_list.Detach();
+        (void)commandList.Detach();
         for (auto& allocator : allocators)
         {
             (void)allocator.Detach();
         }
-        for (auto& back_buffer : back_buffers)
+        for (auto& backBuffer : backBuffers)
         {
-            (void)back_buffer.Detach();
+            (void)backBuffer.Detach();
         }
-        (void)rtv_heap.Detach();
-        (void)swap_chain.Detach();
+        (void)rtvHeap.Detach();
+        (void)swapChain.Detach();
         (void)queue.Detach();
         (void)fence.Detach();
         (void)device.Detach();
         (void)adapter.Detach();
         (void)factory.Detach();
-        fence_event = nullptr;
-        gpu_objects_abandoned.store(true, std::memory_order_release);
+        fenceEvent = nullptr;
+        gpuObjectsAbandoned.store(true, std::memory_order_release);
         return;
     }
-    command_list.Reset();
+    commandList.Reset();
     for (auto& allocator : allocators)
     {
         allocator.Reset();
     }
-    ReleaseBackBuffers();
-    rtv_heap.Reset();
-    swap_chain.Reset();
+    releaseBackBuffers();
+    rtvHeap.Reset();
+    swapChain.Reset();
     queue.Reset();
     fence.Reset();
     device.Reset();
     adapter.Reset();
     factory.Reset();
-    if (fence_event)
+    if (fenceEvent)
     {
-        CloseHandle(fence_event);
-        fence_event = nullptr;
+        CloseHandle(fenceEvent);
+        fenceEvent = nullptr;
     }
-    fence_values.fill(0);
-    next_fence_value = 1;
-    width            = 0;
-    height           = 0;
+    fenceValues.fill(0);
+    nextFenceValue = 1;
+    width          = 0;
+    height         = 0;
 }
 
 #endif
 
-void NativeRendererD3D12::RendererThreadMain(std::uintptr_t native_window,
+void NativeRendererD3D12::rendererThreadMain(std::uintptr_t nativeWindow,
                                              std::uint32_t  width,
                                              std::uint32_t  height)
 {
 #if defined(_WIN32)
-    const bool initialization_succeeded =
-        impl_->InitializeOnRendererThread(native_window, width, height);
+    const bool initializationSucceeded =
+        impl->initializeOnRendererThread(nativeWindow, width, height);
     {
-        std::lock_guard lock(impl_->state_mutex);
-        impl_->initialization_succeeded = initialization_succeeded;
-        impl_->initialization_done      = true;
+        std::lock_guard lock(impl->stateMutex);
+        impl->initializationSucceeded = initializationSucceeded;
+        impl->initializationDone      = true;
     }
-    impl_->state_cv.notify_all();
-    if (!initialization_succeeded)
+    impl->stateCv.notify_all();
+    if (!initializationSucceeded)
     {
         return;
     }
 
     for (;;)
     {
-        bool          resize           = false;
-        std::uint32_t requested_width  = 0;
-        std::uint32_t requested_height = 0;
+        bool          resize          = false;
+        std::uint32_t requestedWidth  = 0;
+        std::uint32_t requestedHeight = 0;
         {
-            std::unique_lock lock(impl_->state_mutex);
-            impl_->state_cv.wait(lock, [this]()
-                                 {
-                                     return impl_->stop_requested || impl_->resize_pending;
-                                 });
-            if (impl_->stop_requested)
+            std::unique_lock lock(impl->stateMutex);
+            impl->stateCv.wait(lock, [this]()
+                               {
+                                   return impl->stopRequested || impl->resizePending;
+                               });
+            if (impl->stopRequested)
             {
                 break;
             }
-            resize                = impl_->resize_pending;
-            requested_width       = impl_->requested_width;
-            requested_height      = impl_->requested_height;
-            impl_->resize_pending = false;
+            resize              = impl->resizePending;
+            requestedWidth      = impl->requestedWidth;
+            requestedHeight     = impl->requestedHeight;
+            impl->resizePending = false;
         }
 
-        bool request_succeeded = true;
+        bool requestSucceeded = true;
         if (resize)
         {
-            request_succeeded = impl_->ResizeOnRendererThread(
-                requested_width, requested_height);
+            requestSucceeded = impl->resizeOnRendererThread(
+                requestedWidth, requestedHeight);
         }
-        if (!request_succeeded)
+        if (!requestSucceeded)
         {
-            HandleRendererFailure();
+            handleRendererFailure();
             break;
         }
     }
-    impl_->ShutdownOnRendererThread();
+    impl->shutdownOnRendererThread();
 #else
-    (void)native_window;
+    (void)nativeWindow;
     (void)width;
     (void)height;
     {
-        std::lock_guard lock(impl_->state_mutex);
-        impl_->initialization_succeeded = false;
-        impl_->initialization_done      = true;
+        std::lock_guard lock(impl->stateMutex);
+        impl->initializationSucceeded = false;
+        impl->initializationDone      = true;
     }
-    impl_->state_cv.notify_all();
+    impl->stateCv.notify_all();
 #endif
-    impl_->initialized.store(false, std::memory_order_release);
+    impl->initialized.store(false, std::memory_order_release);
 }
 
-void NativeRendererD3D12::HandleRendererFailure()
+void NativeRendererD3D12::handleRendererFailure()
 {
-    std::function<void()> request_quit;
+    std::function<void()> requestQuit;
     {
-        std::lock_guard lock(impl_->state_mutex);
-        if (impl_->runtime_failed)
+        std::lock_guard lock(impl->stateMutex);
+        if (impl->runtimeFailed)
         {
             return;
         }
-        impl_->runtime_failed = true;
-        impl_->stop_requested = true;
-        request_quit          = impl_->request_deferred_quit;
+        impl->runtimeFailed = true;
+        impl->stopRequested = true;
+        requestQuit         = impl->requestDeferredQuit;
     }
     REXLOG_ERROR("Native D3D12 renderer entered terminal failure; requesting deferred quit");
-    impl_->state_cv.notify_all();
-    if (request_quit)
+    impl->stateCv.notify_all();
+    if (requestQuit)
     {
-        request_quit();
+        requestQuit();
     }
 }
 
@@ -643,18 +643,18 @@ bool NativeRendererD3D12::Initialize(rex::ui::Window& window)
     REXLOG_ERROR("The native renderer currently requires Windows D3D12");
     return false;
 #else
-    if (impl_->initialized.load(std::memory_order_acquire))
+    if (impl->initialized.load(std::memory_order_acquire))
     {
         return true;
     }
-    if (impl_->gpu_objects_abandoned.load(std::memory_order_acquire))
+    if (impl->gpuObjectsAbandoned.load(std::memory_order_acquire))
     {
         REXLOG_ERROR("Native D3D12 cannot reinitialize after abandoning in-flight GPU objects");
         return false;
     }
-    if (impl_->renderer_thread.joinable())
+    if (impl->rendererThread.joinable())
     {
-        impl_->renderer_thread.join();
+        impl->rendererThread.join();
     }
 
     const HWND hwnd   = static_cast<HWND>(window.GetNativeWindowHandle());
@@ -674,38 +674,38 @@ bool NativeRendererD3D12::Initialize(rex::ui::Window& window)
     ResetGuestDevicePublication();
     ResetGuestTextureObservation();
     ResetGuestSwapCorrelation();
-    auto* app_context = &window.app_context();
+    auto* appContext = &window.app_context();
     {
-        std::lock_guard lock(impl_->state_mutex);
-        impl_->stop_requested           = false;
-        impl_->initialization_done      = false;
-        impl_->initialization_succeeded = false;
-        impl_->resize_pending           = false;
-        impl_->requested_width          = width;
-        impl_->requested_height         = height;
-        impl_->runtime_failed           = false;
-        impl_->request_deferred_quit    = [app_context]()
+        std::lock_guard lock(impl->stateMutex);
+        impl->stopRequested           = false;
+        impl->initializationDone      = false;
+        impl->initializationSucceeded = false;
+        impl->resizePending           = false;
+        impl->requestedWidth          = width;
+        impl->requestedHeight         = height;
+        impl->runtimeFailed           = false;
+        impl->requestDeferredQuit     = [appContext]()
         {
-            app_context->RequestDeferredQuit();
+            appContext->RequestDeferredQuit();
         };
     }
 
-    impl_->renderer_thread = std::thread(
-        &NativeRendererD3D12::RendererThreadMain,
+    impl->rendererThread = std::thread(
+        &NativeRendererD3D12::rendererThreadMain,
         this,
         reinterpret_cast<std::uintptr_t>(hwnd),
         width,
         height);
     {
-        std::unique_lock lock(impl_->state_mutex);
-        impl_->state_cv.wait(lock, [this]()
-                             {
-                                 return impl_->initialization_done;
-                             });
-        if (!impl_->initialization_succeeded)
+        std::unique_lock lock(impl->stateMutex);
+        impl->stateCv.wait(lock, [this]()
+                           {
+                               return impl->initializationDone;
+                           });
+        if (!impl->initializationSucceeded)
         {
             lock.unlock();
-            impl_->renderer_thread.join();
+            impl->rendererThread.join();
             return false;
         }
     }
@@ -721,49 +721,49 @@ bool NativeRendererD3D12::Resize(std::uint32_t width, std::uint32_t height)
     {
         return true;
     }
-    std::lock_guard lock(impl_->state_mutex);
-    if (!impl_->initialized.load(std::memory_order_acquire) ||
-        impl_->stop_requested || impl_->runtime_failed)
+    std::lock_guard lock(impl->stateMutex);
+    if (!impl->initialized.load(std::memory_order_acquire) ||
+        impl->stopRequested || impl->runtimeFailed)
     {
         return false;
     }
 
     // The UI thread only updates this mailbox; the renderer consumes the
     // latest dimensions and performs all DXGI/D3D12 work itself.
-    impl_->requested_width  = width;
-    impl_->requested_height = height;
-    impl_->resize_pending   = true;
-    impl_->state_cv.notify_one();
+    impl->requestedWidth  = width;
+    impl->requestedHeight = height;
+    impl->resizePending   = true;
+    impl->stateCv.notify_one();
     return true;
 }
 
 void NativeRendererD3D12::Shutdown()
 {
-    if (!impl_->renderer_thread.joinable())
+    if (!impl->rendererThread.joinable())
     {
-        std::lock_guard lock(impl_->state_mutex);
-        impl_->initialized.store(false, std::memory_order_release);
-        impl_->request_deferred_quit = {};
-        impl_->state_cv.notify_all();
+        std::lock_guard lock(impl->stateMutex);
+        impl->initialized.store(false, std::memory_order_release);
+        impl->requestDeferredQuit = {};
+        impl->stateCv.notify_all();
         return;
     }
     {
-        std::lock_guard lock(impl_->state_mutex);
-        impl_->stop_requested = true;
-        impl_->resize_pending = false;
+        std::lock_guard lock(impl->stateMutex);
+        impl->stopRequested = true;
+        impl->resizePending = false;
     }
-    impl_->state_cv.notify_all();
-    if (impl_->renderer_thread.get_id() != std::this_thread::get_id())
+    impl->stateCv.notify_all();
+    if (impl->rendererThread.get_id() != std::this_thread::get_id())
     {
-        impl_->renderer_thread.join();
+        impl->rendererThread.join();
     }
-    std::lock_guard lock(impl_->state_mutex);
-    impl_->request_deferred_quit = {};
+    std::lock_guard lock(impl->stateMutex);
+    impl->requestDeferredQuit = {};
 }
 
-bool NativeRendererD3D12::initialized() const noexcept
+bool NativeRendererD3D12::Initialized() const noexcept
 {
-    return impl_->initialized.load(std::memory_order_acquire);
+    return impl->initialized.load(std::memory_order_acquire);
 }
 
 } // namespace rerevved::gpu

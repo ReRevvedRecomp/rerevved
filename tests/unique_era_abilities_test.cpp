@@ -11,20 +11,20 @@
 
 #include <rex/ppc.h>
 
-void ReRevvedApplyUniqueEraAbilityCell(PPCRegister& cell_offset,
-                                       PPCRegister& unlock_era,
-                                       PPCRegister& native_ability);
+void ReRevvedApplyUniqueEraAbilityCell(PPCRegister& cellOffset,
+                                       PPCRegister& unlockEra,
+                                       PPCRegister& nativeAbility);
 void ReRevvedApplyBarbarianVillageCityReplacement(
     PPCRegister& civilization);
-void ReRevvedBeginHorsebackRidingOwnershipCheck(PPCRegister& ownership_base);
-void ReRevvedEndHorsebackRidingOwnershipCheck(PPCRegister& ownership_base);
+void ReRevvedBeginHorsebackRidingOwnershipCheck(PPCRegister& ownershipBase);
+void ReRevvedEndHorsebackRidingOwnershipCheck(PPCRegister& ownershipBase);
 void ReRevvedSelectHorsebackRidingAbility(PPCRegister& ability);
 void ReRevvedSelectHorsebackRidingTechnology(PPCRegister& technology);
 
 namespace
 {
 
-void Require(bool condition, std::string_view message)
+void require(bool condition, std::string_view message)
 {
     if (!condition)
     {
@@ -33,37 +33,37 @@ void Require(bool condition, std::string_view message)
     }
 }
 
-ReRevvedUniqueEraAbilityReplacement MakeRule(
+ReRevvedUniqueEraAbilityReplacement makeRule(
     const char*                provider,
-    const char*                rule_id,
+    const char*                ruleId,
     ReRevvedCivilizationId     civilization,
-    ReRevvedUniqueEraUnlockEra unlock_era,
+    ReRevvedUniqueEraUnlockEra unlockEra,
     ReRevvedUniqueEraAbilityId replacement)
 {
     ReRevvedUniqueEraAbilityReplacement rule{};
-    rule.struct_size = sizeof(rule);
-    std::memcpy(rule.provider_id, provider, std::strlen(provider) + 1);
-    std::memcpy(rule.rule_id, rule_id, std::strlen(rule_id) + 1);
-    rule.civilization        = civilization;
-    rule.unlock_era          = unlock_era;
-    rule.replacement_ability = replacement;
+    rule.structSize = sizeof(rule);
+    std::memcpy(rule.providerId, provider, std::strlen(provider) + 1);
+    std::memcpy(rule.ruleId, ruleId, std::strlen(ruleId) + 1);
+    rule.civilization       = civilization;
+    rule.unlockEra          = unlockEra;
+    rule.replacementAbility = replacement;
     return rule;
 }
 
-ReRevvedUniqueEraAbilityCellEvaluation Evaluate(
+ReRevvedUniqueEraAbilityCellEvaluation evaluate(
     ReRevvedCivilizationId     civilization,
-    ReRevvedUniqueEraUnlockEra unlock_era,
-    ReRevvedUniqueEraAbilityId native_ability)
+    ReRevvedUniqueEraUnlockEra unlockEra,
+    ReRevvedUniqueEraAbilityId nativeAbility)
 {
     const ReRevvedUniqueEraAbilityCellQuery query = {
         sizeof(ReRevvedUniqueEraAbilityCellQuery),
         civilization,
-        unlock_era,
-        native_ability,
+        unlockEra,
+        nativeAbility,
         {},
     };
     ReRevvedUniqueEraAbilityCellEvaluation result{};
-    Require(ReRevvedEvaluateUniqueEraAbilityCell(
+    require(ReRevvedEvaluateUniqueEraAbilityCell(
                 &query, &result, sizeof(result)) ==
                 REREVVED_UNIQUE_ERA_ABILITIES_OK,
             "cell evaluation failed");
@@ -73,22 +73,22 @@ ReRevvedUniqueEraAbilityCellEvaluation Evaluate(
 void TestAbiLayout()
 {
     static_assert(sizeof(ReRevvedUniqueEraAbilityReplacement) == 176);
-    static_assert(offsetof(ReRevvedUniqueEraAbilityReplacement, provider_id) ==
+    static_assert(offsetof(ReRevvedUniqueEraAbilityReplacement, providerId) ==
                   4);
-    static_assert(offsetof(ReRevvedUniqueEraAbilityReplacement, rule_id) == 68);
+    static_assert(offsetof(ReRevvedUniqueEraAbilityReplacement, ruleId) == 68);
     static_assert(
         offsetof(ReRevvedUniqueEraAbilityReplacement, civilization) == 132);
     static_assert(
-        offsetof(ReRevvedUniqueEraAbilityReplacement, replacement_ability) ==
+        offsetof(ReRevvedUniqueEraAbilityReplacement, replacementAbility) ==
         140);
     static_assert(sizeof(ReRevvedUniqueEraAbilityRuleInfo) == 180);
     static_assert(
-        offsetof(ReRevvedUniqueEraAbilityRuleInfo, status_flags) == 144);
+        offsetof(ReRevvedUniqueEraAbilityRuleInfo, statusFlags) == 144);
     static_assert(sizeof(ReRevvedUniqueEraAbilityCellQuery) == 40);
     static_assert(sizeof(ReRevvedUniqueEraAbilityCellEvaluation) == 40);
     static_assert(offsetof(ReRevvedUniqueEraAbilityCellEvaluation,
-                           effective_ability) == 8);
-    Require(ReRevvedUniqueEraAbilitiesAbiVersion() ==
+                           effectiveAbility) == 8);
+    require(ReRevvedUniqueEraAbilitiesAbiVersion() ==
                 REREVVED_UNIQUE_ERA_ABILITIES_ABI_VERSION,
             "ABI version mismatch");
 }
@@ -96,59 +96,59 @@ void TestAbiLayout()
 void TestValidation()
 {
     rerevved::unique_era_abilities::ResetForTests();
-    Require(ReRevvedRegisterUniqueEraAbilityReplacement(nullptr) ==
+    require(ReRevvedRegisterUniqueEraAbilityReplacement(nullptr) ==
                 REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT,
             "null rule accepted");
 
-    auto rule = MakeRule("aeshur.roman-rush-test",
+    auto rule = makeRule("aeshur.roman-rush-test",
                          "roman-medieval-rush",
                          REREVVED_CIVILIZATION_ROMAN,
                          REREVVED_UNIQUE_ERA_MEDIEVAL,
                          REREVVED_UNIQUE_ERA_ABILITY_UNIT_RUSH_HALF_COST);
-    rule.struct_size--;
-    Require(ReRevvedRegisterUniqueEraAbilityReplacement(&rule) ==
+    rule.structSize--;
+    require(ReRevvedRegisterUniqueEraAbilityReplacement(&rule) ==
                 REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT,
             "short rule accepted");
-    rule.struct_size++;
+    rule.structSize++;
 
-    rule.provider_id[0] = 'A';
-    Require(ReRevvedRegisterUniqueEraAbilityReplacement(&rule) ==
+    rule.providerId[0] = 'A';
+    require(ReRevvedRegisterUniqueEraAbilityReplacement(&rule) ==
                 REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT,
             "malformed provider accepted");
     constexpr char provider[] = "aeshur.roman-rush-test";
-    std::memcpy(rule.provider_id, provider, sizeof(provider));
+    std::memcpy(rule.providerId, provider, sizeof(provider));
     rule.civilization = REREVVED_CIVILIZATION_UNKNOWN;
-    Require(ReRevvedRegisterUniqueEraAbilityReplacement(&rule) ==
+    require(ReRevvedRegisterUniqueEraAbilityReplacement(&rule) ==
                 REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT,
             "unknown civilization accepted");
     rule.civilization = REREVVED_CIVILIZATION_ROMAN;
-    rule.unlock_era   = 4;
-    Require(ReRevvedRegisterUniqueEraAbilityReplacement(&rule) ==
+    rule.unlockEra    = 4;
+    require(ReRevvedRegisterUniqueEraAbilityReplacement(&rule) ==
                 REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT,
             "unknown era accepted");
-    rule.unlock_era          = REREVVED_UNIQUE_ERA_MEDIEVAL;
-    rule.replacement_ability = 11;
-    Require(ReRevvedRegisterUniqueEraAbilityReplacement(&rule) ==
+    rule.unlockEra          = REREVVED_UNIQUE_ERA_MEDIEVAL;
+    rule.replacementAbility = 11;
+    require(ReRevvedRegisterUniqueEraAbilityReplacement(&rule) ==
                 REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT,
             "unsupported UEA accepted");
-    rule.replacement_ability =
+    rule.replacementAbility =
         REREVVED_UNIQUE_ERA_ABILITY_KNOWLEDGE_OF_HORSEBACK_RIDING;
-    Require(ReRevvedRegisterUniqueEraAbilityReplacement(&rule) ==
+    require(ReRevvedRegisterUniqueEraAbilityReplacement(&rule) ==
                 REREVVED_UNIQUE_ERA_ABILITIES_OK,
             "title-owned synthetic UEA rejected");
     rerevved::unique_era_abilities::ResetForTests();
-    rule.replacement_ability =
+    rule.replacementAbility =
         REREVVED_UNIQUE_ERA_ABILITY_UNIT_RUSH_HALF_COST;
     rule.reserved[7] = 1;
-    Require(ReRevvedRegisterUniqueEraAbilityReplacement(&rule) ==
+    require(ReRevvedRegisterUniqueEraAbilityReplacement(&rule) ==
                 REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT,
             "nonzero reserved field accepted");
 
     uint32_t count = 0;
-    Require(ReRevvedGetUniqueEraAbilityRuleCount(nullptr) ==
+    require(ReRevvedGetUniqueEraAbilityRuleCount(nullptr) ==
                 REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT,
             "null count accepted");
-    Require(ReRevvedGetUniqueEraAbilityRuleCount(&count) ==
+    require(ReRevvedGetUniqueEraAbilityRuleCount(&count) ==
                     REREVVED_UNIQUE_ERA_ABILITIES_OK &&
                 count == 0,
             "invalid registration mutated registry");
@@ -207,29 +207,29 @@ void TestAcceptedSemanticRegistry()
     for (int32_t ability = 0; ability <= 62; ++ability)
     {
         ReRevvedUniqueEraAbilityCellQuery query{};
-        query.struct_size    = sizeof(query);
-        query.civilization   = REREVVED_CIVILIZATION_ROMAN;
-        query.unlock_era     = REREVVED_UNIQUE_ERA_ANCIENT;
-        query.native_ability = ability;
+        query.structSize    = sizeof(query);
+        query.civilization  = REREVVED_CIVILIZATION_ROMAN;
+        query.unlockEra     = REREVVED_UNIQUE_ERA_ANCIENT;
+        query.nativeAbility = ability;
         ReRevvedUniqueEraAbilityCellEvaluation result{};
         const bool                             expected =
             std::find(abilities.begin(), abilities.end(), ability) !=
             abilities.end();
-        Require((ReRevvedEvaluateUniqueEraAbilityCell(
+        require((ReRevvedEvaluateUniqueEraAbilityCell(
                      &query, &result, sizeof(result)) ==
                  REREVVED_UNIQUE_ERA_ABILITIES_OK) == expected,
                 "semantic registry accepted the wrong numeric UEA set");
     }
-    ReRevvedUniqueEraAbilityCellQuery synthetic_query{};
-    synthetic_query.struct_size  = sizeof(synthetic_query);
-    synthetic_query.civilization = REREVVED_CIVILIZATION_MONGOLIAN;
-    synthetic_query.unlock_era   = REREVVED_UNIQUE_ERA_ANCIENT;
-    synthetic_query.native_ability =
+    ReRevvedUniqueEraAbilityCellQuery syntheticQuery{};
+    syntheticQuery.structSize   = sizeof(syntheticQuery);
+    syntheticQuery.civilization = REREVVED_CIVILIZATION_MONGOLIAN;
+    syntheticQuery.unlockEra    = REREVVED_UNIQUE_ERA_ANCIENT;
+    syntheticQuery.nativeAbility =
         REREVVED_UNIQUE_ERA_ABILITY_KNOWLEDGE_OF_HORSEBACK_RIDING;
-    ReRevvedUniqueEraAbilityCellEvaluation synthetic_result{};
-    Require(ReRevvedEvaluateUniqueEraAbilityCell(&synthetic_query,
-                                                 &synthetic_result,
-                                                 sizeof(synthetic_result)) ==
+    ReRevvedUniqueEraAbilityCellEvaluation syntheticResult{};
+    require(ReRevvedEvaluateUniqueEraAbilityCell(&syntheticQuery,
+                                                 &syntheticResult,
+                                                 sizeof(syntheticResult)) ==
                 REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT,
             "synthetic UEA was accepted as a native table value");
     for (int32_t civilization = REREVVED_CIVILIZATION_ROMAN;
@@ -242,11 +242,11 @@ void TestAcceptedSemanticRegistry()
         {
             for (const auto ability : abilities)
             {
-                const auto result = Evaluate(civilization, era, ability);
-                Require(result.native_ability == ability &&
-                            result.effective_ability == ability &&
-                            result.replacement_count == 0 &&
-                            result.status_flags == 0,
+                const auto result = evaluate(civilization, era, ability);
+                require(result.nativeAbility == ability &&
+                            result.effectiveAbility == ability &&
+                            result.replacementCount == 0 &&
+                            result.statusFlags == 0,
                         "accepted no-rule cell changed");
             }
         }
@@ -256,151 +256,151 @@ void TestAcceptedSemanticRegistry()
 void TestRegistrationAndReadback()
 {
     rerevved::unique_era_abilities::ResetForTests();
-    auto roman   = MakeRule("z.provider",
+    auto roman   = makeRule("z.provider",
                             "roman-medieval-rush",
                             REREVVED_CIVILIZATION_ROMAN,
                             REREVVED_UNIQUE_ERA_MEDIEVAL,
                             REREVVED_UNIQUE_ERA_ABILITY_UNIT_RUSH_HALF_COST);
-    auto english = MakeRule("a.provider",
+    auto english = makeRule("a.provider",
                             "english-ancient-rush",
                             REREVVED_CIVILIZATION_ENGLISH,
                             REREVVED_UNIQUE_ERA_ANCIENT,
                             REREVVED_UNIQUE_ERA_ABILITY_UNIT_RUSH_HALF_COST);
-    Require(ReRevvedRegisterUniqueEraAbilityReplacement(&roman) ==
+    require(ReRevvedRegisterUniqueEraAbilityReplacement(&roman) ==
                     REREVVED_UNIQUE_ERA_ABILITIES_OK &&
                 ReRevvedRegisterUniqueEraAbilityReplacement(&english) ==
                     REREVVED_UNIQUE_ERA_ABILITIES_OK,
             "valid rules rejected");
 
-    std::memset(roman.provider_id + std::strlen(roman.provider_id) + 1,
+    std::memset(roman.providerId + std::strlen(roman.providerId) + 1,
                 'x',
-                sizeof(roman.provider_id) - std::strlen(roman.provider_id) - 1);
-    Require(ReRevvedRegisterUniqueEraAbilityReplacement(&roman) ==
+                sizeof(roman.providerId) - std::strlen(roman.providerId) - 1);
+    require(ReRevvedRegisterUniqueEraAbilityReplacement(&roman) ==
                 REREVVED_UNIQUE_ERA_ABILITIES_OK,
             "normalized duplicate was not idempotent");
-    roman.replacement_ability = REREVVED_UNIQUE_ERA_ABILITY_WONDERS_HALF_COST;
-    Require(ReRevvedRegisterUniqueEraAbilityReplacement(&roman) ==
+    roman.replacementAbility = REREVVED_UNIQUE_ERA_ABILITY_WONDERS_HALF_COST;
+    require(ReRevvedRegisterUniqueEraAbilityReplacement(&roman) ==
                 REREVVED_UNIQUE_ERA_ABILITIES_ERR_DUPLICATE_RULE_ID,
             "changed duplicate key accepted");
 
     uint32_t count = 0;
-    Require(ReRevvedGetUniqueEraAbilityRuleCount(&count) ==
+    require(ReRevvedGetUniqueEraAbilityRuleCount(&count) ==
                     REREVVED_UNIQUE_ERA_ABILITIES_OK &&
                 count == 2,
             "wrong rule count");
     ReRevvedUniqueEraAbilityRuleInfo info{};
-    Require(ReRevvedGetUniqueEraAbilityRule(0, &info, sizeof(info)) ==
+    require(ReRevvedGetUniqueEraAbilityRule(0, &info, sizeof(info)) ==
                     REREVVED_UNIQUE_ERA_ABILITIES_OK &&
-                std::strcmp(info.provider_id, "a.provider") == 0,
+                std::strcmp(info.providerId, "a.provider") == 0,
             "readback is not canonical");
-    Require(ReRevvedGetUniqueEraAbilityRule(0, &info, 147) ==
+    require(ReRevvedGetUniqueEraAbilityRule(0, &info, 147) ==
                 REREVVED_UNIQUE_ERA_ABILITIES_ERR_BUFFER_TOO_SMALL,
             "short readback buffer accepted");
-    Require(ReRevvedGetUniqueEraAbilityRule(0, &info, 148) ==
+    require(ReRevvedGetUniqueEraAbilityRule(0, &info, 148) ==
                     REREVVED_UNIQUE_ERA_ABILITIES_OK &&
-                info.struct_size == sizeof(info),
+                info.structSize == sizeof(info),
             "minimum readback prefix rejected");
 }
 
 void TestCompositionAndConflict()
 {
-    auto roman    = MakeRule("aeshur.roman-rush-test",
+    auto roman    = makeRule("aeshur.roman-rush-test",
                              "roman-medieval-rush",
                              REREVVED_CIVILIZATION_ROMAN,
                              REREVVED_UNIQUE_ERA_MEDIEVAL,
                              REREVVED_UNIQUE_ERA_ABILITY_UNIT_RUSH_HALF_COST);
-    auto english  = MakeRule("example.english",
+    auto english  = makeRule("example.english",
                              "english-modern-rush",
                              REREVVED_CIVILIZATION_ENGLISH,
                              REREVVED_UNIQUE_ERA_MODERN,
                              REREVVED_UNIQUE_ERA_ABILITY_UNIT_RUSH_HALF_COST);
-    auto conflict = MakeRule("example.conflict",
+    auto conflict = makeRule("example.conflict",
                              "roman-medieval-pottery",
                              REREVVED_CIVILIZATION_ROMAN,
                              REREVVED_UNIQUE_ERA_MEDIEVAL,
                              REREVVED_UNIQUE_ERA_ABILITY_POTTERY);
 
     rerevved::unique_era_abilities::ResetForTests();
-    Require(ReRevvedRegisterUniqueEraAbilityReplacement(&english) == 0 &&
+    require(ReRevvedRegisterUniqueEraAbilityReplacement(&english) == 0 &&
                 ReRevvedRegisterUniqueEraAbilityReplacement(&roman) == 0,
             "distinct cells failed registration");
-    auto roman_result   = Evaluate(REREVVED_CIVILIZATION_ROMAN,
-                                   REREVVED_UNIQUE_ERA_MEDIEVAL,
-                                   REREVVED_UNIQUE_ERA_ABILITY_WONDERS_HALF_COST);
-    auto english_result = Evaluate(
+    auto romanResult   = evaluate(REREVVED_CIVILIZATION_ROMAN,
+                                  REREVVED_UNIQUE_ERA_MEDIEVAL,
+                                  REREVVED_UNIQUE_ERA_ABILITY_WONDERS_HALF_COST);
+    auto englishResult = evaluate(
         REREVVED_CIVILIZATION_ENGLISH,
         REREVVED_UNIQUE_ERA_MODERN,
         REREVVED_UNIQUE_ERA_ABILITY_DOUBLE_NAVAL_SUPPORT);
-    Require(roman_result.effective_ability ==
+    require(romanResult.effectiveAbility ==
                     REREVVED_UNIQUE_ERA_ABILITY_UNIT_RUSH_HALF_COST &&
-                english_result.effective_ability ==
+                englishResult.effectiveAbility ==
                     REREVVED_UNIQUE_ERA_ABILITY_UNIT_RUSH_HALF_COST,
             "distinct cells did not compose");
 
-    Require(ReRevvedRegisterUniqueEraAbilityReplacement(&conflict) == 0,
+    require(ReRevvedRegisterUniqueEraAbilityReplacement(&conflict) == 0,
             "conflicting replacement registration failed");
-    roman_result = Evaluate(REREVVED_CIVILIZATION_ROMAN,
-                            REREVVED_UNIQUE_ERA_MEDIEVAL,
-                            REREVVED_UNIQUE_ERA_ABILITY_WONDERS_HALF_COST);
-    Require(roman_result.effective_ability ==
+    romanResult = evaluate(REREVVED_CIVILIZATION_ROMAN,
+                           REREVVED_UNIQUE_ERA_MEDIEVAL,
+                           REREVVED_UNIQUE_ERA_ABILITY_WONDERS_HALF_COST);
+    require(romanResult.effectiveAbility ==
                     REREVVED_UNIQUE_ERA_ABILITY_WONDERS_HALF_COST &&
-                roman_result.replacement_count == 2 &&
-                roman_result.status_flags ==
+                romanResult.replacementCount == 2 &&
+                romanResult.statusFlags ==
                     REREVVED_UNIQUE_ERA_ABILITY_EVALUATION_REPLACEMENT_CONFLICT,
             "same-cell conflict did not restore native ability");
 
     for (uint32_t index = 0; index < 3; ++index)
     {
         ReRevvedUniqueEraAbilityRuleInfo info{};
-        Require(ReRevvedGetUniqueEraAbilityRule(index, &info, sizeof(info)) == 0,
+        require(ReRevvedGetUniqueEraAbilityRule(index, &info, sizeof(info)) == 0,
                 "conflict readback failed");
-        const bool roman_cell =
+        const bool romanCell =
             info.civilization == REREVVED_CIVILIZATION_ROMAN &&
-            info.unlock_era == REREVVED_UNIQUE_ERA_MEDIEVAL;
-        Require(!roman_cell ||
-                    info.status_flags ==
+            info.unlockEra == REREVVED_UNIQUE_ERA_MEDIEVAL;
+        require(!romanCell ||
+                    info.statusFlags ==
                         REREVVED_UNIQUE_ERA_ABILITY_RULE_REPLACEMENT_CONFLICT,
                 "conflict was not disclosed on readback");
     }
 
     rerevved::unique_era_abilities::ResetForTests();
-    Require(ReRevvedRegisterUniqueEraAbilityReplacement(&conflict) == 0 &&
+    require(ReRevvedRegisterUniqueEraAbilityReplacement(&conflict) == 0 &&
                 ReRevvedRegisterUniqueEraAbilityReplacement(&roman) == 0,
             "reverse conflict order failed registration");
-    roman_result = Evaluate(REREVVED_CIVILIZATION_ROMAN,
-                            REREVVED_UNIQUE_ERA_MEDIEVAL,
-                            REREVVED_UNIQUE_ERA_ABILITY_WONDERS_HALF_COST);
-    Require(roman_result.effective_ability ==
+    romanResult = evaluate(REREVVED_CIVILIZATION_ROMAN,
+                           REREVVED_UNIQUE_ERA_MEDIEVAL,
+                           REREVVED_UNIQUE_ERA_ABILITY_WONDERS_HALF_COST);
+    require(romanResult.effectiveAbility ==
                     REREVVED_UNIQUE_ERA_ABILITY_WONDERS_HALF_COST &&
-                roman_result.replacement_count == 2,
+                romanResult.replacementCount == 2,
             "conflict depended on registration order");
 }
 
 void TestDuplicateEffectiveAbilityAndBridge()
 {
     rerevved::unique_era_abilities::ResetForTests();
-    auto ancient  = MakeRule("example.roman",
+    auto ancient  = makeRule("example.roman",
                              "roman-ancient-rush",
                              REREVVED_CIVILIZATION_ROMAN,
                              REREVVED_UNIQUE_ERA_ANCIENT,
                              REREVVED_UNIQUE_ERA_ABILITY_UNIT_RUSH_HALF_COST);
-    auto medieval = MakeRule("aeshur.roman-rush-test",
+    auto medieval = makeRule("aeshur.roman-rush-test",
                              "roman-medieval-rush",
                              REREVVED_CIVILIZATION_ROMAN,
                              REREVVED_UNIQUE_ERA_MEDIEVAL,
                              REREVVED_UNIQUE_ERA_ABILITY_UNIT_RUSH_HALF_COST);
-    Require(ReRevvedRegisterUniqueEraAbilityReplacement(&ancient) == 0 &&
+    require(ReRevvedRegisterUniqueEraAbilityReplacement(&ancient) == 0 &&
                 ReRevvedRegisterUniqueEraAbilityReplacement(&medieval) == 0,
             "duplicate-effective cells failed registration");
-    Require(Evaluate(REREVVED_CIVILIZATION_ROMAN,
+    require(evaluate(REREVVED_CIVILIZATION_ROMAN,
                      REREVVED_UNIQUE_ERA_ANCIENT,
                      REREVVED_UNIQUE_ERA_ABILITY_ROADS_HALF_COST)
-                        .effective_ability ==
+                        .effectiveAbility ==
                     REREVVED_UNIQUE_ERA_ABILITY_UNIT_RUSH_HALF_COST &&
-                Evaluate(REREVVED_CIVILIZATION_ROMAN,
+                evaluate(REREVVED_CIVILIZATION_ROMAN,
                          REREVVED_UNIQUE_ERA_MEDIEVAL,
                          REREVVED_UNIQUE_ERA_ABILITY_WONDERS_HALF_COST)
-                        .effective_ability ==
+                        .effectiveAbility ==
                     REREVVED_UNIQUE_ERA_ABILITY_UNIT_RUSH_HALF_COST,
             "duplicate effective UEA was suppressed");
 
@@ -411,20 +411,20 @@ void TestDuplicateEffectiveAbilityAndBridge()
     era.s64     = REREVVED_UNIQUE_ERA_MEDIEVAL;
     ability.s64 = REREVVED_UNIQUE_ERA_ABILITY_WONDERS_HALF_COST;
     ReRevvedApplyUniqueEraAbilityCell(offset, era, ability);
-    Require(ability.s32 ==
+    require(ability.s32 ==
                 REREVVED_UNIQUE_ERA_ABILITY_UNIT_RUSH_HALF_COST,
             "Roman Medieval bridge did not apply 24 -> 35");
 
     offset.u64  = 6;
     ability.s64 = REREVVED_UNIQUE_ERA_ABILITY_WONDERS_HALF_COST;
     ReRevvedApplyUniqueEraAbilityCell(offset, era, ability);
-    Require(ability.s32 == REREVVED_UNIQUE_ERA_ABILITY_WONDERS_HALF_COST,
+    require(ability.s32 == REREVVED_UNIQUE_ERA_ABILITY_WONDERS_HALF_COST,
             "unaligned bridge offset changed native value");
 
     offset.u64 = 4;
     era.s64    = 4;
     ReRevvedApplyUniqueEraAbilityCell(offset, era, ability);
-    Require(ability.s32 == REREVVED_UNIQUE_ERA_ABILITY_WONDERS_HALF_COST,
+    require(ability.s32 == REREVVED_UNIQUE_ERA_ABILITY_WONDERS_HALF_COST,
             "invalid bridge era changed native value");
 }
 
@@ -432,74 +432,74 @@ void TestHorsebackRidingReplacement()
 {
     rerevved::unique_era_abilities::ResetForTests();
 
-    PPCRegister native_mongolian{};
-    native_mongolian.s64 = REREVVED_CIVILIZATION_MONGOLIAN;
-    ReRevvedApplyBarbarianVillageCityReplacement(native_mongolian);
-    Require(native_mongolian.s32 == REREVVED_CIVILIZATION_MONGOLIAN,
+    PPCRegister nativeMongolian{};
+    nativeMongolian.s64 = REREVVED_CIVILIZATION_MONGOLIAN;
+    ReRevvedApplyBarbarianVillageCityReplacement(nativeMongolian);
+    require(nativeMongolian.s32 == REREVVED_CIVILIZATION_MONGOLIAN,
             "native Mongolian village conversion was suppressed without a rule");
 
-    auto rule = MakeRule(
+    auto rule = makeRule(
         "aeshur.mongol-horseback-riding",
         "mongol-ancient-horseback-riding",
         REREVVED_CIVILIZATION_MONGOLIAN,
         REREVVED_UNIQUE_ERA_ANCIENT,
         REREVVED_UNIQUE_ERA_ABILITY_KNOWLEDGE_OF_HORSEBACK_RIDING);
-    Require(ReRevvedRegisterUniqueEraAbilityReplacement(&rule) == 0,
+    require(ReRevvedRegisterUniqueEraAbilityReplacement(&rule) == 0,
             "Horseback Riding replacement registration failed");
 
-    const auto result = Evaluate(
+    const auto result = evaluate(
         REREVVED_CIVILIZATION_MONGOLIAN,
         REREVVED_UNIQUE_ERA_ANCIENT,
         REREVVED_UNIQUE_ERA_ABILITY_BARBARIAN_VILLAGES_BECOME_CITIES);
-    Require(result.native_ability ==
+    require(result.nativeAbility ==
                     REREVVED_UNIQUE_ERA_ABILITY_BARBARIAN_VILLAGES_BECOME_CITIES &&
-                result.effective_ability ==
+                result.effectiveAbility ==
                     REREVVED_UNIQUE_ERA_ABILITY_KNOWLEDGE_OF_HORSEBACK_RIDING &&
-                result.replacement_count == 1 &&
-                result.status_flags ==
+                result.replacementCount == 1 &&
+                result.statusFlags ==
                     REREVVED_UNIQUE_ERA_ABILITY_EVALUATION_REPLACED,
             "Mongolian Ancient replacement did not produce Horseback Riding");
 
-    PPCRegister replaced_mongolian{};
-    replaced_mongolian.s64 = REREVVED_CIVILIZATION_MONGOLIAN;
-    ReRevvedApplyBarbarianVillageCityReplacement(replaced_mongolian);
-    Require(replaced_mongolian.s32 == REREVVED_CIVILIZATION_UNKNOWN,
+    PPCRegister replacedMongolian{};
+    replacedMongolian.s64 = REREVVED_CIVILIZATION_MONGOLIAN;
+    ReRevvedApplyBarbarianVillageCityReplacement(replacedMongolian);
+    require(replacedMongolian.s32 == REREVVED_CIVILIZATION_UNKNOWN,
             "Horseback Riding replacement did not suppress village conversion");
 
-    PPCRegister non_mongolian{};
-    non_mongolian.s64 = REREVVED_CIVILIZATION_ROMAN;
-    ReRevvedApplyBarbarianVillageCityReplacement(non_mongolian);
-    Require(non_mongolian.s32 == REREVVED_CIVILIZATION_ROMAN,
+    PPCRegister nonMongolian{};
+    nonMongolian.s64 = REREVVED_CIVILIZATION_ROMAN;
+    ReRevvedApplyBarbarianVillageCityReplacement(nonMongolian);
+    require(nonMongolian.s32 == REREVVED_CIVILIZATION_ROMAN,
             "village gate changed a non-Mongolian civilization");
 
-    auto conflict = MakeRule(
+    auto conflict = makeRule(
         "example.conflicting-provider",
         "mongol-ancient-conflict",
         REREVVED_CIVILIZATION_MONGOLIAN,
         REREVVED_UNIQUE_ERA_ANCIENT,
         REREVVED_UNIQUE_ERA_ABILITY_UNIT_RUSH_HALF_COST);
-    Require(ReRevvedRegisterUniqueEraAbilityReplacement(&conflict) == 0,
+    require(ReRevvedRegisterUniqueEraAbilityReplacement(&conflict) == 0,
             "Mongolian Ancient conflict registration failed");
-    PPCRegister conflicted_mongolian{};
-    conflicted_mongolian.s64 = REREVVED_CIVILIZATION_MONGOLIAN;
-    ReRevvedApplyBarbarianVillageCityReplacement(conflicted_mongolian);
-    Require(conflicted_mongolian.s32 == REREVVED_CIVILIZATION_MONGOLIAN,
+    PPCRegister conflictedMongolian{};
+    conflictedMongolian.s64 = REREVVED_CIVILIZATION_MONGOLIAN;
+    ReRevvedApplyBarbarianVillageCityReplacement(conflictedMongolian);
+    require(conflictedMongolian.s32 == REREVVED_CIVILIZATION_MONGOLIAN,
             "same-cell conflict did not preserve native village conversion");
 
-    PPCRegister ownership_base{};
-    ownership_base.u64 = 0x1000;
-    ReRevvedBeginHorsebackRidingOwnershipCheck(ownership_base);
-    Require(ownership_base.u32 + 72 == 0x1010,
+    PPCRegister ownershipBase{};
+    ownershipBase.u64 = 0x1000;
+    ReRevvedBeginHorsebackRidingOwnershipCheck(ownershipBase);
+    require(ownershipBase.u32 + 72 == 0x1010,
             "Horseback Riding ownership check did not select technology 4");
-    ReRevvedEndHorsebackRidingOwnershipCheck(ownership_base);
-    Require(ownership_base.u32 == 0x1000,
+    ReRevvedEndHorsebackRidingOwnershipCheck(ownershipBase);
+    require(ownershipBase.u32 == 0x1000,
             "Horseback Riding ownership check did not restore its base");
 
     PPCRegister ability{};
     PPCRegister technology{};
     ReRevvedSelectHorsebackRidingAbility(ability);
     ReRevvedSelectHorsebackRidingTechnology(technology);
-    Require(ability.s32 ==
+    require(ability.s32 ==
                     REREVVED_UNIQUE_ERA_ABILITY_KNOWLEDGE_OF_HORSEBACK_RIDING &&
                 technology.s32 == 4,
             "Horseback Riding consumer selected the wrong IDs");
@@ -509,41 +509,41 @@ void TestQueryErrors()
 {
     rerevved::unique_era_abilities::ResetForTests();
     ReRevvedUniqueEraAbilityCellQuery query{};
-    query.struct_size    = sizeof(query);
-    query.civilization   = REREVVED_CIVILIZATION_ROMAN;
-    query.unlock_era     = REREVVED_UNIQUE_ERA_MEDIEVAL;
-    query.native_ability = REREVVED_UNIQUE_ERA_ABILITY_WONDERS_HALF_COST;
+    query.structSize    = sizeof(query);
+    query.civilization  = REREVVED_CIVILIZATION_ROMAN;
+    query.unlockEra     = REREVVED_UNIQUE_ERA_MEDIEVAL;
+    query.nativeAbility = REREVVED_UNIQUE_ERA_ABILITY_WONDERS_HALF_COST;
     ReRevvedUniqueEraAbilityCellEvaluation out{};
-    Require(ReRevvedEvaluateUniqueEraAbilityCell(
+    require(ReRevvedEvaluateUniqueEraAbilityCell(
                 &query, nullptr, sizeof(out)) ==
                 REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT,
             "null output accepted");
-    Require(ReRevvedEvaluateUniqueEraAbilityCell(&query, &out, 19) ==
+    require(ReRevvedEvaluateUniqueEraAbilityCell(&query, &out, 19) ==
                 REREVVED_UNIQUE_ERA_ABILITIES_ERR_BUFFER_TOO_SMALL,
             "short output buffer accepted");
-    Require(ReRevvedEvaluateUniqueEraAbilityCell(&query, &out, 20) ==
+    require(ReRevvedEvaluateUniqueEraAbilityCell(&query, &out, 20) ==
                 REREVVED_UNIQUE_ERA_ABILITIES_OK,
             "minimum output prefix rejected");
-    query.native_ability = 11;
-    Require(ReRevvedEvaluateUniqueEraAbilityCell(
+    query.nativeAbility = 11;
+    require(ReRevvedEvaluateUniqueEraAbilityCell(
                 &query, &out, sizeof(out)) ==
                 REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT,
             "non-retail native UEA accepted");
-    query.native_ability = REREVVED_UNIQUE_ERA_ABILITY_WONDERS_HALF_COST;
-    query.reserved[0]    = 1;
-    Require(ReRevvedEvaluateUniqueEraAbilityCell(
+    query.nativeAbility = REREVVED_UNIQUE_ERA_ABILITY_WONDERS_HALF_COST;
+    query.reserved[0]   = 1;
+    require(ReRevvedEvaluateUniqueEraAbilityCell(
                 &query, &out, sizeof(out)) ==
                 REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT,
             "nonzero query reserve accepted");
     query.reserved[0]  = 0;
     query.civilization = REREVVED_CIVILIZATION_COUNT;
-    Require(ReRevvedEvaluateUniqueEraAbilityCell(
+    require(ReRevvedEvaluateUniqueEraAbilityCell(
                 &query, &out, sizeof(out)) ==
                 REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT,
             "upper civilization bound accepted");
     query.civilization = REREVVED_CIVILIZATION_ROMAN;
-    query.unlock_era   = -1;
-    Require(ReRevvedEvaluateUniqueEraAbilityCell(
+    query.unlockEra    = -1;
+    require(ReRevvedEvaluateUniqueEraAbilityCell(
                 &query, &out, sizeof(out)) ==
                 REREVVED_UNIQUE_ERA_ABILITIES_ERR_INVALID_ARGUMENT,
             "lower era bound accepted");

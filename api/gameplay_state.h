@@ -53,22 +53,22 @@ enum
 
 typedef struct ReRevvedGameplayState
 {
-    // Size written when out_size can hold this structure, including when the
+    // Size written when outSize can hold this structure, including when the
     // snapshot is unavailable. Smaller buffers are cleared as far as possible
     // and rejected.
-    uint32_t struct_size;
+    uint32_t structSize;
 
     // A validity bit means that the corresponding source fields were read
     // safely. available is stricter: every conservative playable-turn gate is
     // satisfied. Valid fields may still be returned while available is zero.
-    uint32_t valid_fields;
-    uint64_t frame_sequence;
-    int32_t  gameplay_active;
-    int32_t  interface_update;
-    int32_t  active_player;
-    uint32_t human_player_mask;
-    int32_t  turn_owner_known;
-    int32_t  human_turn;
+    uint32_t validFields;
+    uint64_t frameSequence;
+    int32_t  gameplayActive;
+    int32_t  interfaceUpdate;
+    int32_t  activePlayer;
+    uint32_t humanPlayerMask;
+    int32_t  turnOwnerKnown;
+    int32_t  humanTurn;
     int32_t  available;
     // These fields describe the active human player. Their validity bits are
     // clear during AI turns, menu/loading transitions, or failed guest reads.
@@ -81,7 +81,7 @@ typedef struct ReRevvedGameplayState
 
 typedef uint32_t (*ReRevvedGameplayAbiVersionFn)(void);
 typedef int (*ReRevvedGetGameplayStateFn)(ReRevvedGameplayState* out,
-                                          uint32_t               out_size);
+                                          uint32_t               outSize);
 
 #ifdef __cplusplus
 extern "C"
@@ -91,7 +91,7 @@ extern "C"
     REREVVED_GAMEPLAY_API uint32_t ReRevvedGameplayAbiVersion(void);
     REREVVED_GAMEPLAY_API int      ReRevvedGetGameplayState(
         ReRevvedGameplayState* out,
-        uint32_t               out_size);
+        uint32_t               outSize);
 
 #ifdef __cplusplus
 } // extern "C"

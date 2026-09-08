@@ -30,7 +30,7 @@ a new ABI version. Existing semantic IDs are never reassigned.
 2. Resolve the ABI-version function and required entry points from the host process.
 3. Reject a missing function or unsupported ABI version before making another call.
 4. Initialize each request or result structure exactly as its header requires,
-   including `struct_size` where present.
+   including `structSize` where present.
 5. Handle the declared result codes. Do not inspect guest memory or assume an undocumented field.
 
 Related documentation:

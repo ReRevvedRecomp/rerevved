@@ -15,20 +15,20 @@ public:
     NativeGuestGpuService();
     ~NativeGuestGpuService() override;
 
-    rex::X_STATUS SetupPresentation(rex::ui::WindowedAppContext* app_context) override;
-    rex::X_STATUS SetupGuestGpu(rex::runtime::FunctionDispatcher* function_dispatcher,
-                                rex::system::KernelState*         kernel_state) override;
+    rex::X_STATUS SetupPresentation(rex::ui::WindowedAppContext* appContext) override;
+    rex::X_STATUS SetupGuestGpu(rex::runtime::FunctionDispatcher* functionDispatcher,
+                                rex::system::KernelState*         kernelState) override;
 
     bool has_presentation() const override
     {
         return false;
     }
 
-    void SetInterruptCallback(uint32_t callback, uint32_t user_data) override;
-    void InitializeRingBuffer(uint32_t ptr, uint32_t size_log2) override;
-    void EnableReadPointerWriteBack(uint32_t ptr, uint32_t block_size_log2) override;
-    void InitializeShaderStorage(const std::filesystem::path& cache_root,
-                                 uint32_t                     title_id,
+    void SetInterruptCallback(uint32_t callback, uint32_t userData) override;
+    void InitializeRingBuffer(uint32_t ptr, uint32_t sizeLog2) override;
+    void EnableReadPointerWriteBack(uint32_t ptr, uint32_t blockSizeLog2) override;
+    void InitializeShaderStorage(const std::filesystem::path& cacheRoot,
+                                 uint32_t                     titleId,
                                  bool                         blocking) override;
     bool PauseAndResetGpuWritePointer() override;
     void ResumeGpu() override;
@@ -38,15 +38,15 @@ public:
 private:
     struct Impl;
 
-    static uint32_t ReadRegisterThunk(void* ppc_context, void* callback_context, uint32_t addr);
-    static void     WriteRegisterThunk(void* ppc_context, void* callback_context, uint32_t addr, uint32_t value);
+    static uint32_t readRegisterThunk(void* ppcContext, void* callbackContext, uint32_t addr);
+    static void     writeRegisterThunk(void* ppcContext, void* callbackContext, uint32_t addr, uint32_t value);
 
-    uint32_t ReadRegister(uint32_t addr);
-    void     WriteRegister(uint32_t addr, uint32_t value);
-    int      RunVblankWorker();
-    void     MarkVblank();
+    uint32_t readRegister(uint32_t addr);
+    void     writeRegister(uint32_t addr, uint32_t value);
+    int      runVblankWorker();
+    void     markVblank();
 
-    std::unique_ptr<Impl> impl_;
+    std::unique_ptr<Impl> impl;
 };
 
 } // namespace rerevved::gpu

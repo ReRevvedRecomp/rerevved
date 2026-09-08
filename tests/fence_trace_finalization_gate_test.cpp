@@ -10,7 +10,7 @@
 namespace
 {
 
-void Require(bool condition, const char* message)
+void require(bool condition, const char* message)
 {
     if (!condition)
     {
@@ -27,9 +27,9 @@ int main()
 
     FenceTraceFinalizationGate gate;
     std::atomic_uint32_t       calls = 0;
-    std::promise<void>         winner_entered;
-    std::promise<void>         release_winner;
-    auto                       release = release_winner.get_future().share();
+    std::promise<void>         winnerEntered;
+    std::promise<void>         releaseWinner;
+    auto                       release = releaseWinner.get_future().share();
 
     auto winner = std::async(std::launch::async,
                              [&]()
@@ -38,18 +38,18 @@ int main()
                                      [&]()
                                      {
                                          ++calls;
-                                         winner_entered.set_value();
+                                         winnerEntered.set_value();
                                          release.wait();
                                          return true;
                                      });
                              });
-    winner_entered.get_future().wait();
+    winnerEntered.get_future().wait();
 
-    std::promise<void> loser_entered;
+    std::promise<void> loserEntered;
     auto               loser = std::async(std::launch::async,
                                           [&]()
                                           {
-                                loser_entered.set_value();
+                                loserEntered.set_value();
                                 return gate.Run(
                                     [&]()
                                     {
@@ -57,40 +57,40 @@ int main()
                                         return true;
                                     });
                                           });
-    loser_entered.get_future().wait();
-    Require(loser.wait_for(std::chrono::milliseconds(20)) ==
+    loserEntered.get_future().wait();
+    require(loser.wait_for(std::chrono::milliseconds(20)) ==
                 std::future_status::timeout,
             "concurrent loser returned before finalization completed");
 
-    release_winner.set_value();
-    Require(winner.get(), "winning finalizer failed");
-    Require(loser.get(), "waiting finalizer did not observe success");
-    Require(calls == 1, "successful finalization ran more than once");
+    releaseWinner.set_value();
+    require(winner.get(), "winning finalizer failed");
+    require(loser.get(), "waiting finalizer did not observe success");
+    require(calls == 1, "successful finalization ran more than once");
 
-    FenceTraceFinalizationGate retry_gate;
+    FenceTraceFinalizationGate retryGate;
     uint32_t                   retries = 0;
-    Require(!retry_gate.Run(
+    require(!retryGate.Run(
                 [&]()
                 {
                     ++retries;
                     return false;
                 }),
             "failed finalization reported success");
-    Require(retry_gate.Run(
+    require(retryGate.Run(
                 [&]()
                 {
                     ++retries;
                     return true;
                 }),
             "failed finalization could not be retried");
-    Require(retry_gate.Run(
+    require(retryGate.Run(
                 [&]()
                 {
                     ++retries;
                     return true;
                 }),
             "completed finalization was not retained");
-    Require(retries == 2, "completed finalization ran again");
+    require(retries == 2, "completed finalization ran again");
 
     std::cout << "fence_trace_finalization_gate_test: PASS\n";
     return 0;

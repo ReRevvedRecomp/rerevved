@@ -14,7 +14,7 @@ struct CivilizationPresence
 {
     std::string_view people;
     std::string_view leader;
-    std::string_view image_asset;
+    std::string_view imageAsset;
 };
 
 constexpr std::array<CivilizationPresence, 16> kCivilizations = {
@@ -43,16 +43,16 @@ constexpr std::array<std::string_view, 4> kEras = {
     "Modern",
 };
 
-PresenceModel MakeFallback(std::string details)
+PresenceModel makeFallback(std::string details)
 {
     return {
-        .details          = std::move(details),
-        .large_image_key  = "rerevved",
-        .large_image_text = "ReRevved",
+        .details        = std::move(details),
+        .largeImageKey  = "rerevved",
+        .largeImageText = "ReRevved",
     };
 }
 
-std::string FormatYear(int32_t year)
+std::string formatYear(int32_t year)
 {
     if (year < 0)
     {
@@ -76,7 +76,7 @@ bool TryBuildGameplayPresence(const ReRevvedGameplayState& state,
         REREVVED_GAMEPLAY_VALID_TURN_NUMBER;
 
     if (!state.available ||
-        (state.valid_fields & kRequiredFields) != kRequiredFields ||
+        (state.validFields & kRequiredFields) != kRequiredFields ||
         state.civilization < 0 ||
         static_cast<size_t>(state.civilization) >= kCivilizations.size() ||
         state.era < 0 || static_cast<size_t>(state.era) >= kEras.size())
@@ -86,27 +86,27 @@ bool TryBuildGameplayPresence(const ReRevvedGameplayState& state,
 
     const auto& civilization = kCivilizations[state.civilization];
     presence                 = {
-        .details          = "Playing as the " + std::string(civilization.people) + ".",
-        .state            = "Turn " + std::to_string(state.turn) + " | " +
-                            std::string(kEras[state.era]) + " Era - " +
-                            FormatYear(state.year),
-        .large_image_key  = std::string(civilization.image_asset),
-        .large_image_text = std::string(civilization.leader),
+        .details        = "Playing as the " + std::string(civilization.people) + ".",
+        .state          = "Turn " + std::to_string(state.turn) + " | " +
+                          std::string(kEras[state.era]) + " Era - " +
+                          formatYear(state.year),
+        .largeImageKey  = std::string(civilization.imageAsset),
+        .largeImageText = std::string(civilization.leader),
     };
     return true;
 }
 
 PresenceModel SelectPresence(
     const ReRevvedGameplayState*        state,
-    const std::optional<PresenceModel>& retained_gameplay)
+    const std::optional<PresenceModel>& retainedGameplay)
 {
-    const bool gameplay_known =
+    const bool gameplayKnown =
         state &&
-        (state->valid_fields & REREVVED_GAMEPLAY_VALID_FRONTEND) != 0 &&
-        state->gameplay_active;
-    if (!gameplay_known)
+        (state->validFields & REREVVED_GAMEPLAY_VALID_FRONTEND) != 0 &&
+        state->gameplayActive;
+    if (!gameplayKnown)
     {
-        return MakeFallback("Idle");
+        return makeFallback("Idle");
     }
 
     PresenceModel gameplay;
@@ -114,11 +114,11 @@ PresenceModel SelectPresence(
     {
         return gameplay;
     }
-    if (retained_gameplay)
+    if (retainedGameplay)
     {
-        return *retained_gameplay;
+        return *retainedGameplay;
     }
-    return MakeFallback("In game");
+    return makeFallback("In game");
 }
 
 } // namespace rerevved

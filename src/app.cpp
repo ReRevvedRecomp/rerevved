@@ -54,7 +54,7 @@ constexpr std::size_t kMaxReportedErrors    = 10;
 constexpr std::size_t kCoverageInputZOrder  = 1000;
 constexpr uint32_t    kFinalCoverageSegment = 7;
 
-bool IsContainedPath(const std::filesystem::path& root,
+bool isContainedPath(const std::filesystem::path& root,
                      const std::filesystem::path& path)
 {
     const std::filesystem::path relative = path.lexically_relative(root);
@@ -65,16 +65,16 @@ bool IsContainedPath(const std::filesystem::path& root,
     return *relative.begin() != "..";
 }
 
-bool ContainsExistingReparsePoint(const std::filesystem::path& root,
+bool containsExistingReparsePoint(const std::filesystem::path& root,
                                   const std::filesystem::path& path)
 {
 #if defined(_WIN32)
-    if (!IsContainedPath(root, path))
+    if (!isContainedPath(root, path))
     {
         return true;
     }
 
-    auto is_reparse_point = [](const std::filesystem::path& candidate)
+    auto isReparsePoint = [](const std::filesystem::path& candidate)
     {
         const DWORD attributes = GetFileAttributesW(candidate.c_str());
         if (attributes == INVALID_FILE_ATTRIBUTES)
@@ -86,7 +86,7 @@ bool ContainsExistingReparsePoint(const std::filesystem::path& root,
         return (attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
     };
 
-    if (is_reparse_point(root))
+    if (isReparsePoint(root))
     {
         return true;
     }
@@ -94,19 +94,19 @@ bool ContainsExistingReparsePoint(const std::filesystem::path& root,
     for (const auto& component : path.lexically_relative(root))
     {
         current /= component;
-        if (is_reparse_point(current))
+        if (isReparsePoint(current))
         {
             return true;
         }
     }
     return false;
 #else
-    if (!IsContainedPath(root, path))
+    if (!isContainedPath(root, path))
     {
         return true;
     }
 
-    auto is_symlink = [](const std::filesystem::path& candidate)
+    auto isSymlink = [](const std::filesystem::path& candidate)
     {
         std::error_code error;
         const auto      status = std::filesystem::symlink_status(candidate, error);
@@ -117,7 +117,7 @@ bool ContainsExistingReparsePoint(const std::filesystem::path& root,
         return status.type() == std::filesystem::file_type::symlink;
     };
 
-    if (is_symlink(root))
+    if (isSymlink(root))
     {
         return true;
     }
@@ -125,7 +125,7 @@ bool ContainsExistingReparsePoint(const std::filesystem::path& root,
     for (const auto& component : path.lexically_relative(root))
     {
         current /= component;
-        if (is_symlink(current))
+        if (isSymlink(current))
         {
             return true;
         }
@@ -134,11 +134,11 @@ bool ContainsExistingReparsePoint(const std::filesystem::path& root,
 #endif
 }
 
-bool ResolvePassiveTracePath(std::string_view       configured,
-                             std::filesystem::path& output_path)
+bool resolvePassiveTracePath(std::string_view       configured,
+                             std::filesystem::path& outputPath)
 {
     std::error_code             error;
-    const std::filesystem::path scratch_root =
+    const std::filesystem::path scratchRoot =
         std::filesystem::absolute("out", error).lexically_normal();
     if (error)
     {
@@ -147,8 +147,8 @@ bool ResolvePassiveTracePath(std::string_view       configured,
     const std::filesystem::path candidate =
         std::filesystem::absolute(configured, error).lexically_normal();
     if (error || candidate.extension() != ".csv" ||
-        !IsContainedPath(scratch_root, candidate) ||
-        ContainsExistingReparsePoint(scratch_root, candidate))
+        !isContainedPath(scratchRoot, candidate) ||
+        containsExistingReparsePoint(scratchRoot, candidate))
     {
         return false;
     }
@@ -157,42 +157,42 @@ bool ResolvePassiveTracePath(std::string_view       configured,
         return false;
     }
 
-    const std::filesystem::path canonical_root =
-        std::filesystem::weakly_canonical(scratch_root, error);
+    const std::filesystem::path canonicalRoot =
+        std::filesystem::weakly_canonical(scratchRoot, error);
     if (error)
     {
         return false;
     }
-    const std::filesystem::path canonical_parent =
+    const std::filesystem::path canonicalParent =
         std::filesystem::weakly_canonical(candidate.parent_path(), error);
     if (error)
     {
         return false;
     }
-    output_path = (canonical_parent / candidate.filename()).lexically_normal();
-    return IsContainedPath(canonical_root, output_path);
+    outputPath = (canonicalParent / candidate.filename()).lexically_normal();
+    return isContainedPath(canonicalRoot, outputPath);
 }
 
-rerevved::native_renderer::SnapshotFields ReadCoverageSnapshot() noexcept
+rerevved::native_renderer::SnapshotFields readCoverageSnapshot() noexcept
 {
     ReRevvedGameplayState state{};
-    state.struct_size = sizeof(state);
+    state.structSize = sizeof(state);
     (void)ReRevvedGetGameplayState(&state, sizeof(state));
 
     rerevved::native_renderer::SnapshotFields fields{};
-    fields.frame_sequence    = state.frame_sequence;
-    fields.valid_fields      = state.valid_fields;
-    fields.gameplay_active   = state.gameplay_active != 0;
-    fields.interface_update  = state.interface_update != 0;
-    fields.active_player     = state.active_player;
-    fields.human_player_mask = state.human_player_mask;
-    fields.turn_owner_known  = state.turn_owner_known != 0;
-    fields.human_turn        = state.human_turn != 0;
-    fields.available         = state.available != 0;
-    fields.civilization      = static_cast<int32_t>(state.civilization);
-    fields.era               = state.era;
-    fields.year              = state.year;
-    fields.turn              = state.turn;
+    fields.frameSequence   = state.frameSequence;
+    fields.validFields     = state.validFields;
+    fields.gameplayActive  = state.gameplayActive != 0;
+    fields.interfaceUpdate = state.interfaceUpdate != 0;
+    fields.activePlayer    = state.activePlayer;
+    fields.humanPlayerMask = state.humanPlayerMask;
+    fields.turnOwnerKnown  = state.turnOwnerKnown != 0;
+    fields.humanTurn       = state.humanTurn != 0;
+    fields.available       = state.available != 0;
+    fields.civilization    = static_cast<int32_t>(state.civilization);
+    fields.era             = state.era;
+    fields.year            = state.year;
+    fields.turn            = state.turn;
     return fields;
 }
 
@@ -205,7 +205,7 @@ void App::OnPreSetup(rex::RuntimeConfig& config)
 {
     REXLOG_INFO("{}", REREVVED_BUILD_INFO);
     config.game_version = REREVVED_VERSION;
-    if (renderer_backend_ == rerevved::gpu::RendererBackend::Native)
+    if (rendererBackend == rerevved::gpu::RendererBackend::Native)
     {
         config.graphics = std::make_unique<rerevved::gpu::NativeGuestGpuService>();
         config.gpu_plugin.clear();
@@ -214,11 +214,11 @@ void App::OnPreSetup(rex::RuntimeConfig& config)
 
 std::filesystem::path App::GetDefaultUserDataRoot() const
 {
-    const auto user_folder = rex::filesystem::GetUserFolder();
+    const auto userFolder = rex::filesystem::GetUserFolder();
 #if defined(_WIN32)
-    return user_folder / "My Games" / "ReRevved";
+    return userFolder / "My Games" / "ReRevved";
 #else
-    return user_folder / "rerevved";
+    return userFolder / "rerevved";
 #endif
 }
 
@@ -243,57 +243,57 @@ bool App::SetupEnvironment()
         return false;
     }
 
-    renderer_backend_ = rerevved::gpu::ParseRendererBackend(REXCVAR_GET(renderer));
-    if (renderer_backend_ == rerevved::gpu::RendererBackend::Invalid)
+    rendererBackend = rerevved::gpu::ParseRendererBackend(REXCVAR_GET(renderer));
+    if (rendererBackend == rerevved::gpu::RendererBackend::Invalid)
     {
         REXLOG_ERROR("Invalid ReRevved renderer '{}'; expected xenos or native",
                      REXCVAR_GET(renderer));
         return false;
     }
-    if (renderer_backend_ == rerevved::gpu::RendererBackend::Native)
+    if (rendererBackend == rerevved::gpu::RendererBackend::Native)
     {
         rex::cvar::SetFlagByName("gpu_plugin", "");
     }
-    else if (renderer_backend_ == rerevved::gpu::RendererBackend::Xenos)
+    else if (rendererBackend == rerevved::gpu::RendererBackend::Xenos)
     {
         // Apply the title default below config, environment, and CLI values.
         rex::cvar::SetFlagAsApplicationDefault("gpu_plugin", "xenos");
     }
     REXLOG_INFO("ReRevved renderer selected: {}",
-                rerevved::gpu::RendererBackendName(renderer_backend_));
+                rerevved::gpu::RendererBackendName(rendererBackend));
 
-    const std::string passive_trace_output =
+    const std::string passiveTraceOutput =
         REXCVAR_GET(native_renderer_passive_trace_output);
-    const std::string fence_trace_output =
+    const std::string fenceTraceOutput =
         REXCVAR_GET(native_renderer_fence_trace_output);
-    passive_trace_output_path_.clear();
-    fence_trace_output_path_.clear();
-    if (!passive_trace_output.empty() && !fence_trace_output.empty())
+    passiveTraceOutputPath.clear();
+    fenceTraceOutputPath.clear();
+    if (!passiveTraceOutput.empty() && !fenceTraceOutput.empty())
     {
         REXLOG_ERROR(
             "Passive Resolve/VdSwap tracing and consumer/fence tracing cannot run together");
         return false;
     }
-    if ((!passive_trace_output.empty() || !fence_trace_output.empty()) &&
+    if ((!passiveTraceOutput.empty() || !fenceTraceOutput.empty()) &&
         !REXCVAR_GET(native_renderer_coverage_run).empty())
     {
         REXLOG_ERROR(
             "Native renderer diagnostic tracing cannot share a native-renderer coverage run");
         return false;
     }
-    if (!passive_trace_output.empty() &&
-        (renderer_backend_ != rerevved::gpu::RendererBackend::Xenos ||
-         !ResolvePassiveTracePath(passive_trace_output,
-                                  passive_trace_output_path_)))
+    if (!passiveTraceOutput.empty() &&
+        (rendererBackend != rerevved::gpu::RendererBackend::Xenos ||
+         !resolvePassiveTracePath(passiveTraceOutput,
+                                  passiveTraceOutputPath)))
     {
         REXLOG_ERROR(
             "Passive Resolve/VdSwap trace requires Xenos and a non-reparse CSV path under the ignored out directory");
         return false;
     }
-    if (!fence_trace_output.empty() &&
-        (renderer_backend_ != rerevved::gpu::RendererBackend::Xenos ||
-         !ResolvePassiveTracePath(fence_trace_output,
-                                  fence_trace_output_path_)))
+    if (!fenceTraceOutput.empty() &&
+        (rendererBackend != rerevved::gpu::RendererBackend::Xenos ||
+         !resolvePassiveTracePath(fenceTraceOutput,
+                                  fenceTraceOutputPath)))
     {
         REXLOG_ERROR(
             "Xenos consumer/fence trace requires Xenos and a non-reparse CSV path under the ignored out directory");
@@ -320,9 +320,9 @@ bool App::SetupPresentation()
         return false;
     }
 
-    if (renderer_backend_ == rerevved::gpu::RendererBackend::Native)
+    if (rendererBackend == rerevved::gpu::RendererBackend::Native)
     {
-        if (!window() || !native_renderer_.Initialize(*window()))
+        if (!window() || !nativeRenderer.Initialize(*window()))
         {
             REXLOG_ERROR("Native renderer presentation setup failed");
             return false;
@@ -335,36 +335,36 @@ bool App::SetupPresentation()
         rex::cvar::SetFlagAsApplicationDefault("render_target_path_d3d12", "rov");
     }
 
-    const std::string run_id = REXCVAR_GET(native_renderer_coverage_run);
-    if (!run_id.empty())
+    const std::string runId = REXCVAR_GET(native_renderer_coverage_run);
+    if (!runId.empty())
     {
-        const std::string transition_id =
+        const std::string transitionId =
             REXCVAR_GET(native_renderer_coverage_transition);
-        const std::string input_digest =
+        const std::string inputDigest =
             REXCVAR_GET(native_renderer_coverage_input_digest);
-        const std::string output_name =
+        const std::string outputName =
             REXCVAR_GET(native_renderer_coverage_output);
-        const std::filesystem::path run_root = user_data_root().parent_path();
+        const std::filesystem::path runRoot = user_data_root().parent_path();
         if (user_data_root().filename() != "user-data" ||
-            output_name != "observer" || run_root.empty())
+            outputName != "observer" || runRoot.empty())
         {
             REXLOG_ERROR("native-renderer coverage requires the isolated runner path layout");
             return false;
         }
 
-        const std::filesystem::path output_directory =
-            run_root / output_name;
-        const std::string                       output_directory_text = output_directory.string();
-        const std::string                       run_root_text         = run_root.string();
+        const std::filesystem::path outputDirectory =
+            runRoot / outputName;
+        const std::string                       outputDirectoryText = outputDirectory.string();
+        const std::string                       runRootText         = runRoot.string();
         rerevved::native_renderer::StartOptions options{};
-        options.run_id           = run_id.c_str();
-        options.transition_id    = transition_id.c_str();
-        options.input_digest     = input_digest.c_str();
-        options.output_directory = output_directory_text.c_str();
-        options.output_root      = run_root_text.c_str();
-        options.xenos_enabled =
+        options.runId           = runId.c_str();
+        options.transitionId    = transitionId.c_str();
+        options.inputDigest     = inputDigest.c_str();
+        options.outputDirectory = outputDirectoryText.c_str();
+        options.outputRoot      = runRootText.c_str();
+        options.xenosEnabled =
             rex::cvar::GetFlagByName("gpu_plugin") == "xenos";
-        options.rov_enabled =
+        options.rovEnabled =
             rex::cvar::GetFlagByName("render_target_path_d3d12") == "rov";
         if (rerevved::native_renderer::Start(options) !=
             rerevved::native_renderer::StartStatus::Accepted)
@@ -374,36 +374,36 @@ bool App::SetupPresentation()
         }
 
         if (rerevved::native_renderer::RecordSegment(
-                0, ReadCoverageSnapshot()) !=
+                0, readCoverageSnapshot()) !=
             rerevved::native_renderer::CheckpointStatus::Accepted)
         {
             REXLOG_ERROR("native-renderer coverage observer start segment failed");
             return false;
         }
-        coverage_started_.store(true, std::memory_order_release);
+        coverageStarted.store(true, std::memory_order_release);
         REXLOG_INFO("NRD-COVERAGE-BEGIN");
     }
 
-    if (!passive_trace_output_path_.empty())
+    if (!passiveTraceOutputPath.empty())
     {
         if (!rerevved::gpu::diagnostics::GetPassiveTraceBuffer().Start(
-                passive_trace_output_path_))
+                passiveTraceOutputPath))
         {
             REXLOG_ERROR("Passive Resolve/VdSwap trace admission failed");
             return false;
         }
-        passive_trace_started_.store(true, std::memory_order_release);
+        passiveTraceStarted.store(true, std::memory_order_release);
         REXLOG_INFO("NATIVE-PASSIVE-TRACE-BEGIN");
     }
-    if (!fence_trace_output_path_.empty())
+    if (!fenceTraceOutputPath.empty())
     {
         if (!rex::graphics::diagnostic::GetXenosFenceTrace().Start(
-                fence_trace_output_path_))
+                fenceTraceOutputPath))
         {
             REXLOG_ERROR("Xenos consumer/fence trace admission failed");
             return false;
         }
-        fence_trace_started_.store(true, std::memory_order_release);
+        fenceTraceStarted.store(true, std::memory_order_release);
         REXLOG_INFO("NATIVE-FENCE-TRACE-BEGIN");
     }
     return true;
@@ -420,7 +420,7 @@ std::optional<rex::PathConfig> App::OnFinalizePaths(const rex::PathConfig& defau
         paths.game_data_root = std::filesystem::path(std::string(REXCVAR_GET(game_data_root)));
     }
 
-    auto result = rerevved::VerifyContentRoot(paths.game_data_root, rerevved::ContentDepth::kQuick);
+    auto result = rerevved::VerifyContentRoot(paths.game_data_root, rerevved::ContentDepth::Quick);
     if (!result.ok)
     {
         std::string message = fmt::format("The game content folder failed validation:\n{}\n\n", paths.game_data_root.string());
@@ -466,11 +466,11 @@ void App::OnPostSetup()
     rerevved::StartPresence();
 
     // Keep the internal app name lowercase and brand the window title separately.
-    window()->SetTitle(renderer_backend_ == rerevved::gpu::RendererBackend::Native
+    window()->SetTitle(rendererBackend == rerevved::gpu::RendererBackend::Native
                            ? "ReRevved - Native D3D12"
                            : "ReRevved");
 
-    if (coverage_started_.load(std::memory_order_acquire))
+    if (coverageStarted.load(std::memory_order_acquire))
     {
         // The locked SDK dispatches higher input layers first and stops after a
         // handled event. Moving the title listener above the MNK driver keeps
@@ -482,56 +482,56 @@ void App::OnPostSetup()
             "Record native-renderer coverage checkpoint",
             [this]()
             {
-                const bool accepted = RecordCoverageCheckpoint(false);
+                const bool accepted = recordCoverageCheckpoint(false);
                 REXLOG_INFO("NRD-COVERAGE-CHECKPOINT accepted={}", accepted ? "true" : "false");
             });
-        coverage_bind_registered_ = true;
+        coverageBindRegistered = true;
     }
 }
 
 void App::OnGuestThreadExit(rex::system::XThread* thread)
 {
     (void)thread;
-    FinalizeFenceTrace();
-    FinalizePassiveTrace();
-    FinalizeCoverage(rerevved::native_renderer::ExitClass::GuestComplete);
+    finalizeFenceTrace();
+    finalizePassiveTrace();
+    finalizeCoverage(rerevved::native_renderer::ExitClass::GuestComplete);
 }
 
 void App::OnShutdown()
 {
-    FinalizeFenceTrace();
-    FinalizePassiveTrace();
-    FinalizeCoverage(rerevved::native_renderer::ExitClass::Shutdown);
-    if (coverage_bind_registered_)
+    finalizeFenceTrace();
+    finalizePassiveTrace();
+    finalizeCoverage(rerevved::native_renderer::ExitClass::Shutdown);
+    if (coverageBindRegistered)
     {
         rex::ui::UnregisterBind("bind_native_renderer_coverage_checkpoint");
-        coverage_bind_registered_ = false;
+        coverageBindRegistered = false;
     }
     rerevved::StopPresence();
-    native_renderer_.Shutdown();
+    nativeRenderer.Shutdown();
 }
 
 bool App::OnWindowCloseRequested()
 {
-    FinalizeFenceTrace();
-    FinalizePassiveTrace();
-    FinalizeCoverage(rerevved::native_renderer::ExitClass::WindowClose);
+    finalizeFenceTrace();
+    finalizePassiveTrace();
+    finalizeCoverage(rerevved::native_renderer::ExitClass::WindowClose);
     rerevved::StopPresence();
-    native_renderer_.Shutdown();
+    nativeRenderer.Shutdown();
     return true;
 }
 
 void App::OnWindowFocusChanged(bool focused)
 {
-    window_focused_ = focused;
+    windowFocused = focused;
 }
 
-void App::OnWindowPixelSizeChanged(uint32_t pixel_width, uint32_t pixel_height)
+void App::OnWindowPixelSizeChanged(uint32_t pixelWidth, uint32_t pixelHeight)
 {
-    if (native_renderer_.initialized() && pixel_width != 0 && pixel_height != 0 &&
-        !native_renderer_.Resize(pixel_width, pixel_height))
+    if (nativeRenderer.Initialized() && pixelWidth != 0 && pixelHeight != 0 &&
+        !nativeRenderer.Resize(pixelWidth, pixelHeight))
     {
-        REXLOG_ERROR("Native renderer resize failed: {}x{}", pixel_width, pixel_height);
+        REXLOG_ERROR("Native renderer resize failed: {}x{}", pixelWidth, pixelHeight);
         rex::ShowSimpleMessageBox(rex::SimpleMessageBoxType::Error,
                                   "Native D3D12 resize failed. See the log for details.");
         app_context().RequestDeferredQuit();
@@ -540,7 +540,7 @@ void App::OnWindowPixelSizeChanged(uint32_t pixel_width, uint32_t pixel_height)
 
 void App::OnKeyDown(rex::ui::KeyEvent& event)
 {
-    if (coverage_bind_registered_ &&
+    if (coverageBindRegistered &&
         event.virtual_key() == rex::ui::VirtualKey::kF10 &&
         event.prev_state())
     {
@@ -550,55 +550,55 @@ void App::OnKeyDown(rex::ui::KeyEvent& event)
     rex::ui::ProcessKeyEvent(event);
 }
 
-bool App::RecordCoverageCheckpoint(bool final_segment)
+bool App::recordCoverageCheckpoint(bool finalSegment)
 {
-    const std::lock_guard checkpoint_lock(coverage_checkpoint_mutex_);
-    if (!coverage_started_.load(std::memory_order_acquire))
+    const std::lock_guard checkpointLock(coverageCheckpointMutex);
+    if (!coverageStarted.load(std::memory_order_acquire))
     {
         return false;
     }
-    if (!final_segment &&
-        coverage_finalize_started_.load(std::memory_order_acquire))
+    if (!finalSegment &&
+        coverageFinalizeStarted.load(std::memory_order_acquire))
     {
         return false;
     }
 
-    const auto fields = ReadCoverageSnapshot();
-    if (final_segment)
+    const auto fields = readCoverageSnapshot();
+    if (finalSegment)
     {
         return rerevved::native_renderer::RecordSegment(
                    kFinalCoverageSegment, fields) ==
                rerevved::native_renderer::CheckpointStatus::Accepted;
     }
-    if (!window_focused_ || coverage_mark_count_ >=
-                                rerevved::native_renderer::kCheckpointCapacity)
+    if (!windowFocused || coverageMarkCount >=
+                              rerevved::native_renderer::kCheckpointCapacity)
     {
         return false;
     }
 
-    const uint32_t mark    = coverage_mark_count_;
+    const uint32_t mark    = coverageMarkCount;
     const uint32_t segment = mark + 1;
     if (rerevved::native_renderer::RecordCheckpoint(segment, mark, fields) ==
         rerevved::native_renderer::CheckpointStatus::Accepted)
     {
-        ++coverage_mark_count_;
+        ++coverageMarkCount;
         return true;
     }
     return false;
 }
 
-void App::FinalizeCoverage(
-    rerevved::native_renderer::ExitClass exit_class)
+void App::finalizeCoverage(
+    rerevved::native_renderer::ExitClass exitClass)
 {
-    if (!coverage_started_.load(std::memory_order_acquire) ||
-        coverage_finalize_started_.exchange(true, std::memory_order_acq_rel))
+    if (!coverageStarted.load(std::memory_order_acquire) ||
+        coverageFinalizeStarted.exchange(true, std::memory_order_acq_rel))
     {
         return;
     }
-    const bool final_segment_recorded = RecordCoverageCheckpoint(true);
-    const auto status                 = rerevved::native_renderer::Finalize(exit_class);
+    const bool finalSegmentRecorded = recordCoverageCheckpoint(true);
+    const auto status               = rerevved::native_renderer::Finalize(exitClass);
     if (status == rerevved::native_renderer::FinalizeStatus::Accepted &&
-        final_segment_recorded)
+        finalSegmentRecorded)
     {
         REXLOG_INFO("NRD-COVERAGE-END");
     }
@@ -609,15 +609,15 @@ void App::FinalizeCoverage(
     }
 }
 
-void App::FinalizePassiveTrace()
+void App::finalizePassiveTrace()
 {
-    if (!passive_trace_started_.load(std::memory_order_acquire))
+    if (!passiveTraceStarted.load(std::memory_order_acquire))
     {
         return;
     }
 
     bool expected = false;
-    if (!passive_trace_finalize_started_.compare_exchange_strong(
+    if (!passiveTraceFinalizeStarted.compare_exchange_strong(
             expected,
             true,
             std::memory_order_acq_rel,
@@ -629,42 +629,42 @@ void App::FinalizePassiveTrace()
     auto& trace = rerevved::gpu::diagnostics::GetPassiveTraceBuffer();
     if (trace.StopAndFlush())
     {
-        passive_trace_started_.store(false, std::memory_order_release);
-        const auto statistics = trace.statistics();
+        passiveTraceStarted.store(false, std::memory_order_release);
+        const auto statistics = trace.Statistics();
         REXLOG_INFO(
             "NATIVE-PASSIVE-TRACE-END stored={} overflow={} epoch_failures={} epoch={} sequence={}",
             statistics.stored,
             statistics.overflow,
-            statistics.epoch_transition_failures,
+            statistics.epochTransitionFailures,
             statistics.epoch,
-            statistics.last_sequence);
+            statistics.lastSequence);
     }
     else
     {
-        const auto statistics = trace.statistics();
+        const auto statistics = trace.Statistics();
         REXLOG_ERROR(
             "Passive Resolve/VdSwap trace flush failed: stored={} overflow={} in_flight={}",
             statistics.stored,
             statistics.overflow,
-            statistics.in_flight_at_flush);
-        passive_trace_finalize_started_.store(false, std::memory_order_release);
+            statistics.inFlightAtFlush);
+        passiveTraceFinalizeStarted.store(false, std::memory_order_release);
     }
 }
 
-void App::FinalizeFenceTrace()
+void App::finalizeFenceTrace()
 {
-    if (!fence_trace_started_.load(std::memory_order_acquire))
+    if (!fenceTraceStarted.load(std::memory_order_acquire))
     {
         return;
     }
 
-    fence_trace_finalization_.Run(
+    fenceTraceFinalization.Run(
         [this]()
         {
             auto& trace = rex::graphics::diagnostic::GetXenosFenceTrace();
             if (trace.FinishAndFlush())
             {
-                fence_trace_started_.store(false, std::memory_order_release);
+                fenceTraceStarted.store(false, std::memory_order_release);
                 const auto statistics = trace.statistics();
                 REXLOG_INFO(
                     "NATIVE-FENCE-TRACE-END stored={} overflow={} lock_waits={} max_lock_wait_ns={} dropped={} reentry={} watched={} in_flight={} unresolved={} epoch={} sequence={}",

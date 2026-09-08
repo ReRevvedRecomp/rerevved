@@ -271,7 +271,7 @@ def generate_include(data: dict[str, Any], input_sha256: str) -> bytes:
         "namespace rerevved::native_renderer",
         "{",
         "",
-        "void RecordSiteFixedValue(std::uint32_t site_index, std::int64_t value) noexcept;",
+        "void RecordSiteFixedValue(std::uint32_t siteIndex, std::int64_t value) noexcept;",
         "",
         "} // namespace rerevved::native_renderer",
         "",
@@ -315,8 +315,8 @@ def generate_include(data: dict[str, Any], input_sha256: str) -> bytes:
         lines.extend([
             f"void {name}() noexcept",
             "{",
-            f"    constexpr std::uint32_t site_index = rerevved::native_renderer::generated::kSiteIndex{address:08X};",
-            "    rerevved::native_renderer::RecordSiteFixedValue(site_index, 4);",
+            f"    constexpr std::uint32_t kSiteIndex = rerevved::native_renderer::generated::kSiteIndex{address:08X};",
+            "    rerevved::native_renderer::RecordSiteFixedValue(kSiteIndex, 4);",
             "}",
             "",
         ])

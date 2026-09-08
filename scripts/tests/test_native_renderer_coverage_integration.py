@@ -26,7 +26,7 @@ class CoverageIntegrationTests(unittest.TestCase):
         start = APP_CPP.index("native_renderer::Start(options)")
         self.assertLess(setup, start)
         self.assertLess(start, post_setup)
-        self.assertIn('output_name != "observer"', APP_CPP)
+        self.assertIn('outputName != "observer"', APP_CPP)
         self.assertIn('user_data_root().filename() != "user-data"', APP_CPP)
 
     def test_f10_is_host_only_and_all_exit_paths_finalize(self) -> None:
@@ -49,7 +49,7 @@ class CoverageIntegrationTests(unittest.TestCase):
         handler = APP_CPP[repeat_filter:bind_dispatch]
         self.assertLess(repeat_filter, handled)
         self.assertLess(handled, bind_dispatch)
-        self.assertIn("coverage_bind_registered_ &&", handler)
+        self.assertIn("coverageBindRegistered &&", handler)
         self.assertIn(
             "event.virtual_key() == rex::ui::VirtualKey::kF10 &&",
             handler,
@@ -60,7 +60,7 @@ class CoverageIntegrationTests(unittest.TestCase):
         self.assertIn("ExitClass::WindowClose", APP_CPP)
         self.assertIn("ExitClass::Shutdown", APP_CPP)
         self.assertIn("native-renderer coverage observer start segment failed", APP_CPP)
-        self.assertIn("final_segment_recorded", APP_CPP)
+        self.assertIn("finalSegmentRecorded", APP_CPP)
 
     def test_capture_helper_encodes_png_bytes(self) -> None:
         self.assertIn("window_topmost_capture.png", CAPTURE)
