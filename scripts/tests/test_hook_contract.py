@@ -5,7 +5,6 @@ import tomllib
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 HOOK_CONFIG = ROOT / "config" / "rerevved_hooks.toml"
 COVERAGE_HOOK_CONFIG = ROOT / "config" / "native_renderer_coverage_hooks.toml"
@@ -390,9 +389,7 @@ class HookContractTests(unittest.TestCase):
     def test_configured_names_match_compat_hook_functions(self) -> None:
         with HOOK_CONFIG.open("rb") as stream:
             config = tomllib.load(stream)
-        source = "\n".join(
-            path.read_text(encoding="utf-8") for path in HOOK_SOURCES
-        )
+        source = "\n".join(path.read_text(encoding="utf-8") for path in HOOK_SOURCES)
         source_names = set(
             re.findall(r"^void (ReRevved\w+)\s*\(", source, re.MULTILINE)
         )
@@ -404,9 +401,9 @@ class HookContractTests(unittest.TestCase):
         )
 
     def test_combat_identity_uses_record_base_type(self) -> None:
-        source = (
-            ROOT / "src" / "unit_combat_rules_hooks.cpp"
-        ).read_text(encoding="ascii")
+        source = (ROOT / "src" / "unit_combat_rules_hooks.cpp").read_text(
+            encoding="ascii"
+        )
         identity = source.split("bool tryResolveIdentity", 1)[1].split(
             "bool tryAppendForestCombatLine", 1
         )[0]
@@ -426,9 +423,9 @@ class HookContractTests(unittest.TestCase):
         )
 
     def test_combat_hooks_use_saved_participant_offsets(self) -> None:
-        source = (
-            ROOT / "src" / "unit_combat_rules_hooks.cpp"
-        ).read_text(encoding="ascii")
+        source = (ROOT / "src" / "unit_combat_rules_hooks.cpp").read_text(
+            encoding="ascii"
+        )
         self.assertIn("kAttackerPlayerOffset = 1572;", source)
         self.assertIn("kAttackerUnitOffset   = 1580;", source)
         self.assertIn("kDefenderPlayerOffset = 1596;", source)
@@ -485,7 +482,9 @@ class HookContractTests(unittest.TestCase):
             "PPCRegister& r30);"
         )
         if prototype not in generated:
-            self.skipTest("generated sources do not include the current hook configuration")
+            self.skipTest(
+                "generated sources do not include the current hook configuration"
+            )
         placement = (
             "\t// lwz r11,84(r1)\n"
             "\tctx.r11.u64 = REX_LOAD_U32(ctx.r1.u32 + 84);\n"
@@ -497,9 +496,7 @@ class HookContractTests(unittest.TestCase):
         self.assertEqual(generated.count(placement), 1)
 
     def test_main_menu_logo_hook_preserves_native_fallback(self) -> None:
-        source = (
-            ROOT / "src" / "main_menu_logo_hooks.cpp"
-        ).read_text(encoding="ascii")
+        source = (ROOT / "src" / "main_menu_logo_hooks.cpp").read_text(encoding="ascii")
         self.assertIn("stackPointer.u32 == 0", source)
         self.assertIn("requestedName.u32 == 0", source)
         self.assertIn("TryGetPayload(payload)", source)
@@ -548,9 +545,9 @@ class HookContractTests(unittest.TestCase):
 
     def test_native_device_observer_is_read_only_and_native_gated(self) -> None:
         source = HOOK_SOURCES[0].read_text(encoding="utf-8")
-        observer = source.split(
-            "void ReRevvedObserveNativeDevicePublication", 1
-        )[1].split("void ReRevvedRememberGfxRenderConfig", 1)[0]
+        observer = source.split("void ReRevvedObserveNativeDevicePublication", 1)[
+            1
+        ].split("void ReRevvedRememberGfxRenderConfig", 1)[0]
         self.assertIn('REXCVAR_GET(renderer) != "native"', observer)
         self.assertIn("isGuestReadableRange", observer)
         self.assertIn("readGuestU32", observer)
@@ -574,9 +571,9 @@ class HookContractTests(unittest.TestCase):
 
     def test_native_texture_observer_is_read_only_and_native_gated(self) -> None:
         source = HOOK_SOURCES[0].read_text(encoding="utf-8")
-        observer = source.split(
-            "void ReRevvedObserveNativeTexturePublication", 1
-        )[1].split("void ReRevvedObserveRendererResolve", 1)[0]
+        observer = source.split("void ReRevvedObserveNativeTexturePublication", 1)[
+            1
+        ].split("void ReRevvedObserveRendererResolve", 1)[0]
         self.assertIn('REXCVAR_GET(renderer) != "native"', observer)
         self.assertIn("isGuestReadableRange", observer)
         self.assertIn("readGuestU32", observer)
@@ -584,7 +581,9 @@ class HookContractTests(unittest.TestCase):
         self.assertNotIn("texture_address, backend_address", observer)
         self.assertNotIn("WriteGuest", observer)
 
-    def test_generated_native_explicit_buffer_observer_placement_when_available(self) -> None:
+    def test_generated_native_explicit_buffer_observer_placement_when_available(
+        self,
+    ) -> None:
         paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
         if not paths:
             self.skipTest("generated sources are not available")
@@ -609,9 +608,9 @@ class HookContractTests(unittest.TestCase):
 
     def test_native_explicit_buffer_observers_are_read_only_and_bounded(self) -> None:
         source = HOOK_SOURCES[0].read_text(encoding="utf-8")
-        provider = source.split(
-            "void ReRevvedObserveNativeResolveProviderIdentity", 1
-        )[1].split("void ReRevvedObserveNativeExplicitBufferFactoryStore", 1)[0]
+        provider = source.split("void ReRevvedObserveNativeResolveProviderIdentity", 1)[
+            1
+        ].split("void ReRevvedObserveNativeExplicitBufferFactoryStore", 1)[0]
         factory = source.split(
             "void ReRevvedObserveNativeExplicitBufferFactoryStore", 1
         )[1].split("void ReRevvedObserveRendererResolve", 1)[0]
@@ -663,14 +662,12 @@ class HookContractTests(unittest.TestCase):
 
     def test_resolve_swap_observers_are_read_only_and_bounded(self) -> None:
         source = HOOK_SOURCES[0].read_text(encoding="utf-8")
-        observers = source.split(
-            "void ReRevvedObserveRendererResolve", 1
-        )[1].split("void ReRevvedRememberGfxRenderConfig", 1)[0]
+        observers = source.split("void ReRevvedObserveRendererResolve", 1)[1].split(
+            "void ReRevvedRememberGfxRenderConfig", 1
+        )[0]
         state = (
             ROOT / "src" / "gpu" / "diagnostics" / "native_renderer_guest_state.cpp"
-        ).read_text(
-            encoding="utf-8"
-        )
+        ).read_text(encoding="utf-8")
 
         self.assertIn("readGuestFetchDescriptor", observers)
         self.assertIn("ObserveGuestResolve", observers)
@@ -691,9 +688,9 @@ class HookContractTests(unittest.TestCase):
     def test_combat_speed_contract(self) -> None:
         source = HOOK_SOURCES[0].read_text(encoding="utf-8")
         app_source = APP_SOURCE.read_text(encoding="utf-8")
-        override = source.split(
-            "void ReRevvedApplyCombatPaceOverride", 1
-        )[1].split("void ReRevvedCompatNullOptionalDispatch", 1)[0]
+        override = source.split("void ReRevvedApplyCombatPaceOverride", 1)[1].split(
+            "void ReRevvedCompatNullOptionalDispatch", 1
+        )[0]
 
         definitions = re.findall(
             r'REXCVAR_DEFINE_STRING\(combat_speed,\s*"normal",\s*'
@@ -898,7 +895,9 @@ class HookContractTests(unittest.TestCase):
             for site in TERRAIN_YIELD_HOOK_SITES:
                 name = site["function"]
                 if f"DEFINE_REX_FUNC({name})" in source:
-                    self.assertNotIn(name, sources, f"duplicate generated function: {name}")
+                    self.assertNotIn(
+                        name, sources, f"duplicate generated function: {name}"
+                    )
                     sources[name] = source
 
         for site in TERRAIN_YIELD_HOOK_SITES:
@@ -906,9 +905,9 @@ class HookContractTests(unittest.TestCase):
             source = sources[site["function"]]
             function_marker = f"DEFINE_REX_FUNC({site['function']})"
             self.assertEqual(source.count(function_marker), 1)
-            function = source.split(function_marker, 1)[1].split(
-                "DEFINE_REX_FUNC", 1
-            )[0]
+            function = source.split(function_marker, 1)[1].split("DEFINE_REX_FUNC", 1)[
+                0
+            ]
             self.assertEqual(function.count(site["sequence"]), 1)
 
             registers = ", ".join(
@@ -935,9 +934,7 @@ class HookContractTests(unittest.TestCase):
         function = function.split("DEFINE_REX_FUNC", 1)[0]
         exact_mode, cumulative_mode = function.split("loc_82CF0D0C:", 1)
         self.assertNotIn("ReRevvedApplyUniqueEraAbilityCell", exact_mode)
-        self.assertEqual(
-            cumulative_mode.count("ReRevvedApplyUniqueEraAbilityCell"), 1
-        )
+        self.assertEqual(cumulative_mode.count("ReRevvedApplyUniqueEraAbilityCell"), 1)
         self.assertIn("if (ctx.cr6.eq) goto loc_82CF0D0C;", exact_mode)
 
     def test_era_presentation_buffer_has_native_length_header(self) -> None:
@@ -960,9 +957,9 @@ class HookContractTests(unittest.TestCase):
             publish,
             r"out\.u64\s*=\s*textAddress;",
         )
-        era_hook = source.split(
-            "void ReRevvedApplyEraAbilityNationSelectText", 1
-        )[1].split("void ReRevvedApplyUniqueUnitNationSelectText", 1)[0]
+        era_hook = source.split("void ReRevvedApplyEraAbilityNationSelectText", 1)[
+            1
+        ].split("void ReRevvedApplyUniqueUnitNationSelectText", 1)[0]
         self.assertRegex(
             era_hook,
             r"tryPublishText\(replacement\.data\(\),\s*"
@@ -978,24 +975,16 @@ class HookContractTests(unittest.TestCase):
             "ReRevvedApplyUniqueUnitSectionHeadingNationSelectText",
         ]:
             self.assertEqual(source.count(f"void {name}"), 1)
-        self.assertIn(
-            "NATION_SELECT_TEXT_SURFACE_LEADER_NAME", source
-        )
-        self.assertIn(
-            "NATION_SELECT_TEXT_SURFACE_CIVILIZATION_NAME", source
-        )
-        self.assertIn(
-            "NATION_SELECT_TEXT_SURFACE_CIVILIZATION_TRAIT", source
-        )
+        self.assertIn("NATION_SELECT_TEXT_SURFACE_LEADER_NAME", source)
+        self.assertIn("NATION_SELECT_TEXT_SURFACE_CIVILIZATION_NAME", source)
+        self.assertIn("NATION_SELECT_TEXT_SURFACE_CIVILIZATION_TRAIT", source)
         self.assertIn(
             "NATION_SELECT_TEXT_SURFACE_UNIQUE_UNIT_SECTION_HEADING",
             source,
         )
         trait_hook = source.split(
             "void ReRevvedApplyCivilizationTraitNationSelectText", 1
-        )[1].split(
-            "void ReRevvedApplyUniqueUnitSectionHeadingNationSelectText", 1
-        )[0]
+        )[1].split("void ReRevvedApplyUniqueUnitSectionHeadingNationSelectText", 1)[0]
         self.assertIn("tryReplaceText(traitText", trait_hook)
         self.assertIn("true,\n                   traitTextBuffer", trait_hook)
 
@@ -1078,9 +1067,7 @@ class HookContractTests(unittest.TestCase):
 
         function = generated.split("DEFINE_REX_FUNC(sub_82CF1148)", 1)[1]
         function = function.split("DEFINE_REX_FUNC", 1)[0]
-        self.assertEqual(
-            function.count("ReRevvedApplyUnitProductionCostPercent"), 1
-        )
+        self.assertEqual(function.count("ReRevvedApplyUnitProductionCostPercent"), 1)
         self.assertIn("ctx.r30.s64 = static_cast<int64_t>", function)
         self.assertIn("ctx.r29.u64 = ctx.r10.u64;", function)
         self.assertIn("ctx.r3.u64 = ctx.r28.u64;", function)

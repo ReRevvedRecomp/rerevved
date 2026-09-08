@@ -39,7 +39,9 @@ def parse_args():
         "windows": "out/build/win-amd64-release",
         "linux": "out/build/linux-amd64-release",
     }
-    parser.add_argument("--platform", choices=("windows", "linux"), default=default_platform)
+    parser.add_argument(
+        "--platform", choices=("windows", "linux"), default=default_platform
+    )
     parser.add_argument("--arch", default="x64")
     parser.add_argument("--build-dir", type=pathlib.Path, default=None)
     parser.add_argument("--out-dir", type=pathlib.Path, default=REPO / "out")

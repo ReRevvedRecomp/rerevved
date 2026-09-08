@@ -8,7 +8,6 @@ import struct
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
 TRACE_HEADER_SIZE = 48
 
 PRIMARY_BUFFER_START = 0
@@ -386,7 +385,9 @@ def analyze(
         f"load_constant_packets={load_constant_packets} "
         f"load_fetch_dwords={load_fetch_dwords}"
     )
-    frame_draws: dict[int, list[tuple[Packet, list[tuple[int, int, tuple[int, ...]]]]]] = {}
+    frame_draws: dict[
+        int, list[tuple[Packet, list[tuple[int, int, tuple[int, ...]]]]]
+    ] = {}
     for draw in draws:
         frame_draws.setdefault(draw[0].frame, []).append(draw)
     for frame in sorted(frame_draws):
@@ -405,10 +406,13 @@ def analyze(
             continue
         prim, source, count = draw_initiator(packet)
         large_reads = [read for read in packet.reads if read.size >= minimum_read]
-        read_text = ",".join(
-            f"{read.base:08X}+{read.size:X}:nz={read.nonzero}"
-            for read in large_reads
-        ) or "-"
+        read_text = (
+            ",".join(
+                f"{read.base:08X}+{read.size:X}:nz={read.nonzero}"
+                for read in large_reads
+            )
+            or "-"
+        )
         fetch_text = ",".join(format_fetch(fetch) for fetch in fetches) or "-"
         print(
             f"draw={draw_index:03d} frame={packet.frame:04d} "
@@ -430,7 +434,9 @@ def analyze(
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("trace", type=Path)
-    parser.add_argument("--minimum-read", type=lambda value: int(value, 0), default=4096)
+    parser.add_argument(
+        "--minimum-read", type=lambda value: int(value, 0), default=4096
+    )
     parser.add_argument("--summary-only", action="store_true")
     parser.add_argument("--frame", type=int)
     args = parser.parse_args()

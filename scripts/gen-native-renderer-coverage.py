@@ -11,7 +11,6 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-
 REPO = Path(__file__).resolve().parents[1]
 DEFAULT_INPUT = REPO / "config" / "native_renderer_fixture_0001.toml"
 DEFAULT_HOOK_OUTPUT = REPO / "config" / "native_renderer_coverage_hooks.toml"
@@ -79,7 +78,10 @@ def _require_keys(value: Any, expected: set[str], label: str) -> None:
 
 
 def _require_string(value: Any, expected: str, label: str) -> None:
-    _require(type(value) is str and value == expected, f"{label} differs from the accepted value")
+    _require(
+        type(value) is str and value == expected,
+        f"{label} differs from the accepted value",
+    )
 
 
 def _address_value(value: Any, label: str) -> int:
@@ -100,7 +102,9 @@ def _address_text(value: int) -> str:
     return f"0x{value:08X}"
 
 
-def _validate_pointers(pointers: dict[str, Any], expected: dict[str, str], label: str) -> None:
+def _validate_pointers(
+    pointers: dict[str, Any], expected: dict[str, str], label: str
+) -> None:
     _require_keys(pointers, set(expected), f"{label} source_pointers")
     for field, pointer in expected.items():
         _require_string(pointers.get(field), pointer, f"{label} {field} source pointer")
@@ -112,7 +116,10 @@ def _validate_domain(domain: Any, label: str) -> None:
     if domain.get("id") == "primitive-4":
         _require_keys(domain, {"id", "value_kind", "value", "selection"}, label)
         _require_string(value_kind, "integer", f"{label} value_kind")
-        _require(type(domain.get("value")) is int and domain["value"] == PRIMITIVE_VALUE, f"{label} value differs from 4")
+        _require(
+            type(domain.get("value")) is int and domain["value"] == PRIMITIVE_VALUE,
+            f"{label} value differs from 4",
+        )
         _require_string(domain.get("selection"), "site-fixed", f"{label} selection")
     elif domain.get("id") == "unknown":
         _require_keys(domain, {"id", "value_kind", "selection"}, label)
@@ -126,47 +133,99 @@ def _validate_snapshot(data: dict[str, Any]) -> dict[str, Any]:
     _require_keys(data, {"snapshot", "observer"}, "input")
     snapshot = data["snapshot"]
     observer = data["observer"]
-    _require_keys(snapshot, {"schema_version", "published_research_commit", "aggregate_sha256", "image_sha256", "surface", "source_pointers", "operations"}, "snapshot")
+    _require_keys(
+        snapshot,
+        {
+            "schema_version",
+            "published_research_commit",
+            "aggregate_sha256",
+            "image_sha256",
+            "surface",
+            "source_pointers",
+            "operations",
+        },
+        "snapshot",
+    )
     _require_keys(observer, {"segment_count"}, "observer")
-    _require(type(snapshot["schema_version"]) is int and snapshot["schema_version"] == 1, "snapshot schema_version differs from 1")
-    _require_string(snapshot["published_research_commit"], RESEARCH_COMMIT, "published_research_commit")
+    _require(
+        type(snapshot["schema_version"]) is int and snapshot["schema_version"] == 1,
+        "snapshot schema_version differs from 1",
+    )
+    _require_string(
+        snapshot["published_research_commit"],
+        RESEARCH_COMMIT,
+        "published_research_commit",
+    )
     _require_string(snapshot["aggregate_sha256"], AGGREGATE_SHA256, "aggregate_sha256")
     _require_string(snapshot["image_sha256"], IMAGE_SHA256, "image_sha256")
     _require_string(snapshot["surface"], "partial", "surface")
-    _require(type(observer["segment_count"]) is int and observer["segment_count"] == SEGMENT_COUNT, "observer segment count differs from 8")
+    _require(
+        type(observer["segment_count"]) is int
+        and observer["segment_count"] == SEGMENT_COUNT,
+        "observer segment count differs from 8",
+    )
 
     _validate_pointers(snapshot["source_pointers"], TOP_LEVEL_POINTERS, "snapshot")
     operations = snapshot["operations"]
-    _require(type(operations) is list and len(operations) == 1, "snapshot must contain one operation")
+    _require(
+        type(operations) is list and len(operations) == 1,
+        "snapshot must contain one operation",
+    )
     operation = operations[0]
     _require_keys(operation, set(OPERATION_POINTERS) | {"source_pointers"}, "operation")
     _require_string(operation["operation_id"], "NRD-OP-0002", "operation_id")
     _require_string(operation["runtime_join_key"], RUNTIME_JOIN_KEY, "runtime_join_key")
-    _require(operation["roles"] == ["wrapper", "lowering-boundary"], "operation roles differ from accepted values")
-    _require(operation["contract_ids"] == [CONTRACT_ID], "operation contract_ids differ from accepted values")
+    _require(
+        operation["roles"] == ["wrapper", "lowering-boundary"],
+        "operation roles differ from accepted values",
+    )
+    _require(
+        operation["contract_ids"] == [CONTRACT_ID],
+        "operation contract_ids differ from accepted values",
+    )
     _require(operation["registers"] == [], "operation registers must be empty")
-    _require(operation["claim_refs"] == CLAIM_REFS, "operation claim_refs differ from the accepted coverage snapshot")
+    _require(
+        operation["claim_refs"] == CLAIM_REFS,
+        "operation claim_refs differ from the accepted coverage snapshot",
+    )
     _validate_pointers(operation["source_pointers"], OPERATION_POINTERS, "operation")
 
     hooks = operation["hook_sites"]
-    _require(type(hooks) is list and len(hooks) == len(HOOK_ADDRESSES), "operation must contain two hook sites")
+    _require(
+        type(hooks) is list and len(hooks) == len(HOOK_ADDRESSES),
+        "operation must contain two hook sites",
+    )
     addresses: list[int] = []
     for index, hook in enumerate(hooks):
-        _require_keys(hook, {"address", "phase", "discriminator"}, f"hook_sites[{index}]")
-        address = _input_address_value(
-            hook["address"], f"hook_sites[{index}] address"
+        _require_keys(
+            hook, {"address", "phase", "discriminator"}, f"hook_sites[{index}]"
         )
-        _require(address in HOOK_ADDRESSES, f"hook_sites[{index}] address differs from the accepted coverage snapshot")
+        address = _input_address_value(hook["address"], f"hook_sites[{index}] address")
+        _require(
+            address in HOOK_ADDRESSES,
+            f"hook_sites[{index}] address differs from the accepted coverage snapshot",
+        )
         _require_string(hook["phase"], "value", f"hook_sites[{index}] phase")
-        _require_string(hook["discriminator"], "primitive-4", f"hook_sites[{index}] discriminator")
-        _require(address not in addresses, f"duplicate hook address: {_address_text(address)}")
+        _require_string(
+            hook["discriminator"], "primitive-4", f"hook_sites[{index}] discriminator"
+        )
+        _require(
+            address not in addresses,
+            f"duplicate hook address: {_address_text(address)}",
+        )
         addresses.append(address)
 
     domains = operation["value_domains"]
-    _require(type(domains) is list and len(domains) == 2, "operation must contain primitive-4 and unknown domains")
+    _require(
+        type(domains) is list and len(domains) == 2,
+        "operation must contain primitive-4 and unknown domains",
+    )
     for index, domain in enumerate(domains):
         _validate_domain(domain, f"value_domains[{index}]")
-    _require({domain["id"] for domain in domains} == {"primitive-4", "unknown"}, "value domain IDs differ from accepted values")
+    _require(
+        {domain["id"] for domain in domains} == {"primitive-4", "unknown"},
+        "value domain IDs differ from accepted values",
+    )
     return data
 
 
@@ -183,7 +242,9 @@ def _load_toml(path: Path) -> dict[str, Any]:
     return value
 
 
-def load_and_validate(path: Path = DEFAULT_INPUT, existing_hooks: Path = DEFAULT_EXISTING_HOOKS) -> tuple[dict[str, Any], bytes, dict[str, Any]]:
+def load_and_validate(
+    path: Path = DEFAULT_INPUT, existing_hooks: Path = DEFAULT_EXISTING_HOOKS
+) -> tuple[dict[str, Any], bytes, dict[str, Any]]:
     raw = path.read_bytes()
     data = _load_toml(path)
     _validate_snapshot(data)
@@ -194,31 +255,58 @@ def load_and_validate(path: Path = DEFAULT_INPUT, existing_hooks: Path = DEFAULT
 
 
 def _validate_existing_hooks(data: dict[str, Any]) -> None:
-    _require(set(data) == {"midasm_hook"}, "rerevved_hooks.toml has an unexpected schema")
+    _require(
+        set(data) == {"midasm_hook"}, "rerevved_hooks.toml has an unexpected schema"
+    )
     hooks = data["midasm_hook"]
     _require(type(hooks) is list, "rerevved_hooks.toml midasm_hook must be an array")
     addresses: set[int] = set()
     for index, hook in enumerate(hooks):
         _require(isinstance(hook, dict), f"existing hook {index} is not a table")
-        _require(set(hook) <= {"address", "name", "registers"}, f"existing hook {index} has unexpected keys")
-        _require("address" in hook and "name" in hook, f"existing hook {index} lacks address or name")
+        _require(
+            set(hook) <= {"address", "name", "registers"},
+            f"existing hook {index} has unexpected keys",
+        )
+        _require(
+            "address" in hook and "name" in hook,
+            f"existing hook {index} lacks address or name",
+        )
         address = _address_value(hook["address"], f"existing hook {index} address")
-        _require(address not in addresses, f"duplicate existing hook address: {_address_text(address)}")
+        _require(
+            address not in addresses,
+            f"duplicate existing hook address: {_address_text(address)}",
+        )
         addresses.add(address)
-        _require(type(hook["name"]) is str and bool(hook["name"]), f"existing hook {index} has invalid name")
+        _require(
+            type(hook["name"]) is str and bool(hook["name"]),
+            f"existing hook {index} has invalid name",
+        )
         if "registers" in hook:
-            _require(type(hook["registers"]) is list and all(type(reg) is str for reg in hook["registers"]), f"existing hook {index} registers are invalid")
+            _require(
+                type(hook["registers"]) is list
+                and all(type(reg) is str for reg in hook["registers"]),
+                f"existing hook {index} registers are invalid",
+            )
 
 
 def _validate_collisions(data: dict[str, Any], existing: dict[str, Any]) -> None:
-    existing_addresses = {_address_value(hook["address"], "existing hook address") for hook in existing["midasm_hook"]}
+    existing_addresses = {
+        _address_value(hook["address"], "existing hook address")
+        for hook in existing["midasm_hook"]
+    }
     existing_names = {hook["name"] for hook in existing["midasm_hook"]}
     operation = data["snapshot"]["operations"][0]
     for hook in operation["hook_sites"]:
         address = _address_value(hook["address"], "hook address")
-        _require(address not in existing_addresses, f"hook address collides with rerevved_hooks.toml: {_address_text(address)}")
+        _require(
+            address not in existing_addresses,
+            f"hook address collides with rerevved_hooks.toml: {_address_text(address)}",
+        )
         name = _wrapper_name(address)
-        _require(name not in existing_names, f"hook name collides with rerevved_hooks.toml: {name}")
+        _require(
+            name not in existing_names,
+            f"hook name collides with rerevved_hooks.toml: {name}",
+        )
 
 
 def _wrapper_name(address: int) -> str:
@@ -227,7 +315,13 @@ def _wrapper_name(address: int) -> str:
 
 def _canonical_hooks(data: dict[str, Any]) -> list[tuple[int, str]]:
     hooks = data["snapshot"]["operations"][0]["hook_sites"]
-    return sorted((_address_value(hook["address"], "hook address"), _wrapper_name(_address_value(hook["address"], "hook address"))) for hook in hooks)
+    return sorted(
+        (
+            _address_value(hook["address"], "hook address"),
+            _wrapper_name(_address_value(hook["address"], "hook address")),
+        )
+        for hook in hooks
+    )
 
 
 def _aligned_declarations(declarations: list[tuple[str, str, str]]) -> list[str]:
@@ -248,13 +342,15 @@ def generate_hook_toml(data: dict[str, Any], input_sha256: str) -> bytes:
         "",
     ]
     for address, name in _canonical_hooks(data):
-        lines.extend([
-            "[[midasm_hook]]",
-            f"address = {_address_text(address)}",
-            f'name = "{name}"',
-            "registers = []",
-            "",
-        ])
+        lines.extend(
+            [
+                "[[midasm_hook]]",
+                f"address = {_address_text(address)}",
+                f'name = "{name}"',
+                "registers = []",
+                "",
+            ]
+        )
     return "\n".join(lines).encode("ascii")
 
 
@@ -301,32 +397,44 @@ def generate_include(data: dict[str, Any], input_sha256: str) -> bytes:
         ("char", "kRuntimeJoinKey[]", f'"{RUNTIME_JOIN_KEY}"'),
     ]
     for index, (address, _) in enumerate(hooks):
-        declarations.extend([
-            ("std::uint32_t", f"kSiteIndex{address:08X}", str(index)),
-            ("std::uint32_t", f"kSiteAddress{address:08X}", _address_text(address)),
-        ])
+        declarations.extend(
+            [
+                ("std::uint32_t", f"kSiteIndex{address:08X}", str(index)),
+                ("std::uint32_t", f"kSiteAddress{address:08X}", _address_text(address)),
+            ]
+        )
     lines.extend(_aligned_declarations(declarations))
-    lines.extend([
-        "",
-        "} // namespace rerevved::native_renderer::generated",
-        "",
-    ])
-    for address, name in hooks:
-        lines.extend([
-            f"void {name}() noexcept",
-            "{",
-            f"    constexpr std::uint32_t kSiteIndex = rerevved::native_renderer::generated::kSiteIndex{address:08X};",
-            "    rerevved::native_renderer::RecordSiteFixedValue(kSiteIndex, 4);",
-            "}",
+    lines.extend(
+        [
             "",
-        ])
+            "} // namespace rerevved::native_renderer::generated",
+            "",
+        ]
+    )
+    for address, name in hooks:
+        lines.extend(
+            [
+                f"void {name}() noexcept",
+                "{",
+                f"    constexpr std::uint32_t kSiteIndex = rerevved::native_renderer::generated::kSiteIndex{address:08X};",
+                "    rerevved::native_renderer::RecordSiteFixedValue(kSiteIndex, 4);",
+                "}",
+                "",
+            ]
+        )
     return "\n".join(lines).encode("ascii")
 
 
-def generate_outputs(data: dict[str, Any], input_bytes: bytes) -> tuple[bytes, bytes, str]:
+def generate_outputs(
+    data: dict[str, Any], input_bytes: bytes
+) -> tuple[bytes, bytes, str]:
     _validate_snapshot(data)
     input_sha256 = hashlib.sha256(input_bytes).hexdigest()
-    return generate_hook_toml(data, input_sha256), generate_include(data, input_sha256), input_sha256
+    return (
+        generate_hook_toml(data, input_sha256),
+        generate_include(data, input_sha256),
+        input_sha256,
+    )
 
 
 def _write_if_changed(path: Path, content: bytes) -> bool:
@@ -348,7 +456,9 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--existing-hooks", type=Path, default=DEFAULT_EXISTING_HOOKS)
     parser.add_argument("--hooks-output", type=Path, default=DEFAULT_HOOK_OUTPUT)
     parser.add_argument("--include-output", type=Path, default=DEFAULT_INCLUDE_OUTPUT)
-    parser.add_argument("--check", action="store_true", help="verify outputs without writing files")
+    parser.add_argument(
+        "--check", action="store_true", help="verify outputs without writing files"
+    )
     return parser.parse_args(argv)
 
 
@@ -376,5 +486,7 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, ValidationError, tomllib.TOMLDecodeError) as exc:
         print(f"native-renderer-coverage: error: {exc}", file=sys.stderr)
         return 1
+
+
 if __name__ == "__main__":
     raise SystemExit(main())

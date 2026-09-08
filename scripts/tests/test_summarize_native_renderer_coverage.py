@@ -8,7 +8,6 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-
 SCRIPT = Path(__file__).resolve().parents[1] / "summarize-native-renderer-coverage.py"
 SPEC = importlib.util.spec_from_file_location("native_coverage_summary", SCRIPT)
 assert SPEC and SPEC.loader
@@ -19,7 +18,9 @@ DIGEST = "2d1466cf7a203e123d232cda6a4ab59b9618d3841aaee8f032422e9666c1d303"
 BASE_XEX_DIGEST = "b59b8957a3ed9dd90e9296c96d5c7ab1b16078d3f08b015582714a06c7d6a7bd"
 TITLE_UPDATE_DIGEST = "c1fc6149a63550987d991efdbb80e3697845a9a49d3f2ec180ea9817db8d12d4"
 TITLE_COMMIT = "b" * 40
-SDK_LOCK = json.loads((SCRIPT.parents[1] / "rexglue-sdk.lock.json").read_text(encoding="ascii"))
+SDK_LOCK = json.loads(
+    (SCRIPT.parents[1] / "rexglue-sdk.lock.json").read_text(encoding="ascii")
+)
 SDK_COMMIT = SDK_LOCK["commit"]
 SDK_VERSION = SDK_LOCK["version"]
 CONFIG_TEXT = (
@@ -34,7 +35,9 @@ def _log_line(message: str, level: str = "info") -> str:
     return f"[2026-08-29 12:00:00.000] [{level}] [rexglue] [t1] {message}"
 
 
-def _snapshot(index: int, *, checkpoint: bool = False, accepted: bool = False, segment: int = 0) -> dict:
+def _snapshot(
+    index: int, *, checkpoint: bool = False, accepted: bool = False, segment: int = 0
+) -> dict:
     row = {
         "frame_sequence": segment if accepted else 0,
         "valid_fields": 0,
@@ -98,8 +101,16 @@ def _coverage(
             "roles": ["wrapper", "lowering-boundary"],
             "contract_ids": ["NRD-CONTRACT-0001"],
             "hook_sites": [
-                {"address": 0x82303E3C, "phase": "value", "discriminator": "primitive-4"},
-                {"address": 0x82303E8C, "phase": "value", "discriminator": "primitive-4"},
+                {
+                    "address": 0x82303E3C,
+                    "phase": "value",
+                    "discriminator": "primitive-4",
+                },
+                {
+                    "address": 0x82303E8C,
+                    "phase": "value",
+                    "discriminator": "primitive-4",
+                },
             ],
             "registers": [],
             "value_domains": [
@@ -109,15 +120,24 @@ def _coverage(
         },
         "transition_attribution_valid": True,
         "exit_class": exit_class,
-        "lifetime_evaluation": "evaluated" if exit_class == "guest_complete" else "not-evaluated",
+        "lifetime_evaluation": "evaluated"
+        if exit_class == "guest_complete"
+        else "not-evaluated",
         "complete": True,
         "incomplete": False,
         "recovered_incomplete": False,
         "counters": counters,
         "counter_failures": {"saturated": 0, "rejected_in_flight": 0},
-        "segments": [_snapshot(i, accepted=i in accepted_segments, segment=i) for i in range(8)],
+        "segments": [
+            _snapshot(i, accepted=i in accepted_segments, segment=i) for i in range(8)
+        ],
         "checkpoints": [
-            _snapshot(i, checkpoint=True, accepted=i < marks, segment=i + 1 if i < marks else 0)
+            _snapshot(
+                i,
+                checkpoint=True,
+                accepted=i < marks,
+                segment=i + 1 if i < marks else 0,
+            )
             for i in range(6)
         ],
         "anomalies": [],
@@ -135,7 +155,13 @@ def _write_bundle(
     cache_class: str = "cold",
 ) -> None:
     marks = marks or []
-    for directory in ("observer", "screenshots", "shaders", "user-data", f"cache/{cache_class}"):
+    for directory in (
+        "observer",
+        "screenshots",
+        "shaders",
+        "user-data",
+        f"cache/{cache_class}",
+    ):
         (root / directory).mkdir(parents=True, exist_ok=True)
     log = root / "coverage.log"
     log.write_text(
@@ -210,12 +236,32 @@ def _write_bundle(
         "cache_directory": f"cache/{cache_class}",
         "save_directory": "user-data",
         "checkpoint": "complete",
-        "timing": {"started_utc": "2026-08-29T12:00:00Z", "ended_utc": "2026-08-29T12:10:00Z"},
+        "timing": {
+            "started_utc": "2026-08-29T12:00:00Z",
+            "ended_utc": "2026-08-29T12:10:00Z",
+        },
         "command_result": {"exit_code": 0, "classification": "accepted"},
-        "operator_review": {"overlays_remained_closed": True, "reached_marks": marks, "unexpected_errors": []},
-        "log": {"path": "coverage.log", "sha256": hashlib.sha256(log.read_bytes()).hexdigest()},
-        "artifacts": [{"path": "observer/coverage.json", "sha256": hashlib.sha256(coverage_path.read_bytes()).hexdigest()}],
-        "screenshots": [{"path": "screenshots/stable.png", "sha256": hashlib.sha256(screenshot.read_bytes()).hexdigest()}],
+        "operator_review": {
+            "overlays_remained_closed": True,
+            "reached_marks": marks,
+            "unexpected_errors": [],
+        },
+        "log": {
+            "path": "coverage.log",
+            "sha256": hashlib.sha256(log.read_bytes()).hexdigest(),
+        },
+        "artifacts": [
+            {
+                "path": "observer/coverage.json",
+                "sha256": hashlib.sha256(coverage_path.read_bytes()).hexdigest(),
+            }
+        ],
+        "screenshots": [
+            {
+                "path": "screenshots/stable.png",
+                "sha256": hashlib.sha256(screenshot.read_bytes()).hexdigest(),
+            }
+        ],
         "saves": [],
     }
     (root / "run.json").write_text(json.dumps(run, sort_keys=True), encoding="ascii")
@@ -234,7 +280,9 @@ def _rewrite_log(root: Path, text: str) -> None:
     lines = text.splitlines()
     rendered = []
     for line in lines:
-        level = "info" if line in {"NRD-COVERAGE-BEGIN", "NRD-COVERAGE-END"} else "error"
+        level = (
+            "info" if line in {"NRD-COVERAGE-BEGIN", "NRD-COVERAGE-END"} else "error"
+        )
         rendered.append(_log_line(line, level))
     _rewrite_raw_log(root, "\n".join(rendered) + "\n")
 
@@ -335,12 +383,16 @@ class SummaryTests(unittest.TestCase):
     def test_deterministic_zero_summary_has_exact_contract_rows(self) -> None:
         first = summary.summarize_run(self.root)
         second = summary.summarize_run(self.root)
-        self.assertEqual(summary.deterministic_json(first), summary.deterministic_json(second))
+        self.assertEqual(
+            summary.deterministic_json(first), summary.deterministic_json(second)
+        )
         self.assertEqual(first["count"], 0)
         self.assertEqual(first["matrix"], {})
         self.assertEqual(first["zero_absence_claim"], "blocked")
         self.assertEqual(first["lifetime_claim"], "not-applicable")
-        self.assertEqual([row["outcome"] for row in first["operations"]], ["blocked", "blocked"])
+        self.assertEqual(
+            [row["outcome"] for row in first["operations"]], ["blocked", "blocked"]
+        )
         self.assertEqual(first["operations"][0]["discriminator"], "primitive-4")
 
     def test_matrix_contains_only_observed_rows_and_names_checkpoints(self) -> None:
@@ -453,17 +505,25 @@ class SummaryTests(unittest.TestCase):
             return original_open(path, *args, **kwargs)
 
         def tracking_hash(path: Path) -> str:
-            hashed_paths.append(path.resolve().relative_to(self.root.resolve()).as_posix())
+            hashed_paths.append(
+                path.resolve().relative_to(self.root.resolve()).as_posix()
+            )
             return original_hash(path)
 
-        with mock.patch.object(Path, "open", new=guarded_open), mock.patch.object(
-            summary, "_hash", side_effect=tracking_hash
+        with (
+            mock.patch.object(Path, "open", new=guarded_open),
+            mock.patch.object(summary, "_hash", side_effect=tracking_hash),
         ):
             result = summary.summarize_run(self.root)
 
         self.assertCountEqual(
             hashed_paths,
-            ["coverage.log", "observer/coverage.json", "screenshots/stable.png", "run.json"],
+            [
+                "coverage.log",
+                "observer/coverage.json",
+                "screenshots/stable.png",
+                "run.json",
+            ],
         )
         self.assertEqual(len(result["inventory"]), 4)
 
@@ -496,9 +556,7 @@ class SummaryTests(unittest.TestCase):
         summary.summarize_run(self.root)
 
         run = json.loads(run_path.read_text(encoding="ascii"))
-        run["saves"] = [
-            {"path": "user-data/save5.sve", "sha256": fixture_sha}
-        ]
+        run["saves"] = [{"path": "user-data/save5.sve", "sha256": fixture_sha}]
         run_path.write_text(json.dumps(run, sort_keys=True), encoding="ascii")
         with self.assertRaises(summary.CoverageError):
             summary.summarize_run(self.root)
@@ -530,7 +588,9 @@ class SummaryTests(unittest.TestCase):
             coverage["checkpoints"][0]["civilization"] = 7
             coverage["segments"][1]["civilization"] = 7
             _rewrite_coverage(root, coverage)
-            with self.assertRaisesRegex(summary.CoverageError, "owner-locked invariant"):
+            with self.assertRaisesRegex(
+                summary.CoverageError, "owner-locked invariant"
+            ):
                 summary.summarize_run(root)
 
     def test_locked_new_game_fixture_prohibits_saves(self) -> None:
@@ -574,8 +634,9 @@ class SummaryTests(unittest.TestCase):
                 self.root,
                 "NRD-COVERAGE-BEGIN\n" + "\n".join(overflow) + "\nNRD-COVERAGE-END\n",
             )
-            with self.subTest(overflow=overflow), self.assertRaisesRegex(
-                summary.CoverageError, "accepted fixture bound"
+            with (
+                self.subTest(overflow=overflow),
+                self.assertRaisesRegex(summary.CoverageError, "accepted fixture bound"),
             ):
                 summary.summarize_run(self.root)
 
@@ -597,7 +658,12 @@ class SummaryTests(unittest.TestCase):
         run_path = self.root / "run.json"
         run = json.loads(run_path.read_text())
         run["readiness"]["expected_screenshots"] = ["stable.png"]
-        run["screenshots"] = [{"path": "screenshots/stable.png", "sha256": hashlib.sha256(summary.PNG_SIGNATURE).hexdigest()}]
+        run["screenshots"] = [
+            {
+                "path": "screenshots/stable.png",
+                "sha256": hashlib.sha256(summary.PNG_SIGNATURE).hexdigest(),
+            }
+        ]
         run_path.write_text(json.dumps(run), encoding="ascii")
         self.assertEqual(len(summary.summarize_run(self.root)["inventory"]), 4)
         run["screenshots"][0]["path"] = "screenshots/other.png"
@@ -635,7 +701,9 @@ class SummaryTests(unittest.TestCase):
                 "presence_only": False,
             },
         )
-        _rewrite_log(self.root, "NRD-COVERAGE-BEGIN\nSDK error literal\nNRD-COVERAGE-END\n")
+        _rewrite_log(
+            self.root, "NRD-COVERAGE-BEGIN\nSDK error literal\nNRD-COVERAGE-END\n"
+        )
         with self.assertRaises(summary.CoverageError):
             summary.summarize_run(self.root)
 
@@ -657,9 +725,15 @@ class SummaryTests(unittest.TestCase):
             r"ResolvePath(\Device) failed - device not found",
             "ResolvePath(UPDATE:\\) failed - device not found",
         ]
-        _rewrite_log(self.root, "NRD-COVERAGE-BEGIN\n" + "\n".join(messages) + "\nNRD-COVERAGE-END\n")
+        _rewrite_log(
+            self.root,
+            "NRD-COVERAGE-BEGIN\n" + "\n".join(messages) + "\nNRD-COVERAGE-END\n",
+        )
         result = summary.summarize_run(self.root)
-        self.assertEqual([row["id"] for row in result["diagnostics"]], [f"NRD-SDK-FAIL-{index:04d}" for index in range(1, 12)])
+        self.assertEqual(
+            [row["id"] for row in result["diagnostics"]],
+            [f"NRD-SDK-FAIL-{index:04d}" for index in range(1, 12)],
+        )
         for message in (
             "Failed to execute packet.",
             "Failed to execute packet",
@@ -667,7 +741,9 @@ class SummaryTests(unittest.TestCase):
             "IssueSwap: RequestSwapTexture failed - fetch0: 00",
             "Submission tracker signal failed with HRESULT 0x80004005",
         ):
-            _rewrite_log(self.root, f"NRD-COVERAGE-BEGIN\n{message}\nNRD-COVERAGE-END\n")
+            _rewrite_log(
+                self.root, f"NRD-COVERAGE-BEGIN\n{message}\nNRD-COVERAGE-END\n"
+            )
             with self.assertRaises(summary.CoverageError):
                 summary.summarize_run(self.root)
 
@@ -704,8 +780,9 @@ class SummaryTests(unittest.TestCase):
             {"fixture_id": "NRD-FIX-0001", "transition_id": "NRD-TRANS-0004"},
             {"fixture_id": "NRD-FIX-0003", "transition_id": "NRD-TRANS-0010"},
         ):
-            with self.subTest(state=state), self.assertRaisesRegex(
-                summary.CoverageError, "accepted fixture bound"
+            with (
+                self.subTest(state=state),
+                self.assertRaisesRegex(summary.CoverageError, "accepted fixture bound"),
             ):
                 summary._check_log(self.root, run["log"], state)
         for message in (
@@ -718,7 +795,10 @@ class SummaryTests(unittest.TestCase):
                 self.root,
                 f"NRD-COVERAGE-BEGIN\n{message}\nNRD-COVERAGE-END\n",
             )
-            with self.subTest(message=message), self.assertRaises(summary.CoverageError):
+            with (
+                self.subTest(message=message),
+                self.assertRaises(summary.CoverageError),
+            ):
                 summary.summarize_run(self.root)
         for name, bounded_messages in (
             ("device-count", [messages[0], messages[0]]),
@@ -730,13 +810,17 @@ class SummaryTests(unittest.TestCase):
                 + "\n".join(bounded_messages)
                 + "\nNRD-COVERAGE-END\n",
             )
-            with self.subTest(name=name), self.assertRaisesRegex(
-                summary.CoverageError, "accepted fixture bound"
+            with (
+                self.subTest(name=name),
+                self.assertRaisesRegex(summary.CoverageError, "accepted fixture bound"),
             ):
                 summary.summarize_run(self.root)
-            bounded_run = json.loads((self.root / "run.json").read_text(encoding="ascii"))
-            with self.subTest(name=name, transition="full-intro"), self.assertRaisesRegex(
-                summary.CoverageError, "accepted fixture bound"
+            bounded_run = json.loads(
+                (self.root / "run.json").read_text(encoding="ascii")
+            )
+            with (
+                self.subTest(name=name, transition="full-intro"),
+                self.assertRaisesRegex(summary.CoverageError, "accepted fixture bound"),
             ):
                 summary._check_log(
                     self.root,
@@ -778,55 +862,82 @@ class SummaryTests(unittest.TestCase):
             level: str = "info",
             lines: list[str] | None = None,
         ) -> str:
-            return "\n".join([
-                _log_line("NRD-COVERAGE-BEGIN"),
-                _log_line(parent, level),
-                *(feature_lines if lines is None else lines),
-                _log_line("NRD-COVERAGE-END"),
-            ]) + "\n"
+            return (
+                "\n".join(
+                    [
+                        _log_line("NRD-COVERAGE-BEGIN"),
+                        _log_line(parent, level),
+                        *(feature_lines if lines is None else lines),
+                        _log_line("NRD-COVERAGE-END"),
+                    ]
+                )
+                + "\n"
+            )
 
         _rewrite_raw_log(self.root, render())
         summary.summarize_run(self.root)
-        _rewrite_raw_log(self.root, render(lines=[
-            "* Max GPU virtual address bits per resource: 4294967295",
-            *feature_lines[1:],
-        ]))
+        _rewrite_raw_log(
+            self.root,
+            render(
+                lines=[
+                    "* Max GPU virtual address bits per resource: 4294967295",
+                    *feature_lines[1:],
+                ]
+            ),
+        )
         summary.summarize_run(self.root)
 
         mutations = {
-            "stray": "\n".join([
-                _log_line("NRD-COVERAGE-BEGIN"),
-                feature_lines[0],
-                _log_line("NRD-COVERAGE-END"),
-            ]) + "\n",
+            "stray": "\n".join(
+                [
+                    _log_line("NRD-COVERAGE-BEGIN"),
+                    feature_lines[0],
+                    _log_line("NRD-COVERAGE-END"),
+                ]
+            )
+            + "\n",
             "missing": render(lines=feature_lines[:-1]),
             "extra": render(lines=feature_lines + ["* Extra feature: yes"]),
-            "reordered": render(lines=[feature_lines[1], feature_lines[0], *feature_lines[2:]]),
-            "malformed": render(lines=[
-                *feature_lines[:4],
-                "* Rasterizer-ordered views: enabled",
-                *feature_lines[5:],
-            ]),
-            "overflow": render(lines=[
-                "* Max GPU virtual address bits per resource: 4294967296",
-                *feature_lines[1:],
-            ]),
-            "leading-zero": render(lines=[
-                "* Max GPU virtual address bits per resource: 040",
-                *feature_lines[1:],
-            ]),
-            "signed": render(lines=[
-                "* Max GPU virtual address bits per resource: +40",
-                *feature_lines[1:],
-            ]),
-            "negative": render(lines=[
-                "* Max GPU virtual address bits per resource: -1",
-                *feature_lines[1:],
-            ]),
-            "enveloped-continuation": render(lines=[
-                _log_line(feature_lines[0]),
-                *feature_lines[1:],
-            ]),
+            "reordered": render(
+                lines=[feature_lines[1], feature_lines[0], *feature_lines[2:]]
+            ),
+            "malformed": render(
+                lines=[
+                    *feature_lines[:4],
+                    "* Rasterizer-ordered views: enabled",
+                    *feature_lines[5:],
+                ]
+            ),
+            "overflow": render(
+                lines=[
+                    "* Max GPU virtual address bits per resource: 4294967296",
+                    *feature_lines[1:],
+                ]
+            ),
+            "leading-zero": render(
+                lines=[
+                    "* Max GPU virtual address bits per resource: 040",
+                    *feature_lines[1:],
+                ]
+            ),
+            "signed": render(
+                lines=[
+                    "* Max GPU virtual address bits per resource: +40",
+                    *feature_lines[1:],
+                ]
+            ),
+            "negative": render(
+                lines=[
+                    "* Max GPU virtual address bits per resource: -1",
+                    *feature_lines[1:],
+                ]
+            ),
+            "enveloped-continuation": render(
+                lines=[
+                    _log_line(feature_lines[0]),
+                    *feature_lines[1:],
+                ]
+            ),
             "different-parent": render(parent="Direct3D 12 device features:"),
             "different-level": render(level="debug"),
         }
@@ -837,7 +948,9 @@ class SummaryTests(unittest.TestCase):
                     summary.summarize_run(self.root)
 
     def test_unknown_diagnostic_and_wrong_sdk_are_blocked(self) -> None:
-        _rewrite_log(self.root, "NRD-COVERAGE-BEGIN\nunknown fatal condition\nNRD-COVERAGE-END\n")
+        _rewrite_log(
+            self.root, "NRD-COVERAGE-BEGIN\nunknown fatal condition\nNRD-COVERAGE-END\n"
+        )
         with self.assertRaises(summary.CoverageError):
             summary.summarize_run(self.root)
         _write_bundle(self.root / "sdk")
@@ -885,7 +998,9 @@ class SummaryTests(unittest.TestCase):
             original_lock_path = summary.SDK_LOCK_PATH
             try:
                 summary.SDK_LOCK_PATH = lock_path
-                with self.assertRaisesRegex(summary.CoverageError, "missing commit, version, dirty"):
+                with self.assertRaisesRegex(
+                    summary.CoverageError, "missing commit, version, dirty"
+                ):
                     summary._locked_sdk_identity()
             finally:
                 summary.SDK_LOCK_PATH = original_lock_path
@@ -909,7 +1024,12 @@ class SummaryTests(unittest.TestCase):
         nested_output = nested / "reports" / "summary.json"
         nested_output.parent.mkdir()
         self.assertEqual(summary.main([str(nested), "--output", str(nested_output)]), 0)
-        self.assertEqual(summary.main([str(nested), "--output", str(nested / "observer" / "summary.json")]), 1)
+        self.assertEqual(
+            summary.main(
+                [str(nested), "--output", str(nested / "observer" / "summary.json")]
+            ),
+            1,
+        )
         run_path = self.root / "run.json"
         run_path.write_text('{"schema":"x","schema":"y"}', encoding="ascii")
         with self.assertRaises(summary.CoverageError):

@@ -8,15 +8,12 @@ import subprocess
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 APP_H = (ROOT / "src" / "app.h").read_text(encoding="ascii")
 APP_CPP = (ROOT / "src" / "app.cpp").read_text(encoding="ascii")
 GAME_CONTENT_H = (ROOT / "src" / "game_content.h").read_text(encoding="ascii")
 GAME_CONTENT_CPP = (ROOT / "src" / "game_content.cpp").read_text(encoding="ascii")
-NATIVE_CPP = (
-    ROOT / "src" / "gpu" / "d3d12" / "native_renderer_d3d12.cpp"
-).read_text(
+NATIVE_CPP = (ROOT / "src" / "gpu" / "d3d12" / "native_renderer_d3d12.cpp").read_text(
     encoding="ascii"
 )
 GUEST_SERVICE_CPP = (ROOT / "src" / "gpu" / "guest_gpu_service.cpp").read_text(
@@ -42,12 +39,8 @@ GUEST_SERVICE_FILES = {
 class NativeRendererIntegrationTests(unittest.TestCase):
     def test_title_adapter_profile_copy_and_content_identity(self) -> None:
         self.assertEqual(LOCK["commit"], ACCEPTED_SDK_COMMIT)
-        self.assertIn(
-            "GetProfileCopySpecification() const override", APP_H
-        )
-        self.assertIn(
-            '.config_relative_path = "rerevved.toml"', APP_CPP
-        )
+        self.assertIn("GetProfileCopySpecification() const override", APP_H)
+        self.assertIn('.config_relative_path = "rerevved.toml"', APP_CPP)
         self.assertIn(".title_id             = rerevved::kTitleId", APP_CPP)
         self.assertIn("extern const std::uint32_t kTitleId;", GAME_CONTENT_H)
         self.assertRegex(
@@ -68,27 +61,21 @@ class NativeRendererIntegrationTests(unittest.TestCase):
             'rex::cvar::SetFlagAsApplicationDefault("render_target_path_d3d12", "rov")',
             APP_CPP,
         )
-        self.assertNotIn(
-            'rex::cvar::SetFlagByName("gpu_plugin", "xenos")', APP_CPP
-        )
+        self.assertNotIn('rex::cvar::SetFlagByName("gpu_plugin", "xenos")', APP_CPP)
         self.assertNotIn(
             'rex::cvar::SetFlagByName("render_target_path_d3d12", "rov")',
             APP_CPP,
         )
 
         environment = APP_CPP.index("bool App::SetupEnvironment()")
-        base_environment = APP_CPP.index(
-            "rex::ReXApp::SetupEnvironment()", environment
-        )
+        base_environment = APP_CPP.index("rex::ReXApp::SetupEnvironment()", environment)
         selection = APP_CPP.index(
             "ParseRendererBackend(REXCVAR_GET(renderer))", environment
         )
         gpu_default = APP_CPP.index(
             'SetFlagAsApplicationDefault("gpu_plugin", "xenos")', environment
         )
-        presentation = APP_CPP.index(
-            "bool App::SetupPresentation()"
-        )
+        presentation = APP_CPP.index("bool App::SetupPresentation()")
         base_presentation = APP_CPP.index(
             "rex::ReXApp::SetupPresentation()", presentation
         )
@@ -144,11 +131,14 @@ class NativeRendererIntegrationTests(unittest.TestCase):
         self.assertEqual(consumers, ["src/app.cpp"])
 
         pre_setup = APP_CPP[
-            APP_CPP.index("void App::OnPreSetup") :
-            APP_CPP.index("void App::OnConfigurePaths")
+            APP_CPP.index("void App::OnPreSetup") : APP_CPP.index(
+                "void App::OnConfigurePaths"
+            )
         ]
         self.assertIn("RendererBackend::Native", pre_setup)
-        self.assertIn("std::make_unique<rerevved::gpu::NativeGuestGpuService>()", pre_setup)
+        self.assertIn(
+            "std::make_unique<rerevved::gpu::NativeGuestGpuService>()", pre_setup
+        )
         self.assertIn("config.gpu_plugin.clear();", pre_setup)
 
     def test_config_is_loaded_before_selection_and_detach(self) -> None:
@@ -174,7 +164,7 @@ class NativeRendererIntegrationTests(unittest.TestCase):
                 "-C",
                 sdk,
                 "show",
-                f'{LOCK["commit"]}:src/ui/rex_app.cpp',
+                f"{LOCK['commit']}:src/ui/rex_app.cpp",
             ],
             check=True,
             capture_output=True,
@@ -251,7 +241,8 @@ class NativeRendererIntegrationTests(unittest.TestCase):
         self.assertLess(signal, present)
         resize_failure = NATIVE_CPP.index('"swap chain resize"')
         self.assertNotIn(
-            "shutdownOnRendererThread", NATIVE_CPP[resize_failure : resize_failure + 250]
+            "shutdownOnRendererThread",
+            NATIVE_CPP[resize_failure : resize_failure + 250],
         )
         self.assertIn("GetDeviceRemovedReason", NATIVE_CPP)
 
@@ -264,8 +255,9 @@ class NativeRendererIntegrationTests(unittest.TestCase):
         self.assertIn("shutdownOnRendererThread", NATIVE_CPP)
 
         resize = NATIVE_CPP[
-            NATIVE_CPP.index("bool NativeRendererD3D12::Resize(") :
-            NATIVE_CPP.index("void NativeRendererD3D12::Shutdown()")
+            NATIVE_CPP.index("bool NativeRendererD3D12::Resize(") : NATIVE_CPP.index(
+                "void NativeRendererD3D12::Shutdown()"
+            )
         ]
         self.assertIn("requestedWidth", resize)
         self.assertIn("requestedHeight", resize)
@@ -275,18 +267,25 @@ class NativeRendererIntegrationTests(unittest.TestCase):
         self.assertNotIn("ResizeBuffers", resize)
         self.assertNotIn("waitForGpu", resize)
 
-        shutdown = NATIVE_CPP[NATIVE_CPP.index("void NativeRendererD3D12::Shutdown()") :]
+        shutdown = NATIVE_CPP[
+            NATIVE_CPP.index("void NativeRendererD3D12::Shutdown()") :
+        ]
         self.assertIn("stopRequested", shutdown)
         self.assertIn("rendererThread.join();", shutdown)
         self.assertIn("stateCv.notify_all();", shutdown)
         self.assertNotIn("waitForGpu", shutdown)
 
         worker = NATIVE_CPP[
-            NATIVE_CPP.index("void NativeRendererD3D12::rendererThreadMain") :
-            NATIVE_CPP.index("bool NativeRendererD3D12::Initialize(")
+            NATIVE_CPP.index(
+                "void NativeRendererD3D12::rendererThreadMain"
+            ) : NATIVE_CPP.index("bool NativeRendererD3D12::Initialize(")
         ]
-        self.assertLess(worker.index("stateCv.wait"), worker.index("shutdownOnRendererThread"))
-        self.assertLess(worker.index("stopRequested"), worker.index("shutdownOnRendererThread"))
+        self.assertLess(
+            worker.index("stateCv.wait"), worker.index("shutdownOnRendererThread")
+        )
+        self.assertLess(
+            worker.index("stopRequested"), worker.index("shutdownOnRendererThread")
+        )
         self.assertIn("requestDeferredQuit", NATIVE_CPP)
         self.assertIn("appContext->RequestDeferredQuit();", NATIVE_CPP)
 
@@ -303,8 +302,9 @@ class NativeRendererIntegrationTests(unittest.TestCase):
 
     def test_ui_resize_callback_only_latches_renderer_request(self) -> None:
         resize_callback = APP_CPP[
-            APP_CPP.index("void App::OnWindowPixelSizeChanged") :
-            APP_CPP.index("void App::OnKeyDown")
+            APP_CPP.index("void App::OnWindowPixelSizeChanged") : APP_CPP.index(
+                "void App::OnKeyDown"
+            )
         ]
         self.assertIn("nativeRenderer.Resize(pixelWidth, pixelHeight)", resize_callback)
         self.assertNotIn("ResizeBuffers", resize_callback)
@@ -335,13 +335,12 @@ class NativeRendererIntegrationTests(unittest.TestCase):
 
     def test_published_write_observation_requires_xenos_plugin(self) -> None:
         observation = COMPAT_CPP[
-            COMPAT_CPP.index("void readRingObservation") :
-            COMPAT_CPP.index("void recordTracePoint")
+            COMPAT_CPP.index("void readRingObservation") : COMPAT_CPP.index(
+                "void recordTracePoint"
+            )
         ]
         self.assertNotIn("dynamic_cast", observation)
-        cast = observation.index(
-            "static_cast<rex::graphics::GraphicsSystem*>("
-        )
+        cast = observation.index("static_cast<rex::graphics::GraphicsSystem*>(")
         self.assertLess(
             observation.index('REXCVAR_GET(renderer) == "xenos"'),
             cast,
@@ -353,8 +352,9 @@ class NativeRendererIntegrationTests(unittest.TestCase):
 
     def test_passive_trace_is_scoped_to_the_known_swap_callers(self) -> None:
         reservation = COMPAT_CPP[
-            COMPAT_CPP.index("void ReRevvedTraceReservationEnter") :
-            COMPAT_CPP.index("void ReRevvedTraceReservationReturn")
+            COMPAT_CPP.index("void ReRevvedTraceReservationEnter") : COMPAT_CPP.index(
+                "void ReRevvedTraceReservationReturn"
+            )
         ]
         self.assertIn("tracedVdswapOwnerActive", reservation)
         self.assertIn("r4.u32 != 64", reservation)
@@ -376,7 +376,9 @@ class NativeRendererIntegrationTests(unittest.TestCase):
             body = COMPAT_CPP[start:end]
             self.assertIn("BeginRecord", body)
             if "readRingObservation" in body:
-                self.assertLess(body.index("BeginRecord"), body.index("readRingObservation"))
+                self.assertLess(
+                    body.index("BeginRecord"), body.index("readRingObservation")
+                )
 
     def test_passive_trace_hooks_are_exact_and_non_replacing(self) -> None:
         exact_hooks = {
@@ -427,8 +429,11 @@ class NativeRendererIntegrationTests(unittest.TestCase):
         self.assertNotIn("std::condition_variable", PASSIVE_TRACE_CPP)
         self.assertNotIn("StopAndFlush", COMPAT_CPP)
         record = PASSIVE_TRACE_CPP[
-            PASSIVE_TRACE_CPP.index("bool PassiveTraceBuffer::Record") :
-            PASSIVE_TRACE_CPP.index("bool PassiveTraceBuffer::BeginObservationEpoch")
+            PASSIVE_TRACE_CPP.index(
+                "bool PassiveTraceBuffer::Record"
+            ) : PASSIVE_TRACE_CPP.index(
+                "bool PassiveTraceBuffer::BeginObservationEpoch"
+            )
         ]
         for forbidden in ("std::vector", "std::ofstream", "filesystem", "mutex"):
             self.assertNotIn(forbidden, record)
@@ -436,8 +441,9 @@ class NativeRendererIntegrationTests(unittest.TestCase):
     def test_passive_snapshot_is_fixed_and_post_emission_only(self) -> None:
         self.assertIn("kPassiveTraceReservationDwords = 64", PASSIVE_TRACE_H)
         published = COMPAT_CPP[
-            COMPAT_CPP.index("void ReRevvedTraceVdSwapPublished") :
-            COMPAT_CPP.index("void ReRevvedTracePreSwapEnter")
+            COMPAT_CPP.index("void ReRevvedTraceVdSwapPublished") : COMPAT_CPP.index(
+                "void ReRevvedTracePreSwapEnter"
+            )
         ]
         self.assertIn("event.reservationWords[index] = readGuestU32", published)
         for function in (
@@ -459,7 +465,9 @@ class NativeRendererIntegrationTests(unittest.TestCase):
             self.assertNotIn(forbidden, PASSIVE_TRACE_CPP.lower())
             self.assertNotIn(forbidden, PASSIVE_TRACE_H.lower())
 
-    def test_fence_trace_is_default_off_xenos_only_and_separately_admitted(self) -> None:
+    def test_fence_trace_is_default_off_xenos_only_and_separately_admitted(
+        self,
+    ) -> None:
         self.assertIn(
             'REXCVAR_DEFINE_STRING(native_renderer_fence_trace_output, ""',
             APP_CPP,
@@ -478,7 +486,9 @@ class NativeRendererIntegrationTests(unittest.TestCase):
             "Passive Resolve/VdSwap tracing and consumer/fence tracing cannot run together",
             APP_CPP,
         )
-        self.assertIn("rendererBackend != rerevved::gpu::RendererBackend::Xenos", APP_CPP)
+        self.assertIn(
+            "rendererBackend != rerevved::gpu::RendererBackend::Xenos", APP_CPP
+        )
         self.assertIn("Native renderer diagnostic tracing cannot share", APP_CPP)
         self.assertIn(
             "containsExistingReparsePoint(scratchRoot, candidate)",
@@ -488,8 +498,9 @@ class NativeRendererIntegrationTests(unittest.TestCase):
 
     def test_fence_trace_registers_only_exact_post_emission_reservations(self) -> None:
         returned = COMPAT_CPP[
-            COMPAT_CPP.index("void ReRevvedTraceVdSwapReturn") :
-            COMPAT_CPP.index("void ReRevvedTraceVdSwapPublished")
+            COMPAT_CPP.index("void ReRevvedTraceVdSwapReturn") : COMPAT_CPP.index(
+                "void ReRevvedTraceVdSwapPublished"
+            )
         ]
         self.assertIn("if (fenceTraceEnabled()", returned)
         self.assertIn("GetPhysicalAddress(r30.u32)", returned)
@@ -500,8 +511,9 @@ class NativeRendererIntegrationTests(unittest.TestCase):
 
     def test_fence_trace_reset_occurs_only_after_xenos_pause_attempt(self) -> None:
         reset = COMPAT_CPP[
-            COMPAT_CPP.index("void ReRevvedCompatRingInitializeBegin") :
-            COMPAT_CPP.index("void ReRevvedCompatRingInitializeEnd")
+            COMPAT_CPP.index(
+                "void ReRevvedCompatRingInitializeBegin"
+            ) : COMPAT_CPP.index("void ReRevvedCompatRingInitializeEnd")
         ]
         self.assertLess(
             reset.index("PauseAndResetGpuWritePointer"),

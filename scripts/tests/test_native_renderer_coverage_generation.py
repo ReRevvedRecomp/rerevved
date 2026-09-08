@@ -9,7 +9,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 GENERATOR_PATH = ROOT / "scripts" / "gen-native-renderer-coverage.py"
 INPUT = ROOT / "config" / "native_renderer_fixture_0001.toml"
@@ -40,9 +39,7 @@ class NativeRendererCoverageGenerationTests(unittest.TestCase):
         cls.input_sha256 = hashlib.sha256(cls.input_bytes).hexdigest()
 
     def test_happy_path_has_accepted_snapshot_and_generated_contract(self) -> None:
-        hooks, include, digest = generator.generate_outputs(
-            self.data, self.input_bytes
-        )
+        hooks, include, digest = generator.generate_outputs(self.data, self.input_bytes)
         self.assertEqual(digest, self.input_sha256)
         self.assertEqual(hooks, HOOK_OUTPUT.read_bytes())
         self.assertEqual(include, INCLUDE_OUTPUT.read_bytes())
@@ -148,9 +145,7 @@ class NativeRendererCoverageGenerationTests(unittest.TestCase):
 
     def test_null_domain_requires_absent_value_and_explicit_kind(self) -> None:
         missing_kind = copy.deepcopy(self.data)
-        del missing_kind["snapshot"]["operations"][0]["value_domains"][1][
-            "value_kind"
-        ]
+        del missing_kind["snapshot"]["operations"][0]["value_domains"][1]["value_kind"]
         with self.assertRaises(generator.ValidationError):
             generator._validate_snapshot(missing_kind)
 

@@ -7,14 +7,13 @@ detection because an evidence bundle must not depend on parser key ordering.
 from __future__ import annotations
 
 import argparse
-from datetime import datetime
 import hashlib
 import json
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
-
 
 RUN_SCHEMA = "rerevved.native_renderer.run.v2"
 COVERAGE_SCHEMA = "rerevved.native_renderer.coverage.v1"
@@ -28,7 +27,9 @@ COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 OPERATION_ID = "NRD-OP-0002"
 RUNTIME_JOIN_KEY = "d3d:0x826A3568"
 CONTRACT_ID = "NRD-CONTRACT-0001"
-COMPILED_INPUT_DIGEST = "2d1466cf7a203e123d232cda6a4ab59b9618d3841aaee8f032422e9666c1d303"
+COMPILED_INPUT_DIGEST = (
+    "2d1466cf7a203e123d232cda6a4ab59b9618d3841aaee8f032422e9666c1d303"
+)
 ACCEPTED_FIXTURES = {
     "NRD-TRANS-0001": {"NRD-FIX-0001"},
     "NRD-TRANS-0002": {"NRD-FIX-0002"},
@@ -71,8 +72,12 @@ LOCKED_NEW_GAME_ROUTES = {
         ],
     },
 }
-ACCEPTED_BASE_XEX_SHA256 = "b59b8957a3ed9dd90e9296c96d5c7ab1b16078d3f08b015582714a06c7d6a7bd"
-ACCEPTED_TITLE_UPDATE_SHA256 = "c1fc6149a63550987d991efdbb80e3697845a9a49d3f2ec180ea9817db8d12d4"
+ACCEPTED_BASE_XEX_SHA256 = (
+    "b59b8957a3ed9dd90e9296c96d5c7ab1b16078d3f08b015582714a06c7d6a7bd"
+)
+ACCEPTED_TITLE_UPDATE_SHA256 = (
+    "c1fc6149a63550987d991efdbb80e3697845a9a49d3f2ec180ea9817db8d12d4"
+)
 DOMAIN_IDS = {0: "primitive-4", 1: "unknown"}
 SITE_ADDRESSES = {0: 0x82303E3C, 1: 0x82303E8C}
 BEGIN_SENTINEL = "NRD-COVERAGE-BEGIN"
@@ -90,6 +95,7 @@ U64_MAX = (1 << 64) - 1
 U32_MAX = (1 << 32) - 1
 I32_MIN = -(1 << 31)
 I32_MAX = (1 << 31) - 1
+
 
 def _diagnostic_entry(
     stable_id: str,
@@ -341,7 +347,9 @@ def _inventory(root: Path) -> list[str]:
     for path in sorted(root.rglob("*"), key=lambda p: p.as_posix().lower()):
         if not path.is_file() and not path.is_symlink():
             continue
-        relative, resolved = _relative(root, path.relative_to(root).as_posix(), "file path")
+        relative, resolved = _relative(
+            root, path.relative_to(root).as_posix(), "file path"
+        )
         if relative.lower().endswith(TEMP_SUFFIXES):
             raise CoverageError(f"incomplete temporary file is not allowed: {relative}")
         if not resolved.is_file():
@@ -358,7 +366,9 @@ def _check_log(
     item = _exact(item, "run log", {"path", "sha256"})
     relative, path = _relative(root, item["path"], "log path")
     if relative != "coverage.log":
-        raise CoverageError(f"log path differs from the isolated runner layout: {relative}")
+        raise CoverageError(
+            f"log path differs from the isolated runner layout: {relative}"
+        )
     expected = _sha(item["sha256"], "log sha256")
     if not path.is_file():
         raise CoverageError(f"log is missing: {relative}")
@@ -370,10 +380,14 @@ def _check_log(
         raise CoverageError(f"cannot read log {relative}: {exc}") from exc
     parsed_lines = _parse_log_lines(text)
     begin_lines = [
-        index for index, (_, message) in enumerate(parsed_lines) if message == BEGIN_SENTINEL
+        index
+        for index, (_, message) in enumerate(parsed_lines)
+        if message == BEGIN_SENTINEL
     ]
     end_lines = [
-        index for index, (_, message) in enumerate(parsed_lines) if message == END_SENTINEL
+        index
+        for index, (_, message) in enumerate(parsed_lines)
+        if message == END_SENTINEL
     ]
     if len(begin_lines) != 1 or len(end_lines) != 1:
         raise CoverageError(
@@ -402,7 +416,9 @@ def _check_log(
                 completed = int(breadcrumb[1])
                 total = int(breadcrumb[2])
                 if completed > U32_MAX or total > U32_MAX:
-                    raise CoverageError("DRED breadcrumb counts exceed the locked SDK type")
+                    raise CoverageError(
+                        "DRED breadcrumb counts exceed the locked SDK type"
+                    )
                 effective_last = min(completed, total)
                 start = max(effective_last - 3, 0)
                 end = min(effective_last + 1, total)
@@ -421,9 +437,13 @@ def _check_log(
                     detail_index = int(detail[1])
                     detail_op_type = int(detail[2])
                     if detail_op_type < I32_MIN or detail_op_type > I32_MAX:
-                        raise CoverageError("DRED breadcrumb op type exceeds the locked SDK type")
+                        raise CoverageError(
+                            "DRED breadcrumb op type exceeds the locked SDK type"
+                        )
                     if detail_index != start + detail_offset:
-                        raise CoverageError("DRED breadcrumb detail indexes are not ordered")
+                        raise CoverageError(
+                            "DRED breadcrumb detail indexes are not ordered"
+                        )
                     has_fault = detail[3] is not None
                     if has_fault != (fault_index == detail_index):
                         raise CoverageError("DRED breadcrumb fault marker is misplaced")
@@ -437,10 +457,11 @@ def _check_log(
     for stable_id in bounded_ids:
         count = counts.get(stable_id, 0)
         if count and (
-            bounded_max_counts is None
-            or count > bounded_max_counts[stable_id]
+            bounded_max_counts is None or count > bounded_max_counts[stable_id]
         ):
-            raise CoverageError("filesystem probe diagnostic exceeds its accepted fixture bound")
+            raise CoverageError(
+                "filesystem probe diagnostic exceeds its accepted fixture bound"
+            )
     diagnostics = []
     sdk_commit, sdk_version = _locked_sdk_identity()
     for stable_id in sorted(counts):
@@ -469,15 +490,34 @@ def _bool(value: Any, label: str) -> bool:
 
 def _snapshot_row(value: Any, label: str, include_mark: bool) -> Mapping[str, Any]:
     fields = {
-        "frame_sequence", "valid_fields", "gameplay_active", "interface_update",
-        "active_player", "human_player_mask", "turn_owner_known", "human_turn",
-        "available", "civilization", "era", "year", "turn",
+        "frame_sequence",
+        "valid_fields",
+        "gameplay_active",
+        "interface_update",
+        "active_player",
+        "human_player_mask",
+        "turn_owner_known",
+        "human_turn",
+        "available",
+        "civilization",
+        "era",
+        "year",
+        "turn",
     }
-    fields = fields | ({"mark", "accepted", "segment"} if include_mark else {"index", "accepted"})
+    fields = fields | (
+        {"mark", "accepted", "segment"} if include_mark else {"index", "accepted"}
+    )
     row = _exact(value, label, fields)
     _int(row["frame_sequence"], label + " frame_sequence", 0, U64_MAX)
     _int(row["valid_fields"], label + " valid_fields", 0, U32_MAX)
-    for name in ("gameplay_active", "interface_update", "turn_owner_known", "human_turn", "available", "accepted"):
+    for name in (
+        "gameplay_active",
+        "interface_update",
+        "turn_owner_known",
+        "human_turn",
+        "available",
+        "accepted",
+    ):
         _bool(row[name], label + " " + name)
     _int(row["active_player"], label + " active_player", I32_MIN, I32_MAX)
     _int(row["human_player_mask"], label + " human_player_mask", 0, U32_MAX)
@@ -500,8 +540,15 @@ def _counter_rows(value: Any) -> tuple[list[dict[str, int | str]], int]:
             item,
             f"counter[{index}]",
             {
-                "segment", "operation", "operation_id", "runtime_join_key",
-                "contract_id", "domain", "domain_id", "site", "site_address",
+                "segment",
+                "operation",
+                "operation_id",
+                "runtime_join_key",
+                "contract_id",
+                "domain",
+                "domain_id",
+                "site",
+                "site_address",
                 "count",
             },
         )
@@ -520,22 +567,33 @@ def _counter_rows(value: Any) -> tuple[list[dict[str, int | str]], int]:
             "domain": domain,
             "domain_id": _text(item["domain_id"], "counter domain_id"),
             "site": site,
-            "site_address": _int(item["site_address"], "counter site_address", 0, U32_MAX),
+            "site_address": _int(
+                item["site_address"], "counter site_address", 0, U32_MAX
+            ),
             "count": _int(item["count"], "counter count", 0, U64_MAX),
         }
         expected_segment = index // 4
         expected_domain = (index % 4) // 2
         expected_site = index % 2
         if (segment, operation, domain, site) != (
-            expected_segment, 0, expected_domain, expected_site
+            expected_segment,
+            0,
+            expected_domain,
+            expected_site,
         ):
             raise CoverageError("counter rows are not isolated and ordered by segment")
         if row["operation_id"] != OPERATION_ID:
-            raise CoverageError("counter operation_id differs from the accepted operation")
+            raise CoverageError(
+                "counter operation_id differs from the accepted operation"
+            )
         if row["runtime_join_key"] != RUNTIME_JOIN_KEY:
-            raise CoverageError("counter runtime_join_key differs from the accepted operation")
+            raise CoverageError(
+                "counter runtime_join_key differs from the accepted operation"
+            )
         if row["contract_id"] != CONTRACT_ID:
-            raise CoverageError("counter contract_id differs from the accepted operation")
+            raise CoverageError(
+                "counter contract_id differs from the accepted operation"
+            )
         if row["domain_id"] != DOMAIN_IDS[domain]:
             raise CoverageError("counter domain_id differs from the accepted domain")
         if row["site_address"] != SITE_ADDRESSES[site]:
@@ -570,8 +628,15 @@ def operation_matrix(
             raw,
             f"matrix row[{index}]",
             {
-                "segment", "operation", "operation_id", "runtime_join_key",
-                "contract_id", "domain", "domain_id", "site", "site_address",
+                "segment",
+                "operation",
+                "operation_id",
+                "runtime_join_key",
+                "contract_id",
+                "domain",
+                "domain_id",
+                "site",
+                "site_address",
                 "count",
             },
         )
@@ -593,14 +658,20 @@ def operation_matrix(
             raise CoverageError("matrix row differs from the accepted counter contract")
         if count == 0:
             continue
-        matrix.setdefault(operation, {}).setdefault(domain, {}).setdefault(segment, set()).add(site)
+        matrix.setdefault(operation, {}).setdefault(domain, {}).setdefault(
+            segment, set()
+        ).add(site)
     return {
         operation: {
             domain: {
                 segment: sorted(sites)
-                for segment, sites in sorted(segments.items(), key=lambda item: int(item[0]))
+                for segment, sites in sorted(
+                    segments.items(), key=lambda item: int(item[0])
+                )
             }
-            for domain, segments in sorted(domains.items(), key=lambda item: int(item[0]))
+            for domain, segments in sorted(
+                domains.items(), key=lambda item: int(item[0])
+            )
         }
         for operation, domains in sorted(matrix.items())
     }
@@ -645,8 +716,8 @@ def matrix_union_intersection(
                     and domain in matrix[operation]
                     and segment in matrix[operation][domain]
                 ]
-                union.setdefault(operation, {}).setdefault(domain, {})[segment] = sorted(
-                    set().union(*matching)
+                union.setdefault(operation, {}).setdefault(domain, {})[segment] = (
+                    sorted(set().union(*matching))
                 )
                 if len(matching) == len(matrices):
                     intersection.setdefault(operation, {}).setdefault(domain, {})[
@@ -671,8 +742,14 @@ def _safe_leaf_list(
     *,
     allow_empty: bool = False,
 ) -> list[str]:
-    if not isinstance(value, list) or (not allow_empty and not value) or len(value) > maximum:
-        requirement = f"one through {maximum}" if not allow_empty else f"at most {maximum}"
+    if (
+        not isinstance(value, list)
+        or (not allow_empty and not value)
+        or len(value) > maximum
+    ):
+        requirement = (
+            f"one through {maximum}" if not allow_empty else f"at most {maximum}"
+        )
         raise CoverageError(f"{label} must contain {requirement} safe leaf names")
     result = [_text(item, f"{label} entry") for item in value]
     if any(
@@ -716,7 +793,9 @@ DRED_DETAIL_RE = re.compile(
 )
 D3D12_FEATURE_PARENT = "Direct3D 12 device and OS features:"
 D3D12_FEATURE_CONTINUATION_RES = (
-    re.compile(r"^\* Max GPU virtual address bits per resource: (?P<number>0|[1-9][0-9]*)$"),
+    re.compile(
+        r"^\* Max GPU virtual address bits per resource: (?P<number>0|[1-9][0-9]*)$"
+    ),
     re.compile(r"^\* Non-zeroed heap creation: (?:yes|no)$"),
     re.compile(r"^\* Pixel-shader-specified stencil reference: (?:yes|no)$"),
     re.compile(r"^\* Programmable sample positions: tier (?P<number>0|[1-9][0-9]*)$"),
@@ -747,36 +826,74 @@ def _parse_log_lines(text: str) -> list[tuple[str, str]]:
         parsed_lines.append((level, message))
         if message == D3D12_FEATURE_PARENT:
             if level != "info":
-                raise CoverageError("locked SDK device-feature parent must use info level")
+                raise CoverageError(
+                    "locked SDK device-feature parent must use info level"
+                )
             for continuation_re in D3D12_FEATURE_CONTINUATION_RES:
                 line_index += 1
                 if line_index >= len(lines):
-                    raise CoverageError("locked SDK device-feature continuation is truncated")
+                    raise CoverageError(
+                        "locked SDK device-feature continuation is truncated"
+                    )
                 continuation = continuation_re.fullmatch(lines[line_index])
                 if continuation is None:
-                    raise CoverageError("locked SDK device-feature continuation is malformed")
+                    raise CoverageError(
+                        "locked SDK device-feature continuation is malformed"
+                    )
                 number = continuation.groupdict().get("number")
                 if number is not None and int(number) > U32_MAX:
-                    raise CoverageError("locked SDK device-feature value exceeds uint32")
+                    raise CoverageError(
+                        "locked SDK device-feature value exceeds uint32"
+                    )
         line_index += 1
     return parsed_lines
 
 
 def _validate_run(root: Path, raw: Any) -> tuple[Mapping[str, Any], dict[str, Any]]:
     fields = {
-        "schema", "run_id", "fixture_id", "fixture", "fixture_sha256",
+        "schema",
+        "run_id",
+        "fixture_id",
+        "fixture",
+        "fixture_sha256",
         "fixture_staged_path",
-        "transition_id", "input_digest", "expected_marks", "repeat",
-        "cache_class", "cache_seed_sha256", "title_commit", "title_dirty",
-        "sdk_commit", "sdk_dirty",
-        "sdk_version", "executable", "executable_sha256", "base_xex",
-        "base_xex_sha256", "title_update", "title_update_sha256",
-        "xenos_enabled", "rov_enabled", "renderer_config", "host_graphics",
-        "readiness", "output_root", "output_directory", "screenshot_directory",
-        "shader_directory", "user_data_directory", "cache_directory",
-        "save_directory", "checkpoint", "timing",
-        "command_result", "operator_review", "log", "artifacts",
-        "screenshots", "saves",
+        "transition_id",
+        "input_digest",
+        "expected_marks",
+        "repeat",
+        "cache_class",
+        "cache_seed_sha256",
+        "title_commit",
+        "title_dirty",
+        "sdk_commit",
+        "sdk_dirty",
+        "sdk_version",
+        "executable",
+        "executable_sha256",
+        "base_xex",
+        "base_xex_sha256",
+        "title_update",
+        "title_update_sha256",
+        "xenos_enabled",
+        "rov_enabled",
+        "renderer_config",
+        "host_graphics",
+        "readiness",
+        "output_root",
+        "output_directory",
+        "screenshot_directory",
+        "shader_directory",
+        "user_data_directory",
+        "cache_directory",
+        "save_directory",
+        "checkpoint",
+        "timing",
+        "command_result",
+        "operator_review",
+        "log",
+        "artifacts",
+        "screenshots",
+        "saves",
     }
     run = _exact(raw, "run.json", fields)
     if run["schema"] != RUN_SCHEMA:
@@ -806,7 +923,9 @@ def _validate_run(root: Path, raw: Any) -> tuple[Mapping[str, Any], dict[str, An
         if staged_relative != "user-data/save5.sve":
             raise CoverageError("save-copy fixture path differs from the runner")
         if not staged_path.is_file() or _hash(staged_path) != fixture_sha:
-            raise CoverageError("staged save-copy fixture differs from its accepted input")
+            raise CoverageError(
+                "staged save-copy fixture differs from its accepted input"
+            )
         fixture_staged_path = staged_relative
     elif fixture_staged_path is not None:
         raise CoverageError("non-save fixture must not have a staged path")
@@ -849,7 +968,10 @@ def _validate_run(root: Path, raw: Any) -> tuple[Mapping[str, Any], dict[str, An
         "base_xex": "game/default.xex",
         "title_update": "game/default.xexp",
     }
-    if any(input_paths[field] != expected for field, expected in expected_input_paths.items()):
+    if any(
+        input_paths[field] != expected
+        for field, expected in expected_input_paths.items()
+    ):
         raise CoverageError("fixed title input path differs from the runner")
     expected_fixture_paths = {
         "NRD-FIX-0001": "config/native_renderer_fixture_0001.toml",
@@ -859,11 +981,16 @@ def _validate_run(root: Path, raw: Any) -> tuple[Mapping[str, Any], dict[str, An
         fixture_id in expected_fixture_paths
         and input_paths["fixture"] != expected_fixture_paths[fixture_id]
     ):
-        raise CoverageError(f"{fixture_id} recipe descriptor path differs from the runner")
+        raise CoverageError(
+            f"{fixture_id} recipe descriptor path differs from the runner"
+        )
     _sha(run["executable_sha256"], "executable_sha256")
     if _sha(run["base_xex_sha256"], "base_xex_sha256") != ACCEPTED_BASE_XEX_SHA256:
         raise CoverageError("base XEX SHA-256 differs from the accepted input")
-    if _sha(run["title_update_sha256"], "title_update_sha256") != ACCEPTED_TITLE_UPDATE_SHA256:
+    if (
+        _sha(run["title_update_sha256"], "title_update_sha256")
+        != ACCEPTED_TITLE_UPDATE_SHA256
+    ):
         raise CoverageError("title update SHA-256 differs from the accepted input")
     if run["xenos_enabled"] is not True or run["rov_enabled"] is not True:
         raise CoverageError("xenos and ROV must both be enabled")
@@ -871,14 +998,22 @@ def _validate_run(root: Path, raw: Any) -> tuple[Mapping[str, Any], dict[str, An
         run["renderer_config"],
         "renderer_config",
         {
-            "guest_width", "guest_height", "output_width", "output_height",
-            "resolution_scale", "window_mode", "combat_speed",
-            "xenos_enabled", "rov_enabled", "configuration_digest",
+            "guest_width",
+            "guest_height",
+            "output_width",
+            "output_height",
+            "resolution_scale",
+            "window_mode",
+            "combat_speed",
+            "xenos_enabled",
+            "rov_enabled",
+            "configuration_digest",
         },
     )
-    if _int(renderer["guest_width"], "guest_width", 1) != 1280 or _int(
-        renderer["guest_height"], "guest_height", 1
-    ) != 720:
+    if (
+        _int(renderer["guest_width"], "guest_width", 1) != 1280
+        or _int(renderer["guest_height"], "guest_height", 1) != 720
+    ):
         raise CoverageError("guest dimensions must be 1280x720")
     _int(renderer["output_width"], "output_width", 1, 16384)
     _int(renderer["output_height"], "output_height", 1, 16384)
@@ -905,33 +1040,49 @@ def _validate_run(root: Path, raw: Any) -> tuple[Mapping[str, Any], dict[str, An
     renderer_digest = hashlib.sha256(
         ("\n".join(renderer_lines) + "\n").encode("utf-8")
     ).hexdigest()
-    if _sha(renderer["configuration_digest"], "configuration_digest") != renderer_digest:
+    if (
+        _sha(renderer["configuration_digest"], "configuration_digest")
+        != renderer_digest
+    ):
         raise CoverageError("renderer configuration digest mismatch")
     graphics = _exact(
         run["host_graphics"],
         "host_graphics",
         {
-            "os_build", "gpu_name", "gpu_vendor_id", "gpu_device_id",
-            "driver_version", "d3d_feature_level",
+            "os_build",
+            "gpu_name",
+            "gpu_vendor_id",
+            "gpu_device_id",
+            "driver_version",
+            "d3d_feature_level",
         },
     )
     for field in graphics:
         _text(graphics[field], "host_graphics " + field)
     for field in ("gpu_vendor_id", "gpu_device_id"):
         if not re.fullmatch(r"(?:0x)?[0-9a-f]{4,8}", graphics[field]):
-            raise CoverageError(f"host_graphics {field} is not a lowercase hexadecimal identifier")
+            raise CoverageError(
+                f"host_graphics {field} is not a lowercase hexadecimal identifier"
+            )
     readiness = _exact(
         run["readiness"],
         "readiness",
         {
-            "owner_ready", "overlay_policy", "overlays_closed_before_launch",
-            "start_invariant", "authorized_skip_boundary", "expected_screenshots",
+            "owner_ready",
+            "overlay_policy",
+            "overlays_closed_before_launch",
+            "start_invariant",
+            "authorized_skip_boundary",
+            "expected_screenshots",
             "stop_conditions",
         },
     )
     if readiness["owner_ready"] is not True:
         raise CoverageError("owner readiness was not acknowledged")
-    if readiness["overlay_policy"] != "closed" or readiness["overlays_closed_before_launch"] is not True:
+    if (
+        readiness["overlay_policy"] != "closed"
+        or readiness["overlays_closed_before_launch"] is not True
+    ):
         raise CoverageError("overlay closure policy was not accepted")
     start_invariant = _text(readiness["start_invariant"], "start_invariant")
     authorized_skip_boundary = _text(
@@ -957,13 +1108,19 @@ def _validate_run(root: Path, raw: Any) -> tuple[Mapping[str, Any], dict[str, An
             raise CoverageError("NRD-FIX-0002 plan differs from the owner-locked route")
     directories: dict[str, str] = {}
     for field in (
-        "output_root", "output_directory", "screenshot_directory",
-        "shader_directory", "user_data_directory", "cache_directory",
+        "output_root",
+        "output_directory",
+        "screenshot_directory",
+        "shader_directory",
+        "user_data_directory",
+        "cache_directory",
         "save_directory",
     ):
         relative, path = _relative(root, run[field], field)
         if path.is_symlink():
-            raise CoverageError(f"planned {field} must not be a reparse point: {relative}")
+            raise CoverageError(
+                f"planned {field} must not be a reparse point: {relative}"
+            )
         if not path.is_dir():
             raise CoverageError(f"planned {field} is missing: {relative}")
         directories[field] = relative
@@ -988,7 +1145,10 @@ def _validate_run(root: Path, raw: Any) -> tuple[Mapping[str, Any], dict[str, An
     command = _exact(
         run["command_result"], "command_result", {"exit_code", "classification"}
     )
-    if _int(command["exit_code"], "exit_code") != 0 or command["classification"] != "accepted":
+    if (
+        _int(command["exit_code"], "exit_code") != 0
+        or command["classification"] != "accepted"
+    ):
         raise CoverageError("run command did not complete normally")
     review = _exact(
         run["operator_review"],
@@ -1068,14 +1228,22 @@ def _validate_artifacts(
     coverage_path = state["directories"]["output_directory"] + "/coverage.json"
     if paths != [coverage_path]:
         raise CoverageError("artifacts must contain only observer/coverage.json")
-    screenshots = [
-        _artifact(root, item, f"screenshot[{index}]")
-        for index, item in enumerate(run["screenshots"])
-    ] if isinstance(run["screenshots"], list) else None
-    saves = [
-        _artifact(root, item, f"save[{index}]")
-        for index, item in enumerate(run["saves"])
-    ] if isinstance(run["saves"], list) else None
+    screenshots = (
+        [
+            _artifact(root, item, f"screenshot[{index}]")
+            for index, item in enumerate(run["screenshots"])
+        ]
+        if isinstance(run["screenshots"], list)
+        else None
+    )
+    saves = (
+        [
+            _artifact(root, item, f"save[{index}]")
+            for index, item in enumerate(run["saves"])
+        ]
+        if isinstance(run["saves"], list)
+        else None
+    )
     if screenshots is None or saves is None:
         raise CoverageError("screenshots and saves must be lists")
     if state["fixture_id"] == "NRD-FIX-0002" and saves:
@@ -1115,7 +1283,9 @@ def _validate_artifacts(
     shader_directory = state["directories"]["shader_directory"]
     shader_path = root / Path(*shader_directory.split("/"))
     if any(path.is_file() or path.is_symlink() for path in shader_path.rglob("*")):
-        raise CoverageError("shader artifacts have no accepted producer in this candidate")
+        raise CoverageError(
+            "shader artifacts have no accepted producer in this candidate"
+        )
     allowed_paths = {coverage_path}
     allowed_paths.update(item["path"] for item in screenshots)
     allowed_paths.update(item["path"] for item in saves)
@@ -1224,11 +1394,24 @@ def summarize_run(
         coverage_raw,
         "coverage.json",
         {
-            "schema", "run_id", "transition_id", "input_digest", "xenos_enabled",
-            "rov_enabled", "observer_byte_budget", "operation_metadata",
-            "transition_attribution_valid", "exit_class",
-            "lifetime_evaluation", "complete", "incomplete", "recovered_incomplete",
-            "counters", "counter_failures", "segments", "checkpoints",
+            "schema",
+            "run_id",
+            "transition_id",
+            "input_digest",
+            "xenos_enabled",
+            "rov_enabled",
+            "observer_byte_budget",
+            "operation_metadata",
+            "transition_attribution_valid",
+            "exit_class",
+            "lifetime_evaluation",
+            "complete",
+            "incomplete",
+            "recovered_incomplete",
+            "counters",
+            "counter_failures",
+            "segments",
+            "checkpoints",
             "anomalies",
         },
     )
@@ -1245,8 +1428,13 @@ def summarize_run(
         coverage["operation_metadata"],
         "operation_metadata",
         {
-            "operation_id", "runtime_join_key", "roles", "contract_ids",
-            "hook_sites", "registers", "value_domains",
+            "operation_id",
+            "runtime_join_key",
+            "roles",
+            "contract_ids",
+            "hook_sites",
+            "registers",
+            "value_domains",
         },
     )
     expected_metadata = {
@@ -1255,8 +1443,16 @@ def summarize_run(
         "roles": ["wrapper", "lowering-boundary"],
         "contract_ids": [CONTRACT_ID],
         "hook_sites": [
-            {"address": SITE_ADDRESSES[0], "phase": "value", "discriminator": "primitive-4"},
-            {"address": SITE_ADDRESSES[1], "phase": "value", "discriminator": "primitive-4"},
+            {
+                "address": SITE_ADDRESSES[0],
+                "phase": "value",
+                "discriminator": "primitive-4",
+            },
+            {
+                "address": SITE_ADDRESSES[1],
+                "phase": "value",
+                "discriminator": "primitive-4",
+            },
         ],
         "registers": [],
         "value_domains": [
@@ -1265,7 +1461,9 @@ def summarize_run(
         ],
     }
     if metadata != expected_metadata:
-        raise CoverageError("operation metadata differs from the accepted operation snapshot")
+        raise CoverageError(
+            "operation metadata differs from the accepted operation snapshot"
+        )
     if coverage["transition_attribution_valid"] is not True:
         raise CoverageError("transition attribution was poisoned")
     expected_marks = state["expected_marks"]
@@ -1279,7 +1477,9 @@ def summarize_run(
     lifetime_evaluation = coverage["lifetime_evaluation"]
     if exit_class not in {"guest_complete", "window_close", "shutdown"}:
         raise CoverageError("coverage exit_class is unknown")
-    expected_lifetime = "evaluated" if exit_class == "guest_complete" else "not-evaluated"
+    expected_lifetime = (
+        "evaluated" if exit_class == "guest_complete" else "not-evaluated"
+    )
     if lifetime_evaluation != expected_lifetime:
         raise CoverageError("coverage lifetime_evaluation does not match exit_class")
     _bool(coverage["complete"], "coverage complete")
@@ -1291,7 +1491,11 @@ def summarize_run(
         or coverage["recovered_incomplete"] is not False
     ):
         raise CoverageError("coverage is incomplete")
-    failures = _exact(coverage["counter_failures"], "counter_failures", {"saturated", "rejected_in_flight"})
+    failures = _exact(
+        coverage["counter_failures"],
+        "counter_failures",
+        {"saturated", "rejected_in_flight"},
+    )
     if _int(failures["saturated"], "saturated", 0, U64_MAX) != 0:
         raise CoverageError("counter saturation blocks coverage")
     if _int(failures["rejected_in_flight"], "rejected_in_flight", 0, U64_MAX) != 0:
@@ -1354,7 +1558,9 @@ def summarize_run(
             raise CoverageError("checkpoint acceptance differs from expected marks")
         if row["accepted"]:
             if row["segment"] != index + 1 or row["segment"] <= prior_segment:
-                raise CoverageError("accepted checkpoint segments are not strictly ordered")
+                raise CoverageError(
+                    "accepted checkpoint segments are not strictly ordered"
+                )
             if not segment_rows[row["segment"]]["accepted"]:
                 raise CoverageError("accepted checkpoint has no accepted segment")
             comparable = {
@@ -1368,7 +1574,9 @@ def summarize_run(
                 if key != "index"
             }
             if comparable != segment_comparable:
-                raise CoverageError("checkpoint snapshot differs from its segment snapshot")
+                raise CoverageError(
+                    "checkpoint snapshot differs from its segment snapshot"
+                )
             prior_segment = row["segment"]
             accepted += 1
             accepted_checkpoint_rows.append(row)
@@ -1444,7 +1652,10 @@ def summarize_run(
     for index, anomaly in enumerate(anomalies):
         anomaly = _exact(anomaly, f"anomaly[{index}]", {"id", "name", "count"})
         anomaly_id = _int(anomaly["id"], "anomaly id", 1, max(ANOMALY_NAMES))
-        if anomaly_id not in ANOMALY_NAMES or anomaly["name"] != ANOMALY_NAMES[anomaly_id]:
+        if (
+            anomaly_id not in ANOMALY_NAMES
+            or anomaly["name"] != ANOMALY_NAMES[anomaly_id]
+        ):
             raise CoverageError("anomaly ID/name differs from the stable table")
         if anomaly_id <= prior_anomaly_id:
             raise CoverageError("anomaly rows are not in stable ID order")
@@ -1465,7 +1676,9 @@ def summarize_run(
     lifetime_claim = "not-applicable"
     zero_absence_claim = "blocked" if count == 0 else "not-applicable"
     coverage_artifact = next(
-        item for item in artifacts if item["path"] == state["directories"]["output_directory"] + "/coverage.json"
+        item
+        for item in artifacts
+        if item["path"] == state["directories"]["output_directory"] + "/coverage.json"
     )
     run_record_sha256 = next(
         item["sha256"] for item in inventory if item["path"] == "run.json"
@@ -1515,7 +1728,11 @@ def summarize_series(
     ordered = sorted(summaries, key=lambda item: item["repeat"])
     matrix = matrix_union_intersection(item["counters"] for item in ordered)
     discriminator_sets = [
-        {row["discriminator"] for row in item["operations"] if row["outcome"] == "observed"}
+        {
+            row["discriminator"]
+            for row in item["operations"]
+            if row["outcome"] == "observed"
+        }
         for item in ordered
     ]
     union = sorted(discriminator_sets[0] | discriminator_sets[1])
@@ -1546,7 +1763,9 @@ def deterministic_json(value: Any) -> str:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("run_roots", nargs="*", type=Path)
-    parser.add_argument("--run-root", dest="run_root_options", action="append", type=Path)
+    parser.add_argument(
+        "--run-root", dest="run_root_options", action="append", type=Path
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args(argv)
     roots = (args.run_root_options or []) + args.run_roots
@@ -1573,11 +1792,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 raise CoverageError(
                     "--output must be a fresh summary.json outside observer output"
                 )
-        value = (
-            summarize_run(roots[0])
-            if len(roots) == 1
-            else summarize_series(roots)
-        )
+        value = summarize_run(roots[0]) if len(roots) == 1 else summarize_series(roots)
         rendered = deterministic_json(value)
         if args.output:
             args.output.write_text(rendered + "\n", encoding="ascii", newline="\n")

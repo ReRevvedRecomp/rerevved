@@ -3,7 +3,6 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 DRIVER = ROOT / "scripts" / "rexglue.ps1"
 
@@ -57,14 +56,17 @@ class RexGlueDriverContractTests(unittest.TestCase):
         self.assertIn(
             "$PSBoundParameters.ContainsKey('LaunchArgumentJson')", self.source
         )
-        self.assertIn("LaunchArgumentJson and LaunchArgument are mutually exclusive", self.source)
-        self.assertIn("ConvertFrom-Json -InputObject $LaunchArgumentJson -NoEnumerate", self.source)
+        self.assertIn(
+            "LaunchArgumentJson and LaunchArgument are mutually exclusive", self.source
+        )
+        self.assertIn(
+            "ConvertFrom-Json -InputObject $LaunchArgumentJson -NoEnumerate",
+            self.source,
+        )
         self.assertIn("$decodedLaunchArgument -isnot [string]", self.source)
 
     def test_omitted_path_overrides_keep_their_defaults(self) -> None:
-        self.assertIn(
-            "$PSBoundParameters.ContainsKey($pathOverride.Name)", self.source
-        )
+        self.assertIn("$PSBoundParameters.ContainsKey($pathOverride.Name)", self.source)
         self.assertNotIn("$null -ne $pathOverride.Value", self.source)
 
     def test_exact_sdk_paths_can_be_selected_without_mutating_a_sibling(self) -> None:

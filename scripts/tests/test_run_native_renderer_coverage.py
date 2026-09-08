@@ -8,13 +8,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 RUNNER = ROOT / "scripts" / "run-native-renderer-coverage.ps1"
 DIGEST = "2d1466cf7a203e123d232cda6a4ab59b9618d3841aaee8f032422e9666c1d303"
 FIXTURE_0002_SHA = "a1bcefa50427ec719fe4d5721cb9438ee3f44ec7c09db48fdc73c3d326e9d684"
 RETAIL_BASE_XEX_SHA = "b59b8957a3ed9dd90e9296c96d5c7ab1b16078d3f08b015582714a06c7d6a7bd"
-RETAIL_TITLE_UPDATE_SHA = "c1fc6149a63550987d991efdbb80e3697845a9a49d3f2ec180ea9817db8d12d4"
+RETAIL_TITLE_UPDATE_SHA = (
+    "c1fc6149a63550987d991efdbb80e3697845a9a49d3f2ec180ea9817db8d12d4"
+)
 
 
 @unittest.skipUnless(shutil.which("pwsh"), "PowerShell is required")
@@ -31,7 +32,9 @@ class RunnerTests(unittest.TestCase):
 
         fixture = self.title / "config" / "native_renderer_fixture_0001.toml"
         fixture.parent.mkdir()
-        fixture.write_bytes((ROOT / "config" / "native_renderer_fixture_0001.toml").read_bytes())
+        fixture.write_bytes(
+            (ROOT / "config" / "native_renderer_fixture_0001.toml").read_bytes()
+        )
         (self.title / "config" / "native_renderer_fixture_0002.json").write_bytes(
             (ROOT / "config" / "native_renderer_fixture_0002.json").read_bytes()
         )
@@ -53,8 +56,15 @@ class RunnerTests(unittest.TestCase):
         (self.sdk / "README.md").write_text("synthetic SDK\n", encoding="ascii")
         self._git_add_commit(self.sdk)
         sdk_commit = self._git(self.sdk, "rev-parse", "HEAD")
-        self._git(self.sdk, "config", "remote.origin.url", "https://example.invalid/synthetic-sdk.git")
-        install = self.sdk / "out" / "install" / "win-amd64" / "lib" / "cmake" / "rexglue"
+        self._git(
+            self.sdk,
+            "config",
+            "remote.origin.url",
+            "https://example.invalid/synthetic-sdk.git",
+        )
+        install = (
+            self.sdk / "out" / "install" / "win-amd64" / "lib" / "cmake" / "rexglue"
+        )
         install.mkdir(parents=True)
         (install / "rexglueConfig.cmake").write_text(
             'set(REXGLUE_VERSION_STRING "0.11.0-dev.g37dd3f3")\n'
@@ -65,8 +75,7 @@ class RunnerTests(unittest.TestCase):
         )
         (self.title / "rexglue-sdk.lock.json").write_text(
             '{"repository":"https://example.invalid/synthetic-sdk","commit":"%s",'
-            '"version":"0.11.0-dev.g37dd3f3","dirty":"clean"}\n'
-            % sdk_commit,
+            '"version":"0.11.0-dev.g37dd3f3","dirty":"clean"}\n' % sdk_commit,
             encoding="ascii",
         )
         self._git_add_commit(self.title)
@@ -75,7 +84,10 @@ class RunnerTests(unittest.TestCase):
         runner_source = RUNNER.read_text(encoding="ascii")
         for retail_sha, synthetic_sha in (
             (RETAIL_BASE_XEX_SHA, hashlib.sha256(base_xex.read_bytes()).hexdigest()),
-            (RETAIL_TITLE_UPDATE_SHA, hashlib.sha256(title_update.read_bytes()).hexdigest()),
+            (
+                RETAIL_TITLE_UPDATE_SHA,
+                hashlib.sha256(title_update.read_bytes()).hexdigest(),
+            ),
         ):
             self.assertEqual(runner_source.count(retail_sha), 1)
             runner_source = runner_source.replace(retail_sha, synthetic_sha, 1)
@@ -84,27 +96,65 @@ class RunnerTests(unittest.TestCase):
         self.fixture_sha = hashlib.sha256(fixture.read_bytes()).hexdigest()
         self.exe_sha = hashlib.sha256(exe.read_bytes()).hexdigest()
         self.base = [
-            "-RunId", "NRD-RUN-20260829-0001",
-            "-FixtureId", "NRD-FIX-0001", "-TransitionId", "NRD-TRANS-0001",
-            "-Fixture", "config/native_renderer_fixture_0001.toml",
-            "-FixtureSha256", self.fixture_sha,
-            "-InputDigest", DIGEST, "-TitleCommit", self.title_commit,
-            "-ExecutableSha256", self.exe_sha,
-            "-TitleRepo", str(self.title), "-SdkRepo", str(self.sdk),
-            "-SdkInstall", str(self.sdk / "out" / "install" / "win-amd64"),
-            "-ExpectedMark", "settled-menu", "-ExpectedScreenshot", "menu.png",
-            "-StopCondition", "settled main menu", "-StartInvariant", "process absent",
-            "-AuthorizedSkipBoundary", "intro movie only after owner readiness",
-            "-OutputWidth", "1920", "-OutputHeight", "1080", "-ResolutionScale", "1",
-            "-WindowMode", "windowed", "-CombatSpeed", "normal",
-            "-OsBuild", "10.0.26100.0", "-GpuName", "Synthetic GPU",
-            "-GpuVendorId", "0x10de", "-GpuDeviceId", "0x1234",
-            "-DriverVersion", "1.2.3", "-D3DFeatureLevel", "12_1",
+            "-RunId",
+            "NRD-RUN-20260829-0001",
+            "-FixtureId",
+            "NRD-FIX-0001",
+            "-TransitionId",
+            "NRD-TRANS-0001",
+            "-Fixture",
+            "config/native_renderer_fixture_0001.toml",
+            "-FixtureSha256",
+            self.fixture_sha,
+            "-InputDigest",
+            DIGEST,
+            "-TitleCommit",
+            self.title_commit,
+            "-ExecutableSha256",
+            self.exe_sha,
+            "-TitleRepo",
+            str(self.title),
+            "-SdkRepo",
+            str(self.sdk),
+            "-SdkInstall",
+            str(self.sdk / "out" / "install" / "win-amd64"),
+            "-ExpectedMark",
+            "settled-menu",
+            "-ExpectedScreenshot",
+            "menu.png",
+            "-StopCondition",
+            "settled main menu",
+            "-StartInvariant",
+            "process absent",
+            "-AuthorizedSkipBoundary",
+            "intro movie only after owner readiness",
+            "-OutputWidth",
+            "1920",
+            "-OutputHeight",
+            "1080",
+            "-ResolutionScale",
+            "1",
+            "-WindowMode",
+            "windowed",
+            "-CombatSpeed",
+            "normal",
+            "-OsBuild",
+            "10.0.26100.0",
+            "-GpuName",
+            "Synthetic GPU",
+            "-GpuVendorId",
+            "0x10de",
+            "-GpuDeviceId",
+            "0x1234",
+            "-DriverVersion",
+            "1.2.3",
+            "-D3DFeatureLevel",
+            "12_1",
         ]
 
     @staticmethod
     def _mock_launcher() -> str:
-        return r'''param(
+        return r"""param(
   [string]$Stage, [switch]$Interactive, [string]$UserDataRoot,
   [string]$CacheRoot, [string]$LogPath, [string]$SdkRepo,
   [string]$SdkInstall, [string]$LaunchArgumentJson
@@ -127,11 +177,13 @@ if (($LaunchArgument -join " ") -match 'NRD-RUN-20260829-0003') {
 }
 [IO.File]::WriteAllBytes((Join-Path $screenshots 'menu.png'), $pngBytes)
 exit 0
-'''
+"""
 
     @staticmethod
     def _git(repo: Path, *args: str) -> str:
-        return subprocess.check_output(["git", "-C", str(repo), *args], text=True).strip()
+        return subprocess.check_output(
+            ["git", "-C", str(repo), *args], text=True
+        ).strip()
 
     def _git_init(self, repo: Path) -> None:
         subprocess.check_call(["git", "init", "--quiet", str(repo)])
@@ -141,20 +193,34 @@ exit 0
     @staticmethod
     def _git_add_commit(repo: Path) -> None:
         subprocess.check_call(["git", "-C", str(repo), "add", "."])
-        subprocess.check_call(["git", "-C", str(repo), "commit", "--quiet", "-m", "fixture"])
+        subprocess.check_call(
+            ["git", "-C", str(repo), "commit", "--quiet", "-m", "fixture"]
+        )
 
     def tearDown(self) -> None:
         self.temp.cleanup()
 
-    def invoke(self, *extra: str, input_text: str | None = None) -> subprocess.CompletedProcess[str]:
+    def invoke(
+        self, *extra: str, input_text: str | None = None
+    ) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            ["pwsh", "-NoProfile", "-NonInteractive", "-File", str(self.runner), *self.base, *extra],
+            [
+                "pwsh",
+                "-NoProfile",
+                "-NonInteractive",
+                "-File",
+                str(self.runner),
+                *self.base,
+                *extra,
+            ],
             text=True,
             input=input_text,
             capture_output=True,
         )
 
-    def invoke_override(self, name: str, value: str) -> subprocess.CompletedProcess[str]:
+    def invoke_override(
+        self, name: str, value: str
+    ) -> subprocess.CompletedProcess[str]:
         args = list(self.base)
         index = args.index(name)
         args[index + 1] = value
@@ -185,7 +251,9 @@ exit 0
             )
             entries.append(f"{name}={rendered}")
         command = (
-            "$parameters=@{" + ";".join(entries) + "}; & "
+            "$parameters=@{"
+            + ";".join(entries)
+            + "}; & "
             + literal(str(self.runner))
             + " @parameters"
         )
@@ -203,8 +271,16 @@ exit 0
         stop_confirmation: str = "exact",
     ) -> subprocess.CompletedProcess[str]:
         command = [
-            "pwsh", "-NoProfile", "-NonInteractive", "-File", str(self.runner),
-            *self.base, *extra, "-Run", "-OwnerReady", "-OverlaysClosed",
+            "pwsh",
+            "-NoProfile",
+            "-NonInteractive",
+            "-File",
+            str(self.runner),
+            *self.base,
+            *extra,
+            "-Run",
+            "-OwnerReady",
+            "-OverlaysClosed",
         ]
         process = subprocess.Popen(
             command,
@@ -253,16 +329,25 @@ exit 0
     def test_plan_is_default_and_creates_nothing(self) -> None:
         before = set(self.root.rglob("*"))
         result = subprocess.run(
-            ["pwsh", "-NoProfile", "-NonInteractive", "-File", str(self.runner), *self.base],
+            [
+                "pwsh",
+                "-NoProfile",
+                "-NonInteractive",
+                "-File",
+                str(self.runner),
+                *self.base,
+            ],
             text=True,
             capture_output=True,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("plan: valid", result.stdout)
         self.assertEqual(before, set(self.root.rglob("*")))
-        plan = json.loads(result.stdout[result.stdout.index("{"):])
+        plan = json.loads(result.stdout[result.stdout.index("{") :])
         self.assertEqual(plan["schema"], "rerevved.native_renderer.plan.v2")
-        self.assertEqual(plan["run_root"], "out/evidence/native-renderer-d3d/NRD-RUN-20260829-0001")
+        self.assertEqual(
+            plan["run_root"], "out/evidence/native-renderer-d3d/NRD-RUN-20260829-0001"
+        )
         self.assertEqual(plan["launcher"], "scripts/rexglue.ps1")
         self.assertEqual(plan["metadata"]["renderer_config"]["guest_width"], 1280)
         self.assertIn("-LaunchArgumentJson", plan["child_arguments"])
@@ -280,8 +365,10 @@ exit 0
             "NRD-TRANS-0002": {
                 "ExpectedMark": ["new-game-setup-romans"],
                 "ExpectedScreenshot": [
-                    "main-menu.png", "single-player-menu.png",
-                    "difficulty-warlord.png", "civilization-romans.png",
+                    "main-menu.png",
+                    "single-player-menu.png",
+                    "difficulty-warlord.png",
+                    "civilization-romans.png",
                 ],
                 "StopCondition": [
                     "choose Single Player, New Game, Warlord, and highlight Romans without confirming",
@@ -291,8 +378,10 @@ exit 0
             "NRD-TRANS-0003": {
                 "ExpectedMark": ["first-settled-human-turn-map"],
                 "ExpectedScreenshot": [
-                    "main-menu.png", "single-player-menu.png",
-                    "difficulty-warlord.png", "civilization-romans.png",
+                    "main-menu.png",
+                    "single-player-menu.png",
+                    "difficulty-warlord.png",
+                    "civilization-romans.png",
                     "first-settled-human-turn-map.png",
                 ],
                 "StopCondition": [
@@ -322,7 +411,7 @@ exit 0
                 )
                 self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
                 self.assertEqual(before, set(self.root.rglob("*")))
-                plan = json.loads(result.stdout[result.stdout.index("{"):])
+                plan = json.loads(result.stdout[result.stdout.index("{") :])
                 self.assertEqual(plan["metadata"]["fixture_id"], "NRD-FIX-0002")
                 self.assertEqual(plan["metadata"]["transition_id"], transition)
                 self.assertEqual(
@@ -353,10 +442,18 @@ exit 0
     def test_child_exit_cannot_bypass_complete_manifest(self) -> None:
         result = self.invoke_run()
         self.assertEqual(result.returncode, 0, result.stdout)
-        run_root = self.title / "out" / "evidence" / "native-renderer-d3d" / "NRD-RUN-20260829-0001"
+        run_root = (
+            self.title
+            / "out"
+            / "evidence"
+            / "native-renderer-d3d"
+            / "NRD-RUN-20260829-0001"
+        )
         manifest = json.loads((run_root / "run.json").read_text(encoding="ascii"))
         self.assertEqual(manifest["checkpoint"], "complete")
-        self.assertEqual(manifest["command_result"], {"exit_code": 0, "classification": "accepted"})
+        self.assertEqual(
+            manifest["command_result"], {"exit_code": 0, "classification": "accepted"}
+        )
         self.assertEqual(manifest["operator_review"]["reached_marks"], ["settled-menu"])
         self.assertTrue(manifest["operator_review"]["overlays_remained_closed"])
         self.assertFalse(manifest["title_dirty"])
@@ -364,18 +461,34 @@ exit 0
         self.assertEqual(manifest["artifacts"][0]["path"], "observer/coverage.json")
         self.assertEqual(manifest["screenshots"][0]["path"], "screenshots/menu.png")
         required = {
-            "fixture_id", "fixture_staged_path", "base_xex_sha256",
-            "title_update_sha256", "renderer_config",
-            "host_graphics", "readiness", "timing", "operator_review", "save_directory",
-            "user_data_directory", "cache_directory", "screenshots", "saves",
-            "title_dirty", "sdk_dirty",
+            "fixture_id",
+            "fixture_staged_path",
+            "base_xex_sha256",
+            "title_update_sha256",
+            "renderer_config",
+            "host_graphics",
+            "readiness",
+            "timing",
+            "operator_review",
+            "save_directory",
+            "user_data_directory",
+            "cache_directory",
+            "screenshots",
+            "saves",
+            "title_dirty",
+            "sdk_dirty",
         }
         self.assertTrue(required.issubset(manifest))
         self.assertIsNone(manifest["fixture_staged_path"])
 
-        observed = json.loads((run_root / "observer" / "coverage.json").read_text(encoding="ascii"))
+        observed = json.loads(
+            (run_root / "observer" / "coverage.json").read_text(encoding="ascii")
+        )
         self.assertEqual(Path(observed["sdk_repo"]).resolve(), self.sdk.resolve())
-        self.assertEqual(Path(observed["sdk_install_root"]).resolve(), (self.sdk / "out" / "install" / "win-amd64").resolve())
+        self.assertEqual(
+            Path(observed["sdk_install_root"]).resolve(),
+            (self.sdk / "out" / "install" / "win-amd64").resolve(),
+        )
         args = set(observed["launch_arguments"])
         self.assertIn("--gpu_plugin=xenos", args)
         self.assertIn("--render_target_path_d3d12=rov", args)
@@ -417,7 +530,13 @@ exit 0
         finally:
             self.base = original
         self.assertNotEqual(result.returncode, 0)
-        run_root = self.title / "out" / "evidence" / "native-renderer-d3d" / "NRD-RUN-20260829-0002"
+        run_root = (
+            self.title
+            / "out"
+            / "evidence"
+            / "native-renderer-d3d"
+            / "NRD-RUN-20260829-0002"
+        )
         manifest = json.loads((run_root / "run.json").read_text())
         self.assertEqual(manifest["checkpoint"], "rejected")
         self.assertEqual(manifest["command_result"]["exit_code"], 7)
@@ -435,7 +554,13 @@ exit 0
             self.base = original
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("expected screenshot menu.png is not a PNG file", result.stdout)
-        run_root = self.title / "out" / "evidence" / "native-renderer-d3d" / "NRD-RUN-20260829-0003"
+        run_root = (
+            self.title
+            / "out"
+            / "evidence"
+            / "native-renderer-d3d"
+            / "NRD-RUN-20260829-0003"
+        )
         manifest = json.loads((run_root / "run.json").read_text(encoding="ascii"))
         self.assertEqual(manifest["checkpoint"], "rejected")
 
@@ -449,45 +574,83 @@ exit 0
         record = "pipeline.bin\n" + hashlib.sha256(b"seed").hexdigest() + "\n"
         digest = hashlib.sha256(record.encode()).hexdigest()
         result = self.invoke(
-            "-CacheClass", "warm", "-WarmCacheSeed", str(seed),
-            "-WarmCacheSeedSha256", "0" * 64,
+            "-CacheClass",
+            "warm",
+            "-WarmCacheSeed",
+            str(seed),
+            "-WarmCacheSeedSha256",
+            "0" * 64,
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("warm cache seed SHA-256", result.stderr + result.stdout)
         result = self.invoke_run(
-            "-CacheClass", "warm", "-WarmCacheSeed", str(seed),
-            "-WarmCacheSeedSha256", digest,
+            "-CacheClass",
+            "warm",
+            "-WarmCacheSeed",
+            str(seed),
+            "-WarmCacheSeedSha256",
+            digest,
         )
         self.assertEqual(result.returncode, 0, result.stdout)
-        run_root = self.title / "out" / "evidence" / "native-renderer-d3d" / "NRD-RUN-20260829-0001"
+        run_root = (
+            self.title
+            / "out"
+            / "evidence"
+            / "native-renderer-d3d"
+            / "NRD-RUN-20260829-0001"
+        )
         manifest = json.loads((run_root / "run.json").read_text(encoding="ascii"))
         self.assertEqual(manifest["cache_seed_sha256"], digest)
-        self.assertEqual((run_root / "cache" / "warm" / "pipeline.bin").read_bytes(), b"seed")
+        self.assertEqual(
+            (run_root / "cache" / "warm" / "pipeline.bin").read_bytes(), b"seed"
+        )
 
     def test_review_channel_must_be_live_before_launch(self) -> None:
         result = self.invoke_run(respond_prelaunch=False)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("pre-launch challenge failed", result.stdout)
-        run_root = self.title / "out" / "evidence" / "native-renderer-d3d" / "NRD-RUN-20260829-0001"
+        run_root = (
+            self.title
+            / "out"
+            / "evidence"
+            / "native-renderer-d3d"
+            / "NRD-RUN-20260829-0001"
+        )
         self.assertFalse(run_root.exists())
 
     def test_review_channel_requires_post_exit_freshness(self) -> None:
         result = self.invoke_run(review=None)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("post-exit challenge failed", result.stdout)
-        run_root = self.title / "out" / "evidence" / "native-renderer-d3d" / "NRD-RUN-20260829-0001"
+        run_root = (
+            self.title
+            / "out"
+            / "evidence"
+            / "native-renderer-d3d"
+            / "NRD-RUN-20260829-0001"
+        )
         manifest = json.loads((run_root / "run.json").read_text(encoding="ascii"))
         self.assertEqual(manifest["checkpoint"], "rejected")
-        self.assertEqual(manifest["command_result"]["classification"], "process-exited-zero")
+        self.assertEqual(
+            manifest["command_result"]["classification"], "process-exited-zero"
+        )
 
     def test_stale_prequeued_review_cannot_launch(self) -> None:
         result = self.invoke(
-            "-Run", "-OwnerReady", "-OverlaysClosed",
+            "-Run",
+            "-OwnerReady",
+            "-OverlaysClosed",
             input_text="yes\nsettled-menu\nnone\n",
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("pre-launch challenge failed", result.stderr + result.stdout)
-        run_root = self.title / "out" / "evidence" / "native-renderer-d3d" / "NRD-RUN-20260829-0001"
+        run_root = (
+            self.title
+            / "out"
+            / "evidence"
+            / "native-renderer-d3d"
+            / "NRD-RUN-20260829-0001"
+        )
         self.assertFalse(run_root.exists())
 
     def test_blank_review_answers_are_rejected(self) -> None:
@@ -495,14 +658,23 @@ exit 0
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("checkpoint review answer was blank", result.stdout)
         self.assertIn("unexpected-error review answer was blank", result.stdout)
-        run_root = self.title / "out" / "evidence" / "native-renderer-d3d" / "NRD-RUN-20260829-0001"
+        run_root = (
+            self.title
+            / "out"
+            / "evidence"
+            / "native-renderer-d3d"
+            / "NRD-RUN-20260829-0001"
+        )
         manifest = json.loads((run_root / "run.json").read_text(encoding="ascii"))
         self.assertEqual(manifest["checkpoint"], "rejected")
 
     def test_planned_stop_confirmation_rejects_no(self) -> None:
         result = self.invoke_run(stop_confirmation="no")
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("operator did not close immediately after the planned capture", result.stdout)
+        self.assertIn(
+            "operator did not close immediately after the planned capture",
+            result.stdout,
+        )
 
     def test_planned_stop_confirmation_rejects_blank(self) -> None:
         result = self.invoke_run(stop_confirmation="")
@@ -517,12 +689,18 @@ exit 0
             )
         )
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("planned-stop confirmation was stale, malformed, or mismatched", result.stdout)
+        self.assertIn(
+            "planned-stop confirmation was stale, malformed, or mismatched",
+            result.stdout,
+        )
 
     def test_planned_stop_confirmation_rejects_malformed_input(self) -> None:
         result = self.invoke_run(stop_confirmation="yes")
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("planned-stop confirmation was stale, malformed, or mismatched", result.stdout)
+        self.assertIn(
+            "planned-stop confirmation was stale, malformed, or mismatched",
+            result.stdout,
+        )
 
     def test_planned_stop_confirmation_rejects_mismatch(self) -> None:
         result = self.invoke_run(
@@ -532,7 +710,10 @@ exit 0
             )
         )
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("planned-stop confirmation was stale, malformed, or mismatched", result.stdout)
+        self.assertIn(
+            "planned-stop confirmation was stale, malformed, or mismatched",
+            result.stdout,
+        )
 
     def test_rejection_gates(self) -> None:
         cases = [
@@ -548,7 +729,11 @@ exit 0
             (["-OwnerReady"], "OwnerReady"),
         ]
         for extra, label in cases:
-            result = self.invoke_override(*extra) if isinstance(extra, tuple) else self.invoke(*extra)
+            result = (
+                self.invoke_override(*extra)
+                if isinstance(extra, tuple)
+                else self.invoke(*extra)
+            )
             self.assertNotEqual(result.returncode, 0, label)
             self.assertIn("coverage blocked", result.stderr + result.stdout, label)
 
@@ -584,7 +769,13 @@ exit 0
         self.assertIn("installed SDK BUILD_PLATFORM", result.stderr + result.stdout)
 
     def test_existing_run_path_escape_and_dirty_tree_are_rejected(self) -> None:
-        run_root = self.title / "out" / "evidence" / "native-renderer-d3d" / "NRD-RUN-20260829-0001"
+        run_root = (
+            self.title
+            / "out"
+            / "evidence"
+            / "native-renderer-d3d"
+            / "NRD-RUN-20260829-0001"
+        )
         run_root.mkdir(parents=True)
         result = self.invoke()
         self.assertNotEqual(result.returncode, 0)
@@ -610,9 +801,13 @@ exit 0
         self.assertNotIn("RexglueScript", source)
         self.assertIn("Join-Path $TitleRepo 'scripts\\rexglue.ps1'", source)
         self.assertIn("'ls-files', '--error-unmatch', 'scripts/rexglue.ps1'", source)
-        self.assertIn("'-NoProfile', '-NonInteractive', '-File', $rexglueScript", source)
+        self.assertIn(
+            "'-NoProfile', '-NonInteractive', '-File', $rexglueScript", source
+        )
         self.assertIn("$launchOutput = @(& $pwshPath @childArguments", source)
-        self.assertIn("'-Stage', 'Launch', '-Interactive', '-SdkRepo', $SdkRepo", source)
+        self.assertIn(
+            "'-Stage', 'Launch', '-Interactive', '-SdkRepo', $SdkRepo", source
+        )
         self.assertIn("'-SdkInstall', $SdkInstall", source)
         self.assertIn("'-LaunchArgumentJson', $launchArgumentJson", source)
         self.assertNotRegex(source, r"\s-Command(?:\s|$)")
@@ -620,10 +815,15 @@ exit 0
         self.assertNotIn("[string]$CacheRoot", source)
         self.assertNotIn("[string[]]$LaunchArgument", source)
         self.assertNotIn("& $rexglueScript -Stage Launch", source)
-        self.assertEqual(source.count("$launchOutput = @(& $pwshPath @childArguments"), 1)
+        self.assertEqual(
+            source.count("$launchOutput = @(& $pwshPath @childArguments"), 1
+        )
         self.assertIn("'user-data/save5.sve'", source)
         self.assertIn("NRD-FIX-0002 prohibits save output", source)
-        self.assertIn("Copy-Item -LiteralPath $fixturePath -Destination $fixtureStagedPath", source)
+        self.assertIn(
+            "Copy-Item -LiteralPath $fixturePath -Destination $fixtureStagedPath",
+            source,
+        )
         self.assertIn("'staged fixture changed during the run'", source)
         self.assertIn("$relativeSave -cne $fixtureStagedRelative", source)
         self.assertEqual(source.count("Confirm-ReviewChannel 'pre-launch' $RunId"), 1)
@@ -643,11 +843,18 @@ exit 0
             source.index("$manifest['command_result']['exit_code'] = $launchExitCode"),
         )
         for flag in (
-            "--gpu_plugin=", "--render_target_path_d3d12=",
-            "native_renderer_coverage_run=", "native_renderer_coverage_transition=",
-            "native_renderer_coverage_input_digest", "native_renderer_coverage_output=observer",
-            "--video_mode_width=1280", "--video_mode_height=720", "--window_width=",
-            "--window_height=", "--resolution_scale=", "--fullscreen=",
+            "--gpu_plugin=",
+            "--render_target_path_d3d12=",
+            "native_renderer_coverage_run=",
+            "native_renderer_coverage_transition=",
+            "native_renderer_coverage_input_digest",
+            "native_renderer_coverage_output=observer",
+            "--video_mode_width=1280",
+            "--video_mode_height=720",
+            "--window_width=",
+            "--window_height=",
+            "--resolution_scale=",
+            "--fullscreen=",
         ):
             self.assertIn(flag, source)
 

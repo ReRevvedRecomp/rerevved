@@ -116,7 +116,8 @@ escape a public C ABI boundary.
 
 - Python uses four spaces, `snake_case` functions and variables, and
   `UPPER_SNAKE_CASE` constants. Follow existing standard-library tooling and
-  keep imports explicit.
+  keep imports explicit. Ruff owns formatting and import ordering; its scoped
+  lint rules are configured in [`ruff.toml`](../ruff.toml).
 - PowerShell uses the existing Verb-Noun helper names, script parameters, and
   error-handling conventions. Quote literal paths and keep destructive file
   operations bounded to their intended output directory.
@@ -127,7 +128,19 @@ escape a public C ABI boundary.
 
 ## Verification
 
-From the repository root, run `scripts\verify.ps1` for repository checks.
+Install the pinned Python development tools from the repository root:
+
+```text
+python -m pip install -r scripts/requirements-dev.txt
+```
+
+Use `python -m ruff check --fix` and `python -m ruff format` to apply Python
+style changes. Review fixes and run the existing tests; do not enable unsafe
+fixes as a formatting shortcut. The configuration covers authored scripts and
+tests and targets Python 3.11.
+
+Run `scripts\verify.ps1` for repository checks, including `ruff check` and
+`ruff format --check`.
 The clang-format gate checks authored C/C++ under `api/`, `src/`, and `tests/`.
 Public-header changes must preserve the C contract and update the
 Mods mirror when applicable.

@@ -42,7 +42,7 @@ foreach ($file in $jsonFiles) {
 $tomlFiles = @($trackedPaths | Where-Object { $_ -match '(?i)\.toml$' })
 $python = Get-Command python -ErrorAction SilentlyContinue
 if (-not $python) {
-    Add-Failure 'python executable is required for TOML, AST, and unit-test checks'
+    Add-Failure 'python executable is required for TOML, Ruff, and unit-test checks'
 } else {
 $tomlCode = @'
 import pathlib, sys, tomllib
@@ -116,28 +116,26 @@ if ($clangFormatStatus -eq 'clean') {
     }
 }
 
-# Parse all tracked Python and run only the repository's standard-library tests.
+# Check Python syntax, imports, and formatting before running the tests.
 $pythonFiles = @($trackedPaths | Where-Object { $_ -match '(?i)\.py$' })
 if ($python) {
-$astCode = @'
-import ast, pathlib, sys
-for name in sys.argv[1:]:
-    if name != chr(45) * 2:
-        ast.parse(pathlib.Path(name).read_bytes().decode(), filename=name)
-'@
     if ($pythonFiles.Count -eq 0) {
         Add-Failure 'no tracked Python files found'
     } else {
-        $savedErrorAction = $ErrorActionPreference
-        $ErrorActionPreference = 'Continue'
-        try {
-            $astOutput = @(& $python.Source -c $astCode -- $pythonFiles 2>&1)
-            $astExitCode = $LASTEXITCODE
-        } finally {
-            $ErrorActionPreference = $savedErrorAction
-        }
-        if ($astExitCode -ne 0) {
-            Add-Failure "Python AST parse failed: $($astOutput -join ' ')"
+        foreach ($command in @('check', 'format')) {
+            $ruffArgs = @('-m', 'ruff', $command, '--config', (Join-Path $repo 'ruff.toml'))
+            if ($command -eq 'format') { $ruffArgs += '--check' }
+            $savedErrorAction = $ErrorActionPreference
+            $ErrorActionPreference = 'Continue'
+            try {
+                $ruffOutput = @(& $python.Source @ruffArgs -- $pythonFiles 2>&1)
+                $ruffExitCode = $LASTEXITCODE
+            } finally {
+                $ErrorActionPreference = $savedErrorAction
+            }
+            if ($ruffExitCode -ne 0) {
+                Add-Failure "Ruff $command failed: $($ruffOutput -join ' ')"
+            }
         }
     }
     $savedErrorAction = $ErrorActionPreference
@@ -253,4 +251,4 @@ if ($failures.Count -gt 0) {
     exit 1
 }
 
-Write-Output ("verify: passed JSON={0} TOML={1} ClangFormat={2}:{3} PythonAST={4} PythonTests=1 PowerShellAST={5} MarkdownLinks={6} ASCII=1 repository-hygiene=1 git-diff=1 cached-diff=1" -f $jsonFiles.Count, $tomlFiles.Count, $clangFormatStatus, $cppFiles.Count, $pythonFiles.Count, $psFiles.Count, $markdownFiles.Count)
+Write-Output ("verify: passed JSON={0} TOML={1} ClangFormat={2}:{3} Ruff={4} PythonTests=1 PowerShellAST={5} MarkdownLinks={6} ASCII=1 repository-hygiene=1 git-diff=1 cached-diff=1" -f $jsonFiles.Count, $tomlFiles.Count, $clangFormatStatus, $cppFiles.Count, $pythonFiles.Count, $psFiles.Count, $markdownFiles.Count)

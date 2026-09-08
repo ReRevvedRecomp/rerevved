@@ -11,7 +11,6 @@ import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 ANALYZER_PATH = ROOT / "scripts" / "analyze-rexglue-trace.py"
 SPEC = importlib.util.spec_from_file_location("analyze_rexglue_trace", ANALYZER_PATH)
@@ -46,9 +45,7 @@ class TraceAnalyzerTests(unittest.TestCase):
         analyzer.write_registers(registers, type_zero)
         self.assertEqual(registers[5:7], [0x11, 0x22])
 
-        write_one = analyzer.Packet(
-            1, 0, 0, [(1 << 16) | (1 << 15) | 9, 0x33, 0x44]
-        )
+        write_one = analyzer.Packet(1, 0, 0, [(1 << 16) | (1 << 15) | 9, 0x33, 0x44])
         analyzer.write_registers(registers, write_one)
         self.assertEqual(registers[9], 0x44)
 
@@ -64,7 +61,7 @@ class TraceAnalyzerTests(unittest.TestCase):
             [packet_word(analyzer.PM4_SET_CONSTANT), (1 << 16) | 2, 0x77, 0x88],
         )
         analyzer.write_registers(registers, set_constant)
-        self.assertEqual(registers[0x4802 : 0x4804], [0x77, 0x88])
+        self.assertEqual(registers[0x4802:0x4804], [0x77, 0x88])
 
         set_constant2 = analyzer.Packet(
             4, 0, 0, [packet_word(analyzer.PM4_SET_CONSTANT2), 0x20, 0x99]
@@ -90,7 +87,7 @@ class TraceAnalyzerTests(unittest.TestCase):
         )
         constant_type, written = analyzer.load_memory_registers(registers, packet)
         self.assertEqual((constant_type, written), (1, 2))
-        self.assertEqual(registers[0x4808 : 0x480A], [0xAABBCCDD, 0x11223344])
+        self.assertEqual(registers[0x4808:0x480A], [0xAABBCCDD, 0x11223344])
 
         packet.reads[-1].data = None
         self.assertEqual(analyzer.load_memory_registers(registers, packet), (1, 0))
@@ -115,8 +112,12 @@ class TraceAnalyzerTests(unittest.TestCase):
 
     def test_draw_initiator_decoding(self) -> None:
         initiator = (0x1234 << 16) | (2 << 6) | 0x12
-        indx = analyzer.Packet(0, 0, 0, [packet_word(analyzer.PM4_DRAW_INDX), 0, initiator])
-        indx2 = analyzer.Packet(1, 0, 0, [packet_word(analyzer.PM4_DRAW_INDX_2), initiator])
+        indx = analyzer.Packet(
+            0, 0, 0, [packet_word(analyzer.PM4_DRAW_INDX), 0, initiator]
+        )
+        indx2 = analyzer.Packet(
+            1, 0, 0, [packet_word(analyzer.PM4_DRAW_INDX_2), initiator]
+        )
         self.assertEqual(analyzer.draw_initiator(indx), (0x12, 2, 0x1234))
         self.assertEqual(analyzer.draw_initiator(indx2), (0x12, 2, 0x1234))
 

@@ -7,7 +7,6 @@ import unittest
 import zipfile
 from pathlib import Path
 
-
 REPO = Path(__file__).resolve().parents[2]
 
 
@@ -51,8 +50,7 @@ class PackageTests(unittest.TestCase):
                 )
             self.assertIn(prefix + "rerevved-logo/asset-pack.toml", names)
             self.assertIn(
-                prefix
-                + "rerevved-logo/assets/file-data/GFX_MainMenu_logo.dds",
+                prefix + "rerevved-logo/assets/file-data/GFX_MainMenu_logo.dds",
                 names,
             )
 

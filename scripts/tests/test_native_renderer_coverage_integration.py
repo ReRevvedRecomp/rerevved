@@ -8,7 +8,6 @@ import subprocess
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 APP_CPP = (ROOT / "src" / "app.cpp").read_text(encoding="ascii")
 CAPTURE = (ROOT / "scripts" / "capture-window.ps1").read_text(encoding="ascii")
@@ -18,9 +17,7 @@ LOCK = json.loads((ROOT / "rexglue-sdk.lock.json").read_text(encoding="ascii"))
 
 class CoverageIntegrationTests(unittest.TestCase):
     def test_observer_is_default_off_and_admitted_before_guest_launch(self) -> None:
-        self.assertIn(
-            'REXCVAR_DEFINE_STRING(native_renderer_coverage_run, ""', APP_CPP
-        )
+        self.assertIn('REXCVAR_DEFINE_STRING(native_renderer_coverage_run, ""', APP_CPP)
         setup = APP_CPP.index("bool App::SetupPresentation()")
         post_setup = APP_CPP.index("void App::OnPostSetup()")
         start = APP_CPP.index("native_renderer::Start(options)")
@@ -39,9 +36,7 @@ class CoverageIntegrationTests(unittest.TestCase):
         )
         self.assertIn('"bind_native_renderer_coverage_checkpoint"', APP_CPP)
         self.assertIn('"F10"', APP_CPP)
-        self.assertIn(
-            'REXLOG_INFO("NRD-COVERAGE-CHECKPOINT accepted={}"', APP_CPP
-        )
+        self.assertIn('REXLOG_INFO("NRD-COVERAGE-CHECKPOINT accepted={}"', APP_CPP)
         self.assertIn("rex::ui::ProcessKeyEvent(event);", APP_CPP)
         repeat_filter = APP_CPP.index("void App::OnKeyDown")
         handled = APP_CPP.index("event.set_handled(true);", repeat_filter)
