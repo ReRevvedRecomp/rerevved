@@ -6,6 +6,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "summarize-native-renderer-coverage.py"
@@ -434,6 +435,37 @@ class SummaryTests(unittest.TestCase):
         (self.root / "shaders" / "unexpected.dxil").write_bytes(b"shader")
         with self.assertRaises(summary.CoverageError):
             summary.summarize_run(self.root)
+
+    def test_ignored_runtime_content_is_not_read_or_hashed(self) -> None:
+        (self.root / "cache" / "cold" / "unreadable.bin").write_bytes(b"private")
+        (self.root / "user-data" / "opaque.bin").write_bytes(b"private")
+        original_open = Path.open
+        original_hash = summary._hash
+        hashed_paths: list[str] = []
+
+        def guarded_open(path: Path, *args, **kwargs):
+            try:
+                relative = path.resolve().relative_to(self.root.resolve()).as_posix()
+            except ValueError:
+                return original_open(path, *args, **kwargs)
+            if relative.startswith(("cache/", "user-data/")):
+                raise AssertionError(f"ignored runtime content was read: {relative}")
+            return original_open(path, *args, **kwargs)
+
+        def tracking_hash(path: Path) -> str:
+            hashed_paths.append(path.resolve().relative_to(self.root.resolve()).as_posix())
+            return original_hash(path)
+
+        with mock.patch.object(Path, "open", new=guarded_open), mock.patch.object(
+            summary, "_hash", side_effect=tracking_hash
+        ):
+            result = summary.summarize_run(self.root)
+
+        self.assertCountEqual(
+            hashed_paths,
+            ["coverage.log", "observer/coverage.json", "screenshots/stable.png", "run.json"],
+        )
+        self.assertEqual(len(result["inventory"]), 4)
 
     def test_save_copy_fixture_is_staged_immutable_and_not_an_output(self) -> None:
         staged = self.root / "user-data" / "save5.sve"

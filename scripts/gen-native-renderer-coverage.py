@@ -100,43 +100,10 @@ def _address_text(value: int) -> str:
     return f"0x{value:08X}"
 
 
-def _resolve_pointer(document: dict[str, Any], pointer: str) -> Any:
-    _require(pointer.startswith("#/"), f"invalid source pointer: {pointer}")
-    current: Any = document
-    for part in pointer[2:].split("/"):
-        part = part.replace("~1", "/").replace("~0", "~")
-        if isinstance(current, list):
-            _require(part.isdigit(), f"source pointer list index is invalid: {pointer}")
-            index = int(part)
-            _require(index < len(current), f"source pointer is out of range: {pointer}")
-            current = current[index]
-        else:
-            _require(isinstance(current, dict) and part in current, f"source pointer component is missing: {pointer}")
-            current = current[part]
-    return current
-
-
-def _deep_equal(left: Any, right: Any) -> bool:
-    if type(left) is not type(right):
-        return False
-    if isinstance(left, dict):
-        return set(left) == set(right) and all(_deep_equal(left[key], right[key]) for key in left)
-    if isinstance(left, list):
-        return len(left) == len(right) and all(_deep_equal(a, b) for a, b in zip(left, right))
-    return left == right
-
-
-def _snapshot_document(data: dict[str, Any]) -> dict[str, Any]:
-    """Expose the TOML snapshot as the accepted partial-export shape."""
-    snapshot = data["snapshot"]
-    return {"partialExport": snapshot}
-
-
-def _validate_pointers(document: dict[str, Any], pointers: dict[str, Any], expected: dict[str, str], container: dict[str, Any], label: str) -> None:
+def _validate_pointers(pointers: dict[str, Any], expected: dict[str, str], label: str) -> None:
     _require_keys(pointers, set(expected), f"{label} source_pointers")
     for field, pointer in expected.items():
         _require_string(pointers.get(field), pointer, f"{label} {field} source pointer")
-        _require(_deep_equal(_resolve_pointer(document, pointer), container[field]), f"{label} {field} source pointer value differs")
 
 
 def _validate_domain(domain: Any, label: str) -> None:
@@ -168,8 +135,7 @@ def _validate_snapshot(data: dict[str, Any]) -> dict[str, Any]:
     _require_string(snapshot["surface"], "partial", "surface")
     _require(type(observer["segment_count"]) is int and observer["segment_count"] == SEGMENT_COUNT, "observer segment count differs from 8")
 
-    document = _snapshot_document(data)
-    _validate_pointers(document, snapshot["source_pointers"], TOP_LEVEL_POINTERS, snapshot, "snapshot")
+    _validate_pointers(snapshot["source_pointers"], TOP_LEVEL_POINTERS, "snapshot")
     operations = snapshot["operations"]
     _require(type(operations) is list and len(operations) == 1, "snapshot must contain one operation")
     operation = operations[0]
@@ -180,7 +146,7 @@ def _validate_snapshot(data: dict[str, Any]) -> dict[str, Any]:
     _require(operation["contract_ids"] == [CONTRACT_ID], "operation contract_ids differ from accepted values")
     _require(operation["registers"] == [], "operation registers must be empty")
     _require(operation["claim_refs"] == CLAIM_REFS, "operation claim_refs differ from the accepted coverage snapshot")
-    _validate_pointers(document, operation["source_pointers"], OPERATION_POINTERS, operation, "operation")
+    _validate_pointers(operation["source_pointers"], OPERATION_POINTERS, "operation")
 
     hooks = operation["hook_sites"]
     _require(type(hooks) is list and len(hooks) == len(HOOK_ADDRESSES), "operation must contain two hook sites")

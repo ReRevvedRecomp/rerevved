@@ -334,10 +334,10 @@ def _artifact(root: Path, value: Any, label: str) -> dict[str, str]:
     return {"path": relative, "sha256": expected}
 
 
-def _inventory(root: Path) -> list[dict[str, str]]:
+def _inventory(root: Path) -> list[str]:
     if not root.is_dir():
         raise CoverageError(f"run root is not a directory: {root}")
-    result = []
+    result: list[str] = []
     for path in sorted(root.rglob("*"), key=lambda p: p.as_posix().lower()):
         if not path.is_file() and not path.is_symlink():
             continue
@@ -346,7 +346,7 @@ def _inventory(root: Path) -> list[dict[str, str]]:
             raise CoverageError(f"incomplete temporary file is not allowed: {relative}")
         if not resolved.is_file():
             raise CoverageError(f"file is not readable: {relative}")
-        result.append({"path": relative, "sha256": _hash(resolved)})
+        result.append(relative)
     return result
 
 
@@ -1119,9 +1119,7 @@ def _validate_artifacts(
     allowed_paths = {coverage_path}
     allowed_paths.update(item["path"] for item in screenshots)
     allowed_paths.update(item["path"] for item in saves)
-    inventory = _inventory(root)
-    inventory_by_path = {item["path"]: item for item in inventory}
-    inventory_paths = set(inventory_by_path)
+    inventory_paths = set(_inventory(root))
     expected_files = {"run.json", log["path"], *allowed_paths}
     ignored_runtime = {
         path
@@ -1141,7 +1139,15 @@ def _validate_artifacts(
         raise CoverageError(
             f"run file allowlist differs (extra={extra}; missing={missing})"
         )
-    evidence_inventory = [inventory_by_path[path] for path in sorted(evidence_paths)]
+    verified_evidence = [
+        log,
+        *artifacts,
+        *screenshots,
+        *saves,
+        {"path": "run.json", "sha256": _hash(root / "run.json")},
+    ]
+    evidence_by_path = {item["path"]: item for item in verified_evidence}
+    evidence_inventory = [evidence_by_path[path] for path in sorted(evidence_paths)]
     return sorted(artifacts, key=lambda item: item["path"]), evidence_inventory
 
 
@@ -1461,7 +1467,9 @@ def summarize_run(
     coverage_artifact = next(
         item for item in artifacts if item["path"] == state["directories"]["output_directory"] + "/coverage.json"
     )
-    run_record_sha256 = _hash(root / "run.json")
+    run_record_sha256 = next(
+        item["sha256"] for item in inventory if item["path"] == "run.json"
+    )
     operations = _operation_rows(state, counters, coverage_artifact, run_record_sha256)
     return {
         "schema": COVERAGE_SCHEMA,
