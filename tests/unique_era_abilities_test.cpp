@@ -11,15 +11,15 @@
 
 #include <rex/ppc.h>
 
-void ReRevvedApplyUniqueEraAbilityCell(PPCRegister& cellOffset,
-                                       PPCRegister& unlockEra,
-                                       PPCRegister& nativeAbility);
-void ReRevvedApplyBarbarianVillageCityReplacement(
+void ApplyUniqueEraAbilityCell(PPCRegister& cellOffset,
+                               PPCRegister& unlockEra,
+                               PPCRegister& nativeAbility);
+void ApplyBarbarianVillageCityReplacement(
     PPCRegister& civilization);
-void ReRevvedBeginHorsebackRidingOwnershipCheck(PPCRegister& ownershipBase);
-void ReRevvedEndHorsebackRidingOwnershipCheck(PPCRegister& ownershipBase);
-void ReRevvedSelectHorsebackRidingAbility(PPCRegister& ability);
-void ReRevvedSelectHorsebackRidingTechnology(PPCRegister& technology);
+void BeginHorsebackRidingOwnershipCheck(PPCRegister& ownershipBase);
+void EndHorsebackRidingOwnershipCheck(PPCRegister& ownershipBase);
+void SelectHorsebackRidingAbility(PPCRegister& ability);
+void SelectHorsebackRidingTechnology(PPCRegister& technology);
 
 namespace
 {
@@ -410,20 +410,20 @@ void TestDuplicateEffectiveAbilityAndBridge()
     offset.u64  = 4;
     era.s64     = UNLOCK_ERA_MEDIEVAL;
     ability.s64 = ERA_ABILITY_WONDERS_HALF_COST;
-    ReRevvedApplyUniqueEraAbilityCell(offset, era, ability);
+    ApplyUniqueEraAbilityCell(offset, era, ability);
     require(ability.s32 ==
                 ERA_ABILITY_UNIT_RUSH_HALF_COST,
             "Roman Medieval bridge did not apply 24 -> 35");
 
     offset.u64  = 6;
     ability.s64 = ERA_ABILITY_WONDERS_HALF_COST;
-    ReRevvedApplyUniqueEraAbilityCell(offset, era, ability);
+    ApplyUniqueEraAbilityCell(offset, era, ability);
     require(ability.s32 == ERA_ABILITY_WONDERS_HALF_COST,
             "unaligned bridge offset changed native value");
 
     offset.u64 = 4;
     era.s64    = 4;
-    ReRevvedApplyUniqueEraAbilityCell(offset, era, ability);
+    ApplyUniqueEraAbilityCell(offset, era, ability);
     require(ability.s32 == ERA_ABILITY_WONDERS_HALF_COST,
             "invalid bridge era changed native value");
 }
@@ -434,7 +434,7 @@ void TestHorsebackRidingReplacement()
 
     PPCRegister nativeMongolian{};
     nativeMongolian.s64 = CIVILIZATION_MONGOLIAN;
-    ReRevvedApplyBarbarianVillageCityReplacement(nativeMongolian);
+    ApplyBarbarianVillageCityReplacement(nativeMongolian);
     require(nativeMongolian.s32 == CIVILIZATION_MONGOLIAN,
             "native Mongolian village conversion was suppressed without a rule");
 
@@ -462,13 +462,13 @@ void TestHorsebackRidingReplacement()
 
     PPCRegister replacedMongolian{};
     replacedMongolian.s64 = CIVILIZATION_MONGOLIAN;
-    ReRevvedApplyBarbarianVillageCityReplacement(replacedMongolian);
+    ApplyBarbarianVillageCityReplacement(replacedMongolian);
     require(replacedMongolian.s32 == CIVILIZATION_UNKNOWN,
             "Horseback Riding replacement did not suppress village conversion");
 
     PPCRegister nonMongolian{};
     nonMongolian.s64 = CIVILIZATION_ROMAN;
-    ReRevvedApplyBarbarianVillageCityReplacement(nonMongolian);
+    ApplyBarbarianVillageCityReplacement(nonMongolian);
     require(nonMongolian.s32 == CIVILIZATION_ROMAN,
             "village gate changed a non-Mongolian civilization");
 
@@ -482,23 +482,23 @@ void TestHorsebackRidingReplacement()
             "Mongolian Ancient conflict registration failed");
     PPCRegister conflictedMongolian{};
     conflictedMongolian.s64 = CIVILIZATION_MONGOLIAN;
-    ReRevvedApplyBarbarianVillageCityReplacement(conflictedMongolian);
+    ApplyBarbarianVillageCityReplacement(conflictedMongolian);
     require(conflictedMongolian.s32 == CIVILIZATION_MONGOLIAN,
             "same-cell conflict did not preserve native village conversion");
 
     PPCRegister ownershipBase{};
     ownershipBase.u64 = 0x1000;
-    ReRevvedBeginHorsebackRidingOwnershipCheck(ownershipBase);
+    BeginHorsebackRidingOwnershipCheck(ownershipBase);
     require(ownershipBase.u32 + 72 == 0x1010,
             "Horseback Riding ownership check did not select technology 4");
-    ReRevvedEndHorsebackRidingOwnershipCheck(ownershipBase);
+    EndHorsebackRidingOwnershipCheck(ownershipBase);
     require(ownershipBase.u32 == 0x1000,
             "Horseback Riding ownership check did not restore its base");
 
     PPCRegister ability{};
     PPCRegister technology{};
-    ReRevvedSelectHorsebackRidingAbility(ability);
-    ReRevvedSelectHorsebackRidingTechnology(technology);
+    SelectHorsebackRidingAbility(ability);
+    SelectHorsebackRidingTechnology(technology);
     require(ability.s32 ==
                     ERA_ABILITY_KNOWLEDGE_OF_HORSEBACK_RIDING &&
                 technology.s32 == 4,

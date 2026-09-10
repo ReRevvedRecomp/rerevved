@@ -257,8 +257,8 @@ bool tryReplaceEraLines(const char*                          nativeText,
 // The civilization-selection builder stores one heading followed by four
 // label/value pairs. Global headings and civilization-specific values each
 // replace only when exactly one matching rule is registered.
-void ReRevvedApplyEraAbilityNationSelectText(PPCRegister& eraBlock,
-                                             PPCRegister& civilization)
+void ApplyEraAbilityNationSelectText(PPCRegister& eraBlock,
+                                     PPCRegister& civilization)
 {
     if (civilization.s32 < 0 ||
         civilization.s32 >= CIVILIZATION_COUNT ||
@@ -280,8 +280,8 @@ void ReRevvedApplyEraAbilityNationSelectText(PPCRegister& eraBlock,
     }
 }
 
-void ReRevvedApplyLeaderNameNationSelectText(PPCRegister& localizedText,
-                                             PPCRegister& civilization)
+void ApplyLeaderNameNationSelectText(PPCRegister& localizedText,
+                                     PPCRegister& civilization)
 {
     if (civilization.s32 < 0 ||
         civilization.s32 >= CIVILIZATION_COUNT)
@@ -295,7 +295,7 @@ void ReRevvedApplyLeaderNameNationSelectText(PPCRegister& localizedText,
                    leaderTextBuffer);
 }
 
-void ReRevvedApplyCivilizationNameNationSelectText(
+void ApplyCivilizationNameNationSelectText(
     PPCRegister& localizedText,
     PPCRegister& civilization)
 {
@@ -311,7 +311,7 @@ void ReRevvedApplyCivilizationNameNationSelectText(
                    civilizationTextBuffer);
 }
 
-void ReRevvedApplyCivilizationTraitNationSelectText(
+void ApplyCivilizationTraitNationSelectText(
     PPCRegister& traitText,
     PPCRegister& civilization)
 {
@@ -327,7 +327,7 @@ void ReRevvedApplyCivilizationTraitNationSelectText(
                    traitTextBuffer);
 }
 
-void ReRevvedApplyUniqueUnitSectionHeadingNationSelectText(
+void ApplyUniqueUnitSectionHeadingNationSelectText(
     PPCRegister& heading)
 {
     tryReplaceText(heading,
@@ -339,9 +339,9 @@ void ReRevvedApplyUniqueUnitSectionHeadingNationSelectText(
 
 // The live Special Units loop carries both selectors while each localized unit
 // name is still separate, before the builder joins multiple names with commas.
-void ReRevvedApplyUniqueUnitNationSelectText(PPCRegister& localizedText,
-                                             PPCRegister& baseUnitType,
-                                             PPCRegister& civilization)
+void ApplyUniqueUnitNationSelectText(PPCRegister& localizedText,
+                                     PPCRegister& baseUnitType,
+                                     PPCRegister& civilization)
 {
     if (civilization.s32 < 0 ||
         civilization.s32 >= CIVILIZATION_COUNT)

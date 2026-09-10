@@ -92,8 +92,8 @@ updates while preserving the C type, field order, offsets, and exports. Keep
 SDK-owned declarations exact. Parameters on Title-owned override declarations
 remain Title-owned and use `lowerCamelCase` while the override method spelling
 and signature stay unchanged. Preserve names resolved from configuration or by other
-binaries. Generated global hooks keep their distinguishing prefix; their
-internal helpers follow the C++ rules above. Serialized keys, package IDs, and
+binaries. Generated global hooks use descriptive, globally unique names without
+a product prefix; their internal helpers follow the C++ rules above. Serialized keys, package IDs, and
 guest identifiers follow their owning schemas. The C++23 language level and
 C-compatible public headers remain title build and ABI requirements.
 

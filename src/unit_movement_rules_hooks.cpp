@@ -50,9 +50,9 @@ bool tryReadCivilization(int32_t player, CivilizationId& civilization)
 
 } // namespace
 
-void ReRevvedApplyUnitMovementBase(PPCRegister& player,
-                                   PPCRegister& unitType,
-                                   PPCRegister& movementResult)
+void ApplyUnitMovementBase(PPCRegister& player,
+                           PPCRegister& unitType,
+                           PPCRegister& movementResult)
 {
     CivilizationId civilization = CIVILIZATION_UNKNOWN;
     if (!tryReadCivilization(player.s32, civilization))

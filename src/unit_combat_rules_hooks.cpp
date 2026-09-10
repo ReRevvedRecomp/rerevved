@@ -361,8 +361,8 @@ void applyCombatRule(uint32_t           stack,
 
 // The code generator emits the native attack call after this callback. The
 // callback joins the initialized native percentage accumulator and text list.
-void ReRevvedApplyUnitCombatAttackPercent(PPCRegister& stack,
-                                          PPCRegister& accumulator)
+void ApplyUnitCombatAttackPercent(PPCRegister& stack,
+                                  PPCRegister& accumulator)
 {
     applyCombatRule(stack.u32,
                     kAttackerPlayerOffset,
@@ -374,8 +374,8 @@ void ReRevvedApplyUnitCombatAttackPercent(PPCRegister& stack,
 
 // The code generator emits the native defense call after this callback. The
 // callback joins the initialized native percentage accumulator and text list.
-void ReRevvedApplyUnitCombatDefensePercent(PPCRegister& stack,
-                                           PPCRegister& accumulator)
+void ApplyUnitCombatDefensePercent(PPCRegister& stack,
+                                   PPCRegister& accumulator)
 {
     applyCombatRule(stack.u32,
                     kDefenderPlayerOffset,

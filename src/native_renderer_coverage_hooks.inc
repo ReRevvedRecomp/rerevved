@@ -40,13 +40,13 @@ inline constexpr std::uint32_t kSiteAddress82303E8C      = 0x82303E8C;
 
 } // namespace rerevved::native_renderer::generated
 
-void ReRevvedNativeRendererCoverageSite82303E3C() noexcept
+void NativeRendererCoverageSite82303E3C() noexcept
 {
     constexpr std::uint32_t kSiteIndex = rerevved::native_renderer::generated::kSiteIndex82303E3C;
     rerevved::native_renderer::RecordSiteFixedValue(kSiteIndex, 4);
 }
 
-void ReRevvedNativeRendererCoverageSite82303E8C() noexcept
+void NativeRendererCoverageSite82303E8C() noexcept
 {
     constexpr std::uint32_t kSiteIndex = rerevved::native_renderer::generated::kSiteIndex82303E8C;
     rerevved::native_renderer::RecordSiteFixedValue(kSiteIndex, 4);

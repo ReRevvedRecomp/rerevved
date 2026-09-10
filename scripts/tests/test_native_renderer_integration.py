@@ -352,8 +352,8 @@ class NativeRendererIntegrationTests(unittest.TestCase):
 
     def test_passive_trace_is_scoped_to_the_known_swap_callers(self) -> None:
         reservation = COMPAT_CPP[
-            COMPAT_CPP.index("void ReRevvedTraceReservationEnter") : COMPAT_CPP.index(
-                "void ReRevvedTraceReservationReturn"
+            COMPAT_CPP.index("void TraceReservationEnter") : COMPAT_CPP.index(
+                "void TraceReservationReturn"
             )
         ]
         self.assertIn("tracedVdswapOwnerActive", reservation)
@@ -364,12 +364,12 @@ class NativeRendererIntegrationTests(unittest.TestCase):
 
     def test_passive_guest_reads_hold_a_trace_capture_lease(self) -> None:
         for function in (
-            "ReRevvedTraceReservationEnter",
-            "ReRevvedTraceReservationReturn",
-            "ReRevvedTraceVdSwapOwnerEnter",
-            "ReRevvedTraceVdSwapOwnerReturn",
-            "ReRevvedTraceVdSwapReturn",
-            "ReRevvedTraceVdSwapPublished",
+            "TraceReservationEnter",
+            "TraceReservationReturn",
+            "TraceVdSwapOwnerEnter",
+            "TraceVdSwapOwnerReturn",
+            "TraceVdSwapReturn",
+            "TraceVdSwapPublished",
         ):
             start = COMPAT_CPP.index(f"void {function}")
             end = COMPAT_CPP.index("\nvoid ", start + 6)
@@ -382,27 +382,27 @@ class NativeRendererIntegrationTests(unittest.TestCase):
 
     def test_passive_trace_hooks_are_exact_and_non_replacing(self) -> None:
         exact_hooks = {
-            "0x8269C7A8": "ReRevvedTraceReservationEnter",
-            "0x8269C80C": "ReRevvedTraceReservationReturn",
-            "0x826A4638": "ReRevvedTraceVdSwapOwnerEnter",
-            "0x826A4C0C": "ReRevvedTraceVdSwapOwnerReturn",
-            "0x8269E520": "ReRevvedObserveRendererResolve",
-            "0x8269F360": "ReRevvedTraceResolveReturn",
-            "0x826A4884": "ReRevvedObserveRendererSwapSource",
-            "0x826A4888": "ReRevvedTraceVdSwapReturn",
-            "0x826A4890": "ReRevvedTraceVdSwapPublished",
-            "0x826A4150": "ReRevvedTracePreSwapEnter",
-            "0x826A4324": "ReRevvedTracePreSwapReturn",
-            "0x8269CD20": "ReRevvedTraceEmitterCd20Enter",
-            "0x8269CE78": "ReRevvedTraceEmitterCd20Return",
-            "0x8269BF40": "ReRevvedTraceEmitterBf40Enter",
-            "0x8269C12C": "ReRevvedTraceEmitterBf40Return",
-            "0x826A3FB8": "ReRevvedTraceCallbackEnter",
-            "0x826A4148": "ReRevvedTraceCallbackReturn",
-            "0x826ABEA8": "ReRevvedTraceOrdinaryCallerEnter",
-            "0x826AC018": "ReRevvedTraceOrdinaryCallerReturn",
-            "0x82517E38": "ReRevvedTraceAlternateCallerEnter",
-            "0x82517EB4": "ReRevvedTraceAlternateCallerReturn",
+            "0x8269C7A8": "TraceReservationEnter",
+            "0x8269C80C": "TraceReservationReturn",
+            "0x826A4638": "TraceVdSwapOwnerEnter",
+            "0x826A4C0C": "TraceVdSwapOwnerReturn",
+            "0x8269E520": "ObserveRendererResolve",
+            "0x8269F360": "TraceResolveReturn",
+            "0x826A4884": "ObserveRendererSwapSource",
+            "0x826A4888": "TraceVdSwapReturn",
+            "0x826A4890": "TraceVdSwapPublished",
+            "0x826A4150": "TracePreSwapEnter",
+            "0x826A4324": "TracePreSwapReturn",
+            "0x8269CD20": "TraceEmitterCd20Enter",
+            "0x8269CE78": "TraceEmitterCd20Return",
+            "0x8269BF40": "TraceEmitterBf40Enter",
+            "0x8269C12C": "TraceEmitterBf40Return",
+            "0x826A3FB8": "TraceCallbackEnter",
+            "0x826A4148": "TraceCallbackReturn",
+            "0x826ABEA8": "TraceOrdinaryCallerEnter",
+            "0x826AC018": "TraceOrdinaryCallerReturn",
+            "0x82517E38": "TraceAlternateCallerEnter",
+            "0x82517EB4": "TraceAlternateCallerReturn",
         }
         for address, name in exact_hooks.items():
             hook = f'address = {address}\nname = "{name}"'
@@ -441,15 +441,15 @@ class NativeRendererIntegrationTests(unittest.TestCase):
     def test_passive_snapshot_is_fixed_and_post_emission_only(self) -> None:
         self.assertIn("kPassiveTraceReservationDwords = 64", PASSIVE_TRACE_H)
         published = COMPAT_CPP[
-            COMPAT_CPP.index("void ReRevvedTraceVdSwapPublished") : COMPAT_CPP.index(
-                "void ReRevvedTracePreSwapEnter"
+            COMPAT_CPP.index("void TraceVdSwapPublished") : COMPAT_CPP.index(
+                "void TracePreSwapEnter"
             )
         ]
         self.assertIn("event.reservationWords[index] = readGuestU32", published)
         for function in (
-            "ReRevvedTraceReservationEnter",
-            "ReRevvedTraceReservationReturn",
-            "ReRevvedTraceVdSwapReturn",
+            "TraceReservationEnter",
+            "TraceReservationReturn",
+            "TraceVdSwapReturn",
         ):
             start = COMPAT_CPP.index(f"void {function}")
             end = COMPAT_CPP.index("\nvoid ", start + 6)
@@ -498,8 +498,8 @@ class NativeRendererIntegrationTests(unittest.TestCase):
 
     def test_fence_trace_registers_only_exact_post_emission_reservations(self) -> None:
         returned = COMPAT_CPP[
-            COMPAT_CPP.index("void ReRevvedTraceVdSwapReturn") : COMPAT_CPP.index(
-                "void ReRevvedTraceVdSwapPublished"
+            COMPAT_CPP.index("void TraceVdSwapReturn") : COMPAT_CPP.index(
+                "void TraceVdSwapPublished"
             )
         ]
         self.assertIn("if (fenceTraceEnabled()", returned)
@@ -511,9 +511,9 @@ class NativeRendererIntegrationTests(unittest.TestCase):
 
     def test_fence_trace_reset_occurs_only_after_xenos_pause_attempt(self) -> None:
         reset = COMPAT_CPP[
-            COMPAT_CPP.index(
-                "void ReRevvedCompatRingInitializeBegin"
-            ) : COMPAT_CPP.index("void ReRevvedCompatRingInitializeEnd")
+            COMPAT_CPP.index("void CompatRingInitializeBegin") : COMPAT_CPP.index(
+                "void CompatRingInitializeEnd"
+            )
         ]
         self.assertLess(
             reset.index("PauseAndResetGpuWritePointer"),

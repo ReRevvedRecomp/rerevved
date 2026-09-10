@@ -16,9 +16,9 @@ constexpr int32_t kHorsebackRidingOwnershipOffset = 16;
 
 } // namespace
 
-void ReRevvedApplyUniqueEraAbilityCell(PPCRegister& cellOffset,
-                                       PPCRegister& unlockEra,
-                                       PPCRegister& nativeAbility)
+void ApplyUniqueEraAbilityCell(PPCRegister& cellOffset,
+                               PPCRegister& unlockEra,
+                               PPCRegister& nativeAbility)
 {
     if ((cellOffset.u32 & 3u) != 0 ||
         unlockEra.s32 < UNLOCK_ERA_ANCIENT ||
@@ -51,7 +51,7 @@ void ReRevvedApplyUniqueEraAbilityCell(PPCRegister& cellOffset,
     }
 }
 
-void ReRevvedApplyBarbarianVillageCityReplacement(PPCRegister& civilization)
+void ApplyBarbarianVillageCityReplacement(PPCRegister& civilization)
 {
     if (civilization.s32 != CIVILIZATION_MONGOLIAN)
     {
@@ -73,25 +73,25 @@ void ReRevvedApplyBarbarianVillageCityReplacement(PPCRegister& civilization)
     }
 }
 
-void ReRevvedBeginHorsebackRidingOwnershipCheck(PPCRegister& ownershipBase)
+void BeginHorsebackRidingOwnershipCheck(PPCRegister& ownershipBase)
 {
     ownershipBase.s64 -=
         kMonarchyOwnershipOffset - kHorsebackRidingOwnershipOffset;
 }
 
-void ReRevvedEndHorsebackRidingOwnershipCheck(PPCRegister& ownershipBase)
+void EndHorsebackRidingOwnershipCheck(PPCRegister& ownershipBase)
 {
     ownershipBase.s64 +=
         kMonarchyOwnershipOffset - kHorsebackRidingOwnershipOffset;
 }
 
-void ReRevvedSelectHorsebackRidingAbility(PPCRegister& ability)
+void SelectHorsebackRidingAbility(PPCRegister& ability)
 {
     ability.s64 =
         ERA_ABILITY_KNOWLEDGE_OF_HORSEBACK_RIDING;
 }
 
-void ReRevvedSelectHorsebackRidingTechnology(PPCRegister& technology)
+void SelectHorsebackRidingTechnology(PPCRegister& technology)
 {
     technology.s64 = kHorsebackRidingTechnologyId;
 }

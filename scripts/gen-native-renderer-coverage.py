@@ -310,7 +310,7 @@ def _validate_collisions(data: dict[str, Any], existing: dict[str, Any]) -> None
 
 
 def _wrapper_name(address: int) -> str:
-    return f"ReRevvedNativeRendererCoverageSite{address:08X}"
+    return f"NativeRendererCoverageSite{address:08X}"
 
 
 def _canonical_hooks(data: dict[str, Any]) -> list[tuple[int, str]]:

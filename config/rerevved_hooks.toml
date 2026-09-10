@@ -6,31 +6,31 @@
 
 [[midasm_hook]]
 address = 0x82E87B90
-name = "ReRevvedApplyAssetFileOverride"
+name = "ApplyAssetFileOverride"
 registers = ["r1", "r11", "r30"]
 
 [[midasm_hook]]
 address = 0x82C7DF58
-name = "ReRevvedPublishGameplayState"
+name = "PublishGameplayState"
 
 # Ring-buffer initialization brackets the guest reset. Pause the host GPU while
 # the guest resets the ring, then resume it before the next instruction.
 
 [[midasm_hook]]
 address = 0x8269CAE0
-name = "ReRevvedCompatRingInitializeBegin"
+name = "CompatRingInitializeBegin"
 registers = ["r3", "r4"]
 
 [[midasm_hook]]
 address = 0x8269CAE4
-name = "ReRevvedCompatRingInitializeEnd"
+name = "CompatRingInitializeEnd"
 
 # Observe the title's device publication after the original indirect store.
 # Native mode validates the stored value without changing guest state.
 
 [[midasm_hook]]
 address = 0x826A6460
-name = "ReRevvedObserveNativeDevicePublication"
+name = "ObserveNativeDevicePublication"
 registers = ["r11", "r31"]
 
 # Observe one statically proved renderer-texture backend store site. Native mode
@@ -39,7 +39,7 @@ registers = ["r11", "r31"]
 
 [[midasm_hook]]
 address = 0x82305104
-name = "ReRevvedObserveNativeTexturePublication"
+name = "ObserveNativeTexturePublication"
 registers = ["r22", "r3"]
 
 # Observe the resource-manager result immediately before its per-item dispatch.
@@ -47,7 +47,7 @@ registers = ["r22", "r3"]
 
 [[midasm_hook]]
 address = 0x8250AE84
-name = "ReRevvedObserveNativeResolveProviderIdentity"
+name = "ObserveNativeResolveProviderIdentity"
 registers = ["r3"]
 
 # Observe each explicit-buffer factory store before the slot pointer advances.
@@ -55,7 +55,7 @@ registers = ["r3"]
 
 [[midasm_hook]]
 address = 0x82518614
-name = "ReRevvedObserveNativeExplicitBufferFactoryStore"
+name = "ObserveNativeExplicitBufferFactoryStore"
 registers = ["r28", "r29", "r30", "r3"]
 
 # Correlate D3DDevice_Resolve destinations with the later VdSwap source. These
@@ -66,118 +66,118 @@ registers = ["r28", "r29", "r30", "r3"]
 
 [[midasm_hook]]
 address = 0x8269C7A8
-name = "ReRevvedTraceReservationEnter"
+name = "TraceReservationEnter"
 registers = ["r3", "r4"]
 
 [[midasm_hook]]
 address = 0x8269C80C
-name = "ReRevvedTraceReservationReturn"
+name = "TraceReservationReturn"
 registers = ["r3", "r29", "r31"]
 
 [[midasm_hook]]
 address = 0x826A4638
-name = "ReRevvedTraceVdSwapOwnerEnter"
+name = "TraceVdSwapOwnerEnter"
 registers = ["r3", "r4"]
 
 [[midasm_hook]]
 address = 0x826A4C0C
-name = "ReRevvedTraceVdSwapOwnerReturn"
+name = "TraceVdSwapOwnerReturn"
 registers = ["r31"]
 
 [[midasm_hook]]
 address = 0x8269E520
-name = "ReRevvedObserveRendererResolve"
+name = "ObserveRendererResolve"
 registers = ["r4", "r6", "r8", "r9", "lr"]
 
 [[midasm_hook]]
 address = 0x8269F360
-name = "ReRevvedTraceResolveReturn"
+name = "TraceResolveReturn"
 
 [[midasm_hook]]
 address = 0x826A4884
-name = "ReRevvedObserveRendererSwapSource"
+name = "ObserveRendererSwapSource"
 registers = ["r3", "r4", "r30", "r31"]
 
 [[midasm_hook]]
 address = 0x826A4888
-name = "ReRevvedTraceVdSwapReturn"
+name = "TraceVdSwapReturn"
 registers = ["r3", "r30", "r31"]
 
 [[midasm_hook]]
 address = 0x826A4890
-name = "ReRevvedTraceVdSwapPublished"
+name = "TraceVdSwapPublished"
 registers = ["r30", "r31"]
 
 [[midasm_hook]]
 address = 0x826A4150
-name = "ReRevvedTracePreSwapEnter"
+name = "TracePreSwapEnter"
 
 [[midasm_hook]]
 address = 0x826A4324
-name = "ReRevvedTracePreSwapReturn"
+name = "TracePreSwapReturn"
 
 [[midasm_hook]]
 address = 0x8269CD20
-name = "ReRevvedTraceEmitterCd20Enter"
+name = "TraceEmitterCd20Enter"
 
 [[midasm_hook]]
 address = 0x8269CE78
-name = "ReRevvedTraceEmitterCd20Return"
+name = "TraceEmitterCd20Return"
 
 [[midasm_hook]]
 address = 0x8269BF40
-name = "ReRevvedTraceEmitterBf40Enter"
+name = "TraceEmitterBf40Enter"
 
 [[midasm_hook]]
 address = 0x8269C12C
-name = "ReRevvedTraceEmitterBf40Return"
+name = "TraceEmitterBf40Return"
 
 [[midasm_hook]]
 address = 0x826A3FB8
-name = "ReRevvedTraceCallbackEnter"
+name = "TraceCallbackEnter"
 
 [[midasm_hook]]
 address = 0x826A4148
-name = "ReRevvedTraceCallbackReturn"
+name = "TraceCallbackReturn"
 
 [[midasm_hook]]
 address = 0x826ABEA8
-name = "ReRevvedTraceOrdinaryCallerEnter"
+name = "TraceOrdinaryCallerEnter"
 
 [[midasm_hook]]
 address = 0x826AC018
-name = "ReRevvedTraceOrdinaryCallerReturn"
+name = "TraceOrdinaryCallerReturn"
 
 [[midasm_hook]]
 address = 0x82517E38
-name = "ReRevvedTraceAlternateCallerEnter"
+name = "TraceAlternateCallerEnter"
 
 [[midasm_hook]]
 address = 0x82517EB4
-name = "ReRevvedTraceAlternateCallerReturn"
+name = "TraceAlternateCallerReturn"
 
 # Retain a failed render config until the same renderer supplies valid caps.
 
 [[midasm_hook]]
 address = 0x82245050
-name = "ReRevvedRememberGfxRenderConfig"
+name = "RememberGfxRenderConfig"
 registers = ["r3", "r4"]
 
 [[midasm_hook]]
 address = 0x82302E90
-name = "ReRevvedHandleGfxRenderCapsBegin"
+name = "HandleGfxRenderCapsBegin"
 registers = ["r3", "r4", "lr"]
 
 [[midasm_hook]]
 address = 0x82302F0C
-name = "ReRevvedHandleGfxRenderCapsEnd"
+name = "HandleGfxRenderCapsEnd"
 registers = ["r3", "r31"]
 
 # Fast combat selects the guest's native 0.5 presentation divisor only after
 # setup selected an observed native 2.0 or 1.5 divisor.
 [[midasm_hook]]
 address = 0x82D7F934
-name = "ReRevvedApplyCombatPaceOverride"
+name = "ApplyCombatPaceOverride"
 
 # Correct the active rush-cost divisor before the displayed and submitted cost
 # returns, then coordinate the consumer before its production and treasury
@@ -185,12 +185,12 @@ name = "ReRevvedApplyCombatPaceOverride"
 
 [[midasm_hook]]
 address = 0x82CE2938
-name = "ReRevvedFixRushCostDisplay"
+name = "FixRushCostDisplay"
 registers = ["r27", "r30", "r31", "r6", "r7", "r11"]
 
 [[midasm_hook]]
 address = 0x82D17A9C
-name = "ReRevvedFixRushCostApply"
+name = "FixRushCostApply"
 registers = ["r25", "r26", "r28", "r3", "r6", "r8"]
 
 # Compose Unique Unit base attack and defense before the native accessors apply
@@ -198,12 +198,12 @@ registers = ["r25", "r26", "r28", "r3", "r6", "r8"]
 
 [[midasm_hook]]
 address = 0x82CF225C
-name = "ReRevvedApplyUniqueUnitBaseAttack"
+name = "ApplyUniqueUnitBaseAttack"
 registers = ["r28", "r29", "r27"]
 
 [[midasm_hook]]
 address = 0x82CF21D8
-name = "ReRevvedApplyUniqueUnitBaseDefense"
+name = "ApplyUniqueUnitBaseDefense"
 registers = ["r29", "r30", "r31"]
 
 # Replace one unlocked UEA cell only in the shared cumulative lookup. Exact
@@ -211,7 +211,7 @@ registers = ["r29", "r30", "r31"]
 
 [[midasm_hook]]
 address = 0x82CF0D6C
-name = "ReRevvedApplyUniqueEraAbilityCell"
+name = "ApplyUniqueEraAbilityCell"
 registers = ["r4", "r9", "r11"]
 
 # Replace the civilization information fields while their selectors remain
@@ -219,34 +219,34 @@ registers = ["r4", "r9", "r11"]
 
 [[midasm_hook]]
 address = 0x82D77F0C
-name = "ReRevvedApplyLeaderNameNationSelectText"
+name = "ApplyLeaderNameNationSelectText"
 registers = ["r3", "r20"]
 
 [[midasm_hook]]
 address = 0x82D77FD0
-name = "ReRevvedApplyCivilizationNameNationSelectText"
+name = "ApplyCivilizationNameNationSelectText"
 registers = ["r3", "r20"]
 
 [[midasm_hook]]
 address = 0x82D7807C
-name = "ReRevvedApplyEraAbilityNationSelectText"
+name = "ApplyEraAbilityNationSelectText"
 registers = ["r31", "r20"]
 
 [[midasm_hook]]
 address = 0x82D781AC
-name = "ReRevvedApplyCivilizationTraitNationSelectText"
+name = "ApplyCivilizationTraitNationSelectText"
 registers = ["r30", "r20"]
 
 [[midasm_hook]]
 address = 0x82D78228
-name = "ReRevvedApplyUniqueUnitSectionHeadingNationSelectText"
+name = "ApplyUniqueUnitSectionHeadingNationSelectText"
 registers = ["r3"]
 
 # Replace each localized Special Units name before the builder joins names.
 
 [[midasm_hook]]
 address = 0x82D783B4
-name = "ReRevvedApplyUniqueUnitNationSelectText"
+name = "ApplyUniqueUnitNationSelectText"
 registers = ["r3", "r27", "r20"]
 
 # Add identity-targeted movement deltas to the completed native result on the
@@ -254,14 +254,14 @@ registers = ["r3", "r27", "r20"]
 # this site and remains native.
 [[midasm_hook]]
 address = 0x82CF2198
-name = "ReRevvedApplyUnitMovementBase"
+name = "ApplyUnitMovementBase"
 registers = ["r30", "r28", "r3"]
 
 # Apply identity-targeted production cost percentages to the shared effective
 # unit cost scalar after all native discounts have been composed.
 [[midasm_hook]]
 address = 0x82CF1268
-name = "ReRevvedApplyUnitProductionCostPercent"
+name = "ApplyUnitProductionCostPercent"
 registers = ["r30", "r29", "r28"]
 
 # Apply creation-time Veteran and native special-upgrade grants for a matching
@@ -269,7 +269,7 @@ registers = ["r30", "r29", "r28"]
 # saturation follow this site unchanged.
 [[midasm_hook]]
 address = 0x82D15B84
-name = "ReRevvedApplyUnitEffectCreationGrants"
+name = "ApplyUnitEffectCreationGrants"
 registers = ["r26", "r28", "r30"]
 
 # The native Mongolian village-capture effect hard-codes civilization 14 and
@@ -278,7 +278,7 @@ registers = ["r26", "r28", "r30"]
 
 [[midasm_hook]]
 address = 0x82D1B758
-name = "ReRevvedApplyBarbarianVillageCityReplacement"
+name = "ApplyBarbarianVillageCityReplacement"
 registers = ["r10"]
 
 # Retarget the unreachable retail UEA 57 technology-grant scaffold to the one
@@ -287,22 +287,22 @@ registers = ["r10"]
 
 [[midasm_hook]]
 address = 0x82D2127C
-name = "ReRevvedBeginHorsebackRidingOwnershipCheck"
+name = "BeginHorsebackRidingOwnershipCheck"
 registers = ["r31"]
 
 [[midasm_hook]]
 address = 0x82D21280
-name = "ReRevvedEndHorsebackRidingOwnershipCheck"
+name = "EndHorsebackRidingOwnershipCheck"
 registers = ["r31"]
 
 [[midasm_hook]]
 address = 0x82D212A4
-name = "ReRevvedSelectHorsebackRidingAbility"
+name = "SelectHorsebackRidingAbility"
 registers = ["r3"]
 
 [[midasm_hook]]
 address = 0x82D212C0
-name = "ReRevvedSelectHorsebackRidingTechnology"
+name = "SelectHorsebackRidingTechnology"
 registers = ["r4"]
 
 # Reconcile only live same-player type-30 attachments after forced border
@@ -310,16 +310,16 @@ registers = ["r4"]
 # The repair changes only the General's tile coordinates.
 [[midasm_hook]]
 address = 0x82CBF534
-name = "ReRevvedFixGreatGeneralBorderCompletion"
+name = "FixGreatGeneralBorderCompletion"
 
 [[midasm_hook]]
 address = 0x82CDFA64
-name = "ReRevvedFixGreatGeneralPostCombat"
+name = "FixGreatGeneralPostCombat"
 registers = ["r31", "r15"]
 
 [[midasm_hook]]
 address = 0x82CDFCC4
-name = "ReRevvedFixGreatGeneralPostCombat"
+name = "FixGreatGeneralPostCombat"
 registers = ["r31", "r26"]
 
 # Compose the terrain component's base value before native civilization and
@@ -327,27 +327,27 @@ registers = ["r31", "r26"]
 
 [[midasm_hook]]
 address = 0x82CF18B4
-name = "ReRevvedApplyTerrainTradeBase"
+name = "ApplyTerrainTradeBase"
 registers = ["r9", "r29"]
 
 [[midasm_hook]]
 address = 0x82CF1BAC
-name = "ReRevvedApplyTerrainProductionBase"
+name = "ApplyTerrainProductionBase"
 registers = ["r10", "r31"]
 
 [[midasm_hook]]
 address = 0x82CF1D9C
-name = "ReRevvedApplyTerrainFoodBase"
+name = "ApplyTerrainFoodBase"
 registers = ["r10", "r30"]
 
 # Join identity-targeted Forest combat percentages immediately before native
 # CombatResolve modifier calls; codegen preserves each displaced call.
 [[midasm_hook]]
 address = 0x82CDABBC
-name = "ReRevvedApplyUnitCombatAttackPercent"
+name = "ApplyUnitCombatAttackPercent"
 registers = ["r1", "r16"]
 
 [[midasm_hook]]
 address = 0x82CDAC10
-name = "ReRevvedApplyUnitCombatDefensePercent"
+name = "ApplyUnitCombatDefensePercent"
 registers = ["r1", "r17"]

@@ -81,9 +81,9 @@ void applyBaseValue(PPCRegister&             player,
 
 } // namespace
 
-void ReRevvedApplyUniqueUnitBaseAttack(PPCRegister& player,
-                                       PPCRegister& unitType,
-                                       PPCRegister& value)
+void ApplyUniqueUnitBaseAttack(PPCRegister& player,
+                               PPCRegister& unitType,
+                               PPCRegister& value)
 {
     applyBaseValue(player,
                    unitType,
@@ -91,9 +91,9 @@ void ReRevvedApplyUniqueUnitBaseAttack(PPCRegister& player,
                    UNIQUE_UNIT_SCALAR_BASE_ATTACK);
 }
 
-void ReRevvedApplyUniqueUnitBaseDefense(PPCRegister& player,
-                                        PPCRegister& unitType,
-                                        PPCRegister& value)
+void ApplyUniqueUnitBaseDefense(PPCRegister& player,
+                                PPCRegister& unitType,
+                                PPCRegister& value)
 {
     applyBaseValue(player,
                    unitType,

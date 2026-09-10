@@ -32,24 +32,24 @@ void applyBaseValue(PPCRegister&          guestTerrain,
 
 } // namespace
 
-void ReRevvedApplyTerrainTradeBase(PPCRegister& guestTerrain,
-                                   PPCRegister& baseValue)
+void ApplyTerrainTradeBase(PPCRegister& guestTerrain,
+                           PPCRegister& baseValue)
 {
     applyBaseValue(guestTerrain,
                    baseValue,
                    TERRAIN_YIELD_TRADE);
 }
 
-void ReRevvedApplyTerrainProductionBase(PPCRegister& guestTerrain,
-                                        PPCRegister& baseValue)
+void ApplyTerrainProductionBase(PPCRegister& guestTerrain,
+                                PPCRegister& baseValue)
 {
     applyBaseValue(guestTerrain,
                    baseValue,
                    TERRAIN_YIELD_PRODUCTION);
 }
 
-void ReRevvedApplyTerrainFoodBase(PPCRegister& guestTerrain,
-                                  PPCRegister& baseValue)
+void ApplyTerrainFoodBase(PPCRegister& guestTerrain,
+                          PPCRegister& baseValue)
 {
     applyBaseValue(guestTerrain,
                    baseValue,

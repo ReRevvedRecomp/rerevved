@@ -61,8 +61,8 @@ class NativeRendererCoverageGenerationTests(unittest.TestCase):
         self.assertRegex(include, rb"kCounterRowsPerSegment\s+= 4;")
         self.assertRegex(include, rb"kSegmentCounterRowCount\s+= 32;")
         self.assertIn(b"namespace rerevved::native_renderer::generated", include)
-        self.assertIn(b"ReRevvedNativeRendererCoverageSite82303E3C", include)
-        self.assertIn(b"ReRevvedNativeRendererCoverageSite82303E8C", include)
+        self.assertIn(b"NativeRendererCoverageSite82303E3C", include)
+        self.assertIn(b"NativeRendererCoverageSite82303E8C", include)
         self.assertIn(
             b"rerevved::native_renderer::RecordSiteFixedValue(kSiteIndex, 4);",
             include,

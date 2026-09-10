@@ -57,7 +57,7 @@ hooks retain bounded query state for each thread plus pending config atomics
 across the process and apply one compatibility repair. They do not select a
 renderer or synthesize a caps result.
 
-ReRevvedRememberGfxRenderConfig at 0x82245050 remembers the candidate config
+RememberGfxRenderConfig at 0x82245050 remembers the candidate config
 pointer and renderer from the guest call. The render caps begin hook captures
 the query renderer, output identity, and caller. A nested begin is ignored. The
 end hook clears the query state before evaluating the result.

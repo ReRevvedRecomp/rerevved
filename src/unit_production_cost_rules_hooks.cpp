@@ -96,9 +96,9 @@ bool tryReadCivilization(int32_t         cityOffset,
 
 } // namespace
 
-void ReRevvedApplyUnitProductionCostPercent(PPCRegister& cityOffset,
-                                            PPCRegister& unitType,
-                                            PPCRegister& costScalar)
+void ApplyUnitProductionCostPercent(PPCRegister& cityOffset,
+                                    PPCRegister& unitType,
+                                    PPCRegister& costScalar)
 {
     if (unitType.s32 < 0 || unitType.s32 >= UNIT_TYPE_COUNT)
     {

@@ -208,13 +208,13 @@ void repairAllPairs()
 
 } // namespace
 
-void ReRevvedFixGreatGeneralBorderCompletion()
+void FixGreatGeneralBorderCompletion()
 {
     repairAllPairs();
 }
 
-void ReRevvedFixGreatGeneralPostCombat(PPCRegister& player,
-                                       PPCRegister& unit)
+void FixGreatGeneralPostCombat(PPCRegister& player,
+                               PPCRegister& unit)
 {
     repairPairsForCarrier(player.s32, unit.s32);
 }

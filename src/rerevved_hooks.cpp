@@ -283,12 +283,12 @@ void recordCallerTracePoint(PassiveTracePoint point) noexcept
 
 } // namespace
 
-void ReRevvedPublishGameplayState()
+void PublishGameplayState()
 {
     rerevved::gameplay::PublishFrameSnapshot();
 }
 
-void ReRevvedApplyCombatPaceOverride()
+void ApplyCombatPaceOverride()
 {
     if (REXCVAR_GET(combat_speed) != "fast")
     {
@@ -315,12 +315,12 @@ void ReRevvedApplyCombatPaceOverride()
                         std::bit_cast<uint32_t>(kNativeFast));
 }
 
-void ReRevvedFixRushCostDisplay(PPCRegister& r27,
-                                PPCRegister& r30,
-                                PPCRegister& r31,
-                                PPCRegister& r6,
-                                PPCRegister& r7,
-                                PPCRegister& r11)
+void FixRushCostDisplay(PPCRegister& r27,
+                        PPCRegister& r30,
+                        PPCRegister& r31,
+                        PPCRegister& r6,
+                        PPCRegister& r7,
+                        PPCRegister& r11)
 {
     rushCostRepair    = {};
     int32_t corrected = 0;
@@ -334,12 +334,12 @@ void ReRevvedFixRushCostDisplay(PPCRegister& r27,
     }
 }
 
-void ReRevvedFixRushCostApply(PPCRegister& r25,
-                              PPCRegister& r26,
-                              PPCRegister& r28,
-                              PPCRegister& r3,
-                              PPCRegister& r6,
-                              PPCRegister& r8)
+void FixRushCostApply(PPCRegister& r25,
+                      PPCRegister& r26,
+                      PPCRegister& r28,
+                      PPCRegister& r3,
+                      PPCRegister& r6,
+                      PPCRegister& r8)
 {
     const rerevved::RushCostRepair repair = rushCostRepair;
     rushCostRepair                        = {};
@@ -347,7 +347,7 @@ void ReRevvedFixRushCostApply(PPCRegister& r25,
         repair, r28.u32, r25.s32, r26.s32, r6.s32, r8.s32, r3.s32);
 }
 
-void ReRevvedCompatNullOptionalDispatch(PPCRegister& r0, PPCRegister& r3)
+void CompatNullOptionalDispatch(PPCRegister& r0, PPCRegister& r3)
 {
     if (r0.u32 == 0)
     {
@@ -355,7 +355,7 @@ void ReRevvedCompatNullOptionalDispatch(PPCRegister& r0, PPCRegister& r3)
     }
 }
 
-void ReRevvedCompatRingInitializeBegin(PPCRegister&, PPCRegister&)
+void CompatRingInitializeBegin(PPCRegister&, PPCRegister&)
 {
     if (passiveTraceEnabled())
     {
@@ -379,7 +379,7 @@ void ReRevvedCompatRingInitializeBegin(PPCRegister&, PPCRegister&)
     }
 }
 
-void ReRevvedCompatRingInitializeEnd()
+void CompatRingInitializeEnd()
 {
     auto* graphicsSystem = getGraphicsSystem();
     if (graphicsSystem && resumeAfterRingInitialize)
@@ -390,8 +390,8 @@ void ReRevvedCompatRingInitializeEnd()
     recordTracePoint(PassiveTracePoint::RingResetReturn);
 }
 
-void ReRevvedObserveNativeDevicePublication(PPCRegister& r11,
-                                            PPCRegister& r31)
+void ObserveNativeDevicePublication(PPCRegister& r11,
+                                    PPCRegister& r31)
 {
     if (REXCVAR_GET(renderer) != "native")
     {
@@ -430,8 +430,8 @@ void ReRevvedObserveNativeDevicePublication(PPCRegister& r11,
     }
 }
 
-void ReRevvedObserveNativeTexturePublication(PPCRegister& r22,
-                                             PPCRegister& r3)
+void ObserveNativeTexturePublication(PPCRegister& r22,
+                                     PPCRegister& r3)
 {
     if (REXCVAR_GET(renderer) != "native" || r3.u32 == 0)
     {
@@ -474,7 +474,7 @@ void ReRevvedObserveNativeTexturePublication(PPCRegister& r22,
     }
 }
 
-void ReRevvedObserveNativeResolveProviderIdentity(PPCRegister& r3)
+void ObserveNativeResolveProviderIdentity(PPCRegister& r3)
 {
     if (REXCVAR_GET(renderer) != "native")
     {
@@ -578,10 +578,10 @@ void ReRevvedObserveNativeResolveProviderIdentity(PPCRegister& r3)
     }
 }
 
-void ReRevvedObserveNativeExplicitBufferFactoryStore(PPCRegister& r28,
-                                                     PPCRegister& r29,
-                                                     PPCRegister& r30,
-                                                     PPCRegister& r3)
+void ObserveNativeExplicitBufferFactoryStore(PPCRegister& r28,
+                                             PPCRegister& r29,
+                                             PPCRegister& r30,
+                                             PPCRegister& r3)
 {
     if (REXCVAR_GET(renderer) != "native")
     {
@@ -645,7 +645,7 @@ void ReRevvedObserveNativeExplicitBufferFactoryStore(PPCRegister& r28,
     }
 }
 
-void ReRevvedTraceReservationEnter(PPCRegister& r3, PPCRegister& r4)
+void TraceReservationEnter(PPCRegister& r3, PPCRegister& r4)
 {
     tracedReservationActive = false;
     if (!tracedVdswapOwnerActive || r4.u32 != 64)
@@ -666,9 +666,9 @@ void ReRevvedTraceReservationEnter(PPCRegister& r3, PPCRegister& r4)
     (void)lease.Commit(event);
 }
 
-void ReRevvedTraceReservationReturn(PPCRegister& r3,
-                                    PPCRegister& r29,
-                                    PPCRegister& r31)
+void TraceReservationReturn(PPCRegister& r3,
+                            PPCRegister& r29,
+                            PPCRegister& r31)
 {
     if (!tracedReservationActive)
     {
@@ -688,7 +688,7 @@ void ReRevvedTraceReservationReturn(PPCRegister& r3,
     (void)lease.Commit(event);
 }
 
-void ReRevvedTraceVdSwapOwnerEnter(PPCRegister& r3, PPCRegister& r4)
+void TraceVdSwapOwnerEnter(PPCRegister& r3, PPCRegister& r4)
 {
     tracedVdswapOwnerActive = false;
     if (tracedCaller == TracedCaller::None)
@@ -708,7 +708,7 @@ void ReRevvedTraceVdSwapOwnerEnter(PPCRegister& r3, PPCRegister& r4)
     (void)lease.Commit(event);
 }
 
-void ReRevvedTraceVdSwapOwnerReturn(PPCRegister& r31)
+void TraceVdSwapOwnerReturn(PPCRegister& r31)
 {
     if (tracedVdswapOwnerActive)
     {
@@ -727,11 +727,11 @@ void ReRevvedTraceVdSwapOwnerReturn(PPCRegister& r31)
     tracedVdswapActive      = false;
 }
 
-void ReRevvedObserveRendererResolve(PPCRegister& r4,
-                                    PPCRegister& r6,
-                                    PPCRegister& r8,
-                                    PPCRegister& r9,
-                                    uint64_t     lr)
+void ObserveRendererResolve(PPCRegister& r4,
+                            PPCRegister& r6,
+                            PPCRegister& r8,
+                            PPCRegister& r9,
+                            uint64_t     lr)
 {
     constexpr uint32_t kFetchDescriptorOffset = 0x1C;
     constexpr uint32_t kExactResolveCallsite  = 0x8250AFEC;
@@ -792,7 +792,7 @@ void ReRevvedObserveRendererResolve(PPCRegister& r4,
     }
 }
 
-void ReRevvedTraceResolveReturn()
+void TraceResolveReturn()
 {
     if (!tracedExactResolveActive)
     {
@@ -802,10 +802,10 @@ void ReRevvedTraceResolveReturn()
     tracedExactResolveActive = false;
 }
 
-void ReRevvedObserveRendererSwapSource(PPCRegister& r3,
-                                       PPCRegister& r4,
-                                       PPCRegister& r30,
-                                       PPCRegister& r31)
+void ObserveRendererSwapSource(PPCRegister& r3,
+                               PPCRegister& r4,
+                               PPCRegister& r30,
+                               PPCRegister& r31)
 {
     PassiveTraceRecordLease traceLease{};
     if (tracedVdswapOwnerActive)
@@ -878,9 +878,9 @@ void ReRevvedObserveRendererSwapSource(PPCRegister& r3,
     }
 }
 
-void ReRevvedTraceVdSwapReturn(PPCRegister& r3,
-                               PPCRegister& r30,
-                               PPCRegister& r31)
+void TraceVdSwapReturn(PPCRegister& r3,
+                       PPCRegister& r30,
+                       PPCRegister& r31)
 {
     if (fenceTraceEnabled() &&
         (r30.u32 & (alignof(uint32_t) - 1)) == 0 &&
@@ -912,7 +912,7 @@ void ReRevvedTraceVdSwapReturn(PPCRegister& r3,
     (void)lease.Commit(event);
 }
 
-void ReRevvedTraceVdSwapPublished(PPCRegister& r30, PPCRegister& r31)
+void TraceVdSwapPublished(PPCRegister& r30, PPCRegister& r31)
 {
     if (!tracedVdswapActive)
     {
@@ -953,47 +953,47 @@ void ReRevvedTraceVdSwapPublished(PPCRegister& r30, PPCRegister& r31)
     tracedVdswapActive = false;
 }
 
-void ReRevvedTracePreSwapEnter()
+void TracePreSwapEnter()
 {
     recordCallerTracePoint(PassiveTracePoint::PreSwapEnter);
 }
 
-void ReRevvedTracePreSwapReturn()
+void TracePreSwapReturn()
 {
     recordCallerTracePoint(PassiveTracePoint::PreSwapReturn);
 }
 
-void ReRevvedTraceEmitterCd20Enter()
+void TraceEmitterCd20Enter()
 {
     recordCallerTracePoint(PassiveTracePoint::EmitterCd20Enter);
 }
 
-void ReRevvedTraceEmitterCd20Return()
+void TraceEmitterCd20Return()
 {
     recordCallerTracePoint(PassiveTracePoint::EmitterCd20Return);
 }
 
-void ReRevvedTraceEmitterBf40Enter()
+void TraceEmitterBf40Enter()
 {
     recordCallerTracePoint(PassiveTracePoint::EmitterBf40Enter);
 }
 
-void ReRevvedTraceEmitterBf40Return()
+void TraceEmitterBf40Return()
 {
     recordCallerTracePoint(PassiveTracePoint::EmitterBf40Return);
 }
 
-void ReRevvedTraceCallbackEnter()
+void TraceCallbackEnter()
 {
     recordCallerTracePoint(PassiveTracePoint::CallbackEnter);
 }
 
-void ReRevvedTraceCallbackReturn()
+void TraceCallbackReturn()
 {
     recordCallerTracePoint(PassiveTracePoint::CallbackReturn);
 }
 
-void ReRevvedTraceOrdinaryCallerEnter()
+void TraceOrdinaryCallerEnter()
 {
     if (!passiveTraceEnabled())
     {
@@ -1003,7 +1003,7 @@ void ReRevvedTraceOrdinaryCallerEnter()
     recordTracePoint(PassiveTracePoint::OrdinaryCallerEnter);
 }
 
-void ReRevvedTraceOrdinaryCallerReturn()
+void TraceOrdinaryCallerReturn()
 {
     if (tracedCaller == TracedCaller::Ordinary)
     {
@@ -1015,7 +1015,7 @@ void ReRevvedTraceOrdinaryCallerReturn()
     }
 }
 
-void ReRevvedTraceAlternateCallerEnter()
+void TraceAlternateCallerEnter()
 {
     if (!passiveTraceEnabled())
     {
@@ -1025,7 +1025,7 @@ void ReRevvedTraceAlternateCallerEnter()
     recordTracePoint(PassiveTracePoint::AlternateCallerEnter);
 }
 
-void ReRevvedTraceAlternateCallerReturn()
+void TraceAlternateCallerReturn()
 {
     if (tracedCaller == TracedCaller::Alternate)
     {
@@ -1037,15 +1037,15 @@ void ReRevvedTraceAlternateCallerReturn()
     }
 }
 
-void ReRevvedRememberGfxRenderConfig(PPCRegister& r3, PPCRegister& r4)
+void RememberGfxRenderConfig(PPCRegister& r3, PPCRegister& r4)
 {
     gfxRenderConfigCandidate = r3.u32;
     gfxRenderConfigRenderer  = r4.u32;
 }
 
-void ReRevvedHandleGfxRenderCapsBegin(PPCRegister& r3,
-                                      PPCRegister& r4,
-                                      uint64_t     lr)
+void HandleGfxRenderCapsBegin(PPCRegister& r3,
+                              PPCRegister& r4,
+                              uint64_t     lr)
 {
     if (gfxRenderCaps.observing)
     {
@@ -1060,7 +1060,7 @@ void ReRevvedHandleGfxRenderCapsBegin(PPCRegister& r3,
     };
 }
 
-void ReRevvedHandleGfxRenderCapsEnd(PPCRegister& r3, PPCRegister& r31)
+void HandleGfxRenderCapsEnd(PPCRegister& r3, PPCRegister& r31)
 {
     if (!gfxRenderCaps.observing)
     {

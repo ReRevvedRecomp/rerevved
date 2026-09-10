@@ -4,10 +4,10 @@
 
 [[midasm_hook]]
 address = 0x82303E3C
-name = "ReRevvedNativeRendererCoverageSite82303E3C"
+name = "NativeRendererCoverageSite82303E3C"
 registers = []
 
 [[midasm_hook]]
 address = 0x82303E8C
-name = "ReRevvedNativeRendererCoverageSite82303E8C"
+name = "NativeRendererCoverageSite82303E8C"
 registers = []

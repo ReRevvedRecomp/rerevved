@@ -55,9 +55,9 @@ void writeBigEndianU32(uint8_t* destination, uint32_t value)
 
 } // namespace
 
-void ReRevvedApplyAssetFileOverride(PPCRegister& stackPointer,
-                                    PPCRegister& returnedDataPointer,
-                                    PPCRegister& requestedName)
+void ApplyAssetFileOverride(PPCRegister& stackPointer,
+                            PPCRegister& returnedDataPointer,
+                            PPCRegister& requestedName)
 {
     auto* memory = REX_KERNEL_MEMORY();
     if (!memory || stackPointer.u32 == 0 || requestedName.u32 == 0 ||

@@ -15,7 +15,7 @@ try {
 using System;
 using System.Runtime.InteropServices;
 
-public static class ReRevvedWindowCapture {
+public static class WindowCapture {
     [StructLayout(LayoutKind.Sequential)]
     public struct RECT {
         public int Left;
@@ -38,7 +38,7 @@ public static class ReRevvedWindowCapture {
 }
 '@
 
-    $hwnd = [ReRevvedWindowCapture]::GetForegroundWindow()
+    $hwnd = [WindowCapture]::GetForegroundWindow()
     if ($hwnd -eq [IntPtr]::Zero) {
         Fail 'no foreground window is available'
     }
@@ -46,13 +46,13 @@ public static class ReRevvedWindowCapture {
     $topmost = [IntPtr](-1)
     $notTopmost = [IntPtr](-2)
     [uint32]$flags = 0x43
-    if (-not [ReRevvedWindowCapture]::SetWindowPos($hwnd, $topmost, 0, 0, 0, 0, $flags)) {
+    if (-not [WindowCapture]::SetWindowPos($hwnd, $topmost, 0, 0, 0, 0, $flags)) {
         throw "SetWindowPos failed with Win32 error $([Runtime.InteropServices.Marshal]::GetLastWin32Error())"
     }
 
     try {
-        $rect = New-Object ReRevvedWindowCapture+RECT
-        if (-not [ReRevvedWindowCapture]::GetWindowRect($hwnd, [ref]$rect)) {
+        $rect = New-Object WindowCapture+RECT
+        if (-not [WindowCapture]::GetWindowRect($hwnd, [ref]$rect)) {
             throw "GetWindowRect failed with Win32 error $([Runtime.InteropServices.Marshal]::GetLastWin32Error())"
         }
         $width = $rect.Right - $rect.Left
@@ -80,7 +80,7 @@ public static class ReRevvedWindowCapture {
         }
     }
     finally {
-        [ReRevvedWindowCapture]::SetWindowPos($hwnd, $notTopmost, 0, 0, 0, 0, $flags) | Out-Null
+        [WindowCapture]::SetWindowPos($hwnd, $notTopmost, 0, 0, 0, 0, $flags) | Out-Null
     }
 
     [Console]::WriteLine("capture-window: PASS: $outPath")

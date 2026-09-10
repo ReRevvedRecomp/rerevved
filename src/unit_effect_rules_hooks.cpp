@@ -123,9 +123,9 @@ bool tryReadCivilization(int32_t player, CivilizationId& civilization)
 
 } // namespace
 
-void ReRevvedApplyUnitEffectCreationGrants(PPCRegister& player,
-                                           PPCRegister& unitTable,
-                                           PPCRegister& recordOffset)
+void ApplyUnitEffectCreationGrants(PPCRegister& player,
+                                   PPCRegister& unitTable,
+                                   PPCRegister& recordOffset)
 {
     if (unitTable.u32 > UINT32_MAX - recordOffset.u32)
     {

@@ -13,10 +13,10 @@
 
 #include <rex/ppc.h>
 
-void ReRevvedApplyTerrainTradeBase(PPCRegister& terrain, PPCRegister& value);
-void ReRevvedApplyTerrainProductionBase(PPCRegister& terrain,
-                                        PPCRegister& value);
-void ReRevvedApplyTerrainFoodBase(PPCRegister& terrain, PPCRegister& value);
+void ApplyTerrainTradeBase(PPCRegister& terrain, PPCRegister& value);
+void ApplyTerrainProductionBase(PPCRegister& terrain,
+                                PPCRegister& value);
+void ApplyTerrainFoodBase(PPCRegister& terrain, PPCRegister& value);
 
 namespace
 {
@@ -403,11 +403,11 @@ void TestBridges()
     };
 
     const BridgeCase bridges[] = {
-        { TERRAIN_YIELD_FOOD, 2, ReRevvedApplyTerrainFoodBase },
+        { TERRAIN_YIELD_FOOD, 2, ApplyTerrainFoodBase },
         { TERRAIN_YIELD_PRODUCTION,
           3,
-          ReRevvedApplyTerrainProductionBase },
-        { TERRAIN_YIELD_TRADE, 5, ReRevvedApplyTerrainTradeBase },
+          ApplyTerrainProductionBase },
+        { TERRAIN_YIELD_TRADE, 5, ApplyTerrainTradeBase },
     };
 
     // Empty registries must preserve both live registers for every bridge.

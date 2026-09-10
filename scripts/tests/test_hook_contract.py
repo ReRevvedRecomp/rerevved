@@ -30,161 +30,161 @@ GENERATED = ROOT / "generated" / "default"
 EXPECTED_HOOKS = [
     {
         "address": 0x82E87B90,
-        "name": "ReRevvedApplyAssetFileOverride",
+        "name": "ApplyAssetFileOverride",
         "registers": ["r1", "r11", "r30"],
     },
     {
         "address": 0x82C7DF58,
-        "name": "ReRevvedPublishGameplayState",
+        "name": "PublishGameplayState",
     },
     {
         "address": 0x8269CAE0,
-        "name": "ReRevvedCompatRingInitializeBegin",
+        "name": "CompatRingInitializeBegin",
         "registers": ["r3", "r4"],
     },
     {
         "address": 0x8269CAE4,
-        "name": "ReRevvedCompatRingInitializeEnd",
+        "name": "CompatRingInitializeEnd",
     },
     {
         "address": 0x826A6460,
-        "name": "ReRevvedObserveNativeDevicePublication",
+        "name": "ObserveNativeDevicePublication",
         "registers": ["r11", "r31"],
     },
     {
         "address": 0x82305104,
-        "name": "ReRevvedObserveNativeTexturePublication",
+        "name": "ObserveNativeTexturePublication",
         "registers": ["r22", "r3"],
     },
     {
         "address": 0x8250AE84,
-        "name": "ReRevvedObserveNativeResolveProviderIdentity",
+        "name": "ObserveNativeResolveProviderIdentity",
         "registers": ["r3"],
     },
     {
         "address": 0x82518614,
-        "name": "ReRevvedObserveNativeExplicitBufferFactoryStore",
+        "name": "ObserveNativeExplicitBufferFactoryStore",
         "registers": ["r28", "r29", "r30", "r3"],
     },
     {
         "address": 0x8269C7A8,
-        "name": "ReRevvedTraceReservationEnter",
+        "name": "TraceReservationEnter",
         "registers": ["r3", "r4"],
     },
     {
         "address": 0x8269C80C,
-        "name": "ReRevvedTraceReservationReturn",
+        "name": "TraceReservationReturn",
         "registers": ["r3", "r29", "r31"],
     },
     {
         "address": 0x826A4638,
-        "name": "ReRevvedTraceVdSwapOwnerEnter",
+        "name": "TraceVdSwapOwnerEnter",
         "registers": ["r3", "r4"],
     },
     {
         "address": 0x826A4C0C,
-        "name": "ReRevvedTraceVdSwapOwnerReturn",
+        "name": "TraceVdSwapOwnerReturn",
         "registers": ["r31"],
     },
     {
         "address": 0x8269E520,
-        "name": "ReRevvedObserveRendererResolve",
+        "name": "ObserveRendererResolve",
         "registers": ["r4", "r6", "r8", "r9", "lr"],
     },
     {
         "address": 0x8269F360,
-        "name": "ReRevvedTraceResolveReturn",
+        "name": "TraceResolveReturn",
     },
     {
         "address": 0x826A4884,
-        "name": "ReRevvedObserveRendererSwapSource",
+        "name": "ObserveRendererSwapSource",
         "registers": ["r3", "r4", "r30", "r31"],
     },
     {
         "address": 0x826A4888,
-        "name": "ReRevvedTraceVdSwapReturn",
+        "name": "TraceVdSwapReturn",
         "registers": ["r3", "r30", "r31"],
     },
     {
         "address": 0x826A4890,
-        "name": "ReRevvedTraceVdSwapPublished",
+        "name": "TraceVdSwapPublished",
         "registers": ["r30", "r31"],
     },
     {
         "address": 0x826A4150,
-        "name": "ReRevvedTracePreSwapEnter",
+        "name": "TracePreSwapEnter",
     },
     {
         "address": 0x826A4324,
-        "name": "ReRevvedTracePreSwapReturn",
+        "name": "TracePreSwapReturn",
     },
     {
         "address": 0x8269CD20,
-        "name": "ReRevvedTraceEmitterCd20Enter",
+        "name": "TraceEmitterCd20Enter",
     },
     {
         "address": 0x8269CE78,
-        "name": "ReRevvedTraceEmitterCd20Return",
+        "name": "TraceEmitterCd20Return",
     },
     {
         "address": 0x8269BF40,
-        "name": "ReRevvedTraceEmitterBf40Enter",
+        "name": "TraceEmitterBf40Enter",
     },
     {
         "address": 0x8269C12C,
-        "name": "ReRevvedTraceEmitterBf40Return",
+        "name": "TraceEmitterBf40Return",
     },
     {
         "address": 0x826A3FB8,
-        "name": "ReRevvedTraceCallbackEnter",
+        "name": "TraceCallbackEnter",
     },
     {
         "address": 0x826A4148,
-        "name": "ReRevvedTraceCallbackReturn",
+        "name": "TraceCallbackReturn",
     },
     {
         "address": 0x826ABEA8,
-        "name": "ReRevvedTraceOrdinaryCallerEnter",
+        "name": "TraceOrdinaryCallerEnter",
     },
     {
         "address": 0x826AC018,
-        "name": "ReRevvedTraceOrdinaryCallerReturn",
+        "name": "TraceOrdinaryCallerReturn",
     },
     {
         "address": 0x82517E38,
-        "name": "ReRevvedTraceAlternateCallerEnter",
+        "name": "TraceAlternateCallerEnter",
     },
     {
         "address": 0x82517EB4,
-        "name": "ReRevvedTraceAlternateCallerReturn",
+        "name": "TraceAlternateCallerReturn",
     },
     {
         "address": 0x82245050,
-        "name": "ReRevvedRememberGfxRenderConfig",
+        "name": "RememberGfxRenderConfig",
         "registers": ["r3", "r4"],
     },
     {
         "address": 0x82302E90,
-        "name": "ReRevvedHandleGfxRenderCapsBegin",
+        "name": "HandleGfxRenderCapsBegin",
         "registers": ["r3", "r4", "lr"],
     },
     {
         "address": 0x82302F0C,
-        "name": "ReRevvedHandleGfxRenderCapsEnd",
+        "name": "HandleGfxRenderCapsEnd",
         "registers": ["r3", "r31"],
     },
     {
         "address": 0x82D7F934,
-        "name": "ReRevvedApplyCombatPaceOverride",
+        "name": "ApplyCombatPaceOverride",
     },
     {
         "address": 0x82CE2938,
-        "name": "ReRevvedFixRushCostDisplay",
+        "name": "FixRushCostDisplay",
         "registers": ["r27", "r30", "r31", "r6", "r7", "r11"],
     },
     {
         "address": 0x82D17A9C,
-        "name": "ReRevvedFixRushCostApply",
+        "name": "FixRushCostApply",
         "registers": [
             "r25",
             "r26",
@@ -196,126 +196,126 @@ EXPECTED_HOOKS = [
     },
     {
         "address": 0x82CF225C,
-        "name": "ReRevvedApplyUniqueUnitBaseAttack",
+        "name": "ApplyUniqueUnitBaseAttack",
         "registers": ["r28", "r29", "r27"],
     },
     {
         "address": 0x82CF21D8,
-        "name": "ReRevvedApplyUniqueUnitBaseDefense",
+        "name": "ApplyUniqueUnitBaseDefense",
         "registers": ["r29", "r30", "r31"],
     },
     {
         "address": 0x82CF0D6C,
-        "name": "ReRevvedApplyUniqueEraAbilityCell",
+        "name": "ApplyUniqueEraAbilityCell",
         "registers": ["r4", "r9", "r11"],
     },
     {
         "address": 0x82D77F0C,
-        "name": "ReRevvedApplyLeaderNameNationSelectText",
+        "name": "ApplyLeaderNameNationSelectText",
         "registers": ["r3", "r20"],
     },
     {
         "address": 0x82D77FD0,
-        "name": "ReRevvedApplyCivilizationNameNationSelectText",
+        "name": "ApplyCivilizationNameNationSelectText",
         "registers": ["r3", "r20"],
     },
     {
         "address": 0x82D7807C,
-        "name": "ReRevvedApplyEraAbilityNationSelectText",
+        "name": "ApplyEraAbilityNationSelectText",
         "registers": ["r31", "r20"],
     },
     {
         "address": 0x82D781AC,
-        "name": "ReRevvedApplyCivilizationTraitNationSelectText",
+        "name": "ApplyCivilizationTraitNationSelectText",
         "registers": ["r30", "r20"],
     },
     {
         "address": 0x82D78228,
-        "name": "ReRevvedApplyUniqueUnitSectionHeadingNationSelectText",
+        "name": "ApplyUniqueUnitSectionHeadingNationSelectText",
         "registers": ["r3"],
     },
     {
         "address": 0x82D783B4,
-        "name": "ReRevvedApplyUniqueUnitNationSelectText",
+        "name": "ApplyUniqueUnitNationSelectText",
         "registers": ["r3", "r27", "r20"],
     },
     {
         "address": 0x82CF2198,
-        "name": "ReRevvedApplyUnitMovementBase",
+        "name": "ApplyUnitMovementBase",
         "registers": ["r30", "r28", "r3"],
     },
     {
         "address": 0x82CF1268,
-        "name": "ReRevvedApplyUnitProductionCostPercent",
+        "name": "ApplyUnitProductionCostPercent",
         "registers": ["r30", "r29", "r28"],
     },
     {
         "address": 0x82D15B84,
-        "name": "ReRevvedApplyUnitEffectCreationGrants",
+        "name": "ApplyUnitEffectCreationGrants",
         "registers": ["r26", "r28", "r30"],
     },
     {
         "address": 0x82D1B758,
-        "name": "ReRevvedApplyBarbarianVillageCityReplacement",
+        "name": "ApplyBarbarianVillageCityReplacement",
         "registers": ["r10"],
     },
     {
         "address": 0x82D2127C,
-        "name": "ReRevvedBeginHorsebackRidingOwnershipCheck",
+        "name": "BeginHorsebackRidingOwnershipCheck",
         "registers": ["r31"],
     },
     {
         "address": 0x82D21280,
-        "name": "ReRevvedEndHorsebackRidingOwnershipCheck",
+        "name": "EndHorsebackRidingOwnershipCheck",
         "registers": ["r31"],
     },
     {
         "address": 0x82D212A4,
-        "name": "ReRevvedSelectHorsebackRidingAbility",
+        "name": "SelectHorsebackRidingAbility",
         "registers": ["r3"],
     },
     {
         "address": 0x82D212C0,
-        "name": "ReRevvedSelectHorsebackRidingTechnology",
+        "name": "SelectHorsebackRidingTechnology",
         "registers": ["r4"],
     },
     {
         "address": 0x82CBF534,
-        "name": "ReRevvedFixGreatGeneralBorderCompletion",
+        "name": "FixGreatGeneralBorderCompletion",
     },
     {
         "address": 0x82CDFA64,
-        "name": "ReRevvedFixGreatGeneralPostCombat",
+        "name": "FixGreatGeneralPostCombat",
         "registers": ["r31", "r15"],
     },
     {
         "address": 0x82CDFCC4,
-        "name": "ReRevvedFixGreatGeneralPostCombat",
+        "name": "FixGreatGeneralPostCombat",
         "registers": ["r31", "r26"],
     },
     {
         "address": 0x82CF18B4,
-        "name": "ReRevvedApplyTerrainTradeBase",
+        "name": "ApplyTerrainTradeBase",
         "registers": ["r9", "r29"],
     },
     {
         "address": 0x82CF1BAC,
-        "name": "ReRevvedApplyTerrainProductionBase",
+        "name": "ApplyTerrainProductionBase",
         "registers": ["r10", "r31"],
     },
     {
         "address": 0x82CF1D9C,
-        "name": "ReRevvedApplyTerrainFoodBase",
+        "name": "ApplyTerrainFoodBase",
         "registers": ["r10", "r30"],
     },
     {
         "address": 0x82CDABBC,
-        "name": "ReRevvedApplyUnitCombatAttackPercent",
+        "name": "ApplyUnitCombatAttackPercent",
         "registers": ["r1", "r16"],
     },
     {
         "address": 0x82CDAC10,
-        "name": "ReRevvedApplyUnitCombatDefensePercent",
+        "name": "ApplyUnitCombatDefensePercent",
         "registers": ["r1", "r17"],
     },
 ]
@@ -323,12 +323,12 @@ EXPECTED_HOOKS = [
 COVERAGE_HOOKS = [
     {
         "address": 0x82303E3C,
-        "name": "ReRevvedNativeRendererCoverageSite82303E3C",
+        "name": "NativeRendererCoverageSite82303E3C",
         "registers": [],
     },
     {
         "address": 0x82303E8C,
-        "name": "ReRevvedNativeRendererCoverageSite82303E8C",
+        "name": "NativeRendererCoverageSite82303E8C",
         "registers": [],
     },
 ]
@@ -336,7 +336,7 @@ COVERAGE_HOOKS = [
 TERRAIN_YIELD_HOOK_SITES = [
     {
         "function": "sub_82CF17C8",
-        "name": "ReRevvedApplyTerrainTradeBase",
+        "name": "ApplyTerrainTradeBase",
         "registers": ["r9", "r29"],
         "sequence": (
             "\t// lbzx r7,r10,r8\n"
@@ -344,13 +344,13 @@ TERRAIN_YIELD_HOOK_SITES = [
             "\t// extsb r29,r7\n"
             "\tctx.r29.s64 = ctx.r7.s8;\n"
             "\t// beq cr6,0x82cf18e4\n"
-            "\tReRevvedApplyTerrainTradeBase(ctx.r9, ctx.r29);\n"
+            "\tApplyTerrainTradeBase(ctx.r9, ctx.r29);\n"
             "\tif (ctx.cr6.eq) goto loc_82CF18E4;"
         ),
     },
     {
         "function": "sub_82CF1AF0",
-        "name": "ReRevvedApplyTerrainProductionBase",
+        "name": "ApplyTerrainProductionBase",
         "registers": ["r10", "r31"],
         "sequence": (
             "\t// lbzx r6,r8,r7\n"
@@ -358,13 +358,13 @@ TERRAIN_YIELD_HOOK_SITES = [
             "\t// extsb r31,r6\n"
             "\tctx.r31.s64 = ctx.r6.s8;\n"
             "\t// beq cr6,0x82cf1bfc\n"
-            "\tReRevvedApplyTerrainProductionBase(ctx.r10, ctx.r31);\n"
+            "\tApplyTerrainProductionBase(ctx.r10, ctx.r31);\n"
             "\tif (ctx.cr6.eq) goto loc_82CF1BFC;"
         ),
     },
     {
         "function": "sub_82CF1CE8",
-        "name": "ReRevvedApplyTerrainFoodBase",
+        "name": "ApplyTerrainFoodBase",
         "registers": ["r10", "r30"],
         "sequence": (
             "\t// lbzx r6,r8,r7\n"
@@ -372,7 +372,7 @@ TERRAIN_YIELD_HOOK_SITES = [
             "\t// extsb r30,r6\n"
             "\tctx.r30.s64 = ctx.r6.s8;\n"
             "\t// beq cr6,0x82cf1dec\n"
-            "\tReRevvedApplyTerrainFoodBase(ctx.r10, ctx.r30);\n"
+            "\tApplyTerrainFoodBase(ctx.r10, ctx.r30);\n"
             "\tif (ctx.cr6.eq) goto loc_82CF1DEC;"
         ),
     },
@@ -391,12 +391,12 @@ class HookContractTests(unittest.TestCase):
             config = tomllib.load(stream)
         source = "\n".join(path.read_text(encoding="utf-8") for path in HOOK_SOURCES)
         source_names = set(
-            re.findall(r"^void (ReRevved\w+)\s*\(", source, re.MULTILINE)
+            re.findall(r"^void ([A-Z]\w*)[ \t]*\(", source, re.MULTILINE)
         )
         hook_names = {hook["name"] for hook in config["midasm_hook"]}
 
         self.assertEqual(
-            source_names - {"ReRevvedCompatNullOptionalDispatch"},
+            source_names - {"CompatNullOptionalDispatch"},
             hook_names,
         )
 
@@ -445,7 +445,11 @@ class HookContractTests(unittest.TestCase):
 
         source = COVERAGE_HOOK_SOURCE.read_text(encoding="ascii")
         source_names = set(
-            re.findall(r"^void (ReRevved\w+)\s*\(", source, re.MULTILINE)
+            re.findall(
+                r"^void ([A-Z]\w*)\(\) noexcept\r?\n\{",
+                source,
+                re.MULTILINE,
+            )
         )
         self.assertEqual(source_names, {hook["name"] for hook in coverage})
 
@@ -458,12 +462,12 @@ class HookContractTests(unittest.TestCase):
         placements = [
             (
                 "\t// bl 0x826a3568\n"
-                "\tReRevvedNativeRendererCoverageSite82303E3C();\n"
+                "\tNativeRendererCoverageSite82303E3C();\n"
                 "\tctx.lr = 0x82303E40;"
             ),
             (
                 "\t// bl 0x826a3568\n"
-                "\tReRevvedNativeRendererCoverageSite82303E8C();\n"
+                "\tNativeRendererCoverageSite82303E8C();\n"
                 "\tctx.lr = 0x82303E90;"
             ),
         ]
@@ -477,7 +481,7 @@ class HookContractTests(unittest.TestCase):
 
         generated = "".join(path.read_text(encoding="utf-8") for path in paths)
         prototype = (
-            "extern void ReRevvedApplyAssetFileOverride(PPCRegister& r1, "
+            "extern void ApplyAssetFileOverride(PPCRegister& r1, "
             "PPCRegister& r11, "
             "PPCRegister& r30);"
         )
@@ -489,7 +493,7 @@ class HookContractTests(unittest.TestCase):
             "\t// lwz r11,84(r1)\n"
             "\tctx.r11.u64 = REX_LOAD_U32(ctx.r1.u32 + 84);\n"
             "\t// cmplwi cr6,r11,0\n"
-            "\tReRevvedApplyAssetFileOverride(ctx.r1, ctx.r11, ctx.r30);\n"
+            "\tApplyAssetFileOverride(ctx.r1, ctx.r11, ctx.r30);\n"
             "\tctx.cr6.compare<uint32_t>(ctx.r11.u32, 0, ctx.xer);"
         )
         self.assertEqual(generated.count(prototype), 1)
@@ -513,17 +517,17 @@ class HookContractTests(unittest.TestCase):
 
         generated = "".join(path.read_text(encoding="utf-8") for path in paths)
         prototype = (
-            "extern void ReRevvedObserveRendererResolve(PPCRegister& r4, "
+            "extern void ObserveRendererResolve(PPCRegister& r4, "
             "PPCRegister& r6, PPCRegister& r8, PPCRegister& r9, uint64_t lr);"
         )
         self.assertEqual(generated.count(prototype), 1)
         expected = (
             "// bl 0x82e923e4\n"
-            "\tReRevvedCompatRingInitializeBegin(ctx.r3, ctx.r4);\n"
+            "\tCompatRingInitializeBegin(ctx.r3, ctx.r4);\n"
             "\tctx.lr = 0x8269CAE4;\n"
             "\t__imp__VdInitializeRingBuffer(ctx, base);\n"
             "\t// rlwinm r11,r25,23,9,31\n"
-            "\tReRevvedCompatRingInitializeEnd();"
+            "\tCompatRingInitializeEnd();"
         )
         self.assertEqual(generated.count(expected), 1)
 
@@ -537,7 +541,7 @@ class HookContractTests(unittest.TestCase):
             "\t// stw r31,0(r11)\n"
             "\tREX_STORE_U32(ctx.r11.u32 + 0, ctx.r31.u32);\n"
             "\t// bl 0x82e924c4\n"
-            "\tReRevvedObserveNativeDevicePublication(ctx.r11, ctx.r31);\n"
+            "\tObserveNativeDevicePublication(ctx.r11, ctx.r31);\n"
             "\tctx.lr = 0x826A6464;\n"
             "\t__imp__ExGetXConfigSetting(ctx, base);"
         )
@@ -545,9 +549,9 @@ class HookContractTests(unittest.TestCase):
 
     def test_native_device_observer_is_read_only_and_native_gated(self) -> None:
         source = HOOK_SOURCES[0].read_text(encoding="utf-8")
-        observer = source.split("void ReRevvedObserveNativeDevicePublication", 1)[
-            1
-        ].split("void ReRevvedRememberGfxRenderConfig", 1)[0]
+        observer = source.split("void ObserveNativeDevicePublication", 1)[1].split(
+            "void RememberGfxRenderConfig", 1
+        )[0]
         self.assertIn('REXCVAR_GET(renderer) != "native"', observer)
         self.assertIn("isGuestReadableRange", observer)
         self.assertIn("readGuestU32", observer)
@@ -564,16 +568,16 @@ class HookContractTests(unittest.TestCase):
             "\t// stw r3,0(r19)\n"
             "\tREX_STORE_U32(ctx.r19.u32 + 0, ctx.r3.u32);\n"
             "\t// cmplwi r3,0\n"
-            "\tReRevvedObserveNativeTexturePublication(ctx.r22, ctx.r3);\n"
+            "\tObserveNativeTexturePublication(ctx.r22, ctx.r3);\n"
             "\tctx.cr0.compare<uint32_t>(ctx.r3.u32, 0, ctx.xer);"
         )
         self.assertEqual(generated.count(expected), 1)
 
     def test_native_texture_observer_is_read_only_and_native_gated(self) -> None:
         source = HOOK_SOURCES[0].read_text(encoding="utf-8")
-        observer = source.split("void ReRevvedObserveNativeTexturePublication", 1)[
-            1
-        ].split("void ReRevvedObserveRendererResolve", 1)[0]
+        observer = source.split("void ObserveNativeTexturePublication", 1)[1].split(
+            "void ObserveRendererResolve", 1
+        )[0]
         self.assertIn('REXCVAR_GET(renderer) != "native"', observer)
         self.assertIn("isGuestReadableRange", observer)
         self.assertIn("readGuestU32", observer)
@@ -592,14 +596,14 @@ class HookContractTests(unittest.TestCase):
         provider = (
             "loc_8250AE84:\n"
             "\t// stw r27,116(r1)\n"
-            "\tReRevvedObserveNativeResolveProviderIdentity(ctx.r3);\n"
+            "\tObserveNativeResolveProviderIdentity(ctx.r3);\n"
             "\tREX_STORE_U32(ctx.r1.u32 + 116, ctx.r27.u32);"
         )
         factory = (
             "\t// stw r3,0(r29)\n"
             "\tREX_STORE_U32(ctx.r29.u32 + 0, ctx.r3.u32);\n"
             "\t// addi r29,r29,4\n"
-            "\tReRevvedObserveNativeExplicitBufferFactoryStore("
+            "\tObserveNativeExplicitBufferFactoryStore("
             "ctx.r28, ctx.r29, ctx.r30, ctx.r3);\n"
             "\tctx.r29.s64 = ctx.r29.s64 + 4;"
         )
@@ -608,12 +612,12 @@ class HookContractTests(unittest.TestCase):
 
     def test_native_explicit_buffer_observers_are_read_only_and_bounded(self) -> None:
         source = HOOK_SOURCES[0].read_text(encoding="utf-8")
-        provider = source.split("void ReRevvedObserveNativeResolveProviderIdentity", 1)[
+        provider = source.split("void ObserveNativeResolveProviderIdentity", 1)[
             1
-        ].split("void ReRevvedObserveNativeExplicitBufferFactoryStore", 1)[0]
-        factory = source.split(
-            "void ReRevvedObserveNativeExplicitBufferFactoryStore", 1
-        )[1].split("void ReRevvedObserveRendererResolve", 1)[0]
+        ].split("void ObserveNativeExplicitBufferFactoryStore", 1)[0]
+        factory = source.split("void ObserveNativeExplicitBufferFactoryStore", 1)[
+            1
+        ].split("void ObserveRendererResolve", 1)[0]
         for observer in (provider, factory):
             self.assertIn('REXCVAR_GET(renderer) != "native"', observer)
             self.assertIn("isGuestReadableRange", observer)
@@ -639,7 +643,7 @@ class HookContractTests(unittest.TestCase):
             "\tPPCRegister temp{};\n"
             "\tuint32_t ea{};\n"
             "\t// mflr r12\n"
-            "\tReRevvedObserveRendererResolve("
+            "\tObserveRendererResolve("
             "ctx.r4, ctx.r6, ctx.r8, ctx.r9, ctx.lr);\n"
             "\tctx.r12.u64 = ctx.lr;"
         )
@@ -653,7 +657,7 @@ class HookContractTests(unittest.TestCase):
         generated = "".join(path.read_text(encoding="utf-8") for path in paths)
         expected = (
             "\t// bl 0x82e92454\n"
-            "\tReRevvedObserveRendererSwapSource("
+            "\tObserveRendererSwapSource("
             "ctx.r3, ctx.r4, ctx.r30, ctx.r31);\n"
             "\tctx.lr = 0x826A4888;\n"
             "\t__imp__VdSwap(ctx, base);"
@@ -662,8 +666,8 @@ class HookContractTests(unittest.TestCase):
 
     def test_resolve_swap_observers_are_read_only_and_bounded(self) -> None:
         source = HOOK_SOURCES[0].read_text(encoding="utf-8")
-        observers = source.split("void ReRevvedObserveRendererResolve", 1)[1].split(
-            "void ReRevvedRememberGfxRenderConfig", 1
+        observers = source.split("void ObserveRendererResolve", 1)[1].split(
+            "void RememberGfxRenderConfig", 1
         )[0]
         state = (
             ROOT / "src" / "gpu" / "diagnostics" / "native_renderer_guest_state.cpp"
@@ -675,7 +679,7 @@ class HookContractTests(unittest.TestCase):
         self.assertNotIn("WriteGuest", observers)
         self.assertRegex(
             source,
-            r"void ReRevvedObserveRendererResolve\(PPCRegister& r4,\s*"
+            r"void ObserveRendererResolve\(PPCRegister& r4,\s*"
             r"PPCRegister& r6,\s*PPCRegister& r8,\s*PPCRegister& r9,\s*"
             r"uint64_t\s+lr\)",
         )
@@ -688,8 +692,8 @@ class HookContractTests(unittest.TestCase):
     def test_combat_speed_contract(self) -> None:
         source = HOOK_SOURCES[0].read_text(encoding="utf-8")
         app_source = APP_SOURCE.read_text(encoding="utf-8")
-        override = source.split("void ReRevvedApplyCombatPaceOverride", 1)[1].split(
-            "void ReRevvedCompatNullOptionalDispatch", 1
+        override = source.split("void ApplyCombatPaceOverride", 1)[1].split(
+            "void CompatNullOptionalDispatch", 1
         )[0]
 
         definitions = re.findall(
@@ -720,7 +724,7 @@ class HookContractTests(unittest.TestCase):
             "\tctx.lr = 0x82D7F934;\n"
             "\tsub_82D66B20(ctx, base);\n"
             "\t// lwz r11,-3448(r20)\n"
-            "\tReRevvedApplyCombatPaceOverride();"
+            "\tApplyCombatPaceOverride();"
         )
         self.assertEqual(generated.count(expected), 1)
 
@@ -736,12 +740,12 @@ class HookContractTests(unittest.TestCase):
         self.assertNotIn("FixEnabled", source)
         self.assertRegex(
             source,
-            r"void ReRevvedFixGreatGeneralBorderCompletion\(\)\s*"
+            r"void FixGreatGeneralBorderCompletion\(\)\s*"
             r"\{\s*repairAllPairs\(\);\s*\}",
         )
         self.assertRegex(
             source,
-            r"void ReRevvedFixGreatGeneralPostCombat\(PPCRegister& player,\s*"
+            r"void FixGreatGeneralPostCombat\(PPCRegister& player,\s*"
             r"PPCRegister& unit\)\s*\{\s*"
             r"repairPairsForCarrier\(player\.s32, unit\.s32\);\s*\}",
         )
@@ -764,18 +768,18 @@ class HookContractTests(unittest.TestCase):
             (
                 "loc_82CBF534:\n"
                 "\t// lwz r11,112(r1)\n"
-                "\tReRevvedFixGreatGeneralBorderCompletion();"
+                "\tFixGreatGeneralBorderCompletion();"
             ),
             (
                 "\tctx.lr = 0x82CDFA64;\n"
                 "\tsub_82CD69B8(ctx, base);\n"
                 "\t// b 0x82ce16ac\n"
-                "\tReRevvedFixGreatGeneralPostCombat(ctx.r31, ctx.r15);"
+                "\tFixGreatGeneralPostCombat(ctx.r31, ctx.r15);"
             ),
             (
                 "loc_82CDFCC4:\n"
                 "\t// lbzx r11,r30,r28\n"
-                "\tReRevvedFixGreatGeneralPostCombat(ctx.r31, ctx.r26);"
+                "\tFixGreatGeneralPostCombat(ctx.r31, ctx.r26);"
             ),
         ]
         for placement in placements:
@@ -791,12 +795,12 @@ class HookContractTests(unittest.TestCase):
         placements = [
             (
                 "\t// cmpwi cr6,r30,29\n"
-                "\tReRevvedFixRushCostDisplay(ctx.r27, ctx.r30, ctx.r31, "
+                "\tFixRushCostDisplay(ctx.r27, ctx.r30, ctx.r31, "
                 "ctx.r6, ctx.r7, ctx.r11);"
             ),
             (
                 "\t// cmpwi cr6,r25,119\n"
-                "\tReRevvedFixRushCostApply(ctx.r25, ctx.r26, ctx.r28, "
+                "\tFixRushCostApply(ctx.r25, ctx.r26, ctx.r28, "
                 "ctx.r3, ctx.r6, ctx.r8);"
             ),
         ]
@@ -812,13 +816,13 @@ class HookContractTests(unittest.TestCase):
         placements = [
             (
                 "\t// cmpwi cr6,r27,0\n"
-                "\tReRevvedApplyUniqueUnitBaseAttack("
+                "\tApplyUniqueUnitBaseAttack("
                 "ctx.r28, ctx.r29, ctx.r27);\n"
                 "\tctx.cr6.compare<int32_t>(ctx.r27.s32, 0, ctx.xer);"
             ),
             (
                 "\t// cmpwi cr6,r5,0\n"
-                "\tReRevvedApplyUniqueUnitBaseDefense("
+                "\tApplyUniqueUnitBaseDefense("
                 "ctx.r29, ctx.r30, ctx.r31);\n"
                 "\tctx.cr6.compare<int32_t>(ctx.r5.s32, 0, ctx.xer);"
             ),
@@ -839,25 +843,21 @@ class HookContractTests(unittest.TestCase):
         placements = [
             (
                 "\t// bl 0x82cfc0a8\n"
-                "\tReRevvedApplyUnitCombatAttackPercent(ctx.r1, ctx.r16);\n"
+                "\tApplyUnitCombatAttackPercent(ctx.r1, ctx.r16);\n"
                 "\tctx.lr = 0x82CDABC0;\n"
                 "\tsub_82CFC0A8(ctx, base);"
             ),
             (
                 "\t// bl 0x82cfbed0\n"
-                "\tReRevvedApplyUnitCombatDefensePercent(ctx.r1, ctx.r17);\n"
+                "\tApplyUnitCombatDefensePercent(ctx.r1, ctx.r17);\n"
                 "\tctx.lr = 0x82CDAC14;\n"
                 "\tsub_82CFBED0(ctx, base);"
             ),
         ]
         for placement in placements:
             self.assertEqual(generated.count(placement), 1)
-        self.assertNotIn(
-            "ReRevvedApplyUnitCombatAttackPercent(ctx.r1, ctx.r26)", generated
-        )
-        self.assertNotIn(
-            "ReRevvedApplyUnitCombatDefensePercent(ctx.r1, ctx.r23)", generated
-        )
+        self.assertNotIn("ApplyUnitCombatAttackPercent(ctx.r1, ctx.r26)", generated)
+        self.assertNotIn("ApplyUnitCombatDefensePercent(ctx.r1, ctx.r23)", generated)
 
     def test_terrain_yield_hook_addresses_are_collision_free(self) -> None:
         with HOOK_CONFIG.open("rb") as stream:
@@ -868,17 +868,17 @@ class HookContractTests(unittest.TestCase):
         expected = [
             {
                 "address": 0x82CF18B4,
-                "name": "ReRevvedApplyTerrainTradeBase",
+                "name": "ApplyTerrainTradeBase",
                 "registers": ["r9", "r29"],
             },
             {
                 "address": 0x82CF1BAC,
-                "name": "ReRevvedApplyTerrainProductionBase",
+                "name": "ApplyTerrainProductionBase",
                 "registers": ["r10", "r31"],
             },
             {
                 "address": 0x82CF1D9C,
-                "name": "ReRevvedApplyTerrainFoodBase",
+                "name": "ApplyTerrainFoodBase",
                 "registers": ["r10", "r30"],
             },
         ]
@@ -924,7 +924,7 @@ class HookContractTests(unittest.TestCase):
         generated = "".join(path.read_text(encoding="utf-8") for path in paths)
         placement = (
             "\t// cmpw cr6,r11,r3\n"
-            "\tReRevvedApplyUniqueEraAbilityCell("
+            "\tApplyUniqueEraAbilityCell("
             "ctx.r4, ctx.r9, ctx.r11);\n"
             "\tctx.cr6.compare<int32_t>(ctx.r11.s32, ctx.r3.s32, ctx.xer);"
         )
@@ -933,8 +933,8 @@ class HookContractTests(unittest.TestCase):
         function = generated.split("DEFINE_REX_FUNC(sub_82CF0CB0)", 1)[1]
         function = function.split("DEFINE_REX_FUNC", 1)[0]
         exact_mode, cumulative_mode = function.split("loc_82CF0D0C:", 1)
-        self.assertNotIn("ReRevvedApplyUniqueEraAbilityCell", exact_mode)
-        self.assertEqual(cumulative_mode.count("ReRevvedApplyUniqueEraAbilityCell"), 1)
+        self.assertNotIn("ApplyUniqueEraAbilityCell", exact_mode)
+        self.assertEqual(cumulative_mode.count("ApplyUniqueEraAbilityCell"), 1)
         self.assertIn("if (ctx.cr6.eq) goto loc_82CF0D0C;", exact_mode)
 
     def test_era_presentation_buffer_has_native_length_header(self) -> None:
@@ -957,9 +957,9 @@ class HookContractTests(unittest.TestCase):
             publish,
             r"out\.u64\s*=\s*textAddress;",
         )
-        era_hook = source.split("void ReRevvedApplyEraAbilityNationSelectText", 1)[
-            1
-        ].split("void ReRevvedApplyUniqueUnitNationSelectText", 1)[0]
+        era_hook = source.split("void ApplyEraAbilityNationSelectText", 1)[1].split(
+            "void ApplyUniqueUnitNationSelectText", 1
+        )[0]
         self.assertRegex(
             era_hook,
             r"tryPublishText\(replacement\.data\(\),\s*"
@@ -969,10 +969,10 @@ class HookContractTests(unittest.TestCase):
     def test_additional_presentation_hooks_preserve_native_forms(self) -> None:
         source = NATION_SELECT_TEXT_SOURCE.read_text(encoding="ascii")
         for name in [
-            "ReRevvedApplyLeaderNameNationSelectText",
-            "ReRevvedApplyCivilizationNameNationSelectText",
-            "ReRevvedApplyCivilizationTraitNationSelectText",
-            "ReRevvedApplyUniqueUnitSectionHeadingNationSelectText",
+            "ApplyLeaderNameNationSelectText",
+            "ApplyCivilizationNameNationSelectText",
+            "ApplyCivilizationTraitNationSelectText",
+            "ApplyUniqueUnitSectionHeadingNationSelectText",
         ]:
             self.assertEqual(source.count(f"void {name}"), 1)
         self.assertIn("NATION_SELECT_TEXT_SURFACE_LEADER_NAME", source)
@@ -982,9 +982,9 @@ class HookContractTests(unittest.TestCase):
             "NATION_SELECT_TEXT_SURFACE_UNIQUE_UNIT_SECTION_HEADING",
             source,
         )
-        trait_hook = source.split(
-            "void ReRevvedApplyCivilizationTraitNationSelectText", 1
-        )[1].split("void ReRevvedApplyUniqueUnitSectionHeadingNationSelectText", 1)[0]
+        trait_hook = source.split("void ApplyCivilizationTraitNationSelectText", 1)[
+            1
+        ].split("void ApplyUniqueUnitSectionHeadingNationSelectText", 1)[0]
         self.assertIn("tryReplaceText(traitText", trait_hook)
         self.assertIn("true,\n                   traitTextBuffer", trait_hook)
 
@@ -998,14 +998,14 @@ class HookContractTests(unittest.TestCase):
             "\tctx.lr = 0x82D783B4;\n"
             "\tsub_82E6A430(ctx, base);\n"
             "\t// mr r4,r3\n"
-            "\tReRevvedApplyUniqueUnitNationSelectText("
+            "\tApplyUniqueUnitNationSelectText("
             "ctx.r3, ctx.r27, ctx.r20);\n"
             "\tctx.r4.u64 = ctx.r3.u64;"
         )
         era_placement = (
             "\tctx.r31.u64 = REX_LOAD_U32(ctx.r3.u32 + 0);\n"
             "\t// addi r29,r25,16\n"
-            "\tReRevvedApplyEraAbilityNationSelectText(ctx.r31, ctx.r20);\n"
+            "\tApplyEraAbilityNationSelectText(ctx.r31, ctx.r20);\n"
             "\tctx.r29.s64 = ctx.r25.s64 + 16;"
         )
         self.assertEqual(generated.count(unit_placement), 1)
@@ -1020,14 +1020,14 @@ class HookContractTests(unittest.TestCase):
 
         generated = "".join(path.read_text(encoding="utf-8") for path in paths)
         prototype = (
-            "extern void ReRevvedApplyUnitMovementBase(PPCRegister& r30, "
+            "extern void ApplyUnitMovementBase(PPCRegister& r30, "
             "PPCRegister& r28, PPCRegister& r3);"
         )
         placement = (
             "\t// add r3,r11,r26\n"
             "\tctx.r3.u64 = ctx.r11.u64 + ctx.r26.u64;\n"
             "\t// addi r1,r1,160\n"
-            "\tReRevvedApplyUnitMovementBase(ctx.r30, ctx.r28, ctx.r3);"
+            "\tApplyUnitMovementBase(ctx.r30, ctx.r28, ctx.r3);"
         )
         if prototype not in generated:
             self.skipTest("generated movement hook is not available")
@@ -1036,10 +1036,10 @@ class HookContractTests(unittest.TestCase):
 
         function = generated.split("DEFINE_REX_FUNC(sub_82CF1F70)", 1)[1]
         function = function.split("DEFINE_REX_FUNC", 1)[0]
-        self.assertEqual(function.count("ReRevvedApplyUnitMovementBase"), 1)
+        self.assertEqual(function.count("ApplyUnitMovementBase"), 1)
         special_return, ordinary_return = function.split("loc_82CF218C:", 1)
-        self.assertNotIn("ReRevvedApplyUnitMovementBase", special_return)
-        self.assertIn("ReRevvedApplyUnitMovementBase", ordinary_return)
+        self.assertNotIn("ApplyUnitMovementBase", special_return)
+        self.assertIn("ApplyUnitMovementBase", ordinary_return)
 
     def test_generated_unit_cost_hook_uses_shared_scalar_when_available(
         self,
@@ -1050,13 +1050,13 @@ class HookContractTests(unittest.TestCase):
 
         generated = "".join(path.read_text(encoding="utf-8") for path in paths)
         prototype = (
-            "extern void ReRevvedApplyUnitProductionCostPercent("
+            "extern void ApplyUnitProductionCostPercent("
             "PPCRegister& r30, PPCRegister& r29, PPCRegister& r28);"
         )
         placement = (
             "loc_82CF1268:\n"
             "\t// mr r3,r28\n"
-            "\tReRevvedApplyUnitProductionCostPercent("
+            "\tApplyUnitProductionCostPercent("
             "ctx.r30, ctx.r29, ctx.r28);\n"
             "\tctx.r3.u64 = ctx.r28.u64;"
         )
@@ -1067,7 +1067,7 @@ class HookContractTests(unittest.TestCase):
 
         function = generated.split("DEFINE_REX_FUNC(sub_82CF1148)", 1)[1]
         function = function.split("DEFINE_REX_FUNC", 1)[0]
-        self.assertEqual(function.count("ReRevvedApplyUnitProductionCostPercent"), 1)
+        self.assertEqual(function.count("ApplyUnitProductionCostPercent"), 1)
         self.assertIn("ctx.r30.s64 = static_cast<int64_t>", function)
         self.assertIn("ctx.r29.u64 = ctx.r10.u64;", function)
         self.assertIn("ctx.r3.u64 = ctx.r28.u64;", function)
@@ -1081,13 +1081,13 @@ class HookContractTests(unittest.TestCase):
 
         generated = "".join(path.read_text(encoding="utf-8") for path in paths)
         prototype = (
-            "extern void ReRevvedApplyUnitEffectCreationGrants("
+            "extern void ApplyUnitEffectCreationGrants("
             "PPCRegister& r26, PPCRegister& r28, PPCRegister& r30);"
         )
         placement = (
             "loc_82D15B84:\n"
             "\t// lwz r11,116(r1)\n"
-            "\tReRevvedApplyUnitEffectCreationGrants(ctx.r26, ctx.r28, ctx.r30);\n"
+            "\tApplyUnitEffectCreationGrants(ctx.r26, ctx.r28, ctx.r30);\n"
             "\tctx.r11.u64 = REX_LOAD_U32(ctx.r1.u32 + 116);"
         )
         if prototype not in generated:
@@ -1097,7 +1097,7 @@ class HookContractTests(unittest.TestCase):
 
         function = generated.split("DEFINE_REX_FUNC(sub_82D13978)", 1)[1]
         function = function.split("DEFINE_REX_FUNC", 1)[0]
-        self.assertEqual(function.count("ReRevvedApplyUnitEffectCreationGrants"), 1)
+        self.assertEqual(function.count("ApplyUnitEffectCreationGrants"), 1)
         self.assertIn("ctx.r3.s64 = 50;", function)
         self.assertIn("cmpwi cr6,r8,0", function)
         self.assertIn("cmpwi cr6,r10,2", function)
@@ -1120,20 +1120,20 @@ class HookContractTests(unittest.TestCase):
         placements = [
             (
                 "\t// lwz r11,72(r31)\n"
-                "\tReRevvedBeginHorsebackRidingOwnershipCheck(ctx.r31);\n"
+                "\tBeginHorsebackRidingOwnershipCheck(ctx.r31);\n"
                 "\tctx.r11.u64 = REX_LOAD_U32(ctx.r31.u32 + 72);\n"
                 "\t// slw r10,r10,r26\n"
-                "\tReRevvedEndHorsebackRidingOwnershipCheck(ctx.r31);"
+                "\tEndHorsebackRidingOwnershipCheck(ctx.r31);"
             ),
             (
                 "\t// bl 0x82cf0cb0\n"
-                "\tReRevvedSelectHorsebackRidingAbility(ctx.r3);\n"
+                "\tSelectHorsebackRidingAbility(ctx.r3);\n"
                 "\tctx.lr = 0x82D212A8;\n"
                 "\tsub_82CF0CB0(ctx, base);"
             ),
             (
                 "\t// mr r3,r26\n"
-                "\tReRevvedSelectHorsebackRidingTechnology(ctx.r4);\n"
+                "\tSelectHorsebackRidingTechnology(ctx.r4);\n"
                 "\tctx.r3.u64 = ctx.r26.u64;\n"
                 "\t// bl 0x82d09208"
             ),
@@ -1154,7 +1154,7 @@ class HookContractTests(unittest.TestCase):
         function = function.split("DEFINE_REX_FUNC", 1)[0]
         placement = (
             "\t// cmpwi cr6,r10,14\n"
-            "\tReRevvedApplyBarbarianVillageCityReplacement(ctx.r10);\n"
+            "\tApplyBarbarianVillageCityReplacement(ctx.r10);\n"
             "\tctx.cr6.compare<int32_t>(ctx.r10.s32, 14, ctx.xer);"
         )
         self.assertEqual(function.count(placement), 1)
