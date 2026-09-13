@@ -8,7 +8,7 @@
   never configures, builds, or writes to the SDK checkout.
 
 .PARAMETER Stage
-  Configure, Codegen, Build, Launch, or All. Codegen and Build run the
+  Configure, Codegen, Build, Launch, Replay, or All. Codegen and Build run the
   dependency-tracked codegen target between two configure passes so a fresh
   source list is loaded before compilation. All also launches.
 
@@ -25,6 +25,12 @@
 .PARAMETER LaunchArgumentJson
   JSON array transport for launch arguments across a child pwsh -File boundary.
   It is mutually exclusive with LaunchArgument.
+
+.PARAMETER ReplayRecipe
+  Existing decoded draw recipe for the headless Replay stage.
+
+.PARAMETER ReplayOutput
+  Fresh sample-readback file for the Replay stage, in an existing directory.
 
 .PARAMETER UserDataRoot
   Optional user-data root for a validated isolated launch.
@@ -54,13 +60,15 @@
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('Configure', 'Codegen', 'Build', 'Launch', 'All')]
+    [ValidateSet('Configure', 'Codegen', 'Build', 'Launch', 'Replay', 'All')]
     [string]$Stage = 'All',
     [ValidateRange(1, 3600)]
     [int]$ProbeSeconds = 20,
     [switch]$Interactive,
     [string[]]$LaunchArgument = @(),
     [string]$LaunchArgumentJson,
+    [string]$ReplayRecipe,
+    [string]$ReplayOutput,
     [switch]$SelfTest,
     [string]$SdkRepo,
     [Alias('SdkInstallRoot')]
@@ -85,12 +93,37 @@ foreach ($pathOverride in @(
     @{ Name = 'LogPath'; Value = $LogPath },
     @{ Name = 'SdkRepo'; Value = $SdkRepo },
     @{ Name = 'SdkInstall'; Value = $SdkInstall },
+    @{ Name = 'ReplayRecipe'; Value = $ReplayRecipe },
+    @{ Name = 'ReplayOutput'; Value = $ReplayOutput },
     @{ Name = 'LaunchArgumentJson'; Value = $LaunchArgumentJson }
 )) {
     if ($PSBoundParameters.ContainsKey($pathOverride.Name) -and
         [string]::IsNullOrWhiteSpace([string]$pathOverride.Value)) {
         throw "$($pathOverride.Name) must be a non-empty path when supplied."
     }
+}
+if ($Stage -eq 'Replay') {
+    if (-not $ReplayRecipe -or -not $ReplayOutput) {
+        throw 'Replay requires both -ReplayRecipe and -ReplayOutput.'
+    }
+    if ($Interactive -or $LaunchArgument.Count -ne 0 -or
+        $PSBoundParameters.ContainsKey('LaunchArgumentJson')) {
+        throw 'Replay does not accept game launch arguments or -Interactive.'
+    }
+    $ReplayRecipe = [IO.Path]::GetFullPath($ReplayRecipe)
+    $ReplayOutput = [IO.Path]::GetFullPath($ReplayOutput)
+    if (-not (Test-Path -LiteralPath $ReplayRecipe -PathType Leaf)) {
+        throw "Replay recipe not found: $ReplayRecipe"
+    }
+    if (Test-Path -LiteralPath $ReplayOutput) {
+        throw "Replay output must be a fresh file: $ReplayOutput"
+    }
+    if (-not (Test-Path -LiteralPath (Split-Path -Parent $ReplayOutput) -PathType Container)) {
+        throw 'Replay output directory must already exist.'
+    }
+} elseif ($PSBoundParameters.ContainsKey('ReplayRecipe') -or
+          $PSBoundParameters.ContainsKey('ReplayOutput')) {
+    throw '-ReplayRecipe and -ReplayOutput require -Stage Replay.'
 }
 if ($PSBoundParameters.ContainsKey('LaunchArgumentJson')) {
     if ($LaunchArgument.Count -ne 0) {
@@ -279,7 +312,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Could not inspect title tracked state.' }
 $titleDirty = if ([string]::IsNullOrWhiteSpace($titleTrackedStatus)) { 'clean' } else { 'dirty' }
 
 Require-Path $manifest 'ReXGlue manifest'
-if ($Stage -ne 'Configure') {
+if ($Stage -notin @('Configure', 'Replay')) {
     Require-Path $xex 'Game default.xex'
 }
 Require-Path $VcVarsAll 'vcvarsall.bat'
@@ -312,7 +345,11 @@ if ($SelfTest) {
     Write-Host '  cmake --preset win-amd64-release "-Drexglue_DIR=<sdk-package>"'
     Write-Host '  cmake --build --preset win-amd64-release --target rerevved_codegen'
     Write-Host '  cmake --build --preset win-amd64-release'
-    Write-Host '  <title-executable> <validated-runtime-arguments>'
+    if ($Stage -eq 'Replay') {
+        Write-Host '  <native-draw-replay-executable> <recipe> <fresh-output>'
+    } else {
+        Write-Host '  <title-executable> <validated-runtime-arguments>'
+    }
     exit 0
 }
 
@@ -334,6 +371,30 @@ if ($cmakeCommands.Count -gt 0) {
         Write-Host "CMake stage failed ($code)." -ForegroundColor Red
         exit $code
     }
+}
+
+if ($Stage -eq 'Replay') {
+    $replayExe = Join-Path $buildDir 'native_draw_replay.exe'
+    Require-Path $replayExe 'Native draw replay executable'
+    Write-Host "replay   : $replayExe" -ForegroundColor Cyan
+    $replayStartInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $replayStartInfo.FileName = $replayExe
+    $replayStartInfo.Arguments = (Quote-Cmd $ReplayRecipe) + ' ' + (Quote-Cmd $ReplayOutput)
+    $replayStartInfo.WorkingDirectory = $repo
+    $replayStartInfo.UseShellExecute = $false
+    $replayStartInfo.CreateNoWindow = $true
+    $replayStartInfo.RedirectStandardOutput = $true
+    $replayStartInfo.RedirectStandardError = $true
+    $replayProcess = [System.Diagnostics.Process]::Start($replayStartInfo)
+    if (-not $replayProcess) { throw 'Failed to start native draw replay.' }
+    $replayStdout = $replayProcess.StandardOutput.ReadToEndAsync()
+    $replayStderr = $replayProcess.StandardError.ReadToEndAsync()
+    $replayProcess.WaitForExit()
+    [Console]::Out.Write($replayStdout.GetAwaiter().GetResult())
+    [Console]::Error.Write($replayStderr.GetAwaiter().GetResult())
+    $replayExitCode = $replayProcess.ExitCode
+    Write-Host "replay result: exit $replayExitCode"
+    exit $replayExitCode
 }
 
 if ($Stage -notin @('Launch', 'All')) {

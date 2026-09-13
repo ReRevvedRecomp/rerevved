@@ -186,6 +186,22 @@ draw. These checks establish file consistency and a byte difference, not native
 replay or visible parity. Captures contain retail graphics data and belong in
 ignored output directories.
 
+## Native offscreen draw replay
+
+After building, replay a decoded draw with the headless native D3D12 harness:
+
+```powershell
+cd <repo>; .\scripts\rexglue.ps1 -Stage Replay -ReplayRecipe out/diagnostics/<capture>/replay-input/native-replay.toml -ReplayOutput out/diagnostics/<capture>/native-samples.rgba
+```
+
+The [recipe guide](../tools/native-draw-replay/README.md) defines the admitted
+shader and resource subset. A recipe supplies executable shader stages, decoded
+vertex attributes and indices, constants, render state, and the initial color
+samples. Replay runs without booting guest code and writes its sample readback
+after GPU completion. The output path must be fresh and its directory must
+already exist. Compare the resulting sample planes with the captured draw's
+output; the background supplied to replay remains captured data.
+
 ## Build and validation
 
 The supported Windows build requires LLVM 18 or newer, Visual Studio 2022 Build

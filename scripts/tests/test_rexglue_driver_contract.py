@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import shutil
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 DRIVER = ROOT / "scripts" / "rexglue.ps1"
+POWERSHELL = shutil.which("pwsh")
 
 
 class RexGlueDriverContractTests(unittest.TestCase):
@@ -79,6 +83,50 @@ class RexGlueDriverContractTests(unittest.TestCase):
         self.assertIn("@('repository', 'commit', 'version', 'dirty')", self.source)
         self.assertNotIn("'dirty', 'platform'", self.source)
         self.assertIn("$installedBUILD_PLATFORM -ne 'win-amd64'", self.source)
+
+    @unittest.skipUnless(POWERSHELL, "PowerShell is unavailable")
+    def test_replay_requires_explicit_inputs_before_launch(self) -> None:
+        result = subprocess.run(
+            [POWERSHELL, "-NoProfile", "-File", str(DRIVER), "-Stage", "Replay"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Replay requires both", result.stdout + result.stderr)
+
+    @unittest.skipUnless(POWERSHELL, "PowerShell is unavailable")
+    def test_replay_preserves_an_existing_output(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="replay contract ") as directory:
+            root = Path(directory)
+            recipe = root / "recipe.toml"
+            output = root / "samples.rgba"
+            recipe.write_text("schema_version = 1\n", encoding="ascii")
+            output.write_bytes(b"existing evidence")
+            result = subprocess.run(
+                [
+                    POWERSHELL,
+                    "-NoProfile",
+                    "-File",
+                    str(DRIVER),
+                    "-Stage",
+                    "Replay",
+                    "-ReplayRecipe",
+                    str(recipe),
+                    "-ReplayOutput",
+                    str(output),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(
+                "Replay output must be a fresh file", result.stdout + result.stderr
+            )
+            self.assertEqual(output.read_bytes(), b"existing evidence")
 
 
 if __name__ == "__main__":

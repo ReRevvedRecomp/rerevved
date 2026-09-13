@@ -1,7 +1,10 @@
 #pragma once
 
 #include <cstdint>
+#include <future>
 #include <memory>
+
+#include "native_draw_replay.h"
 
 namespace rex::ui
 {
@@ -22,7 +25,8 @@ public:
     NativeRendererD3D12(const NativeRendererD3D12&)            = delete;
     NativeRendererD3D12& operator=(const NativeRendererD3D12&) = delete;
 
-    bool Initialize(rex::ui::Window& window);
+    bool                   Initialize(rex::ui::Window& window);
+    NativeDrawReplayResult ReplayOffscreen(const NativeDrawReplayRecipe& recipe);
     // Latches the latest non-zero extent and returns acceptance immediately.
     bool Resize(std::uint32_t width, std::uint32_t height);
     void Shutdown();
@@ -33,6 +37,8 @@ private:
     void rendererThreadMain(std::uintptr_t nativeWindow,
                             std::uint32_t  width,
                             std::uint32_t  height);
+    void headlessReplayThreadMain(NativeDrawReplayRecipe               recipe,
+                                  std::promise<NativeDrawReplayResult> result);
     void handleRendererFailure();
 
     struct Impl;

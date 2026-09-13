@@ -310,7 +310,8 @@ class NativeRendererIntegrationTests(unittest.TestCase):
 
     def test_windows_links_are_explicit(self) -> None:
         self.assertIn(
-            "target_link_libraries(rerevved PRIVATE d3d12 dxgi dxguid)", CMAKE
+            "target_link_libraries(rerevved PRIVATE d3d12 dxgi dxguid d3dcompiler)",
+            CMAKE,
         )
 
     def test_passive_trace_is_default_off_and_xenos_only(self) -> None:

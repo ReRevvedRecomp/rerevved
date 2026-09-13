@@ -56,6 +56,8 @@ set(REREVVED_SOURCES
     src/main.cpp
     src/gpu/d3d12/native_renderer_d3d12.cpp
     src/gpu/d3d12/native_renderer_d3d12.h
+    src/gpu/d3d12/native_draw_replay.cpp
+    src/gpu/d3d12/native_draw_replay.h
     src/gpu/diagnostics/native_renderer_guest_state.cpp
     src/gpu/diagnostics/native_renderer_guest_state.h
     src/gpu/diagnostics/native_renderer_passive_trace.cpp
@@ -115,7 +117,36 @@ else()
 endif()
 
 if(WIN32)
-    target_link_libraries(rerevved PRIVATE d3d12 dxgi dxguid)
+    target_link_libraries(rerevved PRIVATE d3d12 dxgi dxguid d3dcompiler)
+endif()
+
+if(WIN32)
+    add_executable(native_draw_replay
+        tools/native-draw-replay/main.cpp
+        src/gpu/d3d12/native_renderer_d3d12.cpp
+        src/gpu/d3d12/native_renderer_d3d12.h
+        src/gpu/d3d12/native_draw_replay.cpp
+        src/gpu/d3d12/native_draw_replay.h
+        src/gpu/diagnostics/native_renderer_guest_state.cpp
+        src/gpu/diagnostics/native_renderer_guest_state.h
+    )
+    target_include_directories(native_draw_replay PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    target_link_libraries(native_draw_replay PRIVATE
+        rex::runtime
+        d3d12
+        dxgi
+        dxguid
+        d3dcompiler
+    )
+    rexglue_apply_target_settings(native_draw_replay)
+    add_custom_command(TARGET native_draw_replay POST_BUILD
+        COMMAND "$<$<BOOL:$<TARGET_RUNTIME_DLLS:native_draw_replay>>:${CMAKE_COMMAND};-E;copy_if_different;$<TARGET_RUNTIME_DLLS:native_draw_replay>;$<TARGET_FILE_DIR:native_draw_replay>>"
+        COMMAND_EXPAND_LISTS
+        VERBATIM
+    )
 endif()
 
 target_include_directories(rerevved PRIVATE
