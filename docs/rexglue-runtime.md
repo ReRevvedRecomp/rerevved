@@ -158,6 +158,34 @@ A GPU resolve must expose its destination to overlapping texture aliases. CPU
 writeback is needed only when guest CPU code must read the result. ReXGlue's
 graphics and `VdSwap` implementations retain their Xenia lineage.
 
+## Draw capture
+
+Start Xenos with `--d3d12_capture_draw=<absolute-output-directory>` pointing to
+a fresh directory. At the desired scene, create an empty file named `arm` in
+that directory. The SDK checks this marker at swap and captures the next
+eligible draw. Capture is disabled when the option is empty.
+
+The current capture supports untextured, rasterized triangle lists on the
+D3D12 ROV path at resolution scale 1. It excludes tessellation, memory export,
+and converted index buffers. Shader-used vertex ranges and original indices
+are copied from GPU shared memory after residency; EDRAM is copied immediately
+before and after the selected draw. Registers and shader instructions are
+stored as little-endian dwords. The version-1 manifest is marked complete only
+after GPU completion and successful file writes.
+
+Inspect a completed snapshot with:
+
+```powershell
+cd <repo>; python scripts/summarize-draw-capture.py out/diagnostics/<capture>
+```
+
+The summary requires a completed manifest, checks each declared file size, and
+records SHA-256 digests for the registers, shaders, geometry, and GPU readbacks.
+It also counts changed EDRAM bytes between the snapshots before and after the
+draw. These checks establish file consistency and a byte difference, not native
+replay or visible parity. Captures contain retail graphics data and belong in
+ignored output directories.
+
 ## Build and validation
 
 The supported Windows build requires LLVM 18 or newer, Visual Studio 2022 Build

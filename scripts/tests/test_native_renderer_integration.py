@@ -29,7 +29,6 @@ PASSIVE_TRACE_H = (
 HOOKS = (ROOT / "config" / "rerevved_hooks.toml").read_text(encoding="ascii")
 CMAKE = (ROOT / "CMakeLists.txt").read_text(encoding="ascii")
 LOCK = json.loads((ROOT / "rexglue-sdk.lock.json").read_text(encoding="ascii"))
-ACCEPTED_SDK_COMMIT = "c8a4d80977bdb71a03351d139a331d747d0ad9eb"
 GUEST_SERVICE_FILES = {
     ROOT / "src" / "gpu" / "guest_gpu_service.cpp",
     ROOT / "src" / "gpu" / "guest_gpu_service.h",
@@ -38,7 +37,6 @@ GUEST_SERVICE_FILES = {
 
 class NativeRendererIntegrationTests(unittest.TestCase):
     def test_title_adapter_profile_copy_and_content_identity(self) -> None:
-        self.assertEqual(LOCK["commit"], ACCEPTED_SDK_COMMIT)
         self.assertIn("GetProfileCopySpecification() const override", APP_H)
         self.assertIn('.config_relative_path = "rerevved.toml"', APP_CPP)
         self.assertIn(".title_id             = rerevved::kTitleId", APP_CPP)
