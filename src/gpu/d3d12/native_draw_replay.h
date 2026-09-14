@@ -67,10 +67,42 @@ struct NativeDrawReplayBlendState
     std::uint8_t                writeMask        = 0x0F;
 };
 
+enum class NativeDrawReplayTextureFormat : std::uint8_t
+{
+    Rgba8,
+    R8,
+    Bc1,
+    Bc2,
+};
+
+struct NativeDrawReplayTexture
+{
+    std::vector<std::uint8_t>     bytes;
+    std::uint32_t                 width  = 0;
+    std::uint32_t                 height = 0;
+    NativeDrawReplayTextureFormat format = NativeDrawReplayTextureFormat::Rgba8;
+    // Component selectors: RGBA=0..3, constant zero=4, constant one=5.
+    std::array<std::uint8_t, 4> swizzle = { 0, 1, 2, 3 };
+};
+
+struct NativeDrawReplaySampler
+{
+    bool minLinear = false;
+    bool magLinear = false;
+    bool mipLinear = false;
+    // D3D texture address modes: wrap, mirror, clamp, border, mirror-once.
+    std::array<std::uint32_t, 3> address = { 3, 3, 3 };
+    std::array<float, 4>         border  = {};
+    float                        minLod  = 0.0F;
+    float                        maxLod  = 0.0F;
+    float                        mipBias = 0.0F;
+};
+
 // The recipe is deliberately made of host-independent bytes and scalar state.
 // All byte files are little-endian and are bounded by LoadNativeDrawReplayRecipe.
 struct NativeDrawReplayRecipe
 {
+    std::uint32_t         schemaVersion = 1;
     std::filesystem::path sourcePath;
     // The harness replaces this with its second CLI argument before replay.
     std::filesystem::path outputPath;
@@ -89,6 +121,8 @@ struct NativeDrawReplayRecipe
     NativeDrawReplayViewport    viewport;
     NativeDrawReplayScissor     scissor;
     NativeDrawReplayBlendState  blend;
+    NativeDrawReplayTexture     texture;
+    NativeDrawReplaySampler     sampler;
 
     std::uint32_t width                = 0;
     std::uint32_t height               = 0;

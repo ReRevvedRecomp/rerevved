@@ -19,6 +19,7 @@ namespace
 constexpr std::size_t   kMaxShaderBytes     = 4U * 1024U * 1024U;
 constexpr std::size_t   kMaxGeometryBytes   = 16U * 1024U * 1024U;
 constexpr std::size_t   kMaxConstantBytes   = 64U * 1024U;
+constexpr std::size_t   kMaxTextureBytes    = 64U * 1024U * 1024U;
 constexpr std::size_t   kMinVertexConstants = 256U * 16U;
 constexpr std::size_t   kMinPixelConstants  = 224U * 16U;
 constexpr std::size_t   kMinSharedConstants = 336U;
@@ -27,8 +28,8 @@ constexpr std::uint64_t kMaxTargetBytes     = 64ULL * 1024ULL * 1024ULL;
 constexpr std::size_t   kMaxCombinedTargetBytes =
     static_cast<std::size_t>(2ULL * kMaxTargetBytes);
 // The replay initializes and reads guest sample planes at host samples 0 and 3.
-// Restrict native target writes to those planes; this does not establish ROV
-// centroid equivalence, which also depends on the other coverage samples.
+// Schema 2 also admits four-sample raster coverage when the supplied pixel
+// shader restricts output coverage to 0x9 after attribute interpolation.
 constexpr std::uint32_t kExpectedSampleMask = 0x9;
 constexpr std::uint64_t kExpectedVertexHash = 0x11213E38D7154104ULL;
 constexpr std::uint64_t kExpectedPixelHash  = 0x3A92D78FE55C7B83ULL;
@@ -83,7 +84,12 @@ bool readFloat(const toml::table& table,
         return false;
     }
     result = static_cast<float>(value);
-    return std::isfinite(result);
+    if (!std::isfinite(result))
+    {
+        error = "TOML float '" + std::string(key) + "' exceeds the float32 range";
+        return false;
+    }
+    return true;
 }
 
 bool readColor(const toml::table&           table,
@@ -317,21 +323,85 @@ bool ValidateNativeDrawReplayRecipe(const NativeDrawReplayRecipe& recipe,
         error = "replay target extent exceeds the bounded RGBA8 byte range";
         return false;
     }
-    if (recipe.sampleCount != 4 || recipe.sampleMask != kExpectedSampleMask)
+    if (recipe.sampleCount != 4 ||
+        (recipe.sampleMask != kExpectedSampleMask &&
+         !(recipe.schemaVersion == 2 && recipe.sampleMask == 0xF)))
     {
-        error = "only four-sample replay with initialized sample mask 0x9 is supported";
+        error = "unsupported four-sample replay coverage mask";
         return false;
     }
-    if (recipe.textureMask != 0)
+    if (recipe.schemaVersion != 1 && recipe.schemaVersion != 2)
     {
-        error = "textured replay inputs are not supported by this one-shot harness";
+        error = "unsupported replay recipe schema";
         return false;
     }
-    if (recipe.vertexShaderHash != kExpectedVertexHash ||
-        recipe.pixelShaderHash != kExpectedPixelHash)
+    if ((recipe.schemaVersion == 1 &&
+         (recipe.textureMask != 0 || recipe.vertexShaderHash != kExpectedVertexHash ||
+          recipe.pixelShaderHash != kExpectedPixelHash)) ||
+        recipe.vertexShaderHash == 0 || recipe.pixelShaderHash == 0)
     {
         error = "recipe shader hashes do not match the supported captured draw";
         return false;
+    }
+    if (recipe.textureMask > 1 || (recipe.textureMask == 0 && !recipe.texture.bytes.empty()))
+    {
+        error = "replay supports only the explicitly supplied texture at fetch slot zero";
+        return false;
+    }
+    if (recipe.textureMask == 1)
+    {
+        const auto& texture = recipe.texture;
+        if (texture.width == 0 || texture.height == 0 ||
+            texture.width > kMaxTargetExtent || texture.height > kMaxTargetExtent)
+        {
+            error = "replay texture extent is outside the supported range";
+            return false;
+        }
+        std::uint64_t expectedBytes = 0;
+        switch (texture.format)
+        {
+            case NativeDrawReplayTextureFormat::Rgba8:
+                expectedBytes = static_cast<std::uint64_t>(texture.width) * texture.height * 4;
+                break;
+            case NativeDrawReplayTextureFormat::R8:
+                expectedBytes = static_cast<std::uint64_t>(texture.width) * texture.height;
+                break;
+            case NativeDrawReplayTextureFormat::Bc1:
+            case NativeDrawReplayTextureFormat::Bc2:
+                expectedBytes = static_cast<std::uint64_t>((texture.width + 3) / 4) *
+                                ((texture.height + 3) / 4) *
+                                (texture.format == NativeDrawReplayTextureFormat::Bc1 ? 8 : 16);
+                break;
+            default:
+                error = "unsupported replay texture format";
+                return false;
+        }
+        if (expectedBytes > kMaxTextureBytes || texture.bytes.size() != expectedBytes ||
+            std::any_of(texture.swizzle.begin(), texture.swizzle.end(), [](auto value)
+                        {
+                            return value > 5;
+                        }))
+        {
+            error = "replay texture payload or component mapping is invalid";
+            return false;
+        }
+        const auto invalidAddress = [](auto value)
+        {
+            return value < 1 || value > 5;
+        };
+        const auto nonFinite = [](auto value)
+        {
+            return !std::isfinite(value);
+        };
+        if (std::any_of(recipe.sampler.address.begin(), recipe.sampler.address.end(), invalidAddress) ||
+            !std::isfinite(recipe.sampler.minLod) || !std::isfinite(recipe.sampler.maxLod) ||
+            !std::isfinite(recipe.sampler.mipBias) || recipe.sampler.minLod > recipe.sampler.maxLod ||
+            recipe.sampler.mipBias < -16.0F || recipe.sampler.mipBias > 15.99F ||
+            std::any_of(recipe.sampler.border.begin(), recipe.sampler.border.end(), nonFinite))
+        {
+            error = "replay sampler state is invalid";
+            return false;
+        }
     }
     if (recipe.vertexShaderDxil.empty() || recipe.pixelShaderDxil.empty() ||
         recipe.vertexShaderDxil.size() > kMaxShaderBytes ||
@@ -342,11 +412,13 @@ bool ValidateNativeDrawReplayRecipe(const NativeDrawReplayRecipe& recipe,
         error = "DXIL input is empty or exceeds the shader byte bound";
         return false;
     }
-    if (recipe.vertexAttributeCount != 2 || recipe.vertexStrideBytes != 32 ||
+    if (recipe.vertexAttributeCount == 0 || recipe.vertexAttributeCount > 16 ||
+        recipe.vertexStrideBytes != recipe.vertexAttributeCount * 16 ||
+        (recipe.schemaVersion == 1 && recipe.vertexAttributeCount != 2) ||
         recipe.vertexData.empty() || recipe.vertexData.size() > kMaxGeometryBytes ||
         recipe.vertexData.size() % recipe.vertexStrideBytes != 0)
     {
-        error = "replay vertex input must be two packed float4 attributes with a bounded 32-byte stride";
+        error = "replay vertex input must contain one to sixteen packed float4 attributes";
         return false;
     }
     if (recipe.indices.empty() || recipe.indexCount != recipe.indices.size() ||
@@ -466,14 +538,16 @@ bool LoadNativeDrawReplayRecipe(const std::filesystem::path& recipePath,
     }
 
     std::int64_t schemaVersion = 0;
-    if (!readRequired(table, "schema_version", schemaVersion, error) || schemaVersion != 1)
+    if (!readRequired(table, "schema_version", schemaVersion, error) ||
+        (schemaVersion != 1 && schemaVersion != 2))
     {
         if (error.empty())
         {
-            error = "replay recipe schema_version must be 1";
+            error = "replay recipe schema_version must be 1 or 2";
         }
         return false;
     }
+    recipe.schemaVersion = static_cast<std::uint32_t>(schemaVersion);
 
     const toml::table* paths    = table["paths"].as_table();
     const toml::table* target   = table["target"].as_table();
@@ -603,6 +677,88 @@ bool LoadNativeDrawReplayRecipe(const std::filesystem::path& recipePath,
         !readRequiredPath(*paths, "shared_constants", sharedConstantsPath, error))
         return false;
     std::filesystem::path resolved;
+    if (recipe.textureMask != 0)
+    {
+        const auto* texture = table["texture"].as_table();
+        const auto* sampler = table["sampler"].as_table();
+        if (recipe.schemaVersion != 2 || recipe.textureMask != 1 || !texture || !sampler)
+        {
+            error = "textured replay requires schema 2 and texture/sampler tables";
+            return false;
+        }
+        std::filesystem::path texturePath;
+        std::string           format;
+        if (!readRequiredPath(*texture, "file", texturePath, error) ||
+            !resolveRecipePath(root, texturePath, resolved, error) ||
+            !readBytes(resolved, kMaxTextureBytes, recipe.texture.bytes, error) ||
+            !readRequired(*texture, "format", format, error))
+            return false;
+        if (format == "rgba8_unorm")
+            recipe.texture.format = NativeDrawReplayTextureFormat::Rgba8;
+        else if (format == "r8_unorm")
+            recipe.texture.format = NativeDrawReplayTextureFormat::R8;
+        else if (format == "bc1_unorm")
+            recipe.texture.format = NativeDrawReplayTextureFormat::Bc1;
+        else if (format == "bc2_unorm")
+            recipe.texture.format = NativeDrawReplayTextureFormat::Bc2;
+        else
+        {
+            error = "unsupported replay texture format";
+            return false;
+        }
+        if (!readRequired(*texture, "width", value, error))
+            return false;
+        if (value <= 0 || value > kMaxTargetExtent)
+        {
+            error = "texture width is outside the supported range";
+            return false;
+        }
+        recipe.texture.width = static_cast<std::uint32_t>(value);
+        if (!readRequired(*texture, "height", value, error))
+            return false;
+        if (value <= 0 || value > kMaxTargetExtent)
+        {
+            error = "texture height is outside the supported range";
+            return false;
+        }
+        recipe.texture.height = static_cast<std::uint32_t>(value);
+        if (!readColor(*texture, "swizzle", recipe.texture.swizzle, error) ||
+            !readRequired(*sampler, "min_linear", recipe.sampler.minLinear, error) ||
+            !readRequired(*sampler, "mag_linear", recipe.sampler.magLinear, error) ||
+            !readRequired(*sampler, "mip_linear", recipe.sampler.mipLinear, error) ||
+            !readFloat(*sampler, "min_lod", recipe.sampler.minLod, error) ||
+            !readFloat(*sampler, "max_lod", recipe.sampler.maxLod, error) ||
+            !readFloat(*sampler, "mip_bias", recipe.sampler.mipBias, error))
+            return false;
+        const std::array<std::string_view, 3> addressKeys = { "address_u", "address_v", "address_w" };
+        for (std::size_t axis = 0; axis < addressKeys.size(); ++axis)
+        {
+            if (!readRequired(*sampler, addressKeys[axis], value, error))
+                return false;
+            if (value < 1 || value > 5)
+            {
+                error = "sampler '" + std::string(addressKeys[axis]) + "' must be a D3D12 address mode from 1 to 5";
+                return false;
+            }
+            recipe.sampler.address[axis] = static_cast<std::uint32_t>(value);
+        }
+        const auto* border = (*sampler)["border"].as_array();
+        if (!border || border->size() != 4)
+        {
+            error = "sampler border must contain four finite floats";
+            return false;
+        }
+        for (std::size_t component = 0; component < 4; ++component)
+        {
+            const auto number = (*border)[component].value<double>();
+            if (!number || !std::isfinite(*number))
+            {
+                error = "sampler border must contain four finite floats";
+                return false;
+            }
+            recipe.sampler.border[component] = static_cast<float>(*number);
+        }
+    }
     if (!resolveRecipePath(root, vertexDxilPath, resolved, error) || !readBytes(resolved, kMaxShaderBytes, recipe.vertexShaderDxil, error))
         return false;
     if (!resolveRecipePath(root, pixelDxilPath, resolved, error) || !readBytes(resolved, kMaxShaderBytes, recipe.pixelShaderDxil, error))

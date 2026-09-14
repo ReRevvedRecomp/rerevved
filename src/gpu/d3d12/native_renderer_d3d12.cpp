@@ -161,6 +161,22 @@ D3D12_BLEND_OP mapBlendOp(NativeDrawReplayBlendOp op)
     return D3D12_BLEND_OP_ADD;
 }
 
+DXGI_FORMAT mapTextureFormat(NativeDrawReplayTextureFormat format)
+{
+    switch (format)
+    {
+        case NativeDrawReplayTextureFormat::Rgba8:
+            return DXGI_FORMAT_R8G8B8A8_UNORM;
+        case NativeDrawReplayTextureFormat::R8:
+            return DXGI_FORMAT_R8_UNORM;
+        case NativeDrawReplayTextureFormat::Bc1:
+            return DXGI_FORMAT_BC1_UNORM;
+        case NativeDrawReplayTextureFormat::Bc2:
+            return DXGI_FORMAT_BC2_UNORM;
+    }
+    return DXGI_FORMAT_UNKNOWN;
+}
+
 constexpr const char* kReplayCopyShaderSource = R"hlsl(
 struct VSOutput {
     float4 position : SV_Position;
@@ -326,6 +342,9 @@ struct NativeRendererD3D12::Impl
     ComPtr<ID3D12Resource>                replayVertexConstants;
     ComPtr<ID3D12Resource>                replayPixelConstants;
     ComPtr<ID3D12Resource>                replaySharedConstants;
+    ComPtr<ID3D12Resource>                replayTexture;
+    ComPtr<ID3D12Resource>                replayTextureUpload;
+    ComPtr<ID3D12DescriptorHeap>          replaySamplerHeap;
     ComPtr<ID3D12Resource>                replayInitialSample0;
     ComPtr<ID3D12Resource>                replayInitialSample1;
     ComPtr<ID3D12Resource>                replayInitialSample0Upload;
@@ -876,6 +895,9 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
     replayVertexConstants.Reset();
     replayPixelConstants.Reset();
     replaySharedConstants.Reset();
+    replayTexture.Reset();
+    replayTextureUpload.Reset();
+    replaySamplerHeap.Reset();
     replayInitialSample0.Reset();
     replayInitialSample1.Reset();
     replayInitialSample0Upload.Reset();
@@ -906,7 +928,7 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
 
     D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc{};
     srvHeapDesc.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    srvHeapDesc.NumDescriptors = 3;
+    srvHeapDesc.NumDescriptors = recipe.textureMask ? 4 : 3;
     srvHeapDesc.Flags          = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     hr                         = device->CreateDescriptorHeap(&srvHeapDesc,
                                                               IID_PPV_ARGS(&replayCopySrvHeap));
@@ -1058,6 +1080,90 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
                        replayInitialSample1Upload))
     {
         return fail("could not create replay initial sample textures");
+    }
+
+    if (recipe.textureMask)
+    {
+        D3D12_RESOURCE_DESC desc{};
+        desc.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+        desc.Width            = recipe.texture.width;
+        desc.Height           = recipe.texture.height;
+        desc.DepthOrArraySize = 1;
+        desc.MipLevels        = 1;
+        desc.Format           = mapTextureFormat(recipe.texture.format);
+        desc.SampleDesc.Count = 1;
+        D3D12_HEAP_PROPERTIES heap{};
+        heap.Type = D3D12_HEAP_TYPE_DEFAULT;
+        hr        = device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&replayTexture));
+        if (FAILED(hr))
+            return fail("could not create replay texture");
+        D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint{};
+        UINT                               rows       = 0;
+        UINT64                             rowBytes   = 0;
+        UINT64                             totalBytes = 0;
+        device->GetCopyableFootprints(&desc, 0, 1, 0, &footprint, &rows, &rowBytes, &totalBytes);
+        if (rowBytes * rows != recipe.texture.bytes.size() || totalBytes > 128ULL * 1024 * 1024)
+            return fail("texture upload footprint does not match the decoded payload");
+        std::vector<std::uint8_t> uploadBytes(static_cast<std::size_t>(totalBytes), 0);
+        for (UINT row = 0; row < rows; ++row)
+        {
+            std::memcpy(uploadBytes.data() + footprint.Offset +
+                            static_cast<std::size_t>(row) * footprint.Footprint.RowPitch,
+                        recipe.texture.bytes.data() + static_cast<std::size_t>(row) * rowBytes,
+                        static_cast<std::size_t>(rowBytes));
+        }
+        if (!createReplayUploadBuffer(device.Get(), uploadBytes.data(), uploadBytes.size(), replayTextureUpload))
+            return fail("could not create replay texture upload");
+        D3D12_TEXTURE_COPY_LOCATION sourceLocation{};
+        sourceLocation.pResource       = replayTextureUpload.Get();
+        sourceLocation.Type            = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+        sourceLocation.PlacedFootprint = footprint;
+        D3D12_TEXTURE_COPY_LOCATION destination{};
+        destination.pResource = replayTexture.Get();
+        destination.Type      = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+        commandList->CopyTextureRegion(&destination, 0, 0, 0, &sourceLocation, nullptr);
+        D3D12_RESOURCE_BARRIER barrier{};
+        barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        barrier.Transition.pResource   = replayTexture.Get();
+        barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+        barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
+                                         D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+        commandList->ResourceBarrier(1, &barrier);
+
+        D3D12_SHADER_RESOURCE_VIEW_DESC srv{};
+        srv.Format                  = desc.Format;
+        srv.ViewDimension           = D3D12_SRV_DIMENSION_TEXTURE2D;
+        srv.Texture2D.MipLevels     = 1;
+        const auto& swizzle         = recipe.texture.swizzle;
+        srv.Shader4ComponentMapping = D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(
+            swizzle[0], swizzle[1], swizzle[2], swizzle[3]);
+        auto textureHandle = replayCopySrvHeap->GetCPUDescriptorHandleForHeapStart();
+        textureHandle.ptr += static_cast<SIZE_T>(3) * replaySrvStride;
+        device->CreateShaderResourceView(replayTexture.Get(), &srv, textureHandle);
+        D3D12_DESCRIPTOR_HEAP_DESC samplerHeapDesc{};
+        samplerHeapDesc.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
+        samplerHeapDesc.NumDescriptors = 1;
+        samplerHeapDesc.Flags          = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+        hr                             = device->CreateDescriptorHeap(&samplerHeapDesc, IID_PPV_ARGS(&replaySamplerHeap));
+        if (FAILED(hr))
+            return fail("could not create replay sampler heap");
+        D3D12_SAMPLER_DESC sampler{};
+        sampler.Filter = D3D12_ENCODE_BASIC_FILTER(
+            recipe.sampler.minLinear ? D3D12_FILTER_TYPE_LINEAR : D3D12_FILTER_TYPE_POINT,
+            recipe.sampler.magLinear ? D3D12_FILTER_TYPE_LINEAR : D3D12_FILTER_TYPE_POINT,
+            recipe.sampler.mipLinear ? D3D12_FILTER_TYPE_LINEAR : D3D12_FILTER_TYPE_POINT,
+            D3D12_FILTER_REDUCTION_TYPE_STANDARD);
+        sampler.AddressU       = static_cast<D3D12_TEXTURE_ADDRESS_MODE>(recipe.sampler.address[0]);
+        sampler.AddressV       = static_cast<D3D12_TEXTURE_ADDRESS_MODE>(recipe.sampler.address[1]);
+        sampler.AddressW       = static_cast<D3D12_TEXTURE_ADDRESS_MODE>(recipe.sampler.address[2]);
+        sampler.MipLODBias     = recipe.sampler.mipBias;
+        sampler.MinLOD         = recipe.sampler.minLod;
+        sampler.MaxLOD         = recipe.sampler.maxLod;
+        sampler.MaxAnisotropy  = 1;
+        sampler.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+        std::copy(recipe.sampler.border.begin(), recipe.sampler.border.end(), sampler.BorderColor);
+        device->CreateSampler(&sampler, replaySamplerHeap->GetCPUDescriptorHandleForHeapStart());
     }
 
     const auto makeConstantBuffer = [&](const std::vector<std::uint8_t>& bytes,
@@ -1345,7 +1451,7 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
     commandList->SetGraphicsRootDescriptorTable(0, sample1Gpu);
     commandList->DrawInstanced(3, 1, 0, 0);
 
-    D3D12_ROOT_PARAMETER1 drawParameters[3]{};
+    D3D12_ROOT_PARAMETER1 drawParameters[5]{};
     drawParameters[0].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
     drawParameters[0].ShaderVisibility          = D3D12_SHADER_VISIBILITY_VERTEX;
     drawParameters[0].Descriptor.ShaderRegister = 0;
@@ -1358,9 +1464,23 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
     drawParameters[2].ShaderVisibility          = D3D12_SHADER_VISIBILITY_ALL;
     drawParameters[2].Descriptor.ShaderRegister = 2;
     drawParameters[2].Descriptor.RegisterSpace  = 4;
+    D3D12_DESCRIPTOR_RANGE1 textureRange{};
+    textureRange.RangeType      = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    textureRange.NumDescriptors = 1;
+    textureRange.Flags          = D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC;
+    D3D12_DESCRIPTOR_RANGE1 samplerRange{};
+    samplerRange.RangeType             = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
+    samplerRange.NumDescriptors        = 1;
+    samplerRange.RegisterSpace         = 3;
+    drawParameters[3].ParameterType    = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    drawParameters[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    drawParameters[3].DescriptorTable  = { 1, &textureRange };
+    drawParameters[4].ParameterType    = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    drawParameters[4].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    drawParameters[4].DescriptorTable  = { 1, &samplerRange };
     D3D12_VERSIONED_ROOT_SIGNATURE_DESC drawRootDesc{};
     drawRootDesc.Version                = D3D_ROOT_SIGNATURE_VERSION_1_1;
-    drawRootDesc.Desc_1_1.NumParameters = 3;
+    drawRootDesc.Desc_1_1.NumParameters = recipe.textureMask ? 5 : 3;
     drawRootDesc.Desc_1_1.pParameters   = drawParameters;
     drawRootDesc.Desc_1_1.Flags         = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
     serializedRoot.Reset();
@@ -1381,10 +1501,11 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
         return fail("could not create replay draw root signature");
     }
 
-    D3D12_INPUT_ELEMENT_DESC inputElements[] = {
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 1, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 16, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-    };
+    std::vector<D3D12_INPUT_ELEMENT_DESC> inputElements(recipe.vertexAttributeCount);
+    for (std::uint32_t attribute = 0; attribute < recipe.vertexAttributeCount; ++attribute)
+    {
+        inputElements[attribute] = { "TEXCOORD", attribute, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, attribute * 16, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+    }
     D3D12_BLEND_DESC drawBlend{};
     drawBlend.AlphaToCoverageEnable  = recipe.blend.alphaToCoverage ? TRUE : FALSE;
     drawBlend.IndependentBlendEnable = FALSE;
@@ -1416,7 +1537,7 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
     drawPso.SampleMask            = recipe.sampleMask;
     drawPso.RasterizerState       = drawRaster;
     drawPso.DepthStencilState     = drawDepth;
-    drawPso.InputLayout           = { inputElements, static_cast<UINT>(std::size(inputElements)) };
+    drawPso.InputLayout           = { inputElements.data(), static_cast<UINT>(inputElements.size()) };
     drawPso.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
     drawPso.NumRenderTargets      = 4;
     drawPso.SampleDesc            = { recipe.sampleCount, 0 };
@@ -1461,6 +1582,15 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
     commandList->SetGraphicsRootConstantBufferView(0, replayVertexConstants->GetGPUVirtualAddress());
     commandList->SetGraphicsRootConstantBufferView(1, replayPixelConstants->GetGPUVirtualAddress());
     commandList->SetGraphicsRootConstantBufferView(2, replaySharedConstants->GetGPUVirtualAddress());
+    if (recipe.textureMask)
+    {
+        ID3D12DescriptorHeap* drawHeaps[] = { replayCopySrvHeap.Get(), replaySamplerHeap.Get() };
+        commandList->SetDescriptorHeaps(2, drawHeaps);
+        auto textureHandle = replayCopySrvHeap->GetGPUDescriptorHandleForHeapStart();
+        textureHandle.ptr += static_cast<UINT64>(3) * replaySrvStride;
+        commandList->SetGraphicsRootDescriptorTable(3, textureHandle);
+        commandList->SetGraphicsRootDescriptorTable(4, replaySamplerHeap->GetGPUDescriptorHandleForHeapStart());
+    }
     commandList->DrawIndexedInstanced(recipe.indexCount, 1, 0, 0, 0);
 
     for (auto& target : replayColorTargets)
@@ -1588,6 +1718,9 @@ void NativeRendererD3D12::Impl::detachReplayGpuObjects()
     (void)replayVertexConstants.Detach();
     (void)replayPixelConstants.Detach();
     (void)replaySharedConstants.Detach();
+    (void)replayTexture.Detach();
+    (void)replayTextureUpload.Detach();
+    (void)replaySamplerHeap.Detach();
     (void)replayInitialSample0.Detach();
     (void)replayInitialSample1.Detach();
     (void)replayInitialSample0Upload.Detach();
@@ -1662,6 +1795,9 @@ void NativeRendererD3D12::Impl::shutdownOnRendererThread()
     replayVertexConstants.Reset();
     replayPixelConstants.Reset();
     replaySharedConstants.Reset();
+    replayTexture.Reset();
+    replayTextureUpload.Reset();
+    replaySamplerHeap.Reset();
     replayInitialSample0.Reset();
     replayInitialSample1.Reset();
     replayInitialSample0Upload.Reset();

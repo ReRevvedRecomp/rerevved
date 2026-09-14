@@ -470,6 +470,16 @@ if(BUILD_TESTING)
     )
     add_test(NAME renderer_backend COMMAND renderer_backend_tests)
 
+    add_executable(native_draw_replay_tests
+        src/gpu/d3d12/native_draw_replay.cpp
+        tests/gpu/native_draw_replay_test.cpp
+    )
+    target_include_directories(native_draw_replay_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    target_link_libraries(native_draw_replay_tests PRIVATE rex::runtime)
+    add_test(NAME native_draw_replay_recipe COMMAND native_draw_replay_tests)
+
     add_executable(fence_trace_finalization_gate_tests
         tests/fence_trace_finalization_gate_test.cpp
     )
