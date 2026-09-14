@@ -1,6 +1,10 @@
 #include "native_guest_menu_draw.h"
 
 #include <bit>
+#include <cstring>
+#include <limits>
+
+#include <rex/graphics/xenos.h>
 
 namespace rerevved::gpu
 {
@@ -12,11 +16,11 @@ bool BuildNativeGuestMenuDrawRecipe(const NativeGuestMenuDraw& draw,
 {
     recipe = {};
     if (draw.state.size() != 0x3500 || draw.primitive != 4 || draw.minimumVertex != 0 ||
-        draw.stride != 8 || draw.indexFormat != 1 ||
+        (draw.stride != 4 && draw.stride != 8 && draw.stride != 12) || draw.indexFormat != 1 ||
         std::uint64_t(draw.vertexCount) * draw.stride != draw.vertices.size() ||
         std::uint64_t(draw.indexCount) * 2 != draw.indices.size())
     {
-        error = "unsupported guest panel input tuple or state extent";
+        error = "unsupported guest UI input tuple or state extent";
         return false;
     }
     const auto word = [](std::span<const std::uint8_t> bytes, std::size_t offset)
@@ -46,7 +50,7 @@ bool BuildNativeGuestMenuDrawRecipe(const NativeGuestMenuDraw& draw,
     for (std::size_t i = 0; i < viewport.size(); ++i)
         if (word(draw.state, 0x3168 + i * 4) != std::bit_cast<std::uint32_t>(viewport[i]))
         {
-            error = "unsupported guest panel viewport";
+            error = "unsupported guest UI viewport";
             return false;
         }
     const auto microcode = [&](std::span<const std::uint8_t> bytes)
@@ -63,8 +67,48 @@ bool BuildNativeGuestMenuDrawRecipe(const NativeGuestMenuDraw& draw,
     view.vertexMicrocode = vs;
     view.pixelMicrocode  = ps;
     // BuildNativeMenuDrawRecipe verifies both byte digests before selecting DXIL.
-    view.vertexShaderHash    = 0x11213E38D7154104ULL;
-    view.pixelShaderHash     = 0x3A92D78FE55C7B83ULL;
+    view.vertexShaderHash = 0x11213E38D7154104ULL;
+    view.pixelShaderHash  = 0x3A92D78FE55C7B83ULL;
+    NativeDrawReplaySampler sampler;
+    if (draw.stride != 8)
+    {
+        view.vertexShaderHash = draw.stride == 4 ? 0x5F6EB3BC96CE8FC0ULL : 0x1EE55F3AB5213177ULL;
+        view.pixelShaderHash  = draw.stride == 4 ? 0x6831098A8316F932ULL : 0x47F2D46F3B8F1668ULL;
+        // These pinned shader pairs have one normalized 2D fetch from slot 0,
+        // with all sampler filters inherited from its fetch constant.
+        if (ps.size() < 6 || ps[3] != 0x10080001 || ps[4] != 0x1F1FF688 || ps[5] != 0x00004000)
+        {
+            error = "unsupported guest UI texture instruction";
+            return false;
+        }
+        std::array<std::uint32_t, 6> words;
+        for (std::size_t i = 0; i < words.size(); ++i)
+            words[i] = word(draw.state, 0x480 + i * 4);
+        namespace xenos = rex::graphics::xenos;
+        xenos::xe_gpu_texture_fetch_t fetch{};
+        std::memcpy(&fetch, words.data(), sizeof(fetch));
+        if (fetch.type != xenos::FetchConstantType::kTexture || fetch.dimension != xenos::DataDimension::k2DOrStacked ||
+            fetch.stacked || fetch.mip_min_level || fetch.mip_max_level || fetch.mip_address || fetch.packed_mips ||
+            static_cast<unsigned>(fetch.mag_filter) > 1 || static_cast<unsigned>(fetch.min_filter) > 1 ||
+            static_cast<unsigned>(fetch.mip_filter) > 1 || static_cast<unsigned>(fetch.aniso_filter) ||
+            static_cast<unsigned>(fetch.border_color))
+        {
+            error = "unsupported guest UI base-level sampler";
+            return false;
+        }
+        // Match texture_util's 2D axis normalization and D3D12 WriteSampler.
+        // LOD bias stays in translated shader state; the texture has one level.
+        constexpr std::array<std::uint32_t, 8> addressModes{ 1, 2, 3, 5, 3, 5, 4, 5 };
+        sampler.address   = { addressModes[static_cast<unsigned>(fetch.clamp_x)],
+                              addressModes[static_cast<unsigned>(fetch.clamp_y)],
+                              3 };
+        sampler.magLinear = fetch.mag_filter == xenos::TextureFilter::kLinear;
+        sampler.minLinear = fetch.min_filter == xenos::TextureFilter::kLinear;
+        sampler.mipLinear = fetch.mip_filter == xenos::TextureFilter::kLinear;
+        sampler.maxLod    = std::numeric_limits<float>::max();
+        view.texture      = draw.texture;
+        view.sampler      = &sampler;
+    }
     view.vertexBytes         = draw.vertices;
     view.indexBytes          = draw.indices;
     view.indexCount          = draw.indexCount;

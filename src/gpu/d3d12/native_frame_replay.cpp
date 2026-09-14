@@ -38,6 +38,49 @@ bool resolveInput(const std::filesystem::path& root, const toml::node* node, std
 
 } // namespace
 
+bool ValidateNativeDrawFramesRecipe(const NativeDrawFramesRecipe& recipe, std::string& error)
+{
+    error.clear();
+    if (recipe.frames.empty() || recipe.frames.size() > 8)
+    {
+        error = "native UI replay requires one through eight consecutive frames";
+        return false;
+    }
+    std::size_t bytes = 0, count = 0;
+    for (const auto& frame : recipe.frames)
+    {
+        if (frame.empty() || frame.size() > 256 || frame.size() > kMaxDraws - count)
+        {
+            error = "native UI frame exceeds its draw count bound";
+            return false;
+        }
+        count += frame.size();
+        for (const auto& draw : frame)
+        {
+            if (draw.schemaVersion != 2 || draw.width != 1280 || draw.height != 720 ||
+                draw.sampleCount != 4 || draw.targetFormat != NativeDrawReplayTargetFormat::Rgba8 ||
+                !draw.initialSample0.empty() || !draw.initialSample1.empty() || draw.depth.enabled ||
+                !draw.depth.initialSamples.empty() || draw.clearColor != std::array<std::uint8_t, 4>{})
+            {
+                error = "native UI frames require full-width color and native transparent clears";
+                return false;
+            }
+            if (!ValidateNativeDrawReplayRecipe(draw, error))
+                return false;
+            for (const auto size : { draw.vertexShaderDxil.size(), draw.pixelShaderDxil.size(), draw.vertexData.size(), draw.indices.size() * sizeof(std::uint32_t), draw.vertexConstants.size(), draw.pixelConstants.size(), draw.sharedConstants.size(), draw.texture.bytes.size() })
+            {
+                if (size > kMaxFrameBytes - bytes)
+                {
+                    error = "native UI frame inputs exceed the owned byte bound";
+                    return false;
+                }
+                bytes += size;
+            }
+        }
+    }
+    return true;
+}
+
 bool ValidateNativeFrameReplayRecipe(const NativeFrameReplayRecipe& recipe,
                                      std::string&                   error)
 {

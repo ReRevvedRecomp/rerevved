@@ -15,6 +15,7 @@
 #include <rex/system/xmemory.h>
 
 #include "gameplay_state.h"
+#include "gpu/diagnostics/native_guest_draw_capture.h"
 #include "gpu/diagnostics/native_renderer_guest_state.h"
 #include "gpu/diagnostics/native_renderer_passive_trace.h"
 #include "rush_cost.h"
@@ -807,6 +808,7 @@ void ObserveRendererSwapSource(PPCRegister& r3,
                                PPCRegister& r30,
                                PPCRegister& r31)
 {
+    rerevved::gpu::diagnostics::NotifyNativeGuestFrameBoundary();
     PassiveTraceRecordLease traceLease{};
     if (tracedVdswapOwnerActive)
     {

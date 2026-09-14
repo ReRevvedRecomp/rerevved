@@ -551,6 +551,7 @@ if(BUILD_TESTING)
         src/gpu/d3d12/native_guest_menu_draw.cpp
         src/gpu/d3d12/native_menu_draw.cpp
         src/gpu/d3d12/native_draw_replay.cpp
+        src/gpu/d3d12/native_texture_upload.cpp
     )
     target_include_directories(native_guest_menu_draw_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     target_link_libraries(native_guest_menu_draw_tests PRIVATE rex::runtime)

@@ -99,6 +99,11 @@ name = "ObserveRendererSwapSource"
 registers = ["r3", "r4", "r30", "r31"]
 
 [[midasm_hook]]
+address = 0x826AE5B8
+name = "ObserveNativeGuestVertexSelection"
+registers = ["r30", "r31", "r15", "r19"]
+
+[[midasm_hook]]
 address = 0x826A4888
 name = "TraceVdSwapReturn"
 registers = ["r3", "r30", "r31"]

@@ -82,5 +82,29 @@ int main()
     std::filesystem::remove(root / "arm");
     std::filesystem::remove(root / "result.toml");
     std::filesystem::remove(root);
+    NativeGuestDrawConsumer consume = [](const auto&, const auto&, auto&)
+    {
+        return true;
+    };
+    NativeGuestFrameConsumer endFrame = [](const auto&, bool, auto&)
+    {
+        return true;
+    };
+    require(!StartNativeGuestDrawCapture(root, error, consume), "unpaired frame callbacks rejected");
+    require(StartNativeGuestDrawCapture(root, error, consume, endFrame), "frame capture starts");
+    std::ofstream(root / "arm").close();
+    checkOriginal();
+    require(!std::filesystem::exists(root / "result.toml"), "draws cannot arm mid-frame");
+    NotifyNativeGuestFrameBoundary();
+    require(std::filesystem::is_directory(root / "frame-0000"), "swap arms first frame");
+    NotifyNativeGuestFrameBoundary();
+    const auto empty = toml::parse_file((root / "result.toml").string());
+    require(!empty["complete"].value_or(true), "empty frame must fail before consumption");
+    checkOriginal();
+    StopNativeGuestDrawCapture();
+    std::filesystem::remove(root / "arm");
+    std::filesystem::remove(root / "result.toml");
+    std::filesystem::remove(root / "frame-0000");
+    std::filesystem::remove(root);
     return 0;
 }

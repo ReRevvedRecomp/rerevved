@@ -32,6 +32,7 @@ public:
     static void            ConfigureReplayDiagnostics();
     NativeDrawReplayResult ReplayOffscreen(const NativeDrawReplayRecipe& recipe);
     NativeDrawReplayResult ReplayFrame(const NativeFrameReplayRecipe& recipe);
+    NativeDrawReplayResult ReplayDrawFrames(const NativeDrawFramesRecipe& recipe);
     // Latches the latest non-zero extent and returns acceptance immediately.
     bool Resize(std::uint32_t width, std::uint32_t height);
     void Shutdown();
@@ -47,6 +48,8 @@ private:
     void frameReplayThreadMain(NativeFrameReplayRecipe              recipe,
                                std::promise<NativeDrawReplayResult> result);
     void handleRendererFailure();
+    void drawFramesThreadMain(NativeDrawFramesRecipe               recipe,
+                              std::promise<NativeDrawReplayResult> result);
 
     struct Impl;
     std::unique_ptr<Impl> impl;

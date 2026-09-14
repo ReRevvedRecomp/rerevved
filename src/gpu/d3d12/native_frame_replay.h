@@ -21,6 +21,16 @@ struct NativeFrameReplayRecipe
     std::filesystem::path sampleOutputPath;
 };
 
+struct NativeDrawFramesRecipe
+{
+    // Consecutive full-width UI frames, each starting with transparent black.
+    // The executor retains its device across frames and color between draws.
+    std::vector<std::vector<NativeDrawReplayRecipe>> frames;
+    std::filesystem::path                            outputDirectory;
+};
+
+bool ValidateNativeDrawFramesRecipe(const NativeDrawFramesRecipe& recipe, std::string& error);
+
 bool ValidateNativeFrameReplayRecipe(const NativeFrameReplayRecipe& recipe,
                                      std::string&                   error);
 bool LoadNativeFrameReplayRecipe(const std::filesystem::path& path,

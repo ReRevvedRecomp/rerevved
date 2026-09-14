@@ -101,6 +101,11 @@ EXPECTED_HOOKS = [
         "registers": ["r3", "r4", "r30", "r31"],
     },
     {
+        "address": 0x826AE5B8,
+        "name": "ObserveNativeGuestVertexSelection",
+        "registers": ["r30", "r31", "r15", "r19"],
+    },
+    {
         "address": 0x826A4888,
         "name": "TraceVdSwapReturn",
         "registers": ["r3", "r30", "r31"],
@@ -380,6 +385,22 @@ TERRAIN_YIELD_HOOK_SITES = [
 
 
 class HookContractTests(unittest.TestCase):
+    def test_vertex_selection_observer_precedes_restore_when_available(self) -> None:
+        paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
+        if not paths:
+            self.skipTest("generated sources are not available")
+        expected = (
+            "loc_826AE5B8:\n\t// mr r3,r20\n"
+            "\tObserveNativeGuestVertexSelection("
+            "ctx.r30, ctx.r31, ctx.r15, ctx.r19);\n"
+            "\tctx.r3.u64 = ctx.r20.u64;\n"
+            "\t// addi r1,r1,256"
+        )
+        occurrences = sum(
+            path.read_text(encoding="utf-8").count(expected) for path in paths
+        )
+        self.assertEqual(occurrences, 1)
+
     def test_only_verified_hooks_are_configured(self) -> None:
         with HOOK_CONFIG.open("rb") as stream:
             config = tomllib.load(stream)
@@ -392,6 +413,16 @@ class HookContractTests(unittest.TestCase):
         source = "\n".join(path.read_text(encoding="utf-8") for path in HOOK_SOURCES)
         source_names = set(
             re.findall(r"^void ([A-Z]\w*)[ \t]*\(", source, re.MULTILINE)
+        )
+        capture_source = (
+            ROOT / "src/gpu/diagnostics/native_guest_draw_capture.cpp"
+        ).read_text(encoding="utf-8")
+        source_names.update(
+            re.findall(
+                r"^void (ObserveNativeGuestVertexSelection)[ \t]*\(",
+                capture_source,
+                re.MULTILINE,
+            )
         )
         hook_names = {hook["name"] for hook in config["midasm_hook"]}
 

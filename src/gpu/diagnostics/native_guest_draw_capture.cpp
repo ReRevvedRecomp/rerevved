@@ -6,6 +6,7 @@
 #include <memory>
 #include <mutex>
 #include <set>
+#include <thread>
 
 #include <rex/crypto/sha256.h>
 #include <rex/hook.h>
@@ -33,6 +34,13 @@ struct Session
     std::uint32_t                          calls = 0, captures = 0, finished = 0;
     std::set<std::array<std::uint32_t, 4>> layouts;
     NativeGuestDrawConsumer                consumer;
+    NativeGuestFrameConsumer               frameConsumer;
+    std::uint32_t                          frame = 0, frameDraws = 0;
+    std::uint64_t                          ownedBytes = 0;
+    bool                                   complete   = false;
+    std::thread::id                        owner;
+    std::array<std::uint32_t, 3>           vertexIdentity{};
+    std::vector<std::uint8_t>              vertexMicrocode;
 };
 
 struct Capture
@@ -43,6 +51,8 @@ struct Capture
     std::uint32_t             graphics = 0, cursor = 0;
     std::uint32_t             vertexSize = 0, indexSize = 0;
     std::vector<std::uint8_t> vertices, indices, vertexMicrocode;
+    NativeTextureFetch        fetch{};
+    NativeDrawReplayTexture   texture;
     NativeGuestMenuDraw       draw;
 };
 
@@ -113,8 +123,11 @@ void fail(const std::exception& exception) noexcept
 
 void finishIfReady()
 {
-    if (session->calls == 256 && session->finished == session->captures)
+    if (!session->frameConsumer && session->calls == 256 && session->finished == session->captures)
+    {
         writeMetadata(session->directory / "result.toml", toml::table{ { "complete", true }, { "calls", 256 }, { "captures", session->finished } });
+        session->complete = true;
+    }
 }
 
 std::unique_ptr<Capture> before(const PPCContext& ctx)
@@ -128,6 +141,8 @@ std::unique_ptr<Capture> before(const PPCContext& ctx)
     {
         if (!session->armed)
         {
+            if (session->frameConsumer)
+                return {};
             const auto now = std::chrono::steady_clock::now();
             if (now < session->nextPoll)
                 return {};
@@ -136,7 +151,10 @@ std::unique_ptr<Capture> before(const PPCContext& ctx)
                 return {};
             session->armed = true;
         }
-        if (++session->calls == 256)
+        if (session->frameConsumer && session->owner != std::this_thread::get_id())
+            throw std::runtime_error("guest UI draws and swap must share one CPU thread");
+        ++session->calls;
+        if (!session->frameConsumer && session->calls == 256)
             enabled.store(false, std::memory_order_release);
         // The two admitted GFx call sites use the indexed UP wrapper. Its raw
         // hook retains the original stack argument and all original effects.
@@ -151,18 +169,23 @@ std::unique_ptr<Capture> before(const PPCContext& ctx)
         for (std::size_t i = 0; i < fetch.size(); ++i)
             fetch[i] = word(state.data() + 0x480 + i * 4);
         const std::array<std::uint32_t, 4> layout{ stride, fetch[1] & 0xFF, fetch[2], fetch[0] >> 31 };
-        if (session->layouts.contains(layout))
+        if (!session->frameConsumer && session->layouts.contains(layout))
         {
             finishIfReady();
             return {};
         }
-        if (session->captures >= 16)
+        if ((!session->frameConsumer && session->captures >= 16) || session->frameDraws >= 256)
             throw std::runtime_error("guest menu layout count exceeds capture bound");
         session->layouts.insert(layout);
         auto capture       = std::make_unique<Capture>();
         capture->session   = session;
-        capture->directory = session->directory / fmt::format("draw-{:04}", session->captures++);
+        capture->directory = session->frameConsumer ? session->directory / fmt::format("frame-{:04}", session->frame) /
+                                                          fmt::format("draw-{:04}", session->frameDraws)
+                                                    : session->directory / fmt::format("draw-{:04}", session->captures);
+        ++session->captures;
+        ++session->frameDraws;
         std::filesystem::create_directory(capture->directory);
+        capture->fetch    = fetch;
         capture->graphics = ctx.r3.u32;
         capture->cursor   = word(state.data() + 48);
         capture->metadata = toml::table{
@@ -186,7 +209,7 @@ std::unique_ptr<Capture> before(const PPCContext& ctx)
         save(*capture, "vertex.bin", capture->vertices);
         save(*capture, "index.bin", capture->indices);
         NativeTextureMemoryRange range;
-        NativeDrawReplayTexture  texture;
+        auto&                    texture = capture->texture;
         std::string              error;
         if (GetNativeTextureMemoryRange(fetch, range, error))
         {
@@ -202,6 +225,9 @@ std::unique_ptr<Capture> before(const PPCContext& ctx)
         }
         else
             capture->metadata.insert("texture_error", error);
+        session->ownedBytes += capture->vertices.size() + capture->indices.size() + texture.bytes.size() + kStateBytes;
+        if (session->ownedBytes > 512U * 1024U * 1024U)
+            throw std::runtime_error("guest UI inputs exceed session byte bound");
         return capture;
     }
     catch (const std::exception& exception)
@@ -218,6 +244,9 @@ void patchedShader(Capture& capture, std::uint32_t shader, std::uint32_t code, s
         return;
     try
     {
+        // Persistent variants are observed at the emitter's selection point.
+        if (caller == 0x826ADD10)
+            return;
         if (caller != 0x826ADB70 || std::uint64_t(capture.graphics) + 0x30F0 != patchState || variant > 1)
             throw std::runtime_error("unsupported guest vertex shader patch boundary");
         // 0x826ADA38 copies this variant's code, then passes that exact buffer
@@ -229,8 +258,40 @@ void patchedShader(Capture& capture, std::uint32_t shader, std::uint32_t code, s
         if (!size || size > 64 * 1024 || size % 4)
             throw std::runtime_error("guest vertex shader exceeds capture bounds");
         capture.vertexMicrocode = copyMemory(code, size);
-        save(capture, "vertex-shader.be.bin", capture.vertexMicrocode);
         capture.metadata.insert_or_assign("vertex_shader", toml::table{ { "object", shader }, { "variant", variant }, { "patched_code", code }, { "metadata", static_cast<std::int64_t>(metadataAddress) }, { "patch_return", static_cast<std::int64_t>(caller) } });
+    }
+    catch (const std::exception& exception)
+    {
+        fail(exception);
+    }
+}
+
+void selectedShader(Capture& capture, std::uint32_t graphics, std::uint32_t shader, std::uint32_t conditional, std::uint32_t variant)
+{
+    std::lock_guard lock(captureMutex);
+    if (session != capture.session || session->failed)
+        return;
+    try
+    {
+        if (graphics != capture.graphics || conditional != UINT32_MAX)
+            throw std::runtime_error("unsupported conditional guest vertex shader selection");
+        if (variant == UINT32_MAX)
+            return;
+        if (variant > 1)
+            throw std::runtime_error("unsupported persistent guest vertex shader variant");
+        // 0x826AE558..0x826AE5B4 emits the selected persistent program pointer
+        // and word count. Copy the same program before the emitter returns.
+        const auto relative        = copyMemory(std::uint64_t(shader) + 896 + variant * 8, 4);
+        const auto metadataAddress = std::uint64_t(shader) + word(relative.data()) + 872;
+        const auto metadata        = copyMemory(metadataAddress, 8);
+        const auto resource        = copyMemory(std::uint64_t(shader) + 32, 4);
+        const auto raw             = std::uint64_t(word(resource.data())) + word(metadata.data());
+        const auto size            = word(metadata.data() + 4);
+        if (raw > UINT32_MAX || !size || size > 64 * 1024 || size % 4)
+            throw std::runtime_error("persistent guest vertex shader exceeds capture bounds");
+        const auto physical     = (raw & 0x1FFFFFFFULL) + (((raw >> 20) + 512) & 0x1000);
+        capture.vertexMicrocode = copyMemory(physical, size, true);
+        capture.metadata.insert_or_assign("vertex_shader", toml::table{ { "object", shader }, { "variant", variant }, { "physical_code", static_cast<std::int64_t>(physical) }, { "metadata", static_cast<std::int64_t>(metadataAddress) }, { "selection", 0x826AE5B8LL } });
     }
     catch (const std::exception& exception)
     {
@@ -280,16 +341,32 @@ void after(Capture& capture, const PPCContext& ctx)
         save(capture, "pixel-metadata.be.bin", pixelMetadata);
         save(capture, "pixel-shader.be.bin", pixelMicrocode);
         capture.metadata.insert("pixel_shader", toml::table{ { "object", pixelObject }, { "metadata", static_cast<std::int64_t>(pixelMetadataAddress) }, { "physical_code", static_cast<std::int64_t>(pixelAddress) } });
-        if (session->consumer && capture.draw.stride == 8)
+        const std::array<std::uint32_t, 3> identity{ capture.graphics, word(state.data() + 0x3198), word(state.data() + 0x2E2C) };
+        if (capture.vertexMicrocode.empty() && session->frameConsumer && identity == session->vertexIdentity)
+        {
+            capture.vertexMicrocode = session->vertexMicrocode;
+            capture.metadata.insert("vertex_shader_retained", true);
+        }
+        if (!capture.vertexMicrocode.empty())
+        {
+            save(capture, "vertex-shader.be.bin", capture.vertexMicrocode);
+            session->vertexMicrocode = capture.vertexMicrocode;
+            session->vertexIdentity  = identity;
+        }
+        if (session->consumer)
         {
             if (!indexOutput || ctx.r3.u32 != indexOutput || cursor != word(state.data() + 0x3484) ||
                 capture.vertexMicrocode.empty())
-                throw std::runtime_error("guest panel did not complete its upload and CPU shader patch");
+                throw std::runtime_error("guest UI draw did not complete its upload and shader selection");
+            for (std::size_t i = 0; i < capture.fetch.size(); ++i)
+                if (capture.fetch[i] != word(state.data() + 0x480 + i * 4))
+                    throw std::runtime_error("guest texture binding changed during the draw");
             capture.draw.state           = state;
             capture.draw.vertices        = capture.vertices;
             capture.draw.indices         = capture.indices;
             capture.draw.vertexMicrocode = capture.vertexMicrocode;
             capture.draw.pixelMicrocode  = pixelMicrocode;
+            capture.draw.texture         = &capture.texture;
             std::string error;
             if (!session->consumer(capture.draw, capture.directory, error))
                 throw std::runtime_error(error);
@@ -307,16 +384,19 @@ void after(Capture& capture, const PPCContext& ctx)
 
 } // namespace
 
-bool StartNativeGuestDrawCapture(const std::filesystem::path& directory, std::string& error, NativeGuestDrawConsumer consumer)
+bool StartNativeGuestDrawCapture(const std::filesystem::path& directory, std::string& error, NativeGuestDrawConsumer consumer, NativeGuestFrameConsumer frameConsumer)
 {
     std::lock_guard lock(captureMutex);
     try
     {
+        if (bool(consumer) != bool(frameConsumer))
+            throw std::runtime_error("guest UI replay requires draw and frame consumers together");
         if (session || !std::filesystem::create_directories(directory))
             throw std::runtime_error("guest draw capture requires a fresh directory and one session");
-        session            = std::make_shared<Session>();
-        session->directory = directory;
-        session->consumer  = std::move(consumer);
+        session                = std::make_shared<Session>();
+        session->directory     = directory;
+        session->consumer      = std::move(consumer);
+        session->frameConsumer = std::move(frameConsumer);
         enabled.store(true, std::memory_order_release);
         REXLOG_INFO("Native guest draw capture waiting for {}/arm", directory.string());
         return true;
@@ -328,11 +408,55 @@ bool StartNativeGuestDrawCapture(const std::filesystem::path& directory, std::st
     }
 }
 
+void NotifyNativeGuestFrameBoundary()
+{
+    if (!enabled.load(std::memory_order_acquire))
+        return;
+    std::lock_guard lock(captureMutex);
+    if (!session || !session->frameConsumer || !enabled.load(std::memory_order_relaxed))
+        return;
+    try
+    {
+        if (!session->armed)
+        {
+            if (!std::filesystem::is_regular_file(session->directory / "arm"))
+                return;
+            session->owner = std::this_thread::get_id();
+            session->armed = true;
+        }
+        else
+        {
+            if (session->owner != std::this_thread::get_id() || !session->frameDraws || session->finished != session->captures)
+                throw std::runtime_error("guest UI frame is empty, interleaved, or has unfinished draws");
+            std::string error;
+            const bool  last = session->frame == 2;
+            if (!session->frameConsumer(session->directory, last, error))
+                throw std::runtime_error(error);
+            ++session->frame;
+            if (last)
+            {
+                writeMetadata(session->directory / "result.toml", toml::table{ { "complete", true }, { "frames", session->frame }, { "captures", session->finished }, { "calls", session->calls }, { "boundary", 0x826A4884LL } });
+                session->complete = true;
+                enabled.store(false, std::memory_order_release);
+                return;
+            }
+        }
+        session->frameDraws = 0;
+        session->vertexMicrocode.clear();
+        session->vertexIdentity = {};
+        std::filesystem::create_directory(session->directory / fmt::format("frame-{:04}", session->frame));
+    }
+    catch (const std::exception& exception)
+    {
+        fail(exception);
+    }
+}
+
 void StopNativeGuestDrawCapture()
 {
     std::lock_guard lock(captureMutex);
     enabled.store(false, std::memory_order_release);
-    if (session && !session->failed && (session->calls < 256 || session->finished != session->captures))
+    if (session && !session->failed && !session->complete)
     {
         const std::runtime_error cancelled("guest draw capture stopped before completion");
         fail(cancelled);
@@ -341,6 +465,12 @@ void StopNativeGuestDrawCapture()
 }
 
 } // namespace rerevved::gpu::diagnostics
+
+void ObserveNativeGuestVertexSelection(PPCRegister& r30, PPCRegister& r31, PPCRegister& r15, PPCRegister& r19)
+{
+    if (auto* capture = rerevved::gpu::diagnostics::activeCapture)
+        rerevved::gpu::diagnostics::selectedShader(*capture, r30.u32, r31.u32, r15.u32, r19.u32);
+}
 
 REX_HOOK_RAW(sub_826A3568)
 {

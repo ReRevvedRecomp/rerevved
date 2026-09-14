@@ -54,7 +54,7 @@ REXCVAR_DEFINE_STRING(native_menu_shadow_shaders, "", "ReRevved", "Ignored direc
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_STRING(native_guest_draw_output, "", "ReRevved", "Fresh ignored directory for bounded guest menu draw inputs")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
-REXCVAR_DEFINE_STRING(native_guest_draw_shaders, "", "ReRevved", "Validated native shaders for a live draw from captured guest CPU inputs")
+REXCVAR_DEFINE_STRING(native_guest_draw_shaders, "", "ReRevved", "Validated native shaders for three swap-delimited UI frames from guest CPU inputs")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 REXCVAR_DEFINE_STRING(native_menu_frame_output, "", "ReRevved", "Fresh ignored directory for one live native menu frame comparison")
@@ -448,8 +448,9 @@ bool App::SetupPresentation()
 
     if (!nativeGuestDrawOutput.empty())
     {
-        std::string                                         error;
-        rerevved::gpu::diagnostics::NativeGuestDrawConsumer consumer;
+        std::string                                          error;
+        rerevved::gpu::diagnostics::NativeGuestDrawConsumer  consumer;
+        rerevved::gpu::diagnostics::NativeGuestFrameConsumer frameConsumer;
         if (!nativeGuestDrawShaders.empty())
         {
             rerevved::gpu::NativeMenuShaders shaders;
@@ -458,22 +459,46 @@ bool App::SetupPresentation()
                 REXLOG_ERROR("Guest native shader setup failed: {}", error);
                 return false;
             }
-            consumer = [shaders = std::move(shaders)](const rerevved::gpu::NativeGuestMenuDraw& draw,
-                                                      const std::filesystem::path&              directory,
-                                                      std::string&                              error)
+            auto frames = std::make_shared<rerevved::gpu::NativeDrawFramesRecipe>();
+            frames->frames.emplace_back();
+            consumer = [shaders = std::move(shaders), frames, bytes = std::size_t{ 0 }](const rerevved::gpu::NativeGuestMenuDraw& draw,
+                                                                                        const std::filesystem::path&              directory,
+                                                                                        std::string&                              error) mutable
             {
                 rerevved::gpu::NativeDrawReplayRecipe recipe;
                 if (!rerevved::gpu::BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error))
                     return false;
-                recipe.outputPath = directory / "live-native-samples.rgba";
+                const auto drawBytes = recipe.vertexShaderDxil.size() + recipe.pixelShaderDxil.size() +
+                                       recipe.vertexData.size() + recipe.indices.size() * sizeof(std::uint32_t) +
+                                       recipe.vertexConstants.size() + recipe.pixelConstants.size() +
+                                       recipe.sharedConstants.size() + recipe.texture.bytes.size();
+                if (drawBytes > 512U * 1024U * 1024U - bytes || frames->frames.back().size() >= 256)
+                {
+                    error = "guest native UI recipes exceed the owned input bound";
+                    return false;
+                }
+                bytes += drawBytes;
+                recipe.sourcePath = directory;
+                frames->frames.back().push_back(std::move(recipe));
+                return true;
+            };
+            frameConsumer = [frames](const std::filesystem::path& directory, bool last, std::string& error)
+            {
+                if (!last)
+                {
+                    frames->frames.emplace_back();
+                    return true;
+                }
+                frames->outputDirectory = directory / "native";
                 rerevved::gpu::NativeRendererD3D12 renderer;
-                const auto                         result = renderer.ReplayOffscreen(recipe);
+                const auto                         result = renderer.ReplayDrawFrames(*frames);
                 renderer.Shutdown();
+                frames->frames.clear();
                 error = result.error;
                 return result.success;
             };
         }
-        if (!rerevved::gpu::diagnostics::StartNativeGuestDrawCapture(nativeGuestDrawOutput, error, std::move(consumer)))
+        if (!rerevved::gpu::diagnostics::StartNativeGuestDrawCapture(nativeGuestDrawOutput, error, std::move(consumer), std::move(frameConsumer)))
         {
             REXLOG_ERROR("Guest menu draw capture setup failed: {}", error);
             return false;

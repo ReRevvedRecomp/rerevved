@@ -75,5 +75,22 @@ int main()
     frame = makeFrame();
     frame.halves[0].resize(1024, frame.halves[0][0]);
     require(!ValidateNativeFrameReplayRecipe(frame, error), "aggregate draw bound enforced");
+    NativeDrawFramesRecipe frames;
+    auto                   ui = makeFrame().halves[0][0];
+    ui.width                  = 1280;
+    ui.scissor.right          = 1280;
+    frames.frames             = { { ui, ui }, { ui }, { ui } };
+    require(ValidateNativeDrawFramesRecipe(frames, error), "consecutive full UI frames admitted");
+    frames.frames[1].clear();
+    require(!ValidateNativeDrawFramesRecipe(frames, error), "empty intermediate UI frame rejected");
+    frames.frames[1] = { ui };
+    frames.frames[2][0].initialSample0.resize(1280 * 720 * 4);
+    require(!ValidateNativeDrawFramesRecipe(frames, error), "UI frame cannot begin from oracle pixels");
+    frames.frames[2][0]               = ui;
+    frames.frames[0][0].depth.enabled = true;
+    require(!ValidateNativeDrawFramesRecipe(frames, error), "scene draw excluded from UI frame contract");
+    frames.frames[0][0] = ui;
+    frames.frames[1].resize(257, ui);
+    require(!ValidateNativeDrawFramesRecipe(frames, error), "UI per-frame draw bound enforced");
     return 0;
 }

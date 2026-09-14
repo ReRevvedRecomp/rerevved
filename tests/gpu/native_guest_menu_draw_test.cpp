@@ -1,4 +1,5 @@
 #include "gpu/d3d12/native_guest_menu_draw.h"
+#include "gpu/d3d12/native_texture_upload.h"
 
 #include <cstdlib>
 #include <fstream>
@@ -63,13 +64,37 @@ int main(int argc, char** argv)
     draw.indexCount      = manifest["index_count"].value_or(0U);
     draw.stride          = manifest["stride"].value_or(0U);
     draw.indexFormat     = manifest["index_format"].value_or(0U);
+    NativeDrawReplayTexture texture;
+    if (draw.stride != 8)
+    {
+        NativeTextureFetch fetch;
+        for (std::size_t i = 0; i < fetch.size(); ++i)
+        {
+            const auto* b = state.data() + 0x480 + i * 4;
+            fetch[i]      = (std::uint32_t(b[0]) << 24) | (std::uint32_t(b[1]) << 16) | (std::uint32_t(b[2]) << 8) | b[3];
+        }
+        const auto source = read(root / "texture-guest.bin");
+        require(DecodeNativeTexture(fetch, source, texture, error), error);
+        require(texture.bytes == read(root / "texture-native.bin"), "guest texture conversion stable");
+        draw.texture = &texture;
+    }
     require(BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), error);
     require(recipe.width == 1280 && recipe.height == 720 && recipe.viewport.x == 0 &&
                 recipe.viewport.width == 1280 && recipe.scissor.right == 1280,
             "guest full viewport must produce one full-width native target");
     require(recipe.initialSample0.empty() && recipe.initialSample1.empty() &&
-                recipe.textureMask == 0 && recipe.indexCount == draw.indexCount,
-            "solid guest draw must own its geometry and require no captured attachments");
+                recipe.textureMask == (draw.stride == 8 ? 0U : 1U) && recipe.indexCount == draw.indexCount,
+            "guest draw must own its inputs and require no captured attachments");
+    if (draw.stride != 8)
+    {
+        require(recipe.sampler.address == std::array<std::uint32_t, 3>{ 3, 3, 3 } &&
+                    recipe.sampler.minLinear && recipe.sampler.magLinear && recipe.sampler.mipLinear &&
+                    recipe.sampler.mipBias == 0 && recipe.texture.bytes == texture.bytes,
+                "base-level guest sampler must match captured menu binding");
+        state[0x490 + 3] ^= 4;
+        require(!BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), "mipmapped guest texture rejected");
+        state[0x490 + 3] ^= 4;
+    }
     vs[0] ^= 1;
     require(!BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), "changed guest shader rejected");
     vs[0] ^= 1;
