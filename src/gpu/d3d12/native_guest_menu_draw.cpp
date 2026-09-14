@@ -136,7 +136,22 @@ bool BuildNativeGuestMenuDrawRecipe(const NativeGuestMenuDraw& draw,
     view.indexCount          = draw.indexed ? draw.indexCount : draw.vertexCount;
     view.fullViewportTarget  = true;
     view.guestSourceVertices = true;
-    return BuildNativeMenuDrawRecipe(view, shaders, recipe, error);
+    if (!BuildNativeMenuDrawRecipe(view, shaders, recipe, error))
+        return false;
+    if (draw.firstInFrame)
+    {
+        // The guest resolve helper retains both copy-clear words in the
+        // device shadow. Preserve the observed black clear's alpha, including
+        // loading frames whose first draw does not cover the target.
+        const auto clear = registers[0x231E];
+        if (clear != registers[0x231F] || (clear != 0 && clear != 0xFF000000U))
+        {
+            error = "unsupported guest frame clear state";
+            return false;
+        }
+        recipe.clearColor[3] = static_cast<std::uint8_t>(clear >> 24);
+    }
+    return true;
 }
 
 } // namespace rerevved::gpu

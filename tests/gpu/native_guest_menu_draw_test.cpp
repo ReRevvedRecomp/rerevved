@@ -80,6 +80,7 @@ int main(int argc, char** argv)
     draw.stride          = manifest["stride"].value_or(0U);
     draw.indexFormat     = manifest["index_format"].value_or(0U);
     draw.indexed         = manifest["indexed"].value_or(true);
+    draw.firstInFrame    = manifest["first_in_frame"].value_or(false);
     NativeDrawReplayTexture texture;
     if (draw.stride != 8)
     {
@@ -102,6 +103,22 @@ int main(int argc, char** argv)
                 recipe.textureMask == (draw.stride == 8 ? 0U : 1U) &&
                 recipe.indexCount == (draw.indexed ? draw.indexCount : draw.vertexCount),
             "guest draw must own its inputs and require no captured attachments");
+    const bool firstInFrame = draw.firstInFrame;
+    draw.firstInFrame       = true;
+    require(BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), error);
+    require(recipe.clearColor == std::array<std::uint8_t, 4>{ 0, 0, 0, static_cast<std::uint8_t>(bigWord(state, 0x2A30) >> 24) },
+            "first draw must preserve the captured black clear alpha");
+    state[0x2A33] ^= 1;
+    require(!BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), "nonblack guest clear rejected");
+    state[0x2A33] ^= 1;
+    state[0x2A34] ^= 1;
+    require(!BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), "mismatched guest clear words rejected");
+    state[0x2A34] ^= 1;
+    draw.firstInFrame = false;
+    require(BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), error);
+    require(recipe.clearColor == std::array<std::uint8_t, 4>{}, "later draw has no initial clear alpha");
+    draw.firstInFrame = firstInFrame;
+    require(BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), error);
     if (draw.indexed && draw.stride == 32)
     {
         require((draw.vertexCount == 8 && draw.indexCount == 12) ||
@@ -149,9 +166,9 @@ int main(int argc, char** argv)
     }
     if (draw.stride != 8)
     {
-        const bool copyright       = bigWord(state, 0x293C) == 0x87000007U;
-        const auto expectedAddress = draw.stride == 32 || copyright ? std::array<std::uint32_t, 3>{ 1, 1, 3 }
-                                                                    : std::array<std::uint32_t, 3>{ 3, 3, 3 };
+        const bool notice          = bigWord(state, 0x2934) == 0x24F00770U && bigWord(state, 0x293C) == 0x87000007U;
+        const auto expectedAddress = draw.stride == 32 || notice ? std::array<std::uint32_t, 3>{ 1, 1, 3 }
+                                                                 : std::array<std::uint32_t, 3>{ 3, 3, 3 };
         require(recipe.sampler.address == expectedAddress &&
                     recipe.sampler.minLinear && recipe.sampler.magLinear && recipe.sampler.mipLinear &&
                     recipe.sampler.mipBias == 0 && recipe.texture.bytes == texture.bytes,

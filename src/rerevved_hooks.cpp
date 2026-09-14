@@ -808,7 +808,7 @@ void ObserveRendererSwapSource(PPCRegister& r3,
                                PPCRegister& r30,
                                PPCRegister& r31)
 {
-    rerevved::gpu::diagnostics::NotifyNativeGuestFrameBoundary();
+    rerevved::gpu::diagnostics::NotifyNativeGuestFrameBoundary(r31.u32, r30.u32, r4.u32);
     PassiveTraceRecordLease traceLease{};
     if (tracedVdswapOwnerActive)
     {

@@ -6,6 +6,7 @@
 #include <memory>
 #include <mutex>
 #include <set>
+#include <sstream>
 #include <thread>
 
 #include <rex/crypto/sha256.h>
@@ -47,7 +48,9 @@ struct Session
     std::uint32_t                          frame = 0, frameDraws = 0;
     std::uint64_t                          ownedBytes = 0;
     bool                                   complete   = false;
-    std::thread::id                        owner;
+    std::uint32_t                          graphics   = 0;
+    std::array<std::uint32_t, 2>           clearWords{};
+    toml::table                            frameMetadata;
     std::array<std::uint32_t, 3>           vertexIdentity{};
     std::vector<std::uint8_t>              vertexMicrocode;
 };
@@ -58,6 +61,7 @@ struct Capture
     std::filesystem::path     directory;
     toml::table               metadata;
     std::uint32_t             graphics = 0, cursor = 0;
+    std::uint32_t             frame      = 0;
     std::uint32_t             vertexSize = 0, indexSize = 0;
     std::uint32_t             vertexAddress = 0, indexAddress = 0;
     std::vector<std::uint8_t> vertices, indices, vertexMicrocode;
@@ -78,6 +82,13 @@ std::uint32_t word(const std::uint8_t* bytes)
 {
     return (std::uint32_t(bytes[0]) << 24) | (std::uint32_t(bytes[1]) << 16) |
            (std::uint32_t(bytes[2]) << 8) | bytes[3];
+}
+
+std::string hostThread()
+{
+    std::ostringstream text;
+    text << std::this_thread::get_id();
+    return text.str();
 }
 
 std::vector<std::uint8_t> copyMemory(std::uint64_t address, std::uint64_t size, bool physical = false)
@@ -170,8 +181,11 @@ std::unique_ptr<Capture> before(const PPCContext& ctx, DrawSource source = DrawS
                 return {};
             session->armed = true;
         }
-        if (session->frameConsumer && session->owner != std::this_thread::get_id())
-            throw std::runtime_error("guest menu draws and swap must share one CPU thread");
+        // The loading swap worker differs from the draw thread. The device and
+        // interval must still agree, with no original draw left in flight.
+        if (session->frameConsumer &&
+            (ctx.r3.u32 != session->graphics || session->captures != session->finished))
+            throw std::runtime_error("guest frame draw has a foreign device or overlaps an unfinished draw");
         ++session->calls;
         if (!session->frameConsumer && session->calls == 256)
             enabled.store(false, std::memory_order_release);
@@ -185,14 +199,18 @@ std::unique_ptr<Capture> before(const PPCContext& ctx, DrawSource source = DrawS
                                                   : ctx.r7.u32;
         if ((!bound && indexed && stride != 4 && stride != 8 && stride != 12 && stride != 28) || (!indexed && stride != 28))
             throw std::runtime_error("unsupported guest menu vertex stride");
-        const auto                minimumVertex = indexed ? ctx.r5.u32 : 0U;
-        auto                      vertexCount   = indexed ? ctx.r6.u32 : ctx.r5.u32;
-        const auto                indexCount    = indexed ? ctx.r7.u32 : 0U;
-        auto                      indexAddress  = indexed ? ctx.r8.u32 : 0U;
-        const auto                indexFormat   = bound ? 1U : indexed ? ctx.r9.u32
-                                                                       : 0U;
-        auto                      vertexAddress = indexed ? ctx.r10.u32 : ctx.r6.u32;
-        const auto                state         = copyMemory(ctx.r3.u32, kStateBytes);
+        const auto minimumVertex = indexed ? ctx.r5.u32 : 0U;
+        auto       vertexCount   = indexed ? ctx.r6.u32 : ctx.r5.u32;
+        const auto indexCount    = indexed ? ctx.r7.u32 : 0U;
+        auto       indexAddress  = indexed ? ctx.r8.u32 : 0U;
+        const auto indexFormat   = bound ? 1U : indexed ? ctx.r9.u32
+                                                        : 0U;
+        auto       vertexAddress = indexed ? ctx.r10.u32 : ctx.r6.u32;
+        const auto state         = copyMemory(ctx.r3.u32, kStateBytes);
+        if (session->frameConsumer && !session->frameDraws &&
+            (word(state.data() + 0x2A30) != session->clearWords[0] ||
+             word(state.data() + 0x2A34) != session->clearWords[1]))
+            throw std::runtime_error("guest frame clear state changed after the opening swap boundary");
         std::vector<std::uint8_t> indexHeader;
         if (bound)
         {
@@ -237,12 +255,15 @@ std::unique_ptr<Capture> before(const PPCContext& ctx, DrawSource source = DrawS
         std::filesystem::create_directory(capture->directory);
         capture->fetch         = fetch;
         capture->graphics      = ctx.r3.u32;
+        capture->frame         = session->frame;
         capture->vertexAddress = vertexAddress;
         capture->indexAddress  = indexAddress;
         capture->cursor        = word(state.data() + 48);
         capture->metadata      = toml::table{
             { "schema", 1 }, { "caller", static_cast<std::int64_t>(ctx.lr) }, { "graphics", ctx.r3.u32 }, { "primitive", ctx.r4.u32 }, { "indexed", indexed }, { "minimum_vertex", minimumVertex }, { "vertex_count", vertexCount }, { "index_count", indexCount }, { "index_address", indexAddress }, { "index_format", indexFormat }, { "vertex_address", vertexAddress }, { "stride", stride }, { "cursor_before", capture->cursor }, { "original_returned", false }
         };
+        capture->metadata.insert("frame_epoch", capture->frame);
+        capture->metadata.insert("host_thread", hostThread());
         save(*capture, "state-before.be.bin", state);
         if (bound)
         {
@@ -259,7 +280,9 @@ std::unique_ptr<Capture> before(const PPCContext& ctx, DrawSource source = DrawS
         capture->vertices   = copyMemory(std::uint64_t(vertexAddress) + std::uint64_t(minimumVertex) * stride, vertexSize, bound);
         if (indexed)
             capture->indices = copyMemory(indexAddress, indexSize, bound);
-        capture->draw.indexed       = indexed;
+        capture->draw.indexed      = indexed;
+        capture->draw.firstInFrame = session->frameConsumer && session->frameDraws == 1;
+        capture->metadata.insert("first_in_frame", capture->draw.firstInFrame);
         capture->draw.primitive     = ctx.r4.u32;
         capture->draw.minimumVertex = minimumVertex;
         capture->draw.vertexCount   = vertexCount;
@@ -389,8 +412,16 @@ void after(Capture& capture, const PPCContext& ctx)
         return;
     try
     {
+        if (session->frameConsumer &&
+            (capture.graphics != session->graphics || capture.frame != session->frame ||
+             session->captures != session->finished + 1))
+            throw std::runtime_error("guest draw returned outside its device or frame interval");
         const auto state = copyMemory(capture.graphics, kStateBytes);
         save(capture, "state-after.be.bin", state);
+        if (capture.draw.firstInFrame &&
+            (word(state.data() + 0x2A30) != session->clearWords[0] ||
+             word(state.data() + 0x2A34) != session->clearWords[1]))
+            throw std::runtime_error("guest frame clear state changed during the first original draw");
         const auto cursor = word(state.data() + 48);
         // UP wrappers return memcpy's destination. Bound draws instead publish
         // the cursor observed after the indexed packet's stores.
@@ -544,7 +575,7 @@ bool StartNativeGuestDrawCapture(const std::filesystem::path& directory, std::st
     }
 }
 
-void NotifyNativeGuestFrameBoundary()
+void NotifyNativeGuestFrameBoundary(std::uint32_t graphics, std::uint32_t reservation, std::uint32_t descriptor)
 {
     if (!enabled.load(std::memory_order_acquire))
         return;
@@ -557,13 +588,16 @@ void NotifyNativeGuestFrameBoundary()
         {
             if (!std::filesystem::is_regular_file(session->directory / "arm"))
                 return;
-            session->owner = std::this_thread::get_id();
-            session->armed = true;
+            session->graphics = graphics;
+            session->armed    = true;
         }
         else
         {
-            if (session->owner != std::this_thread::get_id() || !session->frameDraws || session->finished != session->captures)
-                throw std::runtime_error("guest menu frame is empty, interleaved, or has unfinished draws");
+            if (graphics != session->graphics || !session->frameDraws || session->finished != session->captures)
+                throw std::runtime_error("guest frame has a foreign device, is empty, or has unfinished draws");
+            session->frameMetadata.insert("end", toml::table{ { "host_thread", hostThread() }, { "reservation", reservation }, { "descriptor", descriptor } });
+            session->frameMetadata.insert("original_draws_returned", session->frameDraws);
+            writeMetadata(session->directory / fmt::format("frame-{:04}", session->frame) / "frame.toml", session->frameMetadata);
             std::string error;
             const bool  last = session->frame == 2;
             if (!session->frameConsumer(session->directory, last, error))
@@ -581,6 +615,13 @@ void NotifyNativeGuestFrameBoundary()
         session->vertexMicrocode.clear();
         session->vertexIdentity = {};
         std::filesystem::create_directory(session->directory / fmt::format("frame-{:04}", session->frame));
+        // These retained Resolve copy-clear words initialize the bounded native
+        // replay. The first draw must observe the same words before and after
+        // its original submission; this does not replace the guest Clear API.
+        const auto clear       = copyMemory(std::uint64_t(graphics) + 0x2A30, 8);
+        session->clearWords    = { word(clear.data()), word(clear.data() + 4) };
+        session->frameMetadata = toml::table{ { "frame_epoch", session->frame }, { "graphics", graphics }, { "copy_clear", session->clearWords[0] }, { "copy_clear_low", session->clearWords[1] }, { "begin", toml::table{ { "host_thread", hostThread() }, { "reservation", reservation }, { "descriptor", descriptor } } } };
+        writeMetadata(session->directory / fmt::format("frame-{:04}", session->frame) / "frame.toml", session->frameMetadata);
     }
     catch (const std::exception& exception)
     {

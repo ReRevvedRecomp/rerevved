@@ -90,6 +90,14 @@ int main()
     ui.scissor.right          = 1280;
     frames.frames             = { { ui, ui }, { ui }, { ui } };
     require(ValidateNativeDrawFramesRecipe(frames, error), "consecutive full UI frames admitted");
+    frames.frames[0][0].clearColor[3] = 255;
+    require(ValidateNativeDrawFramesRecipe(frames, error), "guest opaque initial clear admitted");
+    frames.frames[0][1].clearColor[3] = 255;
+    require(!ValidateNativeDrawFramesRecipe(frames, error), "later guest draw cannot supply clear alpha");
+    frames.frames[0][1].clearColor[3] = 0;
+    frames.frames[0][0].clearColor[3] = 128;
+    require(!ValidateNativeDrawFramesRecipe(frames, error), "unsupported guest clear alpha rejected");
+    frames.frames[0][0].clearColor[3] = 0;
     frames.frames[1].clear();
     require(!ValidateNativeDrawFramesRecipe(frames, error), "empty intermediate UI frame rejected");
     frames.frames[1] = { ui };

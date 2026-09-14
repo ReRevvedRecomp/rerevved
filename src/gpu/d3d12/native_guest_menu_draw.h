@@ -16,7 +16,8 @@ struct NativeGuestMenuDraw
     const NativeDrawReplayTexture* texture   = nullptr;
     std::uint32_t                  primitive = 0, minimumVertex = 0, vertexCount = 0;
     std::uint32_t                  indexCount = 0, indexFormat = 0, stride = 0;
-    bool                           indexed = true;
+    bool                           indexed      = true;
+    bool                           firstInFrame = false;
 };
 
 // The admitted indexed GFx, indexed scene, and nonindexed label pairs use at

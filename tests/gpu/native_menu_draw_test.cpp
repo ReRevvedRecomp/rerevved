@@ -153,7 +153,15 @@ void fixture(const std::filesystem::path& root, const NativeMenuShaders& shaders
         require(BuildNativeMenuDrawRecipe(view, shaders, actual, error), "copyright disabled alpha test");
         registers[0x2202] |= 8;
         require(!BuildNativeMenuDrawRecipe(view, shaders, actual, error), "enabled UI alpha test rejected");
-        registers[0x2202] = colorControl;
+        registers[0x2202]       = colorControl;
+        const auto depthControl = registers[0x2200];
+        registers[0x2200]       = 0x24F00770U;
+        require(BuildNativeMenuDrawRecipe(view, shaders, actual, error), "menu disabled stencil test");
+        registers[0x2200] = 0x24F00270U;
+        require(BuildNativeMenuDrawRecipe(view, shaders, actual, error), "loading disabled stencil test");
+        registers[0x2200] |= 1;
+        require(!BuildNativeMenuDrawRecipe(view, shaders, actual, error), "enabled UI stencil test rejected");
+        registers[0x2200] = depthControl;
     }
 }
 

@@ -112,11 +112,13 @@ int main()
     std::ofstream(root / "arm").close();
     checkOriginal();
     require(!std::filesystem::exists(root / "result.toml"), "draws cannot arm mid-frame");
-    NotifyNativeGuestFrameBoundary();
-    require(std::filesystem::is_directory(root / "frame-0000"), "swap arms first frame");
-    NotifyNativeGuestFrameBoundary();
-    const auto empty = toml::parse_file((root / "result.toml").string());
-    require(!empty["complete"].value_or(true), "empty frame must fail before consumption");
+    // This executable has no guest memory runtime. An overflowing device
+    // address must fail before the opening boundary reads its clear words.
+    NotifyNativeGuestFrameBoundary(0xFFFFFFFCU, 0, 0);
+    const auto invalid = toml::parse_file((root / "result.toml").string());
+    require(!invalid["complete"].value_or(true) &&
+                invalid["error"].value_or(std::string{}) == "guest draw input exceeds address or allocation bounds",
+            "invalid frame device must fail before consumption");
     checkOriginal();
     StopNativeGuestDrawCapture();
     std::filesystem::remove(root / "arm");

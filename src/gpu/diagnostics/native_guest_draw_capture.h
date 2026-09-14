@@ -16,7 +16,9 @@ using NativeGuestDrawConsumer  = std::function<bool(const NativeGuestMenuDraw&,
                                                     std::string&)>;
 using NativeGuestFrameConsumer = std::function<bool(const std::filesystem::path&, bool, std::string&)>;
 bool StartNativeGuestDrawCapture(const std::filesystem::path& directory, std::string& error, NativeGuestDrawConsumer consumer = {}, NativeGuestFrameConsumer frameConsumer = {});
-void NotifyNativeGuestFrameBoundary();
+// Called before VdSwap at 0x826A4884; records a CPU submission interval, not GPU
+// completion. Draws must use this device and finish before its next boundary.
+void NotifyNativeGuestFrameBoundary(std::uint32_t graphics, std::uint32_t reservation, std::uint32_t descriptor);
 void StopNativeGuestDrawCapture();
 
 } // namespace rerevved::gpu::diagnostics

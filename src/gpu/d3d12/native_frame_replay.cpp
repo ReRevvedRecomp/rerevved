@@ -61,7 +61,8 @@ bool ValidateNativeDrawFramesRecipe(const NativeDrawFramesRecipe& recipe, std::s
                 draw.sampleCount != 4 || draw.targetFormat != NativeDrawReplayTargetFormat::Rgba8 ||
                 !draw.initialSample0.empty() || !draw.initialSample1.empty() ||
                 !draw.depth.initialSamples.empty() || draw.depth.initialClear != 1.0F ||
-                draw.clearColor != std::array<std::uint8_t, 4>{})
+                (draw.clearColor != std::array<std::uint8_t, 4>{} &&
+                 !(&draw == &frame.front() && draw.clearColor == std::array<std::uint8_t, 4>{ 0, 0, 0, 255 })))
             {
                 error = "native menu frames require full-width color and native black/far clears";
                 return false;

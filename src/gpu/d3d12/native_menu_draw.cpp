@@ -125,10 +125,12 @@ bool state(const NativeMenuDrawView& view, const ShaderContract& shader, NativeD
         { 0x2307, 0xFF000 },
         { 0x2308, 0xFF100 },
     };
-    // RB_COLORCONTROL's low bits select the comparison for a disabled alpha
-    // test in both the menu and copyright UI states.
+    // Boot UI retains different comparison functions while its alpha and
+    // stencil tests are disabled.
     for (const auto [index, value] : required)
-        if (r[index] != value && !(index == 0x2202 && !shader.scene && r[index] == 0x87000007U))
+        if (r[index] != value &&
+            !(!shader.scene && ((index == 0x2200 && r[index] == 0x24F00270U) ||
+                                (index == 0x2202 && r[index] == 0x87000007U))))
         {
             std::ostringstream text;
             text << "unsupported menu register 0x" << std::hex << index
