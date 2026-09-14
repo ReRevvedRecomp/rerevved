@@ -16,6 +16,7 @@
 #include "gpu/d3d12/native_texture_upload.h"
 
 REX_EXTERN(__imp__sub_826A3568);
+REX_EXTERN(__imp__sub_826A3000);
 REX_EXTERN(__imp__sub_826AD150);
 
 namespace rerevved::gpu::diagnostics
@@ -32,7 +33,7 @@ struct Session
     std::chrono::steady_clock::time_point  nextPoll{};
     bool                                   armed = false, failed = false;
     std::uint32_t                          calls = 0, captures = 0, finished = 0;
-    std::set<std::array<std::uint32_t, 4>> layouts;
+    std::set<std::array<std::uint32_t, 5>> layouts;
     NativeGuestDrawConsumer                consumer;
     NativeGuestFrameConsumer               frameConsumer;
     std::uint32_t                          frame = 0, frameDraws = 0;
@@ -130,9 +131,13 @@ void finishIfReady()
     }
 }
 
-std::unique_ptr<Capture> before(const PPCContext& ctx)
+std::unique_ptr<Capture> before(const PPCContext& ctx, bool indexed = true)
 {
     if (!enabled.load(std::memory_order_acquire))
+        return {};
+    // 0x82304254 submits the expanded label triangles through the nonindexed
+    // UP wrapper. Other callers of that wrapper are outside this capture.
+    if (!indexed && ctx.lr != 0x82304258)
         return {};
     std::lock_guard lock(captureMutex);
     if (!session || !enabled.load(std::memory_order_relaxed))
@@ -158,17 +163,22 @@ std::unique_ptr<Capture> before(const PPCContext& ctx)
             enabled.store(false, std::memory_order_release);
         // The two admitted GFx call sites use the indexed UP wrapper. Its raw
         // hook retains the original stack argument and all original effects.
-        if ((ctx.lr != 0x82303E40 && ctx.lr != 0x82303E90) || ctx.r4.u32 != 4)
+        if ((indexed && ctx.lr != 0x82303E40 && ctx.lr != 0x82303E90) || ctx.r4.u32 != 4)
             throw std::runtime_error("unexpected caller at guest menu draw boundary");
-        const auto strideBytes = copyMemory(std::uint64_t(ctx.r1.u32) + 84, 4);
-        const auto stride      = word(strideBytes.data());
-        if (stride != 4 && stride != 8 && stride != 12 && stride != 28)
+        const auto stride = indexed ? word(copyMemory(std::uint64_t(ctx.r1.u32) + 84, 4).data()) : ctx.r7.u32;
+        if ((indexed && stride != 4 && stride != 8 && stride != 12 && stride != 28) || (!indexed && stride != 28))
             throw std::runtime_error("unsupported guest menu vertex stride");
-        const auto         state = copyMemory(ctx.r3.u32, kStateBytes);
+        const auto         minimumVertex = indexed ? ctx.r5.u32 : 0U;
+        const auto         vertexCount   = indexed ? ctx.r6.u32 : ctx.r5.u32;
+        const auto         indexCount    = indexed ? ctx.r7.u32 : 0U;
+        const auto         indexAddress  = indexed ? ctx.r8.u32 : 0U;
+        const auto         indexFormat   = indexed ? ctx.r9.u32 : 0U;
+        const auto         vertexAddress = indexed ? ctx.r10.u32 : ctx.r6.u32;
+        const auto         state         = copyMemory(ctx.r3.u32, kStateBytes);
         NativeTextureFetch fetch;
         for (std::size_t i = 0; i < fetch.size(); ++i)
             fetch[i] = word(state.data() + 0x480 + i * 4);
-        const std::array<std::uint32_t, 4> layout{ stride, fetch[1] & 0xFF, fetch[2], fetch[0] >> 31 };
+        const std::array<std::uint32_t, 5> layout{ stride, fetch[1] & 0xFF, fetch[2], fetch[0] >> 31, indexed ? 1U : 0U };
         if (!session->frameConsumer && session->layouts.contains(layout))
         {
             finishIfReady();
@@ -189,22 +199,24 @@ std::unique_ptr<Capture> before(const PPCContext& ctx)
         capture->graphics = ctx.r3.u32;
         capture->cursor   = word(state.data() + 48);
         capture->metadata = toml::table{
-            { "schema", 1 }, { "caller", static_cast<std::int64_t>(ctx.lr) }, { "graphics", ctx.r3.u32 }, { "primitive", ctx.r4.u32 }, { "minimum_vertex", ctx.r5.u32 }, { "vertex_count", ctx.r6.u32 }, { "index_count", ctx.r7.u32 }, { "index_address", ctx.r8.u32 }, { "index_format", ctx.r9.u32 }, { "vertex_address", ctx.r10.u32 }, { "stride", stride }, { "cursor_before", capture->cursor }, { "original_returned", false }
+            { "schema", 1 }, { "caller", static_cast<std::int64_t>(ctx.lr) }, { "graphics", ctx.r3.u32 }, { "primitive", ctx.r4.u32 }, { "indexed", indexed }, { "minimum_vertex", minimumVertex }, { "vertex_count", vertexCount }, { "index_count", indexCount }, { "index_address", indexAddress }, { "index_format", indexFormat }, { "vertex_address", vertexAddress }, { "stride", stride }, { "cursor_before", capture->cursor }, { "original_returned", false }
         };
         save(*capture, "state-before.be.bin", state);
-        const auto vertexSize = std::uint64_t(ctx.r6.u32) * stride;
-        const auto indexSize  = std::uint64_t(ctx.r7.u32) * ((ctx.r9.u32 & 4) ? 4 : 2);
-        if (!vertexSize || vertexSize > kMaxGeometryBytes || !indexSize || indexSize > kMaxGeometryBytes)
+        const auto vertexSize = std::uint64_t(vertexCount) * stride;
+        const auto indexSize  = std::uint64_t(indexCount) * ((indexFormat & 4) ? 4 : 2);
+        if (!vertexSize || vertexSize > kMaxGeometryBytes || (indexed && !indexSize) || indexSize > kMaxGeometryBytes)
             throw std::runtime_error("guest menu geometry exceeds capture bounds");
-        capture->vertexSize         = static_cast<std::uint32_t>(vertexSize);
-        capture->indexSize          = static_cast<std::uint32_t>(indexSize);
-        capture->vertices           = copyMemory(std::uint64_t(ctx.r10.u32) + std::uint64_t(ctx.r5.u32) * stride, vertexSize);
-        capture->indices            = copyMemory(ctx.r8.u32, indexSize);
+        capture->vertexSize = static_cast<std::uint32_t>(vertexSize);
+        capture->indexSize  = static_cast<std::uint32_t>(indexSize);
+        capture->vertices   = copyMemory(std::uint64_t(vertexAddress) + std::uint64_t(minimumVertex) * stride, vertexSize);
+        if (indexed)
+            capture->indices = copyMemory(indexAddress, indexSize);
+        capture->draw.indexed       = indexed;
         capture->draw.primitive     = ctx.r4.u32;
-        capture->draw.minimumVertex = ctx.r5.u32;
-        capture->draw.vertexCount   = ctx.r6.u32;
-        capture->draw.indexCount    = ctx.r7.u32;
-        capture->draw.indexFormat   = ctx.r9.u32;
+        capture->draw.minimumVertex = minimumVertex;
+        capture->draw.vertexCount   = vertexCount;
+        capture->draw.indexCount    = indexCount;
+        capture->draw.indexFormat   = indexFormat;
         capture->draw.stride        = stride;
         save(*capture, "vertex.bin", capture->vertices);
         save(*capture, "index.bin", capture->indices);
@@ -318,10 +330,13 @@ void after(Capture& capture, const PPCContext& ctx)
         const auto indexOutput  = word(state.data() + 0x348C);
         capture.metadata.insert("vertex_output", vertexOutput);
         capture.metadata.insert("index_output", indexOutput);
-        if (indexOutput && ctx.r3.u32 == indexOutput && cursor == word(state.data() + 0x3484))
+        const auto output    = capture.draw.indexed ? indexOutput : vertexOutput;
+        const bool completed = output && ctx.r3.u32 == output && cursor == word(state.data() + 0x3484);
+        if (completed)
         {
             save(capture, "vertex-output.bin", copyMemory(vertexOutput, capture.vertexSize));
-            save(capture, "index-output.bin", copyMemory(indexOutput, capture.indexSize));
+            if (capture.draw.indexed)
+                save(capture, "index-output.bin", copyMemory(indexOutput, capture.indexSize));
         }
         if (cursor > capture.cursor && cursor - capture.cursor <= 256U * 1024U)
             save(capture, "commands.be.bin", copyMemory(capture.cursor, cursor - capture.cursor));
@@ -355,8 +370,7 @@ void after(Capture& capture, const PPCContext& ctx)
         }
         if (session->consumer)
         {
-            if (!indexOutput || ctx.r3.u32 != indexOutput || cursor != word(state.data() + 0x3484) ||
-                capture.vertexMicrocode.empty())
+            if (!completed || capture.vertexMicrocode.empty())
                 throw std::runtime_error("guest UI draw did not complete its upload and shader selection");
             for (std::size_t i = 0; i < capture.fetch.size(); ++i)
                 if (capture.fetch[i] != word(state.data() + 0x480 + i * 4))
@@ -491,4 +505,15 @@ REX_HOOK_RAW(sub_826AD150)
     __imp__sub_826AD150(ctx, base);
     if (capture)
         rerevved::gpu::diagnostics::patchedShader(*capture, shader, code, patchState, variant, caller);
+}
+
+REX_HOOK_RAW(sub_826A3000)
+{
+    auto  capture                             = rerevved::gpu::diagnostics::before(ctx, false);
+    auto* previous                            = rerevved::gpu::diagnostics::activeCapture;
+    rerevved::gpu::diagnostics::activeCapture = capture.get();
+    __imp__sub_826A3000(ctx, base);
+    rerevved::gpu::diagnostics::activeCapture = previous;
+    if (capture)
+        rerevved::gpu::diagnostics::after(*capture, ctx);
 }

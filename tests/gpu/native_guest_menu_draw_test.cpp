@@ -64,6 +64,7 @@ int main(int argc, char** argv)
     draw.indexCount      = manifest["index_count"].value_or(0U);
     draw.stride          = manifest["stride"].value_or(0U);
     draw.indexFormat     = manifest["index_format"].value_or(0U);
+    draw.indexed         = manifest["indexed"].value_or(true);
     NativeDrawReplayTexture texture;
     if (draw.stride != 8)
     {
@@ -83,8 +84,20 @@ int main(int argc, char** argv)
                 recipe.viewport.width == 1280 && recipe.scissor.right == 1280,
             "guest full viewport must produce one full-width native target");
     require(recipe.initialSample0.empty() && recipe.initialSample1.empty() &&
-                recipe.textureMask == (draw.stride == 8 ? 0U : 1U) && recipe.indexCount == draw.indexCount,
+                recipe.textureMask == (draw.stride == 8 ? 0U : 1U) &&
+                recipe.indexCount == (draw.indexed ? draw.indexCount : draw.vertexCount),
             "guest draw must own its inputs and require no captured attachments");
+    if (!draw.indexed)
+    {
+        require(recipe.vertexStrideBytes == 48 && recipe.vertexAttributeCount == 3,
+                "label position, UV and color must use the pinned shader interface");
+        for (std::uint32_t i = 0; i < draw.vertexCount; ++i)
+            require(recipe.indices[i] == i, "nonindexed label must retain vertex order");
+        draw.indexed = true;
+        require(!BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), "label rejects indexed submission");
+        draw.indexed = false;
+        require(BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), error);
+    }
     if (draw.stride != 8)
     {
         require(recipe.sampler.address == std::array<std::uint32_t, 3>{ 3, 3, 3 } &&

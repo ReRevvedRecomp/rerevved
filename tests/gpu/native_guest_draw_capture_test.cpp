@@ -11,6 +11,7 @@
 
 REX_EXTERN(sub_826A3568);
 REX_EXTERN(sub_826AD150);
+REX_EXTERN(sub_826A3000);
 
 namespace
 {
@@ -26,13 +27,13 @@ void require(bool condition, const char* message)
     }
 }
 
-void checkOriginal(void (*hook)(PPCContext&, std::uint8_t*) = sub_826A3568)
+void checkOriginal(void (*hook)(PPCContext&, std::uint8_t*) = sub_826A3568, std::uint64_t caller = 0x1234)
 {
     PPCContext ctx{};
     ctx.r1.u64    = 0x12345678;
     ctx.r3.u64    = 0x1111222233334444ULL;
     ctx.r4.u64    = 4;
-    ctx.lr        = 0x1234;
+    ctx.lr        = caller;
     auto expected = ctx;
     expected.r3.u64 += 1;
     expected.lr ^= 0x100;
@@ -58,11 +59,17 @@ REX_HOOK_RAW(__imp__sub_826AD150)
     __imp__sub_826A3568(ctx, base);
 }
 
+REX_HOOK_RAW(__imp__sub_826A3000)
+{
+    __imp__sub_826A3568(ctx, base);
+}
+
 int main()
 {
     using namespace rerevved::gpu::diagnostics;
     checkOriginal();
     checkOriginal(sub_826AD150);
+    checkOriginal(sub_826A3000);
     const auto  root = std::filesystem::temp_directory_path() /
                        ("rerevved-guest-draw-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
     std::string error;
@@ -70,8 +77,11 @@ int main()
     // The invalid caller is rejected before any guest memory access. Diagnostic
     // failure must still run the original function with unchanged entry state.
     std::ofstream(root / "arm").close();
+    checkOriginal(sub_826A3000);
+    require(!std::filesystem::exists(root / "result.toml"), "unrelated nonindexed callers are ignored");
     checkOriginal();
     checkOriginal(sub_826AD150);
+    checkOriginal(sub_826A3000);
     const auto result = toml::parse_file((root / "result.toml").string());
     require(!result["complete"].value_or(true) &&
                 result["error"].value_or(std::string{}) == "unexpected caller at guest menu draw boundary",
@@ -105,6 +115,17 @@ int main()
     std::filesystem::remove(root / "arm");
     std::filesystem::remove(root / "result.toml");
     std::filesystem::remove(root / "frame-0000");
+    std::filesystem::remove(root);
+    require(StartNativeGuestDrawCapture(root, error), "label capture starts");
+    std::ofstream(root / "arm").close();
+    checkOriginal(sub_826A3000, 0x82304258);
+    const auto label = toml::parse_file((root / "result.toml").string());
+    require(!label["complete"].value_or(true) &&
+                label["error"].value_or(std::string{}) == "unsupported guest menu vertex stride",
+            "label rejects unsupported stride before reading source geometry");
+    StopNativeGuestDrawCapture();
+    std::filesystem::remove(root / "arm");
+    std::filesystem::remove(root / "result.toml");
     std::filesystem::remove(root);
     return 0;
 }

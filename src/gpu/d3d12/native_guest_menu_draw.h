@@ -13,9 +13,10 @@ struct NativeGuestMenuDraw
     const NativeDrawReplayTexture* texture   = nullptr;
     std::uint32_t                  primitive = 0, minimumVertex = 0, vertexCount = 0;
     std::uint32_t                  indexCount = 0, indexFormat = 0, stride = 0;
+    bool                           indexed = true;
 };
 
-// The admitted GFx shader pairs use at most one sampled texture. Shader
+// The admitted indexed GFx and nonindexed label pairs use at most one texture. Shader
 // identity, fixed state, and the full viewport must match the supported path.
 bool BuildNativeGuestMenuDrawRecipe(const NativeGuestMenuDraw& draw,
                                     const NativeMenuShaders&   shaders,

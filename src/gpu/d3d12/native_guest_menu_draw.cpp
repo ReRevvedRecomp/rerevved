@@ -14,11 +14,14 @@ bool BuildNativeGuestMenuDrawRecipe(const NativeGuestMenuDraw& draw,
                                     NativeDrawReplayRecipe&    recipe,
                                     std::string&               error)
 {
-    recipe = {};
+    recipe             = {};
+    const bool label   = !draw.indexed && draw.stride == 28;
+    const bool indexed = draw.indexed && (draw.stride == 4 || draw.stride == 8 || draw.stride == 12);
     if (draw.state.size() != 0x3500 || draw.primitive != 4 || draw.minimumVertex != 0 ||
-        (draw.stride != 4 && draw.stride != 8 && draw.stride != 12) || draw.indexFormat != 1 ||
+        (!label && !indexed) || !draw.vertexCount ||
         std::uint64_t(draw.vertexCount) * draw.stride != draw.vertices.size() ||
-        std::uint64_t(draw.indexCount) * 2 != draw.indices.size())
+        (indexed && (draw.indexFormat != 1 || std::uint64_t(draw.indexCount) * 2 != draw.indices.size())) ||
+        (label && (draw.indexFormat != 0 || draw.indexCount != 0 || !draw.indices.empty())))
     {
         error = "unsupported guest UI input tuple or state extent";
         return false;
@@ -74,9 +77,14 @@ bool BuildNativeGuestMenuDrawRecipe(const NativeGuestMenuDraw& draw,
     {
         view.vertexShaderHash = draw.stride == 4 ? 0x5F6EB3BC96CE8FC0ULL : 0x1EE55F3AB5213177ULL;
         view.pixelShaderHash  = draw.stride == 4 ? 0x6831098A8316F932ULL : 0x47F2D46F3B8F1668ULL;
+        if (label)
+        {
+            view.vertexShaderHash = 0x2BA2325A7EA93DE3ULL;
+            view.pixelShaderHash  = 0xC3BEC99768EF0D6BULL;
+        }
         // These pinned shader pairs have one normalized 2D fetch from slot 0,
         // with all sampler filters inherited from its fetch constant.
-        if (ps.size() < 6 || ps[3] != 0x10080001 || ps[4] != 0x1F1FF688 || ps[5] != 0x00004000)
+        if (ps.size() < 6 || ps[3] != 0x10080001 || ps[4] != (label ? 0x1F1FF7FFU : 0x1F1FF688U) || ps[5] != 0x00004000)
         {
             error = "unsupported guest UI texture instruction";
             return false;
@@ -111,7 +119,8 @@ bool BuildNativeGuestMenuDrawRecipe(const NativeGuestMenuDraw& draw,
     }
     view.vertexBytes         = draw.vertices;
     view.indexBytes          = draw.indices;
-    view.indexCount          = draw.indexCount;
+    view.indexed             = draw.indexed;
+    view.indexCount          = draw.indexed ? draw.indexCount : draw.vertexCount;
     view.fullViewportTarget  = true;
     view.guestSourceVertices = true;
     return BuildNativeMenuDrawRecipe(view, shaders, recipe, error);
