@@ -50,6 +50,10 @@ REXCVAR_DEFINE_STRING(native_menu_shadow_output, "", "ReRevved", "Fresh ignored 
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_STRING(native_menu_shadow_shaders, "", "ReRevved", "Ignored directory containing the validated panel vs.dxil and ps.dxil")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
+REXCVAR_DEFINE_STRING(native_menu_frame_output, "", "ReRevved", "Fresh ignored directory for one live native menu frame comparison")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
+REXCVAR_DEFINE_STRING(native_menu_frame_shaders, "", "ReRevved", "Ignored directory containing the validated native menu shaders")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 namespace
 {
@@ -308,6 +312,24 @@ bool App::SetupEnvironment()
 #endif
     }
 
+    const std::string frameOutput  = REXCVAR_GET(native_menu_frame_output);
+    const std::string frameShaders = REXCVAR_GET(native_menu_frame_shaders);
+    if (!frameOutput.empty() || !frameShaders.empty())
+    {
+#if !defined(_WIN32)
+        REXLOG_ERROR("Live native menu frame comparison requires Windows D3D12");
+        return false;
+#else
+        if (!shadowOutput.empty() || rendererBackend != rerevved::gpu::RendererBackend::Xenos ||
+            !resolveShadowDirectory(frameOutput, true, nativeMenuFrameOutput) ||
+            !resolveShadowDirectory(frameShaders, false, nativeMenuFrameShaders))
+        {
+            REXLOG_ERROR("Live native frame comparison requires Xenos, its own capture slot, and fresh output and shader directories under out");
+            return false;
+        }
+#endif
+    }
+
     const std::string passiveTraceOutput =
         REXCVAR_GET(native_renderer_passive_trace_output);
     const std::string fenceTraceOutput =
@@ -387,6 +409,16 @@ bool App::SetupPresentation()
         if (!nativeMenuShadow.Start(nativeMenuShadowOutput, nativeMenuShadowShaders, error))
         {
             REXLOG_ERROR("Live native menu comparison setup failed: {}", error);
+            return false;
+        }
+    }
+
+    if (!nativeMenuFrameOutput.empty())
+    {
+        std::string error;
+        if (!nativeMenuFrameShadow.Start(nativeMenuFrameOutput, nativeMenuFrameShaders, error))
+        {
+            REXLOG_ERROR("Live native menu frame setup failed: {}", error);
             return false;
         }
     }
@@ -555,6 +587,7 @@ void App::OnGuestThreadExit(rex::system::XThread* thread)
 
 void App::OnShutdown()
 {
+    nativeMenuFrameShadow.Stop();
     nativeMenuShadow.Stop();
     finalizeFenceTrace();
     finalizePassiveTrace();
@@ -570,6 +603,7 @@ void App::OnShutdown()
 
 bool App::OnWindowCloseRequested()
 {
+    nativeMenuFrameShadow.Stop();
     nativeMenuShadow.Stop();
     finalizeFenceTrace();
     finalizePassiveTrace();

@@ -56,6 +56,12 @@ int main()
     std::string error;
     auto        recipe = makeRecipe();
     require(ValidateNativeDrawReplayRecipe(recipe, error), "textured float4 input admission");
+    recipe.initialSample0.clear();
+    recipe.initialSample1.clear();
+    require(ValidateNativeDrawReplayRecipe(recipe, error), "schema two native clear admission");
+    recipe.initialSample0.resize(64);
+    require(!ValidateNativeDrawReplayRecipe(recipe, error), "partial captured color initialization rejected");
+    recipe            = makeRecipe();
     recipe.sampleMask = 15;
     require(ValidateNativeDrawReplayRecipe(recipe, error), "schema two full raster coverage admission");
     recipe.sampleMask = 3;

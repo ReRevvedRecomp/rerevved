@@ -504,8 +504,10 @@ bool ValidateNativeDrawReplayRecipe(const NativeDrawReplayRecipe& recipe,
         error = "stage and shared constant files must contain complete float4 register values";
         return false;
     }
-    if (recipe.initialSample0.size() != targetBytes ||
-        recipe.initialSample1.size() != targetBytes)
+    const bool nativeClear = recipe.schemaVersion == 2 &&
+                             recipe.initialSample0.empty() && recipe.initialSample1.empty();
+    if (!nativeClear && (recipe.initialSample0.size() != targetBytes ||
+                         recipe.initialSample1.size() != targetBytes))
     {
         error = "initial sample files must be exactly width * height * 4 color bytes";
         return false;
@@ -904,7 +906,7 @@ bool LoadNativeDrawReplayRecipe(const std::filesystem::path& recipePath,
         recipe.initialSample0.assign(combined.begin(), combined.begin() + planeBytes);
         recipe.initialSample1.assign(combined.begin() + planeBytes, combined.end());
     }
-    else
+    else if (recipe.schemaVersion == 1 || paths->contains("initial_sample0") || paths->contains("initial_sample1"))
     {
         if (!readRequiredPath(*paths, "initial_sample0", initialSample0Path, error) ||
             !readRequiredPath(*paths, "initial_sample1", initialSample1Path, error))

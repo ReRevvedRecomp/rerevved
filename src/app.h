@@ -9,6 +9,7 @@
 
 #include "fence_trace_finalization_gate.h"
 #include "gpu/d3d12/native_renderer_d3d12.h"
+#include "gpu/diagnostics/native_menu_frame_shadow.h"
 #include "gpu/diagnostics/native_menu_shadow.h"
 #include "gpu/renderer_backend.h"
 #include "native_renderer_coverage.h"
@@ -80,10 +81,13 @@ private:
     std::filesystem::path                             fenceTraceOutputPath;
     rerevved::gpu::RendererBackend                    rendererBackend =
         rerevved::gpu::RendererBackend::Xenos;
-    rerevved::gpu::NativeRendererD3D12           nativeRenderer;
-    rerevved::gpu::diagnostics::NativeMenuShadow nativeMenuShadow;
-    std::filesystem::path                        nativeMenuShadowOutput;
-    std::filesystem::path                        nativeMenuShadowShaders;
+    rerevved::gpu::NativeRendererD3D12                nativeRenderer;
+    rerevved::gpu::diagnostics::NativeMenuShadow      nativeMenuShadow;
+    rerevved::gpu::diagnostics::NativeMenuFrameShadow nativeMenuFrameShadow;
+    std::filesystem::path                             nativeMenuFrameOutput;
+    std::filesystem::path                             nativeMenuFrameShaders;
+    std::filesystem::path                             nativeMenuShadowOutput;
+    std::filesystem::path                             nativeMenuShadowShaders;
 };
 
 } // namespace rerevved

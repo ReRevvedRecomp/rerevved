@@ -58,10 +58,18 @@ set(REREVVED_SOURCES
     src/gpu/d3d12/native_renderer_d3d12.h
     src/gpu/d3d12/native_draw_replay.cpp
     src/gpu/d3d12/native_draw_replay.h
+    src/gpu/d3d12/native_frame_replay.cpp
+    src/gpu/d3d12/native_frame_replay.h
     src/gpu/d3d12/native_menu_panel.cpp
     src/gpu/d3d12/native_menu_panel.h
+    src/gpu/d3d12/native_menu_draw.cpp
+    src/gpu/d3d12/native_menu_draw.h
+    src/gpu/d3d12/native_menu_frame.cpp
+    src/gpu/d3d12/native_menu_frame.h
     src/gpu/diagnostics/native_menu_shadow.cpp
     src/gpu/diagnostics/native_menu_shadow.h
+    src/gpu/diagnostics/native_menu_frame_shadow.cpp
+    src/gpu/diagnostics/native_menu_frame_shadow.h
     src/gpu/diagnostics/native_renderer_guest_state.cpp
     src/gpu/diagnostics/native_renderer_guest_state.h
     src/gpu/diagnostics/native_renderer_passive_trace.cpp
@@ -131,6 +139,8 @@ if(WIN32)
         src/gpu/d3d12/native_renderer_d3d12.h
         src/gpu/d3d12/native_draw_replay.cpp
         src/gpu/d3d12/native_draw_replay.h
+        src/gpu/d3d12/native_frame_replay.cpp
+        src/gpu/d3d12/native_frame_replay.h
         src/gpu/diagnostics/native_renderer_guest_state.cpp
         src/gpu/diagnostics/native_renderer_guest_state.h
     )
@@ -484,6 +494,15 @@ if(BUILD_TESTING)
     target_link_libraries(native_draw_replay_tests PRIVATE rex::runtime)
     add_test(NAME native_draw_replay_recipe COMMAND native_draw_replay_tests)
 
+    add_executable(native_frame_replay_tests
+        src/gpu/d3d12/native_draw_replay.cpp
+        src/gpu/d3d12/native_frame_replay.cpp
+        tests/gpu/native_frame_replay_test.cpp
+    )
+    target_include_directories(native_frame_replay_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_link_libraries(native_frame_replay_tests PRIVATE rex::runtime)
+    add_test(NAME native_frame_replay_recipe COMMAND native_frame_replay_tests)
+
     add_executable(native_menu_panel_tests
         src/gpu/d3d12/native_draw_replay.cpp
         src/gpu/d3d12/native_menu_panel.cpp
@@ -492,6 +511,17 @@ if(BUILD_TESTING)
     target_include_directories(native_menu_panel_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     target_link_libraries(native_menu_panel_tests PRIVATE rex::runtime)
     add_test(NAME native_menu_panel COMMAND native_menu_panel_tests)
+
+    add_executable(native_menu_draw_tests
+        src/gpu/d3d12/native_draw_replay.cpp
+        src/gpu/d3d12/native_frame_replay.cpp
+        src/gpu/d3d12/native_menu_frame.cpp
+        src/gpu/d3d12/native_menu_draw.cpp
+        tests/gpu/native_menu_draw_test.cpp
+    )
+    target_include_directories(native_menu_draw_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_link_libraries(native_menu_draw_tests PRIVATE rex::runtime)
+    add_test(NAME native_menu_draw COMMAND native_menu_draw_tests)
 
     add_executable(fence_trace_finalization_gate_tests
         tests/fence_trace_finalization_gate_test.cpp

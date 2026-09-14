@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "native_draw_replay.h"
+#include "native_frame_replay.h"
 
 namespace rex::ui
 {
@@ -30,6 +31,7 @@ public:
     // removes existing D3D12 devices. Live callers inherit the host's settings.
     static void            ConfigureReplayDiagnostics();
     NativeDrawReplayResult ReplayOffscreen(const NativeDrawReplayRecipe& recipe);
+    NativeDrawReplayResult ReplayFrame(const NativeFrameReplayRecipe& recipe);
     // Latches the latest non-zero extent and returns acceptance immediately.
     bool Resize(std::uint32_t width, std::uint32_t height);
     void Shutdown();
@@ -42,6 +44,8 @@ private:
                             std::uint32_t  height);
     void headlessReplayThreadMain(NativeDrawReplayRecipe               recipe,
                                   std::promise<NativeDrawReplayResult> result);
+    void frameReplayThreadMain(NativeFrameReplayRecipe              recipe,
+                               std::promise<NativeDrawReplayResult> result);
     void handleRendererFailure();
 
     struct Impl;

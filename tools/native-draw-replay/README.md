@@ -11,6 +11,48 @@ native_draw_replay.exe <recipe-file> <output-samples-file>
 The title driver supplies `-Stage Replay`, `-ReplayRecipe`, and
 `-ReplayOutput`; the harness never starts the guest application.
 
+## Native menu frame
+
+The same tool accepts a frame recipe containing two ordered menu halves:
+
+```toml
+frame_schema_version = 1
+gamma_table = "gamma.bin"
+
+[[halves]]
+draws = ["left-scene/frame.toml", "left-ui/frame.toml"]
+
+[[halves]]
+draws = ["right-scene/frame.toml", "right-ui/frame.toml"]
+```
+
+Each draw uses schema 2 at 640x720 and omits captured initial color and depth
+attachments. Each half starts with transparent black and far depth; subsequent
+draws retain those attachments on the GPU. After the last draw, a GPU pass
+averages guest sample planes with byte half-up rounding and applies the 256
+packed gamma entries. The output is one 1280x720 RGB10A2 image, with an
+additional `<output>.samples` file containing left sample 0, left sample 1,
+right sample 0 and right sample 1 in RGBA8. The harness currently waits for a
+GPU fence per draw and is intended for bounded diagnostics.
+
+For a fresh live comparison, supply `--native_menu_frame_output=<fresh-dir>`
+and `--native_menu_frame_shaders=<shader-dir>` through an interactive title
+launch. Both paths must be under `out/`; the shader directory contains pinned
+`vs_<hash>.dxil` and `ps_<hash>.dxil` files for the supported menu shader pairs.
+After the natural menu is ready, create `<fresh-dir>/capture/arm`. The SDK
+publishes one completed frame of owned registers, geometry, texture uses,
+gamma state and reference pixels directly to the title worker. This path
+does not require RenderDoc. The worker validates draw/clear/resolve ordering,
+renders both halves from native clears, and records `comparison.toml`, native
+pixels and the original owned input evidence. Comparison requires opaque alpha,
+a nonblack reference image and maximum RGB error of 10 in 10-bit units, matching
+the supported full-frame reconstruction tolerance.
+
+The frame path and panel path use the same capture slot and cannot run
+together. Xenos continues guest execution, queries, resolves and presentation
+while this one native frame is compared. The frame diagnostic does not select
+continuous native rendering.
+
 ## Live panel comparison
 
 The Windows title also supports a default-off, one-shot native comparison
@@ -107,6 +149,8 @@ files are little-endian float4 register bytes and may be padded by the
 harness to the D3D12 256-byte CBV alignment. `initial_samples` is two
 concatenated 640 * 720 * 4 byte RGBA8 planes for the supported capture (the
 parser also accepts separate `initial_sample0` and `initial_sample1` paths).
+Omitting both color inputs in schema 2 initializes the target with
+`clear_color_rgba8`. Schema 1 requires both complete captured color planes.
 Host sample 0 maps to guest sample 0 and host sample 3 maps to guest sample 1.
 Schema 1 uses host sample mask `0x9`; this restricts coverage before attribute
 interpolation and can differ from Xenos ROV centroid interpolation.
