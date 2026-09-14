@@ -81,6 +81,13 @@ void geometry()
     require(recipe.indices == std::vector<std::uint32_t>{ 0, 1, 2 }, "nonindexed triangle sequence");
     NativeMenuShaders shaders;
     require(!BuildNativeMenuDrawRecipe(view, shaders, recipe, error), "unverified guest shader rejected");
+    registers[0x48BE] = registers[0x48BF] = 0;
+    view.guestSourceVertices              = true;
+    require(DecodeNativeMenuDrawGeometry(view, recipe, error), "CPU source geometry does not require an uploaded fetch descriptor");
+    view.indexed    = true;
+    view.indexBytes = indices;
+    indices[5]      = 3;
+    require(!DecodeNativeMenuDrawGeometry(view, recipe, error), "CPU source indices remain bounded by owned vertex bytes");
 }
 
 void fixture(const std::filesystem::path& root, const NativeMenuShaders& shaders)

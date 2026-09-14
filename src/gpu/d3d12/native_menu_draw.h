@@ -22,6 +22,10 @@ struct NativeMenuDrawView
     std::uint32_t                  indexFormat      = 0;
     std::uint32_t                  indexEndian      = 1;
     bool                           halfPixelOffset  = true;
+    // Render the guest's complete viewport into one native attachment.
+    bool fullViewportTarget = false;
+    // Direct UP input bytes have a CPU lifetime, not a GPU fetch allocation.
+    bool guestSourceVertices = false;
     // These are owned by the caller and describe the actual sampled resource.
     const NativeDrawReplayTexture* texture = nullptr;
     const NativeDrawReplaySampler* sampler = nullptr;

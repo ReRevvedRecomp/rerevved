@@ -91,15 +91,16 @@ bool state(const NativeMenuDrawView& view, const ShaderContract& shader, NativeD
 {
     const auto                                    r          = view.registers;
     const bool                                    right      = r[0x2080] == 0x7D80;
+    const bool                                    full       = view.fullViewportTarget;
     const std::pair<std::uint32_t, std::uint32_t> required[] = {
         { 0x2000, 0x0A010280 },
         { 0x2001, 0 },
         { 0x2002, 0x530 },
         { 0x200E, 0 },
         { 0x200F, 0x20002000 },
-        { 0x2080, right ? 0x7D80U : 0U },
-        { 0x2081, right ? 640U : 0U },
-        { 0x2082, right ? 0x02D00500U : 0x02D00280U },
+        { 0x2080, !full && right ? 0x7D80U : 0U },
+        { 0x2081, !full && right ? 640U : 0U },
+        { 0x2082, full || right ? 0x02D00500U : 0x02D00280U },
         { 0x2100, 0xFFFFFF },
         { 0x2101, 0 },
         { 0x2102, 0 },
@@ -135,13 +136,13 @@ bool state(const NativeMenuDrawView& view, const ShaderContract& shader, NativeD
     if (!view.halfPixelOffset)
         return fail(error, "menu shader requires the captured half-pixel convention");
     recipe.schemaVersion = 2;
-    recipe.width         = 640;
+    recipe.width         = full ? 1280 : 640;
     recipe.height        = 720;
     recipe.sampleCount   = 4;
     recipe.sampleMask    = shader.scene ? 9 : 15;
     recipe.clearColor    = { 0, 0, 0, 0 };
-    recipe.viewport      = { right ? -640.0F : 0.0F, 0, 1280, 720, 0, shader.scene ? 1.0F : 0.0F };
-    recipe.scissor       = { 0, 0, 640, 720 };
+    recipe.viewport      = { !full && right ? -640.0F : 0.0F, 0, 1280, 720, 0, shader.scene ? 1.0F : 0.0F };
+    recipe.scissor       = { 0, 0, static_cast<std::int32_t>(recipe.width), 720 };
     recipe.depth.enabled = recipe.depth.writeEnabled = shader.scene;
     recipe.rasterizer.cull                           = shader.scene ? 2 : 0;
     recipe.rasterizer.frontCounterClockwise          = shader.scene;
@@ -221,10 +222,12 @@ bool DecodeNativeMenuDrawGeometry(const NativeMenuDrawView& view,
         view.indexCount % 3 || view.indexCount > kMaxGeometryBytes / 4)
         return fail(error, "unsupported menu geometry identity, registers or triangle count");
     const auto r    = view.registers;
-    const auto size = std::uint64_t((r[0x48BF] >> 2) & 0xFFFFFF) * 4;
-    if ((r[0x48BE] & 3) != 3 || (r[0x48BF] & 3) != 2 ||
-        (r[0x48BE] & ~3U) != view.vertexGuestBase ||
-        size != view.vertexBytes.size() || size > kMaxGeometryBytes)
+    const auto size = view.guestSourceVertices ? view.vertexBytes.size() : std::uint64_t((r[0x48BF] >> 2) & 0xFFFFFF) * 4;
+    if (!size || size > kMaxGeometryBytes)
+        return fail(error, "menu vertex bytes exceed the geometry bound");
+    if (!view.guestSourceVertices && ((r[0x48BE] & 3) != 3 || (r[0x48BF] & 3) != 2 ||
+                                      (r[0x48BE] & ~3U) != view.vertexGuestBase ||
+                                      size != view.vertexBytes.size()))
         return fail(error, "menu vertex bytes do not match fetch constant 95");
     if (view.indexed && (view.indexFormat != 0 || view.indexEndian != 1 ||
                          view.indexBytes.size() != std::size_t(view.indexCount) * 2))

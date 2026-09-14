@@ -64,6 +64,8 @@ set(REREVVED_SOURCES
     src/gpu/d3d12/native_menu_panel.h
     src/gpu/d3d12/native_menu_draw.cpp
     src/gpu/d3d12/native_menu_draw.h
+    src/gpu/d3d12/native_guest_menu_draw.cpp
+    src/gpu/d3d12/native_guest_menu_draw.h
     src/gpu/d3d12/native_menu_frame.cpp
     src/gpu/d3d12/native_menu_frame.h
     src/gpu/d3d12/native_texture_upload.cpp
@@ -543,6 +545,16 @@ if(BUILD_TESTING)
     target_include_directories(native_guest_draw_capture_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     target_link_libraries(native_guest_draw_capture_tests PRIVATE rex::runtime)
     add_test(NAME native_guest_draw_capture COMMAND native_guest_draw_capture_tests)
+
+    add_executable(native_guest_menu_draw_tests
+        tests/gpu/native_guest_menu_draw_test.cpp
+        src/gpu/d3d12/native_guest_menu_draw.cpp
+        src/gpu/d3d12/native_menu_draw.cpp
+        src/gpu/d3d12/native_draw_replay.cpp
+    )
+    target_include_directories(native_guest_menu_draw_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_link_libraries(native_guest_menu_draw_tests PRIVATE rex::runtime)
+    add_test(NAME native_guest_menu_draw COMMAND native_guest_menu_draw_tests)
 
     add_executable(fence_trace_finalization_gate_tests
         tests/fence_trace_finalization_gate_test.cpp

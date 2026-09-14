@@ -1,14 +1,20 @@
 #pragma once
 
 #include <filesystem>
+#include <functional>
 #include <string>
+
+#include "gpu/d3d12/native_guest_menu_draw.h"
 
 namespace rerevved::gpu::diagnostics
 {
 
 // Captures bounded, owned CPU inputs to the original indexed UP draw. The
 // caller creates an arm file only after reaching the intended game state.
-bool StartNativeGuestDrawCapture(const std::filesystem::path& directory, std::string& error);
+using NativeGuestDrawConsumer = std::function<bool(const NativeGuestMenuDraw&,
+                                                   const std::filesystem::path&,
+                                                   std::string&)>;
+bool StartNativeGuestDrawCapture(const std::filesystem::path& directory, std::string& error, NativeGuestDrawConsumer consumer = {});
 void StopNativeGuestDrawCapture();
 
 } // namespace rerevved::gpu::diagnostics

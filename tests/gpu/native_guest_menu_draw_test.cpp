@@ -1,0 +1,86 @@
+#include "gpu/d3d12/native_guest_menu_draw.h"
+
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <toml++/toml.hpp>
+
+using namespace rerevved::gpu;
+
+namespace
+{
+
+void require(bool condition, const std::string& message)
+{
+    if (!condition)
+    {
+        std::cerr << message << '\n';
+        std::exit(1);
+    }
+}
+
+std::vector<std::uint8_t> read(const std::filesystem::path& path)
+{
+    const auto size = std::filesystem::file_size(path);
+    require(size <= 16 * 1024 * 1024, "fixture size bound");
+    std::vector<std::uint8_t> bytes(size);
+    std::ifstream             file(path, std::ios::binary);
+    require(bool(file.read(reinterpret_cast<char*>(bytes.data()), bytes.size())), path.string());
+    return bytes;
+}
+
+} // namespace
+
+int main(int argc, char** argv)
+{
+    NativeMenuShaders      shaders;
+    NativeDrawReplayRecipe recipe;
+    NativeGuestMenuDraw    draw;
+    std::string            error;
+    require(!BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), "incomplete CPU input rejected");
+    std::vector<std::uint8_t> emptyState(0x3500);
+    draw.state       = emptyState;
+    draw.primitive   = 4;
+    draw.stride      = 8;
+    draw.indexFormat = 1;
+    require(!BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), "unset viewport rejected");
+    if (argc != 3)
+        return argc == 1 ? 0 : 1;
+    const std::filesystem::path root(argv[1]);
+    require(LoadNativeMenuShaders(argv[2], shaders, error), error);
+    const auto manifest = toml::parse_file((root / "manifest.toml").string());
+    auto       state    = read(root / "state-after.be.bin");
+    auto       vs       = read(root / "vertex-shader.be.bin");
+    const auto ps       = read(root / "pixel-shader.be.bin");
+    const auto vertices = read(root / "vertex.bin"), indices = read(root / "index.bin");
+    draw.state           = state;
+    draw.vertexMicrocode = vs;
+    draw.pixelMicrocode  = ps;
+    draw.vertices        = vertices;
+    draw.indices         = indices;
+    draw.minimumVertex   = manifest["minimum_vertex"].value_or(0U);
+    draw.vertexCount     = manifest["vertex_count"].value_or(0U);
+    draw.indexCount      = manifest["index_count"].value_or(0U);
+    draw.stride          = manifest["stride"].value_or(0U);
+    draw.indexFormat     = manifest["index_format"].value_or(0U);
+    require(BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), error);
+    require(recipe.width == 1280 && recipe.height == 720 && recipe.viewport.x == 0 &&
+                recipe.viewport.width == 1280 && recipe.scissor.right == 1280,
+            "guest full viewport must produce one full-width native target");
+    require(recipe.initialSample0.empty() && recipe.initialSample1.empty() &&
+                recipe.textureMask == 0 && recipe.indexCount == draw.indexCount,
+            "solid guest draw must own its geometry and require no captured attachments");
+    vs[0] ^= 1;
+    require(!BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), "changed guest shader rejected");
+    vs[0] ^= 1;
+    state[0x3170] ^= 1;
+    require(!BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), "changed viewport rejected");
+    state[0x3170] ^= 1;
+    state[0x28C8] ^= 1;
+    require(!BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), "changed guest scissor rejected");
+    state[0x28C8] ^= 1;
+    draw.minimumVertex = 1;
+    require(!BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), "unsupported index bias rejected");
+    std::cout << "Guest shader, viewport, geometry, and rejection checks passed\n";
+    return 0;
+}

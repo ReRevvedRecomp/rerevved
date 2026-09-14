@@ -24,6 +24,7 @@
 #include "build_info.h"
 #include "discord_presence.h"
 #include "game_content.h"
+#include "gpu/d3d12/native_renderer_d3d12.h"
 #include "gpu/diagnostics/native_guest_draw_capture.h"
 #include "gpu/diagnostics/native_renderer_passive_trace.h"
 #include "gpu/guest_gpu_service.h"
@@ -52,6 +53,8 @@ REXCVAR_DEFINE_STRING(native_menu_shadow_output, "", "ReRevved", "Fresh ignored 
 REXCVAR_DEFINE_STRING(native_menu_shadow_shaders, "", "ReRevved", "Ignored directory containing the validated panel vs.dxil and ps.dxil")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_STRING(native_guest_draw_output, "", "ReRevved", "Fresh ignored directory for bounded guest menu draw inputs")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
+REXCVAR_DEFINE_STRING(native_guest_draw_shaders, "", "ReRevved", "Validated native shaders for a live draw from captured guest CPU inputs")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 REXCVAR_DEFINE_STRING(native_menu_frame_output, "", "ReRevved", "Fresh ignored directory for one live native menu frame comparison")
@@ -334,12 +337,19 @@ bool App::SetupEnvironment()
 #endif
     }
 
-    const std::string guestDrawOutput = REXCVAR_GET(native_guest_draw_output);
+    const std::string guestDrawOutput  = REXCVAR_GET(native_guest_draw_output);
+    const std::string guestDrawShaders = REXCVAR_GET(native_guest_draw_shaders);
     if (!guestDrawOutput.empty() &&
         (rendererBackend != rerevved::gpu::RendererBackend::Xenos ||
          !resolveShadowDirectory(guestDrawOutput, true, nativeGuestDrawOutput)))
     {
         REXLOG_ERROR("Guest menu draw capture requires Xenos and a fresh output directory under out");
+        return false;
+    }
+    if (!guestDrawShaders.empty() &&
+        (guestDrawOutput.empty() || !resolveShadowDirectory(guestDrawShaders, false, nativeGuestDrawShaders)))
+    {
+        REXLOG_ERROR("Guest native draw requires a capture output and shader directory under out");
         return false;
     }
 
@@ -438,8 +448,32 @@ bool App::SetupPresentation()
 
     if (!nativeGuestDrawOutput.empty())
     {
-        std::string error;
-        if (!rerevved::gpu::diagnostics::StartNativeGuestDrawCapture(nativeGuestDrawOutput, error))
+        std::string                                         error;
+        rerevved::gpu::diagnostics::NativeGuestDrawConsumer consumer;
+        if (!nativeGuestDrawShaders.empty())
+        {
+            rerevved::gpu::NativeMenuShaders shaders;
+            if (!rerevved::gpu::LoadNativeMenuShaders(nativeGuestDrawShaders, shaders, error))
+            {
+                REXLOG_ERROR("Guest native shader setup failed: {}", error);
+                return false;
+            }
+            consumer = [shaders = std::move(shaders)](const rerevved::gpu::NativeGuestMenuDraw& draw,
+                                                      const std::filesystem::path&              directory,
+                                                      std::string&                              error)
+            {
+                rerevved::gpu::NativeDrawReplayRecipe recipe;
+                if (!rerevved::gpu::BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error))
+                    return false;
+                recipe.outputPath = directory / "live-native-samples.rgba";
+                rerevved::gpu::NativeRendererD3D12 renderer;
+                const auto                         result = renderer.ReplayOffscreen(recipe);
+                renderer.Shutdown();
+                error = result.error;
+                return result.success;
+            };
+        }
+        if (!rerevved::gpu::diagnostics::StartNativeGuestDrawCapture(nativeGuestDrawOutput, error, std::move(consumer)))
         {
             REXLOG_ERROR("Guest menu draw capture setup failed: {}", error);
             return false;

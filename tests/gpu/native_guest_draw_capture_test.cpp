@@ -10,6 +10,7 @@
 #include <toml++/toml.hpp>
 
 REX_EXTERN(sub_826A3568);
+REX_EXTERN(sub_826AD150);
 
 namespace
 {
@@ -25,7 +26,7 @@ void require(bool condition, const char* message)
     }
 }
 
-void checkOriginal()
+void checkOriginal(void (*hook)(PPCContext&, std::uint8_t*) = sub_826A3568)
 {
     PPCContext ctx{};
     ctx.r1.u64    = 0x12345678;
@@ -37,7 +38,7 @@ void checkOriginal()
     expected.lr ^= 0x100;
     std::uint8_t memory = 0;
     const auto   calls  = originalCalls;
-    sub_826A3568(ctx, &memory);
+    hook(ctx, &memory);
     require(originalCalls == calls + 1 && memory == 1, "original draw must run exactly once");
     require(std::memcmp(&ctx, &expected, sizeof(ctx)) == 0, "capture must preserve original context effects");
 }
@@ -52,10 +53,16 @@ REX_HOOK_RAW(__imp__sub_826A3568)
     base[0] += 1;
 }
 
+REX_HOOK_RAW(__imp__sub_826AD150)
+{
+    __imp__sub_826A3568(ctx, base);
+}
+
 int main()
 {
     using namespace rerevved::gpu::diagnostics;
     checkOriginal();
+    checkOriginal(sub_826AD150);
     const auto  root = std::filesystem::temp_directory_path() /
                        ("rerevved-guest-draw-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
     std::string error;
@@ -64,6 +71,7 @@ int main()
     // failure must still run the original function with unchanged entry state.
     std::ofstream(root / "arm").close();
     checkOriginal();
+    checkOriginal(sub_826AD150);
     const auto result = toml::parse_file((root / "result.toml").string());
     require(!result["complete"].value_or(true) &&
                 result["error"].value_or(std::string{}) == "unexpected caller at guest menu draw boundary",

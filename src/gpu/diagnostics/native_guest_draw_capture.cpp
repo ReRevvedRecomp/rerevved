@@ -15,6 +15,7 @@
 #include "gpu/d3d12/native_texture_upload.h"
 
 REX_EXTERN(__imp__sub_826A3568);
+REX_EXTERN(__imp__sub_826AD150);
 
 namespace rerevved::gpu::diagnostics
 {
@@ -31,20 +32,24 @@ struct Session
     bool                                   armed = false, failed = false;
     std::uint32_t                          calls = 0, captures = 0, finished = 0;
     std::set<std::array<std::uint32_t, 4>> layouts;
+    NativeGuestDrawConsumer                consumer;
 };
 
 struct Capture
 {
-    std::shared_ptr<Session> session;
-    std::filesystem::path    directory;
-    toml::table              metadata;
-    std::uint32_t            graphics = 0, cursor = 0;
-    std::uint32_t            vertexSize = 0, indexSize = 0;
+    std::shared_ptr<Session>  session;
+    std::filesystem::path     directory;
+    toml::table               metadata;
+    std::uint32_t             graphics = 0, cursor = 0;
+    std::uint32_t             vertexSize = 0, indexSize = 0;
+    std::vector<std::uint8_t> vertices, indices, vertexMicrocode;
+    NativeGuestMenuDraw       draw;
 };
 
 std::mutex               captureMutex;
 std::shared_ptr<Session> session;
 std::atomic<bool>        enabled{ false };
+thread_local Capture*    activeCapture = nullptr;
 
 std::uint32_t word(const std::uint8_t* bytes)
 {
@@ -168,10 +173,18 @@ std::unique_ptr<Capture> before(const PPCContext& ctx)
         const auto indexSize  = std::uint64_t(ctx.r7.u32) * ((ctx.r9.u32 & 4) ? 4 : 2);
         if (!vertexSize || vertexSize > kMaxGeometryBytes || !indexSize || indexSize > kMaxGeometryBytes)
             throw std::runtime_error("guest menu geometry exceeds capture bounds");
-        capture->vertexSize = static_cast<std::uint32_t>(vertexSize);
-        capture->indexSize  = static_cast<std::uint32_t>(indexSize);
-        save(*capture, "vertex.bin", copyMemory(std::uint64_t(ctx.r10.u32) + std::uint64_t(ctx.r5.u32) * stride, vertexSize));
-        save(*capture, "index.bin", copyMemory(ctx.r8.u32, indexSize));
+        capture->vertexSize         = static_cast<std::uint32_t>(vertexSize);
+        capture->indexSize          = static_cast<std::uint32_t>(indexSize);
+        capture->vertices           = copyMemory(std::uint64_t(ctx.r10.u32) + std::uint64_t(ctx.r5.u32) * stride, vertexSize);
+        capture->indices            = copyMemory(ctx.r8.u32, indexSize);
+        capture->draw.primitive     = ctx.r4.u32;
+        capture->draw.minimumVertex = ctx.r5.u32;
+        capture->draw.vertexCount   = ctx.r6.u32;
+        capture->draw.indexCount    = ctx.r7.u32;
+        capture->draw.indexFormat   = ctx.r9.u32;
+        capture->draw.stride        = stride;
+        save(*capture, "vertex.bin", capture->vertices);
+        save(*capture, "index.bin", capture->indices);
         NativeTextureMemoryRange range;
         NativeDrawReplayTexture  texture;
         std::string              error;
@@ -196,6 +209,33 @@ std::unique_ptr<Capture> before(const PPCContext& ctx)
         fail(exception);
     }
     return {};
+}
+
+void patchedShader(Capture& capture, std::uint32_t shader, std::uint32_t code, std::uint32_t patchState, std::uint32_t variant, std::uint64_t caller)
+{
+    std::lock_guard lock(captureMutex);
+    if (session != capture.session || session->failed)
+        return;
+    try
+    {
+        if (caller != 0x826ADB70 || std::uint64_t(capture.graphics) + 0x30F0 != patchState || variant > 1)
+            throw std::runtime_error("unsupported guest vertex shader patch boundary");
+        // 0x826ADA38 copies this variant's code, then passes that exact buffer
+        // to 0x826AD150 for CPU fetch patching before committing the cursor.
+        const auto relative        = copyMemory(std::uint64_t(shader) + 896 + variant * 8, 4);
+        const auto metadataAddress = std::uint64_t(shader) + word(relative.data()) + 872;
+        const auto metadata        = copyMemory(metadataAddress, 8);
+        const auto size            = word(metadata.data() + 4);
+        if (!size || size > 64 * 1024 || size % 4)
+            throw std::runtime_error("guest vertex shader exceeds capture bounds");
+        capture.vertexMicrocode = copyMemory(code, size);
+        save(capture, "vertex-shader.be.bin", capture.vertexMicrocode);
+        capture.metadata.insert_or_assign("vertex_shader", toml::table{ { "object", shader }, { "variant", variant }, { "patched_code", code }, { "metadata", static_cast<std::int64_t>(metadataAddress) }, { "patch_return", static_cast<std::int64_t>(caller) } });
+    }
+    catch (const std::exception& exception)
+    {
+        fail(exception);
+    }
 }
 
 void after(Capture& capture, const PPCContext& ctx)
@@ -224,6 +264,37 @@ void after(Capture& capture, const PPCContext& ctx)
         }
         if (cursor > capture.cursor && cursor - capture.cursor <= 256U * 1024U)
             save(capture, "commands.be.bin", copyMemory(capture.cursor, cursor - capture.cursor));
+        const auto pixelObject          = word(state.data() + 0x3194);
+        const auto pixelHeader          = copyMemory(pixelObject, 68);
+        const auto pixelMetadataAddress = std::uint64_t(pixelObject) + word(pixelHeader.data() + 64) + 40;
+        const auto pixelMetadata        = copyMemory(pixelMetadataAddress, 8);
+        const auto rawAddress           = std::uint64_t(word(pixelHeader.data() + 24)) + word(pixelMetadata.data());
+        const auto pixelSize            = word(pixelMetadata.data() + 4);
+        if (rawAddress > UINT32_MAX || !pixelSize || pixelSize > 64 * 1024 || pixelSize % 4)
+            throw std::runtime_error("guest pixel shader exceeds capture bounds");
+        // The guest's physical alias calculation in 0x826ADF14, before its
+        // pixel-stage tag is applied. copyMemory validates the physical range.
+        const auto pixelAddress   = (rawAddress & 0x1FFFFFFEULL) + (((rawAddress >> 20) + 512) & 0x1000);
+        const auto pixelMicrocode = copyMemory(pixelAddress, pixelSize, true);
+        save(capture, "pixel-header.be.bin", pixelHeader);
+        save(capture, "pixel-metadata.be.bin", pixelMetadata);
+        save(capture, "pixel-shader.be.bin", pixelMicrocode);
+        capture.metadata.insert("pixel_shader", toml::table{ { "object", pixelObject }, { "metadata", static_cast<std::int64_t>(pixelMetadataAddress) }, { "physical_code", static_cast<std::int64_t>(pixelAddress) } });
+        if (session->consumer && capture.draw.stride == 8)
+        {
+            if (!indexOutput || ctx.r3.u32 != indexOutput || cursor != word(state.data() + 0x3484) ||
+                capture.vertexMicrocode.empty())
+                throw std::runtime_error("guest panel did not complete its upload and CPU shader patch");
+            capture.draw.state           = state;
+            capture.draw.vertices        = capture.vertices;
+            capture.draw.indices         = capture.indices;
+            capture.draw.vertexMicrocode = capture.vertexMicrocode;
+            capture.draw.pixelMicrocode  = pixelMicrocode;
+            std::string error;
+            if (!session->consumer(capture.draw, capture.directory, error))
+                throw std::runtime_error(error);
+            capture.metadata.insert("live_native_draw", true);
+        }
         writeMetadata(capture.directory / "manifest.toml", capture.metadata);
         ++session->finished;
         finishIfReady();
@@ -236,7 +307,7 @@ void after(Capture& capture, const PPCContext& ctx)
 
 } // namespace
 
-bool StartNativeGuestDrawCapture(const std::filesystem::path& directory, std::string& error)
+bool StartNativeGuestDrawCapture(const std::filesystem::path& directory, std::string& error, NativeGuestDrawConsumer consumer)
 {
     std::lock_guard lock(captureMutex);
     try
@@ -245,6 +316,7 @@ bool StartNativeGuestDrawCapture(const std::filesystem::path& directory, std::st
             throw std::runtime_error("guest draw capture requires a fresh directory and one session");
         session            = std::make_shared<Session>();
         session->directory = directory;
+        session->consumer  = std::move(consumer);
         enabled.store(true, std::memory_order_release);
         REXLOG_INFO("Native guest draw capture waiting for {}/arm", directory.string());
         return true;
@@ -272,8 +344,21 @@ void StopNativeGuestDrawCapture()
 
 REX_HOOK_RAW(sub_826A3568)
 {
-    auto capture = rerevved::gpu::diagnostics::before(ctx);
+    auto  capture                             = rerevved::gpu::diagnostics::before(ctx);
+    auto* previous                            = rerevved::gpu::diagnostics::activeCapture;
+    rerevved::gpu::diagnostics::activeCapture = capture.get();
     __imp__sub_826A3568(ctx, base);
+    rerevved::gpu::diagnostics::activeCapture = previous;
     if (capture)
         rerevved::gpu::diagnostics::after(*capture, ctx);
+}
+
+REX_HOOK_RAW(sub_826AD150)
+{
+    auto*      capture = rerevved::gpu::diagnostics::activeCapture;
+    const auto shader = ctx.r3.u32, code = ctx.r4.u32, patchState = ctx.r6.u32, variant = ctx.r7.u32;
+    const auto caller = ctx.lr;
+    __imp__sub_826AD150(ctx, base);
+    if (capture)
+        rerevved::gpu::diagnostics::patchedShader(*capture, shader, code, patchState, variant, caller);
 }
