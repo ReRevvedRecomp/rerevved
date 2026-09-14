@@ -168,6 +168,8 @@ struct NativeDrawReplayResult
     bool                  success = false;
     std::filesystem::path outputPath;
     std::string           error;
+    // Non-zero only for a successfully completed persistent stream frame.
+    std::uint64_t completionFenceValue = 0;
 };
 
 bool LoadNativeDrawReplayRecipe(const std::filesystem::path& recipePath,

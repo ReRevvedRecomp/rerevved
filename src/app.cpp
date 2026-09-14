@@ -5,6 +5,7 @@
 #endif
 
 #include <filesystem>
+#include <fstream>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -459,11 +460,19 @@ bool App::SetupPresentation()
                 REXLOG_ERROR("Guest native shader setup failed: {}", error);
                 return false;
             }
-            auto frames = std::make_shared<rerevved::gpu::NativeDrawFramesRecipe>();
-            frames->frames.emplace_back();
-            consumer = [shaders = std::move(shaders), frames, bytes = std::size_t{ 0 }](const rerevved::gpu::NativeGuestMenuDraw& draw,
-                                                                                        const std::filesystem::path&              directory,
-                                                                                        std::string&                              error) mutable
+
+            struct FrameSubmission
+            {
+                rerevved::gpu::NativeRendererD3D12                 renderer;
+                std::vector<rerevved::gpu::NativeDrawReplayRecipe> draws;
+                std::size_t                                        bytes = 0;
+                std::uint32_t                                      frame = 0;
+            };
+
+            auto submission = std::make_shared<FrameSubmission>();
+            consumer        = [shaders = std::move(shaders), submission](const rerevved::gpu::NativeGuestMenuDraw& draw,
+                                                                         const std::filesystem::path&              directory,
+                                                                         std::string&                              error)
             {
                 rerevved::gpu::NativeDrawReplayRecipe recipe;
                 if (!rerevved::gpu::BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error))
@@ -473,30 +482,58 @@ bool App::SetupPresentation()
                                        recipe.vertexConstants.size() + recipe.pixelConstants.size() +
                                        recipe.sharedConstants.size() + recipe.textures[0].bytes.size() +
                                        recipe.textures[1].bytes.size() + recipe.textures[2].bytes.size();
-                if (drawBytes > 512U * 1024U * 1024U - bytes || frames->frames.back().size() >= 256)
+                if (drawBytes > 512U * 1024U * 1024U - submission->bytes || submission->draws.size() >= 256)
                 {
                     error = "guest native menu recipes exceed the owned input bound";
                     return false;
                 }
-                bytes += drawBytes;
+                submission->bytes += drawBytes;
                 recipe.sourcePath = directory;
-                frames->frames.back().push_back(std::move(recipe));
+                submission->draws.push_back(std::move(recipe));
                 return true;
             };
-            frameConsumer = [frames](const std::filesystem::path& directory, bool last, std::string& error)
+            frameConsumer = [submission](const std::filesystem::path& directory, bool last, std::string& error)
             {
-                if (!last)
+                const auto nativeDirectory = directory / "native";
+                if (submission->frame == 0)
                 {
-                    frames->frames.emplace_back();
-                    return true;
+                    if (!std::filesystem::create_directory(nativeDirectory))
+                    {
+                        error = "guest native submission requires a fresh output directory";
+                        return false;
+                    }
+                    if (!submission->renderer.StartDrawStream(error))
+                        return false;
                 }
-                frames->outputDirectory = directory / "native";
-                rerevved::gpu::NativeRendererD3D12 renderer;
-                const auto                         result = renderer.ReplayDrawFrames(*frames);
-                renderer.Shutdown();
-                frames->frames.clear();
-                error = result.error;
-                return result.success;
+                const auto drawCount  = submission->draws.size();
+                const auto inputBytes = submission->bytes;
+                const auto result     = submission->renderer.SubmitDrawFrame(
+                    std::move(submission->draws), nativeDirectory / fmt::format("frame-{}.rgba", submission->frame));
+                submission->draws.clear();
+                submission->bytes = 0;
+                error             = result.error;
+                if (!result.success)
+                {
+                    submission->renderer.Shutdown();
+                    return false;
+                }
+                std::ofstream record(nativeDirectory / fmt::format("frame-{}.toml", submission->frame));
+                record << "frame_epoch = " << submission->frame
+                       << "\nsubmitted_draws = " << drawCount
+                       << "\nowned_input_bytes = " << inputBytes
+                       << "\ncompletion_fence = " << result.completionFenceValue
+                       << "\ncompleted_before_guest_swap = true\n";
+                record.close();
+                if (!record)
+                {
+                    error = "could not save native frame completion record";
+                    submission->renderer.Shutdown();
+                    return false;
+                }
+                ++submission->frame;
+                if (last)
+                    submission->renderer.Shutdown();
+                return true;
             };
         }
         if (!rerevved::gpu::diagnostics::StartNativeGuestDrawCapture(nativeGuestDrawOutput, error, std::move(consumer), std::move(frameConsumer)))

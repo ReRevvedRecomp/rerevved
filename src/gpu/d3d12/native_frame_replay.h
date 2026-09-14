@@ -2,6 +2,7 @@
 
 #include <array>
 #include <filesystem>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -31,6 +32,9 @@ struct NativeDrawFramesRecipe
 };
 
 bool ValidateNativeDrawFramesRecipe(const NativeDrawFramesRecipe& recipe, std::string& error);
+
+// Validates one owned full-width frame without copying its draw inputs.
+bool ValidateNativeDrawFrame(std::span<const NativeDrawReplayRecipe> draws, std::string& error);
 
 bool ValidateNativeFrameReplayRecipe(const NativeFrameReplayRecipe& recipe,
                                      std::string&                   error);

@@ -509,6 +509,21 @@ if(BUILD_TESTING)
     target_link_libraries(native_frame_replay_tests PRIVATE rex::runtime)
     add_test(NAME native_frame_replay_recipe COMMAND native_frame_replay_tests)
 
+    if(WIN32)
+        add_executable(native_frame_stream_tests
+            tests/gpu/native_frame_stream_test.cpp
+            src/gpu/d3d12/native_renderer_d3d12.cpp
+            src/gpu/d3d12/native_draw_replay.cpp
+            src/gpu/d3d12/native_frame_replay.cpp
+            src/gpu/diagnostics/native_renderer_guest_state.cpp
+        )
+        target_include_directories(native_frame_stream_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+        target_link_libraries(native_frame_stream_tests PRIVATE rex::runtime d3d12 dxgi dxguid d3dcompiler)
+        rexglue_apply_target_settings(native_frame_stream_tests)
+        add_test(NAME native_frame_stream COMMAND native_frame_stream_tests)
+        set_tests_properties(native_frame_stream PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+    endif()
+
     add_executable(native_menu_panel_tests
         src/gpu/d3d12/native_draw_replay.cpp
         src/gpu/d3d12/native_menu_panel.cpp

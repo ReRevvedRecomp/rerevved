@@ -252,11 +252,8 @@ class NativeRendererIntegrationTests(unittest.TestCase):
         self.assertIn("resizeOnRendererThread", NATIVE_CPP)
         self.assertIn("shutdownOnRendererThread", NATIVE_CPP)
 
-        resize = NATIVE_CPP[
-            NATIVE_CPP.index("bool NativeRendererD3D12::Resize(") : NATIVE_CPP.index(
-                "void NativeRendererD3D12::Shutdown()"
-            )
-        ]
+        resize_start = NATIVE_CPP.index("bool NativeRendererD3D12::Resize(")
+        resize = NATIVE_CPP[resize_start : NATIVE_CPP.index("\n}\n", resize_start)]
         self.assertIn("requestedWidth", resize)
         self.assertIn("requestedHeight", resize)
         self.assertIn("resizePending", resize)

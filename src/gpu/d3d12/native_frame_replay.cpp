@@ -12,6 +12,60 @@ namespace
 constexpr std::size_t kMaxDraws      = 1024;
 constexpr std::size_t kMaxFrameBytes = 512U * 1024U * 1024U;
 
+bool validateNativeDrawSpan(std::span<const NativeDrawReplayRecipe> draws,
+                            std::uint32_t                           width,
+                            std::size_t&                            totalDraws,
+                            std::size_t&                            totalBytes,
+                            std::string&                            error)
+{
+    if (draws.empty() ||
+        (width == 1280 && draws.size() > 256) ||
+        draws.size() > kMaxDraws - totalDraws)
+    {
+        error = width == 1280 ? "native menu frame exceeds its draw count bound"
+                              : "frame halves must be nonempty and fit the draw bound";
+        return false;
+    }
+    totalDraws += draws.size();
+    for (std::size_t index = 0; index < draws.size(); ++index)
+    {
+        const auto& draw        = draws[index];
+        const auto  nativeClear = std::array<std::uint8_t, 4>{ 0, 0, 0, 0 };
+        const auto  opaqueClear = std::array<std::uint8_t, 4>{ 0, 0, 0, 255 };
+        if (draw.schemaVersion != 2 || draw.width != width || draw.height != 720 ||
+            draw.targetFormat != NativeDrawReplayTargetFormat::Rgba8 ||
+            !draw.initialSample0.empty() || !draw.initialSample1.empty() ||
+            !draw.depth.initialSamples.empty() || draw.depth.initialClear != 1.0F ||
+            (draw.clearColor != nativeClear && !(index == 0 && draw.clearColor == opaqueClear)))
+        {
+            error = width == 1280 ? "native menu frames require full-width color and native black/far clears"
+                                  : "frame draws require the menu extent and native black/far clears without captured attachments";
+            return false;
+        }
+        if (!ValidateNativeDrawReplayRecipe(draw, error))
+            return false;
+        for (const auto size : { draw.vertexShaderDxil.size(),
+                                 draw.pixelShaderDxil.size(),
+                                 draw.vertexData.size(),
+                                 draw.indices.size() * sizeof(std::uint32_t),
+                                 draw.vertexConstants.size(),
+                                 draw.pixelConstants.size(),
+                                 draw.sharedConstants.size(),
+                                 draw.textures[0].bytes.size() + draw.textures[1].bytes.size() +
+                                     draw.textures[2].bytes.size() })
+        {
+            if (size > kMaxFrameBytes - totalBytes)
+            {
+                error = width == 1280 ? "native menu frame inputs exceed the owned byte bound"
+                                      : "frame inputs exceed the owned byte bound";
+                return false;
+            }
+            totalBytes += size;
+        }
+    }
+    return true;
+}
+
 bool resolveInput(const std::filesystem::path& root, const toml::node* node, std::filesystem::path& result, std::string& error)
 {
     const auto name = node ? node->value<std::string>() : std::nullopt;
@@ -46,41 +100,22 @@ bool ValidateNativeDrawFramesRecipe(const NativeDrawFramesRecipe& recipe, std::s
         error = "native menu replay requires one through eight consecutive frames";
         return false;
     }
-    std::size_t bytes = 0, count = 0;
+    std::size_t bytes = 0;
+    std::size_t count = 0;
     for (const auto& frame : recipe.frames)
     {
-        if (frame.empty() || frame.size() > 256 || frame.size() > kMaxDraws - count)
-        {
-            error = "native menu frame exceeds its draw count bound";
+        if (!validateNativeDrawSpan(frame, 1280, count, bytes, error))
             return false;
-        }
-        count += frame.size();
-        for (const auto& draw : frame)
-        {
-            if (draw.schemaVersion != 2 || draw.width != 1280 || draw.height != 720 ||
-                draw.sampleCount != 4 || draw.targetFormat != NativeDrawReplayTargetFormat::Rgba8 ||
-                !draw.initialSample0.empty() || !draw.initialSample1.empty() ||
-                !draw.depth.initialSamples.empty() || draw.depth.initialClear != 1.0F ||
-                (draw.clearColor != std::array<std::uint8_t, 4>{} &&
-                 !(&draw == &frame.front() && draw.clearColor == std::array<std::uint8_t, 4>{ 0, 0, 0, 255 })))
-            {
-                error = "native menu frames require full-width color and native black/far clears";
-                return false;
-            }
-            if (!ValidateNativeDrawReplayRecipe(draw, error))
-                return false;
-            for (const auto size : { draw.vertexShaderDxil.size(), draw.pixelShaderDxil.size(), draw.vertexData.size(), draw.indices.size() * sizeof(std::uint32_t), draw.vertexConstants.size(), draw.pixelConstants.size(), draw.sharedConstants.size(), draw.textures[0].bytes.size() + draw.textures[1].bytes.size() + draw.textures[2].bytes.size() })
-            {
-                if (size > kMaxFrameBytes - bytes)
-                {
-                    error = "native menu frame inputs exceed the owned byte bound";
-                    return false;
-                }
-                bytes += size;
-            }
-        }
     }
     return true;
+}
+
+bool ValidateNativeDrawFrame(std::span<const NativeDrawReplayRecipe> draws, std::string& error)
+{
+    error.clear();
+    std::size_t count = 0;
+    std::size_t bytes = 0;
+    return validateNativeDrawSpan(draws, 1280, count, bytes, error);
 }
 
 bool ValidateNativeFrameReplayRecipe(const NativeFrameReplayRecipe& recipe,
@@ -91,36 +126,8 @@ bool ValidateNativeFrameReplayRecipe(const NativeFrameReplayRecipe& recipe,
     std::size_t bytes = 0;
     for (const auto& half : recipe.halves)
     {
-        if (half.empty() || half.size() > kMaxDraws - count)
-        {
-            error = "frame halves must be nonempty and fit the draw bound";
+        if (!validateNativeDrawSpan(half, 640, count, bytes, error))
             return false;
-        }
-        count += half.size();
-        for (const auto& draw : half)
-        {
-            if (draw.schemaVersion != 2 || draw.width != 640 || draw.height != 720 ||
-                draw.targetFormat != NativeDrawReplayTargetFormat::Rgba8 ||
-                !draw.initialSample0.empty() || !draw.initialSample1.empty() ||
-                !draw.depth.initialSamples.empty() || draw.depth.initialClear != 1.0F ||
-                (draw.clearColor != std::array<std::uint8_t, 4>{ 0, 0, 0, 0 } &&
-                 !(&draw == &half.front() && draw.clearColor == std::array<std::uint8_t, 4>{ 0, 0, 0, 255 })))
-            {
-                error = "frame draws require the menu extent and native black/far clears without captured attachments";
-                return false;
-            }
-            if (!ValidateNativeDrawReplayRecipe(draw, error))
-                return false;
-            for (const auto size : { draw.vertexShaderDxil.size(), draw.pixelShaderDxil.size(), draw.vertexData.size(), draw.indices.size() * sizeof(std::uint32_t), draw.vertexConstants.size(), draw.pixelConstants.size(), draw.sharedConstants.size(), draw.textures[0].bytes.size() + draw.textures[1].bytes.size() + draw.textures[2].bytes.size() })
-            {
-                if (size > kMaxFrameBytes - bytes)
-                {
-                    error = "frame inputs exceed the owned byte bound";
-                    return false;
-                }
-                bytes += size;
-            }
-        }
     }
     return true;
 }

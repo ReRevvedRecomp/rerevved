@@ -1,8 +1,11 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <future>
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "native_draw_replay.h"
 #include "native_frame_replay.h"
@@ -33,6 +36,13 @@ public:
     NativeDrawReplayResult ReplayOffscreen(const NativeDrawReplayRecipe& recipe);
     NativeDrawReplayResult ReplayFrame(const NativeFrameReplayRecipe& recipe);
     NativeDrawReplayResult ReplayDrawFrames(const NativeDrawFramesRecipe& recipe);
+    // Starts a persistent headless 1280x720 stream; lifecycle operations stay owner-serialized.
+    bool StartDrawStream(std::string& error);
+    // Takes owned draws, blocks through native completion, and optionally writes two RGBA8 sample planes;
+    // SubmitDrawFrame and Shutdown may run concurrently, with shutdown draining or cancelling the waiter.
+    NativeDrawReplayResult SubmitDrawFrame(
+        std::vector<NativeDrawReplayRecipe> draws,
+        const std::filesystem::path&        sampleOutputPath = {});
     // Latches the latest non-zero extent and returns acceptance immediately.
     bool Resize(std::uint32_t width, std::uint32_t height);
     void Shutdown();
@@ -45,6 +55,7 @@ private:
                             std::uint32_t  height);
     void headlessReplayThreadMain(NativeDrawReplayRecipe               recipe,
                                   std::promise<NativeDrawReplayResult> result);
+    void drawStreamThreadMain();
     void frameReplayThreadMain(NativeFrameReplayRecipe              recipe,
                                std::promise<NativeDrawReplayResult> result);
     void handleRendererFailure();

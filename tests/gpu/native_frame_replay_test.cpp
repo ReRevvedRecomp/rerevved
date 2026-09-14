@@ -2,6 +2,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <utility>
 
 using namespace rerevved::gpu;
 
@@ -90,6 +91,16 @@ int main()
     ui.scissor.right          = 1280;
     frames.frames             = { { ui, ui }, { ui }, { ui } };
     require(ValidateNativeDrawFramesRecipe(frames, error), "consecutive full UI frames admitted");
+    auto singleFrame = frames.frames[0];
+    require(ValidateNativeDrawFrame(singleFrame, error), "single full UI frame admitted without copying");
+    auto wideHalf = makeFrame().halves[0];
+    wideHalf.resize(257, wideHalf.front());
+    auto wideFrame      = makeFrame();
+    wideFrame.halves[0] = std::move(wideHalf);
+    require(ValidateNativeFrameReplayRecipe(wideFrame, error),
+            "wide frame half retains its aggregate draw bound");
+    singleFrame[1].initialSample0.resize(1280 * 720 * 4);
+    require(!ValidateNativeDrawFrame(singleFrame, error), "single frame captured color attachments rejected");
     frames.frames[0][0].clearColor[3] = 255;
     require(ValidateNativeDrawFramesRecipe(frames, error), "guest opaque initial clear admitted");
     frames.frames[0][1].clearColor[3] = 255;
