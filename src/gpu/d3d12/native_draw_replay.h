@@ -98,6 +98,30 @@ struct NativeDrawReplaySampler
     float                        mipBias = 0.0F;
 };
 
+struct NativeDrawReplayDepthState
+{
+    bool enabled      = false;
+    bool writeEnabled = false;
+    // D3D comparison values: never=1 through always=8.
+    std::uint32_t compare      = 4;
+    float         initialClear = 1.0F;
+    // Optional two planes of little-endian (depth24 << 8), with zero stencil.
+    std::vector<std::uint8_t> initialSamples;
+};
+
+struct NativeDrawReplayRasterizer
+{
+    // none=0, front=1, back=2.
+    std::uint32_t cull                  = 0;
+    bool          frontCounterClockwise = false;
+};
+
+enum class NativeDrawReplayTargetFormat : std::uint8_t
+{
+    Rgba8,
+    Rgb10a2,
+};
+
 // The recipe is deliberately made of host-independent bytes and scalar state.
 // All byte files are little-endian and are bounded by LoadNativeDrawReplayRecipe.
 struct NativeDrawReplayRecipe
@@ -117,12 +141,15 @@ struct NativeDrawReplayRecipe
     std::vector<std::uint8_t>  initialSample0;
     std::vector<std::uint8_t>  initialSample1;
 
-    std::array<std::uint8_t, 4> clearColor = { 0, 0, 0, 255 };
-    NativeDrawReplayViewport    viewport;
-    NativeDrawReplayScissor     scissor;
-    NativeDrawReplayBlendState  blend;
-    NativeDrawReplayTexture     texture;
-    NativeDrawReplaySampler     sampler;
+    std::array<std::uint8_t, 4>  clearColor = { 0, 0, 0, 255 };
+    NativeDrawReplayViewport     viewport;
+    NativeDrawReplayScissor      scissor;
+    NativeDrawReplayBlendState   blend;
+    NativeDrawReplayTexture      texture;
+    NativeDrawReplaySampler      sampler;
+    NativeDrawReplayDepthState   depth;
+    NativeDrawReplayRasterizer   rasterizer;
+    NativeDrawReplayTargetFormat targetFormat = NativeDrawReplayTargetFormat::Rgba8;
 
     std::uint32_t width                = 0;
     std::uint32_t height               = 0;

@@ -1,7 +1,8 @@
 # Native draw replay
 
 `native_draw_replay.exe` consumes one validated TOML recipe and writes two
-guest-order RGBA8 sample planes after the D3D12 queue fence completes:
+guest-order color sample planes, followed by two packed depth planes when
+depth is enabled, after the D3D12 queue fence completes:
 
 ```
 native_draw_replay.exe <recipe-file> <output-samples-file>
@@ -89,11 +90,18 @@ does not inspect shader computation to enforce that export contract. Neither
 mode alone establishes parity; compare the resulting sample bytes.
 The output path is the second CLI argument and is not taken from the recipe.
 
+Schema 2 accepts optional `[target] format = "rgb10a2_unorm"`; the default is
+`rgba8_unorm`. RGB10A2 initial and output samples are little-endian uint32
+values with R in bits 0-9, G in 10-19, B in 20-29, and A in 30-31. Both formats
+use four bytes per sample. Texture sampling, render targets, and readback retain
+the declared target precision. The RGB10A2 subset requires depth disabled.
+`clear_color_rgba8` remains four normalized byte components in either format.
+
 The executable uses the native renderer's D3D12 device, direct queue, fence,
 and renderer thread. It requires translated DXIL supplied by the recipe and
 rejects non-triangle geometry, non-uint32 indices, invalid ranges, unsupported
-sample state, and over-bound inputs before creating GPU work. Depth and stencil
-are disabled in this replay subset.
+sample state, and over-bound inputs before creating GPU work. Depth is optional
+in schema 2; stencil testing is disabled.
 
 ## Textured triangle recipes
 
@@ -149,6 +157,41 @@ The shader binding contract is:
 
 Both stages must agree on the supplied shared-constant layout. Texture and
 sampler arrays must be bounded to one descriptor, with accesses specialized to
-index zero. Multi-texture, cube, volume, mip-chain, and depth/stencil draws need
+index zero. Multi-texture, cube, volume, mip-chain, and stencil draws need
 additional replay support. A successful replay proves execution and readback;
 compare the sample bytes against the captured draw to assess rendering parity.
+
+## Depth and rasterizer state
+
+Schema 2 accepts these optional tables. Without them, depth is disabled and
+culling is off.
+
+```toml
+[depth]
+enabled = true
+write_enabled = true
+compare = "less_equal"
+initial_clear = 1.0
+initial_samples = "depth-before.bin"
+
+[rasterizer]
+cull = "back"
+front_counter_clockwise = false
+```
+
+Depth uses a native four-sample `D24_UNORM_S8_UINT` resource. Comparisons are
+`never`, `less`, `equal`, `less_equal`, `greater`, `not_equal`, `greater_equal`,
+and `always`; culling is `none`, `front`, or `back`. The supplied vertex and
+pixel shaders must preserve the captured depth and winding semantics. A pixel
+shader that does not export guest depth must not introduce an `SV_Depth` output.
+
+`initial_clear` initializes every depth sample. The optional `initial_samples`
+file replaces host samples 0 and 3 with two packed depth planes, each exactly
+`width * height * 4` bytes. Each little-endian uint32 is `depth24 << 8`; the
+low stencil byte must be zero. Depth initialization uses sample-masked draws,
+and depth tests and writes use the native DSV. Stencil remains zero.
+
+With depth enabled, the output contains color sample 0, color sample 1, depth
+sample 0, then depth sample 1. Depth readback uses the same packed format as
+the input. These are sample planes, not a guest resolve. With depth disabled,
+the output contains only the two color planes.

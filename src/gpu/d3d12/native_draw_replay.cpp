@@ -313,14 +313,14 @@ bool ValidateNativeDrawReplayRecipe(const NativeDrawReplayRecipe& recipe,
     if (recipe.width == 0 || recipe.height == 0 ||
         recipe.width > kMaxTargetExtent || recipe.height > kMaxTargetExtent)
     {
-        error = "replay target extent is outside the bounded RGBA8 range";
+        error = "replay target extent is outside the bounded color range";
         return false;
     }
     const std::uint64_t targetBytes =
         static_cast<std::uint64_t>(recipe.width) * recipe.height * 4ULL;
     if (targetBytes > kMaxTargetBytes)
     {
-        error = "replay target extent exceeds the bounded RGBA8 byte range";
+        error = "replay target extent exceeds the bounded color byte range";
         return false;
     }
     if (recipe.sampleCount != 4 ||
@@ -334,6 +334,40 @@ bool ValidateNativeDrawReplayRecipe(const NativeDrawReplayRecipe& recipe,
     {
         error = "unsupported replay recipe schema";
         return false;
+    }
+    if ((recipe.targetFormat != NativeDrawReplayTargetFormat::Rgba8 &&
+         recipe.targetFormat != NativeDrawReplayTargetFormat::Rgb10a2) ||
+        ((recipe.schemaVersion == 1 || recipe.depth.enabled) &&
+         recipe.targetFormat != NativeDrawReplayTargetFormat::Rgba8))
+    {
+        error = "unsupported replay target format";
+        return false;
+    }
+    if (recipe.rasterizer.cull > 2 || recipe.depth.compare < 1 || recipe.depth.compare > 8 ||
+        !std::isfinite(recipe.depth.initialClear) || recipe.depth.initialClear < 0.0F ||
+        recipe.depth.initialClear > 1.0F ||
+        (!recipe.depth.enabled && (recipe.depth.writeEnabled || !recipe.depth.initialSamples.empty())) ||
+        (recipe.schemaVersion == 1 && (recipe.depth.enabled || recipe.rasterizer.cull != 0 ||
+                                       recipe.rasterizer.frontCounterClockwise)))
+    {
+        error = "unsupported replay depth or rasterizer state";
+        return false;
+    }
+    if (!recipe.depth.initialSamples.empty())
+    {
+        if (recipe.depth.initialSamples.size() != targetBytes * 2)
+        {
+            error = "initial depth samples must contain two complete packed depth24 planes";
+            return false;
+        }
+        for (std::size_t offset = 0; offset < recipe.depth.initialSamples.size(); offset += 4)
+        {
+            if (recipe.depth.initialSamples[offset] != 0)
+            {
+                error = "stencil input is outside the supported depth-only replay subset";
+                return false;
+            }
+        }
     }
     if ((recipe.schemaVersion == 1 &&
          (recipe.textureMask != 0 || recipe.vertexShaderHash != kExpectedVertexHash ||
@@ -473,7 +507,7 @@ bool ValidateNativeDrawReplayRecipe(const NativeDrawReplayRecipe& recipe,
     if (recipe.initialSample0.size() != targetBytes ||
         recipe.initialSample1.size() != targetBytes)
     {
-        error = "initial sample files must be exactly width * height * 4 RGBA8 bytes";
+        error = "initial sample files must be exactly width * height * 4 color bytes";
         return false;
     }
     if (!std::isfinite(recipe.viewport.x) || !std::isfinite(recipe.viewport.y) ||
@@ -572,14 +606,14 @@ bool LoadNativeDrawReplayRecipe(const std::filesystem::path& recipePath,
     if (recipe.width == 0 || recipe.height == 0 ||
         recipe.width > kMaxTargetExtent || recipe.height > kMaxTargetExtent)
     {
-        error = "replay target extent is outside the bounded RGBA8 range";
+        error = "replay target extent is outside the bounded color range";
         return false;
     }
     const auto targetBytes =
         static_cast<std::uint64_t>(recipe.width) * recipe.height * 4ULL;
     if (targetBytes > kMaxTargetBytes)
     {
-        error = "replay target extent exceeds the bounded RGBA8 byte range";
+        error = "replay target extent exceeds the bounded color byte range";
         return false;
     }
     if (!readRequired(*target, "sample_count", value, error) || value < 0 || value > std::numeric_limits<std::uint32_t>::max())
@@ -590,6 +624,21 @@ bool LoadNativeDrawReplayRecipe(const std::filesystem::path& recipePath,
     recipe.sampleMask = static_cast<std::uint32_t>(value);
     if (!readColor(*target, "clear_color_rgba8", recipe.clearColor, error))
         return false;
+    if (target->contains("format"))
+    {
+        std::string format;
+        if (!readRequired(*target, "format", format, error))
+            return false;
+        if (format == "rgba8_unorm")
+            recipe.targetFormat = NativeDrawReplayTargetFormat::Rgba8;
+        else if (format == "rgb10a2_unorm")
+            recipe.targetFormat = NativeDrawReplayTargetFormat::Rgb10a2;
+        else
+        {
+            error = "unsupported replay target format";
+            return false;
+        }
+    }
 
     std::string topology;
     bool        indexed = false;
@@ -677,6 +726,66 @@ bool LoadNativeDrawReplayRecipe(const std::filesystem::path& recipePath,
         !readRequiredPath(*paths, "shared_constants", sharedConstantsPath, error))
         return false;
     std::filesystem::path resolved;
+    if (const auto* rasterizer = table["rasterizer"].as_table())
+    {
+        std::string cull;
+        if (!readRequired(*rasterizer, "cull", cull, error) ||
+            !readRequired(*rasterizer, "front_counter_clockwise", recipe.rasterizer.frontCounterClockwise, error))
+            return false;
+        if (cull == "none")
+            recipe.rasterizer.cull = 0;
+        else if (cull == "front")
+            recipe.rasterizer.cull = 1;
+        else if (cull == "back")
+            recipe.rasterizer.cull = 2;
+        else
+        {
+            error = "unsupported replay cull mode";
+            return false;
+        }
+    }
+    else if (table.contains("rasterizer"))
+    {
+        error = "replay rasterizer must be a table";
+        return false;
+    }
+    if (const auto* depth = table["depth"].as_table())
+    {
+        std::string compare;
+        if (!readRequired(*depth, "enabled", recipe.depth.enabled, error) ||
+            !readRequired(*depth, "write_enabled", recipe.depth.writeEnabled, error) ||
+            !readRequired(*depth, "compare", compare, error) ||
+            !readFloat(*depth, "initial_clear", recipe.depth.initialClear, error))
+            return false;
+        constexpr std::array<std::string_view, 8> comparisons = {
+            "never", "less", "equal", "less_equal", "greater", "not_equal", "greater_equal", "always"
+        };
+        const auto found = std::find(comparisons.begin(), comparisons.end(), compare);
+        if (found == comparisons.end())
+        {
+            error = "unsupported replay depth comparison";
+            return false;
+        }
+        recipe.depth.compare = static_cast<std::uint32_t>(found - comparisons.begin()) + 1;
+        if (depth->contains("initial_samples"))
+        {
+            std::filesystem::path input;
+            if (!readRequiredPath(*depth, "initial_samples", input, error) ||
+                !resolveRecipePath(root, input, resolved, error) ||
+                !readBytes(resolved, kMaxCombinedTargetBytes, recipe.depth.initialSamples, error))
+                return false;
+            if (recipe.depth.initialSamples.empty())
+            {
+                error = "initial depth samples must not be empty";
+                return false;
+            }
+        }
+    }
+    else if (table.contains("depth"))
+    {
+        error = "replay depth must be a table";
+        return false;
+    }
     if (recipe.textureMask != 0)
     {
         const auto* texture = table["texture"].as_table();
@@ -788,7 +897,7 @@ bool LoadNativeDrawReplayRecipe(const std::filesystem::path& recipePath,
         if (!readBytes(resolved, kMaxCombinedTargetBytes, combined, error) ||
             combined.size() != combinedBytes)
         {
-            error = "combined initial_samples must contain two complete RGBA8 planes";
+            error = "combined initial_samples must contain two complete color planes";
             return false;
         }
         const auto planeBytes = combined.size() / 2;

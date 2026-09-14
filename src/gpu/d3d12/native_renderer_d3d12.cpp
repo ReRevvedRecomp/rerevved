@@ -244,6 +244,31 @@ float4 copy_ps(VSOutput input) : SV_Target0 {
 }
 )hlsl";
 
+constexpr const char* kReplayDepthCopyShaderSource = R"hlsl(
+Texture2D<float4> source_texture : register(t0);
+float copy_depth(float4 position : SV_Position) : SV_Depth {
+    const uint3 bytes = uint3(round(source_texture.Load(int3(int2(position.xy), 0)).yzw * 255.0));
+    const uint depth = bytes.x | (bytes.y << 8) | (bytes.z << 16);
+    // A rounded reciprocal of 0xFFFFFF adds one D24 unit near the far plane.
+    // Split the exact power-of-two scaling from its small correction.
+    precise float scaled = float(depth) * (1.0 / 16777216.0);
+    precise float correction = scaled * (1.0 / 16777215.0);
+    precise float normalized = scaled + correction;
+    return normalized;
+}
+)hlsl";
+
+constexpr const char* kReplayDepthReadShaderSource = R"hlsl(
+Texture2DMS<float> source_depth : register(t0);
+cbuffer CopyConstants : register(b0) {
+    uint sample_a; uint sample_b; uint sample_count; uint padding;
+};
+float4 read_depth(float4 position : SV_Position) : SV_Target0 {
+    const uint depth = uint(round(saturate(source_depth.Load(int2(position.xy), sample_a)) * 16777215.0));
+    return float4(0, depth & 255, (depth >> 8) & 255, depth >> 16) / 255.0;
+}
+)hlsl";
+
 bool createReplayUploadBuffer(ID3D12Device*           device,
                               const void*             data,
                               std::size_t             size,
@@ -331,34 +356,40 @@ struct NativeRendererD3D12::Impl
     // Every object in this bundle remains owned by Impl until the replay
     // fence has completed. On a live-device drain failure shutdown detaches
     // the bundle together with the regular renderer objects.
-    ComPtr<ID3D12RootSignature>           replayRootSignature;
-    ComPtr<ID3D12PipelineState>           replayPipelineState;
-    ComPtr<ID3D12RootSignature>           replayCopyRootSignature;
-    ComPtr<ID3D12PipelineState>           replayCopyPipelineState;
-    ComPtr<ID3D12PipelineState>           replayCopyPipelineStateSample3;
-    ComPtr<ID3D12PipelineState>           replayResolvePipelineState;
-    ComPtr<ID3D12Resource>                replayVertexBuffer;
-    ComPtr<ID3D12Resource>                replayIndexBuffer;
-    ComPtr<ID3D12Resource>                replayVertexConstants;
-    ComPtr<ID3D12Resource>                replayPixelConstants;
-    ComPtr<ID3D12Resource>                replaySharedConstants;
-    ComPtr<ID3D12Resource>                replayTexture;
-    ComPtr<ID3D12Resource>                replayTextureUpload;
-    ComPtr<ID3D12DescriptorHeap>          replaySamplerHeap;
-    ComPtr<ID3D12Resource>                replayInitialSample0;
-    ComPtr<ID3D12Resource>                replayInitialSample1;
-    ComPtr<ID3D12Resource>                replayInitialSample0Upload;
-    ComPtr<ID3D12Resource>                replayInitialSample1Upload;
-    std::array<ComPtr<ID3D12Resource>, 4> replayColorTargets;
-    ComPtr<ID3D12Resource>                replayResolvedTarget;
-    ComPtr<ID3D12Resource>                replayReadback;
-    ComPtr<ID3D12DescriptorHeap>          replayRtvHeap;
-    ComPtr<ID3D12DescriptorHeap>          replayCopySrvHeap;
-    ComPtr<ID3D12Resource>                replayCopyConstants;
-    ComPtr<ID3D12Resource>                replayResolveConstants;
-    ComPtr<ID3D12Resource>                replayResolveConstantsSample3;
-    std::uint64_t                         replayFenceValue         = 0;
-    bool                                  replaySubmissionInFlight = false;
+    ComPtr<ID3D12RootSignature>                replayRootSignature;
+    ComPtr<ID3D12PipelineState>                replayPipelineState;
+    ComPtr<ID3D12RootSignature>                replayCopyRootSignature;
+    ComPtr<ID3D12PipelineState>                replayCopyPipelineState;
+    ComPtr<ID3D12PipelineState>                replayCopyPipelineStateSample3;
+    ComPtr<ID3D12PipelineState>                replayResolvePipelineState;
+    ComPtr<ID3D12Resource>                     replayVertexBuffer;
+    ComPtr<ID3D12Resource>                     replayIndexBuffer;
+    ComPtr<ID3D12Resource>                     replayVertexConstants;
+    ComPtr<ID3D12Resource>                     replayPixelConstants;
+    ComPtr<ID3D12Resource>                     replaySharedConstants;
+    ComPtr<ID3D12Resource>                     replayTexture;
+    ComPtr<ID3D12Resource>                     replayTextureUpload;
+    ComPtr<ID3D12DescriptorHeap>               replaySamplerHeap;
+    ComPtr<ID3D12Resource>                     replayInitialSample0;
+    ComPtr<ID3D12Resource>                     replayInitialSample1;
+    ComPtr<ID3D12Resource>                     replayInitialSample0Upload;
+    ComPtr<ID3D12Resource>                     replayInitialSample1Upload;
+    std::array<ComPtr<ID3D12Resource>, 4>      replayColorTargets;
+    ComPtr<ID3D12Resource>                     replayResolvedTarget;
+    ComPtr<ID3D12Resource>                     replayReadback;
+    ComPtr<ID3D12Resource>                     replayDepthTarget;
+    ComPtr<ID3D12DescriptorHeap>               replayDsvHeap;
+    std::array<ComPtr<ID3D12Resource>, 2>      replayInitialDepth;
+    std::array<ComPtr<ID3D12Resource>, 2>      replayInitialDepthUpload;
+    std::array<ComPtr<ID3D12PipelineState>, 2> replayDepthCopyPipeline;
+    ComPtr<ID3D12PipelineState>                replayDepthReadPipeline;
+    ComPtr<ID3D12DescriptorHeap>               replayRtvHeap;
+    ComPtr<ID3D12DescriptorHeap>               replayCopySrvHeap;
+    ComPtr<ID3D12Resource>                     replayCopyConstants;
+    ComPtr<ID3D12Resource>                     replayResolveConstants;
+    ComPtr<ID3D12Resource>                     replayResolveConstantsSample3;
+    std::uint64_t                              replayFenceValue         = 0;
+    bool                                       replaySubmissionInFlight = false;
 
     bool waitForFence(std::uint64_t value)
     {
@@ -904,6 +935,21 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
     replayInitialSample1Upload.Reset();
     replayResolvedTarget.Reset();
     replayReadback.Reset();
+    replayDepthTarget.Reset();
+    replayDsvHeap.Reset();
+    replayDepthReadPipeline.Reset();
+    for (auto& object : replayInitialDepth)
+    {
+        object.Reset();
+    }
+    for (auto& object : replayInitialDepthUpload)
+    {
+        object.Reset();
+    }
+    for (auto& object : replayDepthCopyPipeline)
+    {
+        object.Reset();
+    }
     replayCopyConstants.Reset();
     replayResolveConstants.Reset();
     replayResolveConstantsSample3.Reset();
@@ -928,7 +974,7 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
 
     D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc{};
     srvHeapDesc.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    srvHeapDesc.NumDescriptors = recipe.textureMask ? 4 : 3;
+    srvHeapDesc.NumDescriptors = recipe.depth.enabled ? 7 : (recipe.textureMask ? 4 : 3);
     srvHeapDesc.Flags          = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     hr                         = device->CreateDescriptorHeap(&srvHeapDesc,
                                                               IID_PPV_ARGS(&replayCopySrvHeap));
@@ -939,11 +985,14 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
     const std::uint32_t replaySrvStride =
         device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-    const auto createTexture = [&](D3D12_RESOURCE_FLAGS     flags,
-                                   std::uint32_t            sampleCount,
-                                   D3D12_RESOURCE_STATES    initialState,
-                                   const D3D12_CLEAR_VALUE* clearValue,
-                                   ComPtr<ID3D12Resource>&  resource)
+    const DXGI_FORMAT colorFormat   = recipe.targetFormat == NativeDrawReplayTargetFormat::Rgb10a2
+                                          ? DXGI_FORMAT_R10G10B10A2_UNORM
+                                          : DXGI_FORMAT_R8G8B8A8_UNORM;
+    const auto        createTexture = [&](D3D12_RESOURCE_FLAGS     flags,
+                                          std::uint32_t            sampleCount,
+                                          D3D12_RESOURCE_STATES    initialState,
+                                          const D3D12_CLEAR_VALUE* clearValue,
+                                          ComPtr<ID3D12Resource>&  resource)
     {
         D3D12_HEAP_PROPERTIES heap{};
         heap.Type = D3D12_HEAP_TYPE_DEFAULT;
@@ -953,7 +1002,7 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
         desc.Height           = recipe.height;
         desc.DepthOrArraySize = 1;
         desc.MipLevels        = 1;
-        desc.Format           = DXGI_FORMAT_R8G8B8A8_UNORM;
+        desc.Format           = colorFormat;
         desc.SampleDesc       = { sampleCount, 0 };
         desc.Layout           = D3D12_TEXTURE_LAYOUT_UNKNOWN;
         desc.Flags            = flags;
@@ -965,7 +1014,7 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
                                                IID_PPV_ARGS(&resource));
     };
     D3D12_CLEAR_VALUE clearValue{};
-    clearValue.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    clearValue.Format = colorFormat;
     for (std::size_t component = 0; component < 4; ++component)
     {
         clearValue.Color[component] = recipe.clearColor[component] / 255.0F;
@@ -997,7 +1046,8 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
     const std::uint32_t outputRowPitch = (recipe.width * 4U + 255U) & ~255U;
     const std::uint64_t outputPlaneStride =
         (static_cast<std::uint64_t>(outputRowPitch) * recipe.height + 511ULL) & ~511ULL;
-    const std::uint64_t   readbackBytes = outputPlaneStride * 2ULL;
+    const std::size_t     outputPlaneCount = recipe.depth.enabled ? 4 : 2;
+    const std::uint64_t   readbackBytes    = outputPlaneStride * outputPlaneCount;
     D3D12_HEAP_PROPERTIES readbackHeap{};
     readbackHeap.Type = D3D12_HEAP_TYPE_READBACK;
     D3D12_RESOURCE_DESC readbackDesc{};
@@ -1063,7 +1113,7 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
         sourceLocation.pResource                          = upload.Get();
         sourceLocation.Type                               = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
         sourceLocation.PlacedFootprint.Offset             = 0;
-        sourceLocation.PlacedFootprint.Footprint.Format   = DXGI_FORMAT_R8G8B8A8_UNORM;
+        sourceLocation.PlacedFootprint.Footprint.Format   = colorFormat;
         sourceLocation.PlacedFootprint.Footprint.Width    = recipe.width;
         sourceLocation.PlacedFootprint.Footprint.Height   = recipe.height;
         sourceLocation.PlacedFootprint.Footprint.Depth    = 1;
@@ -1325,7 +1375,7 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
     }
     for (std::size_t index = 0; index < 4; ++index)
     {
-        copyPso.RTVFormats[index] = DXGI_FORMAT_R8G8B8A8_UNORM;
+        copyPso.RTVFormats[index] = colorFormat;
     }
     hr = device->CreateGraphicsPipelineState(&copyPso,
                                              IID_PPV_ARGS(&replayCopyPipelineState));
@@ -1345,7 +1395,7 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
     copyPso.SampleMask       = D3D12_DEFAULT_SAMPLE_MASK;
     copyPso.NumRenderTargets = 1;
     copyPso.SampleDesc       = { 1, 0 };
-    copyPso.RTVFormats[0]    = DXGI_FORMAT_R8G8B8A8_UNORM;
+    copyPso.RTVFormats[0]    = colorFormat;
     for (std::size_t index = 1; index < std::size(copyPso.RTVFormats); ++index)
     {
         copyPso.RTVFormats[index] = DXGI_FORMAT_UNKNOWN;
@@ -1370,7 +1420,7 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
     device->CreateRenderTargetView(replayResolvedTarget.Get(), nullptr, resolvedRtv);
 
     D3D12_SHADER_RESOURCE_VIEW_DESC initialSrv{};
-    initialSrv.Format                  = DXGI_FORMAT_R8G8B8A8_UNORM;
+    initialSrv.Format                  = colorFormat;
     initialSrv.ViewDimension           = D3D12_SRV_DIMENSION_TEXTURE2D;
     initialSrv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     initialSrv.Texture2D.MipLevels     = 1;
@@ -1381,7 +1431,7 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
     sample1Srv.ptr += static_cast<SIZE_T>(replaySrvStride);
     device->CreateShaderResourceView(replayInitialSample1.Get(), &initialSrv, sample1Srv);
     D3D12_SHADER_RESOURCE_VIEW_DESC msaaSrv{};
-    msaaSrv.Format                        = DXGI_FORMAT_R8G8B8A8_UNORM;
+    msaaSrv.Format                        = colorFormat;
     msaaSrv.ViewDimension                 = D3D12_SRV_DIMENSION_TEXTURE2DMS;
     msaaSrv.Shader4ComponentMapping       = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     D3D12_CPU_DESCRIPTOR_HANDLE targetSrv = srvStart;
@@ -1450,6 +1500,92 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
     commandList->SetPipelineState(replayCopyPipelineStateSample3.Get());
     commandList->SetGraphicsRootDescriptorTable(0, sample1Gpu);
     commandList->DrawInstanced(3, 1, 0, 0);
+
+    D3D12_CPU_DESCRIPTOR_HANDLE depthDsv{};
+    if (recipe.depth.enabled)
+    {
+        D3D12_DESCRIPTOR_HEAP_DESC heapDesc{};
+        heapDesc.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+        heapDesc.NumDescriptors = 1;
+        hr                      = device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&replayDsvHeap));
+        if (FAILED(hr))
+            return fail("could not create replay DSV heap");
+        D3D12_RESOURCE_DESC desc = replayColorTargets[0]->GetDesc();
+        desc.Format              = DXGI_FORMAT_R24G8_TYPELESS;
+        desc.Flags               = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+        D3D12_HEAP_PROPERTIES heap{};
+        heap.Type = D3D12_HEAP_TYPE_DEFAULT;
+        D3D12_CLEAR_VALUE clear{};
+        clear.Format             = DXGI_FORMAT_D24_UNORM_S8_UINT;
+        clear.DepthStencil.Depth = recipe.depth.initialClear;
+        hr                       = device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &clear, IID_PPV_ARGS(&replayDepthTarget));
+        if (FAILED(hr))
+            return fail("could not create replay D24 depth target");
+        D3D12_DEPTH_STENCIL_VIEW_DESC dsv{};
+        dsv.Format        = DXGI_FORMAT_D24_UNORM_S8_UINT;
+        dsv.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DMS;
+        depthDsv          = replayDsvHeap->GetCPUDescriptorHandleForHeapStart();
+        device->CreateDepthStencilView(replayDepthTarget.Get(), &dsv, depthDsv);
+        commandList->ClearDepthStencilView(depthDsv,
+                                           D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
+                                           recipe.depth.initialClear,
+                                           0,
+                                           0,
+                                           nullptr);
+        D3D12_SHADER_RESOURCE_VIEW_DESC depthSrv{};
+        depthSrv.Format                  = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+        depthSrv.ViewDimension           = D3D12_SRV_DIMENSION_TEXTURE2DMS;
+        depthSrv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        auto handle                      = srvStart;
+        handle.ptr += static_cast<SIZE_T>(6) * replaySrvStride;
+        device->CreateShaderResourceView(replayDepthTarget.Get(), &depthSrv, handle);
+
+        ComPtr<ID3DBlob> depthReadShader;
+        if (!compileReplayShader(kReplayDepthReadShaderSource, "read_depth", "ps_5_1", depthReadShader))
+            return fail("could not compile replay depth readback shader");
+        auto depthReadPso = copyPso;
+        depthReadPso.PS   = { depthReadShader->GetBufferPointer(), depthReadShader->GetBufferSize() };
+        hr                = device->CreateGraphicsPipelineState(&depthReadPso, IID_PPV_ARGS(&replayDepthReadPipeline));
+        if (FAILED(hr))
+            return fail("could not create replay depth readback pipeline");
+
+        if (!recipe.depth.initialSamples.empty())
+        {
+            ComPtr<ID3DBlob> depthCopyShader;
+            if (!compileReplayShader(kReplayDepthCopyShaderSource, "copy_depth", "ps_5_1", depthCopyShader))
+                return fail("could not compile replay depth initialization shader");
+            auto depthCopyPso             = copyPso;
+            depthCopyPso.PS               = { depthCopyShader->GetBufferPointer(), depthCopyShader->GetBufferSize() };
+            depthCopyPso.NumRenderTargets = 0;
+            std::fill(std::begin(depthCopyPso.RTVFormats), std::end(depthCopyPso.RTVFormats), DXGI_FORMAT_UNKNOWN);
+            depthCopyPso.SampleDesc                       = { recipe.sampleCount, 0 };
+            depthCopyPso.DSVFormat                        = DXGI_FORMAT_D24_UNORM_S8_UINT;
+            depthCopyPso.DepthStencilState.DepthEnable    = TRUE;
+            depthCopyPso.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+            depthCopyPso.DepthStencilState.DepthFunc      = D3D12_COMPARISON_FUNC_ALWAYS;
+            commandList->OMSetRenderTargets(0, nullptr, FALSE, &depthDsv);
+            for (std::size_t plane = 0; plane < 2; ++plane)
+            {
+                const auto                      first = recipe.depth.initialSamples.begin() + plane * outputPlaneBytes;
+                const std::vector<std::uint8_t> bytes(first, first + outputPlaneBytes);
+                if (!makeRowUpload(bytes, replayInitialDepth[plane], replayInitialDepthUpload[plane]))
+                    return fail("could not upload replay initial depth samples");
+                transitionTexture(replayInitialDepth[plane].Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+                handle = srvStart;
+                handle.ptr += (4 + plane) * replaySrvStride;
+                device->CreateShaderResourceView(replayInitialDepth[plane].Get(), &initialSrv, handle);
+                depthCopyPso.SampleMask = plane == 0 ? 1 : 8;
+                hr                      = device->CreateGraphicsPipelineState(&depthCopyPso, IID_PPV_ARGS(&replayDepthCopyPipeline[plane]));
+                if (FAILED(hr))
+                    return fail("could not create replay depth initialization pipeline");
+                auto gpuHandle = replayCopySrvHeap->GetGPUDescriptorHandleForHeapStart();
+                gpuHandle.ptr += (4 + plane) * replaySrvStride;
+                commandList->SetGraphicsRootDescriptorTable(0, gpuHandle);
+                commandList->SetPipelineState(replayDepthCopyPipeline[plane].Get());
+                commandList->DrawInstanced(3, 1, 0, 0);
+            }
+        }
+    }
 
     D3D12_ROOT_PARAMETER1 drawParameters[5]{};
     drawParameters[0].ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
@@ -1522,13 +1658,15 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
     }
     D3D12_RASTERIZER_DESC drawRaster{};
     drawRaster.FillMode              = D3D12_FILL_MODE_SOLID;
-    drawRaster.CullMode              = D3D12_CULL_MODE_NONE;
-    drawRaster.FrontCounterClockwise = FALSE;
+    drawRaster.CullMode              = static_cast<D3D12_CULL_MODE>(recipe.rasterizer.cull + 1);
+    drawRaster.FrontCounterClockwise = recipe.rasterizer.frontCounterClockwise;
     drawRaster.DepthClipEnable       = TRUE;
     drawRaster.MultisampleEnable     = TRUE;
     D3D12_DEPTH_STENCIL_DESC drawDepth{};
-    drawDepth.DepthEnable   = FALSE;
-    drawDepth.StencilEnable = FALSE;
+    drawDepth.DepthEnable    = recipe.depth.enabled;
+    drawDepth.DepthWriteMask = recipe.depth.writeEnabled ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
+    drawDepth.DepthFunc      = static_cast<D3D12_COMPARISON_FUNC>(recipe.depth.compare);
+    drawDepth.StencilEnable  = FALSE;
     D3D12_GRAPHICS_PIPELINE_STATE_DESC drawPso{};
     drawPso.pRootSignature        = replayRootSignature.Get();
     drawPso.VS                    = { recipe.vertexShaderDxil.data(), recipe.vertexShaderDxil.size() };
@@ -1537,6 +1675,7 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
     drawPso.SampleMask            = recipe.sampleMask;
     drawPso.RasterizerState       = drawRaster;
     drawPso.DepthStencilState     = drawDepth;
+    drawPso.DSVFormat             = recipe.depth.enabled ? DXGI_FORMAT_D24_UNORM_S8_UINT : DXGI_FORMAT_UNKNOWN;
     drawPso.InputLayout           = { inputElements.data(), static_cast<UINT>(inputElements.size()) };
     drawPso.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
     drawPso.NumRenderTargets      = 4;
@@ -1547,7 +1686,7 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
     }
     for (std::size_t index = 0; index < 4; ++index)
     {
-        drawPso.RTVFormats[index] = DXGI_FORMAT_R8G8B8A8_UNORM;
+        drawPso.RTVFormats[index] = colorFormat;
     }
     if (replayInfoQueue)
     {
@@ -1567,7 +1706,7 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
     commandList->RSSetScissorRects(1, &replayScissor);
     commandList->SetGraphicsRootSignature(replayRootSignature.Get());
     commandList->SetPipelineState(replayPipelineState.Get());
-    commandList->OMSetRenderTargets(4, targetRtvs, FALSE, nullptr);
+    commandList->OMSetRenderTargets(4, targetRtvs, FALSE, recipe.depth.enabled ? &depthDsv : nullptr);
     commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     D3D12_VERTEX_BUFFER_VIEW vertexView{};
     vertexView.BufferLocation = replayVertexBuffer->GetGPUVirtualAddress();
@@ -1612,7 +1751,7 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
     readbackLocation.pResource                          = replayReadback.Get();
     readbackLocation.Type                               = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
     readbackLocation.PlacedFootprint.Offset             = 0;
-    readbackLocation.PlacedFootprint.Footprint.Format   = DXGI_FORMAT_R8G8B8A8_UNORM;
+    readbackLocation.PlacedFootprint.Footprint.Format   = colorFormat;
     readbackLocation.PlacedFootprint.Footprint.Width    = recipe.width;
     readbackLocation.PlacedFootprint.Footprint.Height   = recipe.height;
     readbackLocation.PlacedFootprint.Footprint.Depth    = 1;
@@ -1636,7 +1775,7 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
                                        0,
                                        &resolvedLocation,
                                        nullptr);
-        if (outputOffset == 0)
+        if (outputOffset + outputPlaneStride < readbackBytes)
         {
             transitionTexture(replayResolvedTarget.Get(),
                               D3D12_RESOURCE_STATE_COPY_SOURCE,
@@ -1645,6 +1784,16 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
     };
     recordSampleReadback(replayResolveConstants.Get(), 0);
     recordSampleReadback(replayResolveConstantsSample3.Get(), outputPlaneStride);
+    if (recipe.depth.enabled)
+    {
+        transitionTexture(replayDepthTarget.Get(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+        commandList->SetPipelineState(replayDepthReadPipeline.Get());
+        auto depthGpu = replayCopySrvHeap->GetGPUDescriptorHandleForHeapStart();
+        depthGpu.ptr += static_cast<UINT64>(6) * replaySrvStride;
+        commandList->SetGraphicsRootDescriptorTable(0, depthGpu);
+        recordSampleReadback(replayResolveConstants.Get(), outputPlaneStride * 2);
+        recordSampleReadback(replayResolveConstantsSample3.Get(), outputPlaneStride * 3);
+    }
     hr = commandList->Close();
     if (FAILED(hr))
     {
@@ -1666,7 +1815,7 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
     }
     replaySubmissionInFlight = false;
 
-    std::vector<std::uint8_t> output(static_cast<std::size_t>(outputPlaneBytes * 2ULL));
+    std::vector<std::uint8_t> output(static_cast<std::size_t>(outputPlaneBytes * outputPlaneCount));
     D3D12_RANGE               readRange{ 0, static_cast<SIZE_T>(readbackBytes) };
     void*                     mapped = nullptr;
     hr                               = replayReadback->Map(0, &readRange, &mapped);
@@ -1674,7 +1823,7 @@ NativeDrawReplayResult NativeRendererD3D12::Impl::executeOffscreenReplayOnRender
     {
         return fail("could not map replay readback");
     }
-    for (std::size_t plane = 0; plane < 2; ++plane)
+    for (std::size_t plane = 0; plane < outputPlaneCount; ++plane)
     {
         for (std::uint32_t row = 0; row < recipe.height; ++row)
         {
@@ -1731,6 +1880,21 @@ void NativeRendererD3D12::Impl::detachReplayGpuObjects()
     }
     (void)replayResolvedTarget.Detach();
     (void)replayReadback.Detach();
+    (void)replayDepthTarget.Detach();
+    (void)replayDsvHeap.Detach();
+    (void)replayDepthReadPipeline.Detach();
+    for (auto& object : replayInitialDepth)
+    {
+        (void)object.Detach();
+    }
+    for (auto& object : replayInitialDepthUpload)
+    {
+        (void)object.Detach();
+    }
+    for (auto& object : replayDepthCopyPipeline)
+    {
+        (void)object.Detach();
+    }
     (void)replayRtvHeap.Detach();
     (void)replayCopySrvHeap.Detach();
     (void)replayCopyConstants.Detach();
@@ -1808,6 +1972,21 @@ void NativeRendererD3D12::Impl::shutdownOnRendererThread()
     }
     replayResolvedTarget.Reset();
     replayReadback.Reset();
+    replayDepthTarget.Reset();
+    replayDsvHeap.Reset();
+    replayDepthReadPipeline.Reset();
+    for (auto& object : replayInitialDepth)
+    {
+        object.Reset();
+    }
+    for (auto& object : replayInitialDepthUpload)
+    {
+        object.Reset();
+    }
+    for (auto& object : replayDepthCopyPipeline)
+    {
+        object.Reset();
+    }
     replayRtvHeap.Reset();
     replayCopySrvHeap.Reset();
     replayCopyConstants.Reset();

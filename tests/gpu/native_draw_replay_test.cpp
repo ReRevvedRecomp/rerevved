@@ -60,6 +60,30 @@ int main()
     require(ValidateNativeDrawReplayRecipe(recipe, error), "schema two full raster coverage admission");
     recipe.sampleMask = 3;
     require(!ValidateNativeDrawReplayRecipe(recipe, error), "unsupported sample layout rejection");
+    recipe              = makeRecipe();
+    recipe.targetFormat = NativeDrawReplayTargetFormat::Rgb10a2;
+    require(ValidateNativeDrawReplayRecipe(recipe, error), "RGB10 output admission");
+    recipe.depth.enabled = true;
+    require(!ValidateNativeDrawReplayRecipe(recipe, error), "mixed packed depth and RGB10 output rejection");
+    recipe               = makeRecipe();
+    recipe.depth.enabled = recipe.depth.writeEnabled = true;
+    recipe.rasterizer.cull                           = 2;
+    recipe.depth.initialSamples.resize(128);
+    require(ValidateNativeDrawReplayRecipe(recipe, error), "packed D24 depth input admission");
+    recipe.depth.initialSamples[0] = 1;
+    require(!ValidateNativeDrawReplayRecipe(recipe, error), "uncaptured stencil semantics rejection");
+    recipe.depth.initialSamples[0] = 0;
+    recipe.depth.initialSamples.pop_back();
+    require(!ValidateNativeDrawReplayRecipe(recipe, error), "incomplete depth plane rejection");
+    recipe.depth.initialSamples.clear();
+    recipe.depth.initialClear = std::numeric_limits<float>::quiet_NaN();
+    require(!ValidateNativeDrawReplayRecipe(recipe, error), "non-finite depth clear rejection");
+    recipe.depth.initialClear = 1.0F;
+    recipe.depth.compare      = 9;
+    require(!ValidateNativeDrawReplayRecipe(recipe, error), "invalid depth comparison rejection");
+    recipe.depth.compare = 4;
+    recipe.depth.enabled = false;
+    require(!ValidateNativeDrawReplayRecipe(recipe, error), "depth writes without testing rejection");
     for (auto format : { NativeDrawReplayTextureFormat::Rgba8,
                          NativeDrawReplayTextureFormat::R8,
                          NativeDrawReplayTextureFormat::Bc1,
