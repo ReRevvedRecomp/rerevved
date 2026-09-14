@@ -32,6 +32,35 @@ class RexGlueDriverContractTests(unittest.TestCase):
         ):
             self.assertIn(relative, self.source)
 
+    @unittest.skipUnless(POWERSHELL, "PowerShell is required")
+    def test_renderdoc_requires_interactive_launch(self) -> None:
+        for stage, interactive in (
+            ("Launch", False),
+            ("Build", True),
+            ("Replay", True),
+        ):
+            with self.subTest(stage=stage, interactive=interactive):
+                command = [
+                    POWERSHELL,
+                    "-NoProfile",
+                    "-File",
+                    str(DRIVER),
+                    "-Stage",
+                    stage,
+                    "-RenderDocCmd",
+                    "missing-renderdoccmd.exe",
+                ]
+                if interactive:
+                    command.append("-Interactive")
+                result = subprocess.run(
+                    command, capture_output=True, text=True, timeout=30, check=False
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(
+                    "-RenderDocCmd requires -Stage Launch -Interactive.",
+                    result.stdout + result.stderr,
+                )
+
     def test_self_test_stops_before_output_creation(self) -> None:
         self_test = self.source.index("if ($SelfTest)")
         launch_gate = self.source.index("if ($Stage -notin @('Launch', 'All'))")

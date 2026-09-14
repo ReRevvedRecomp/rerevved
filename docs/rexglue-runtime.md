@@ -202,6 +202,59 @@ after GPU completion. The output path must be fresh and its directory must
 already exist. Compare the resulting sample planes with the captured draw's
 output; the background supplied to replay remains captured data.
 
+## Guest frame capture
+
+The D3D12 frame capture uses [RenderDoc](https://github.com/baldurk/renderdoc)
+for GPU resources and commands, with a companion SDK journal for original
+Xenos registers, shader microcode, and guest draw/copy ordering. It is separate
+from the single-draw replay and does not require native rendering.
+
+Launch through the driver with RenderDoc injected before device creation:
+
+```powershell
+cd <repo>; .\scripts\rexglue.ps1 -Stage Launch -Interactive -RenderDocCmd <renderdoc-directory>/renderdoccmd.exe -LaunchArgument '--d3d12_capture_frame=<absolute-capture-directory>'
+```
+
+Use a fresh capture directory. At the desired scene, create its empty `arm`
+file. The SDK starts capture after a completed guest swap and ends after the
+next guest swap, so the boundary follows guest rendering rather than the
+independent host presentation loop. Capture remains disabled without the option
+and requires RenderDoc to be attached. A completed bundle contains the `.rdc`
+and the guest-state journal; failures and bounds violations are explicit.
+Publication requires the guest queue's ending fence to complete. Manifest
+completion certifies the capture envelope and GPU completion; per-event results
+and the validator's `failed_guest_events` retain failed guest operations.
+
+Validate the journal, inventory, and input digests before analyzing the GPU
+capture:
+
+```powershell
+cd <repo>; python .\scripts\validate-frame-capture.py <capture-directory>
+```
+
+This validation checks the capture envelope. RenderDoc replay and matching the
+journal's issued-draw markers to GPU actions establish the GPU dependency set.
+The offline inspector uses RenderDoc 1.46's embedded Python and an isolated
+configuration directory:
+
+```powershell
+cd <repo>; .\scripts\run-renderdoc-script.ps1 -RenderDocRoot <renderdoc-directory> -Capture <capture.rdc> -Markers <capture-directory>/journal.json -Output <fresh-report.json>
+```
+
+The report includes GPU actions, resource and view formats, sampler state,
+resource usages, shader bindings, and the issued guest draw joins. It inspects
+copy and compute actions as well as guest markers. Missing required markers or
+replay failures produce a failed report. Resource inventories can include unused
+objects; dependency analysis combines recorded usages with per-event descriptor
+accesses, which include dynamically selected textures. A shader's texture mask
+does not prove that a fragment sampled a texture; the report records draws with
+no reported dynamic texture access separately.
+
+`-RenderDocCmd` requires an interactive Launch stage. The driver reports the
+capture launcher's exit code because RenderDoc does not propagate the game's
+exit code. Close the game normally after the capture completes. Captures contain
+retail graphics data and stay in ignored output directories.
+
 ## Build and validation
 
 The supported Windows build requires LLVM 18 or newer, Visual Studio 2022 Build

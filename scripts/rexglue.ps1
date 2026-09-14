@@ -32,6 +32,11 @@
 .PARAMETER ReplayOutput
   Fresh sample-readback file for the Replay stage, in an existing directory.
 
+.PARAMETER RenderDocCmd
+  Optional renderdoccmd.exe used to inject RenderDoc before device creation.
+  Requires an interactive Launch stage. Its exit code is the capture launcher
+  result; the launcher does not propagate the game's exit code.
+
 .PARAMETER UserDataRoot
   Optional user-data root for a validated isolated launch.
 
@@ -69,6 +74,7 @@ param(
     [string]$LaunchArgumentJson,
     [string]$ReplayRecipe,
     [string]$ReplayOutput,
+    [string]$RenderDocCmd,
     [switch]$SelfTest,
     [string]$SdkRepo,
     [Alias('SdkInstallRoot')]
@@ -95,11 +101,21 @@ foreach ($pathOverride in @(
     @{ Name = 'SdkInstall'; Value = $SdkInstall },
     @{ Name = 'ReplayRecipe'; Value = $ReplayRecipe },
     @{ Name = 'ReplayOutput'; Value = $ReplayOutput },
+    @{ Name = 'RenderDocCmd'; Value = $RenderDocCmd },
     @{ Name = 'LaunchArgumentJson'; Value = $LaunchArgumentJson }
 )) {
     if ($PSBoundParameters.ContainsKey($pathOverride.Name) -and
         [string]::IsNullOrWhiteSpace([string]$pathOverride.Value)) {
         throw "$($pathOverride.Name) must be a non-empty path when supplied."
+    }
+}
+if ($PSBoundParameters.ContainsKey('RenderDocCmd')) {
+    if ($Stage -ne 'Launch' -or -not $Interactive) {
+        throw '-RenderDocCmd requires -Stage Launch -Interactive.'
+    }
+    $RenderDocCmd = [IO.Path]::GetFullPath($RenderDocCmd)
+    if (-not (Test-Path -LiteralPath $RenderDocCmd -PathType Leaf)) {
+        throw "RenderDoc command not found: $RenderDocCmd"
     }
 }
 if ($Stage -eq 'Replay') {
@@ -347,6 +363,8 @@ if ($SelfTest) {
     Write-Host '  cmake --build --preset win-amd64-release'
     if ($Stage -eq 'Replay') {
         Write-Host '  <native-draw-replay-executable> <recipe> <fresh-output>'
+    } elseif ($RenderDocCmd) {
+        Write-Host '  <renderdoccmd> capture --wait-for-exit --working-dir <repo> <title-executable> <validated-runtime-arguments>'
     } else {
         Write-Host '  <title-executable> <validated-runtime-arguments>'
     }
@@ -417,6 +435,12 @@ if ($Interactive) {
 $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
 $startInfo.FileName = $exe
 $startInfo.Arguments = $arguments
+if ($RenderDocCmd) {
+    $startInfo.FileName = $RenderDocCmd
+    $startInfo.Arguments = 'capture --wait-for-exit --working-dir ' +
+        (Quote-Cmd $repo) + ' ' + (Quote-Cmd $exe) + ' ' + $arguments
+    Write-Host "capture  : $RenderDocCmd" -ForegroundColor Cyan
+}
 $startInfo.WorkingDirectory = $repo
 $startInfo.UseShellExecute = $false
 $startInfo.CreateNoWindow = $true
@@ -426,7 +450,9 @@ if (-not $process) { throw 'Failed to start the candidate executable.' }
 if ($Interactive) {
     $process.WaitForExit()
     $exitCode = $process.ExitCode
-    if ($exitCode -eq 0) {
+    if ($RenderDocCmd) {
+        Write-Host "RenderDoc launcher result: exit $exitCode (game exit code unavailable)"
+    } elseif ($exitCode -eq 0) {
         Write-Host "interactive result: normal exit (0)" -ForegroundColor Green
     } else {
         Write-Host "interactive result: crash or error exit ($exitCode)" -ForegroundColor Red
