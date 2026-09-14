@@ -54,7 +54,7 @@ REXCVAR_DEFINE_STRING(native_menu_shadow_shaders, "", "ReRevved", "Ignored direc
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_STRING(native_guest_draw_output, "", "ReRevved", "Fresh ignored directory for bounded guest menu draw inputs")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
-REXCVAR_DEFINE_STRING(native_guest_draw_shaders, "", "ReRevved", "Validated native shaders for three swap-delimited UI frames from guest CPU inputs")
+REXCVAR_DEFINE_STRING(native_guest_draw_shaders, "", "ReRevved", "Validated native shaders for three swap-delimited menu frames from guest CPU inputs")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 REXCVAR_DEFINE_STRING(native_menu_frame_output, "", "ReRevved", "Fresh ignored directory for one live native menu frame comparison")
@@ -474,7 +474,7 @@ bool App::SetupPresentation()
                                        recipe.sharedConstants.size() + recipe.texture.bytes.size();
                 if (drawBytes > 512U * 1024U * 1024U - bytes || frames->frames.back().size() >= 256)
                 {
-                    error = "guest native UI recipes exceed the owned input bound";
+                    error = "guest native menu recipes exceed the owned input bound";
                     return false;
                 }
                 bytes += drawBytes;

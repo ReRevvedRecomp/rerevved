@@ -43,7 +43,7 @@ bool ValidateNativeDrawFramesRecipe(const NativeDrawFramesRecipe& recipe, std::s
     error.clear();
     if (recipe.frames.empty() || recipe.frames.size() > 8)
     {
-        error = "native UI replay requires one through eight consecutive frames";
+        error = "native menu replay requires one through eight consecutive frames";
         return false;
     }
     std::size_t bytes = 0, count = 0;
@@ -51,7 +51,7 @@ bool ValidateNativeDrawFramesRecipe(const NativeDrawFramesRecipe& recipe, std::s
     {
         if (frame.empty() || frame.size() > 256 || frame.size() > kMaxDraws - count)
         {
-            error = "native UI frame exceeds its draw count bound";
+            error = "native menu frame exceeds its draw count bound";
             return false;
         }
         count += frame.size();
@@ -59,10 +59,11 @@ bool ValidateNativeDrawFramesRecipe(const NativeDrawFramesRecipe& recipe, std::s
         {
             if (draw.schemaVersion != 2 || draw.width != 1280 || draw.height != 720 ||
                 draw.sampleCount != 4 || draw.targetFormat != NativeDrawReplayTargetFormat::Rgba8 ||
-                !draw.initialSample0.empty() || !draw.initialSample1.empty() || draw.depth.enabled ||
-                !draw.depth.initialSamples.empty() || draw.clearColor != std::array<std::uint8_t, 4>{})
+                !draw.initialSample0.empty() || !draw.initialSample1.empty() ||
+                !draw.depth.initialSamples.empty() || draw.depth.initialClear != 1.0F ||
+                draw.clearColor != std::array<std::uint8_t, 4>{})
             {
-                error = "native UI frames require full-width color and native transparent clears";
+                error = "native menu frames require full-width color and native black/far clears";
                 return false;
             }
             if (!ValidateNativeDrawReplayRecipe(draw, error))
@@ -71,7 +72,7 @@ bool ValidateNativeDrawFramesRecipe(const NativeDrawFramesRecipe& recipe, std::s
             {
                 if (size > kMaxFrameBytes - bytes)
                 {
-                    error = "native UI frame inputs exceed the owned byte bound";
+                    error = "native menu frame inputs exceed the owned byte bound";
                     return false;
                 }
                 bytes += size;

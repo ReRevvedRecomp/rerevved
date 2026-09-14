@@ -2308,7 +2308,7 @@ void NativeRendererD3D12::drawFramesThreadMain(NativeDrawFramesRecipe           
     try
     {
         if (!impl->initializeHeadlessOnRendererThread(1280, 720))
-            throw std::runtime_error("native UI frame device initialization failed");
+            throw std::runtime_error("native menu frame device initialization failed");
         for (std::size_t frame = 0; frame < recipe.frames.size(); ++frame)
         {
             const auto& draws = recipe.frames[frame];
@@ -2319,17 +2319,18 @@ void NativeRendererD3D12::drawFramesThreadMain(NativeDrawFramesRecipe           
                 const auto                replay = impl->executeOffscreenReplayOnRendererThread(
                     draws[draw], draw != 0, last, nullptr, &output);
                 if (!replay.success)
-                    throw std::runtime_error("native UI frame " + std::to_string(frame) + " draw " +
+                    throw std::runtime_error("native menu frame " + std::to_string(frame) + " draw " +
                                              std::to_string(draw) + ": " + replay.error);
                 if (!last)
                     continue;
-                if (output.size() != 1280U * 720U * 4U * 2U)
-                    throw std::runtime_error("native UI frame has an unexpected sample layout");
+                constexpr std::size_t colorBytes = 1280U * 720U * 4U * 2U;
+                if (output.size() != colorBytes * (draws[draw].depth.enabled ? 2U : 1U))
+                    throw std::runtime_error("native menu frame has an unexpected sample layout");
                 std::ofstream file(recipe.outputDirectory / ("frame-" + std::to_string(frame) + ".rgba"), std::ios::binary);
-                file.write(reinterpret_cast<const char*>(output.data()), output.size());
+                file.write(reinterpret_cast<const char*>(output.data()), colorBytes);
                 file.close();
                 if (!file)
-                    throw std::runtime_error("could not save native UI frame samples");
+                    throw std::runtime_error("could not save native menu frame samples");
             }
         }
         result.success = true;
@@ -2340,11 +2341,11 @@ void NativeRendererD3D12::drawFramesThreadMain(NativeDrawFramesRecipe           
     }
     catch (...)
     {
-        result.error = "native UI frames failed with an unknown exception";
+        result.error = "native menu frames failed with an unknown exception";
     }
     impl->shutdownOnRendererThread();
 #else
-    result.error = "native UI frames require Windows D3D12";
+    result.error = "native menu frames require Windows D3D12";
 #endif
     promise.set_value(std::move(result));
 }
@@ -2573,13 +2574,13 @@ NativeDrawReplayResult NativeRendererD3D12::ReplayDrawFrames(const NativeDrawFra
         return result;
     if (impl->rendererThread.joinable() || impl->gpuObjectsAbandoned.load(std::memory_order_acquire))
     {
-        result.error = "native renderer is unavailable for UI frame replay";
+        result.error = "native renderer is unavailable for menu frame replay";
         return result;
     }
     std::error_code error;
     if (recipe.outputDirectory.empty() || !std::filesystem::create_directory(recipe.outputDirectory, error))
     {
-        result.error = "native UI replay requires a fresh output directory";
+        result.error = "native menu replay requires a fresh output directory";
         return result;
     }
     std::promise<NativeDrawReplayResult> promise;

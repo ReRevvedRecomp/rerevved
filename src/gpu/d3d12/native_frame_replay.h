@@ -23,8 +23,8 @@ struct NativeFrameReplayRecipe
 
 struct NativeDrawFramesRecipe
 {
-    // Consecutive full-width UI frames, each starting with transparent black.
-    // The executor retains its device across frames and color between draws.
+    // Consecutive full-width menu frames, each starting with black/far clears.
+    // The executor retains its device across frames and color/depth between draws.
     std::vector<std::vector<NativeDrawReplayRecipe>> frames;
     std::filesystem::path                            outputDirectory;
 };

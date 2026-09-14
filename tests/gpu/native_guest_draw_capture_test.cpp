@@ -12,6 +12,7 @@
 REX_EXTERN(sub_826A3568);
 REX_EXTERN(sub_826AD150);
 REX_EXTERN(sub_826A3000);
+REX_EXTERN(sub_826A39F8);
 
 namespace
 {
@@ -64,12 +65,18 @@ REX_HOOK_RAW(__imp__sub_826A3000)
     __imp__sub_826A3568(ctx, base);
 }
 
+REX_HOOK_RAW(__imp__sub_826A39F8)
+{
+    __imp__sub_826A3568(ctx, base);
+}
+
 int main()
 {
     using namespace rerevved::gpu::diagnostics;
     checkOriginal();
     checkOriginal(sub_826AD150);
     checkOriginal(sub_826A3000);
+    checkOriginal(sub_826A39F8);
     const auto  root = std::filesystem::temp_directory_path() /
                        ("rerevved-guest-draw-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
     std::string error;
@@ -123,6 +130,18 @@ int main()
     require(!label["complete"].value_or(true) &&
                 label["error"].value_or(std::string{}) == "unsupported guest menu vertex stride",
             "label rejects unsupported stride before reading source geometry");
+    StopNativeGuestDrawCapture();
+    std::filesystem::remove(root / "arm");
+    std::filesystem::remove(root / "result.toml");
+    std::filesystem::remove(root);
+    require(StartNativeGuestDrawCapture(root, error), "scene capture starts");
+    std::ofstream(root / "arm").close();
+    checkOriginal(sub_826A39F8);
+    const auto scene = toml::parse_file((root / "result.toml").string());
+    require(!scene["complete"].value_or(true) &&
+                scene["error"].value_or(std::string{}) == "unsupported guest scene base, start or index count",
+            "scene rejects unsupported draw before reading bound resources");
+    checkOriginal(sub_826A39F8);
     StopNativeGuestDrawCapture();
     std::filesystem::remove(root / "arm");
     std::filesystem::remove(root / "result.toml");

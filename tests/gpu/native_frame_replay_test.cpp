@@ -88,7 +88,12 @@ int main()
     require(!ValidateNativeDrawFramesRecipe(frames, error), "UI frame cannot begin from oracle pixels");
     frames.frames[2][0]               = ui;
     frames.frames[0][0].depth.enabled = true;
-    require(!ValidateNativeDrawFramesRecipe(frames, error), "scene draw excluded from UI frame contract");
+    require(ValidateNativeDrawFramesRecipe(frames, error), "scene depth retained before UI draws");
+    frames.frames[0][0].depth.initialClear = 0.0F;
+    require(!ValidateNativeDrawFramesRecipe(frames, error), "menu frame requires a native far clear");
+    frames.frames[0][0].depth.initialClear = 1.0F;
+    frames.frames[0][0].depth.initialSamples.resize(1280 * 720 * 8);
+    require(!ValidateNativeDrawFramesRecipe(frames, error), "menu frame cannot import captured depth");
     frames.frames[0][0] = ui;
     frames.frames[1].resize(257, ui);
     require(!ValidateNativeDrawFramesRecipe(frames, error), "UI per-frame draw bound enforced");

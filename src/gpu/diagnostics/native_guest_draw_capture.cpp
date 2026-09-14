@@ -17,6 +17,7 @@
 
 REX_EXTERN(__imp__sub_826A3568);
 REX_EXTERN(__imp__sub_826A3000);
+REX_EXTERN(__imp__sub_826A39F8);
 REX_EXTERN(__imp__sub_826AD150);
 
 namespace rerevved::gpu::diagnostics
@@ -26,6 +27,13 @@ namespace
 
 constexpr std::uint32_t kStateBytes       = 0x3500;
 constexpr std::uint32_t kMaxGeometryBytes = 16U * 1024U * 1024U;
+
+enum class DrawSource
+{
+    IndexedUp,
+    LabelUp,
+    IndexedBuffer,
+};
 
 struct Session
 {
@@ -51,10 +59,14 @@ struct Capture
     toml::table               metadata;
     std::uint32_t             graphics = 0, cursor = 0;
     std::uint32_t             vertexSize = 0, indexSize = 0;
+    std::uint32_t             vertexAddress = 0, indexAddress = 0;
     std::vector<std::uint8_t> vertices, indices, vertexMicrocode;
     NativeTextureFetch        fetch{};
     NativeDrawReplayTexture   texture;
     NativeGuestMenuDraw       draw;
+    DrawSource                source          = DrawSource::IndexedUp;
+    std::uint32_t             submittedCursor = 0, submittedIndex = 0, submittedSize = 0;
+    std::uint32_t             submissions = 0;
 };
 
 std::mutex               captureMutex;
@@ -131,12 +143,14 @@ void finishIfReady()
     }
 }
 
-std::unique_ptr<Capture> before(const PPCContext& ctx, bool indexed = true)
+std::unique_ptr<Capture> before(const PPCContext& ctx, DrawSource source = DrawSource::IndexedUp)
 {
     if (!enabled.load(std::memory_order_acquire))
         return {};
     // 0x82304254 submits the expanded label triangles through the nonindexed
     // UP wrapper. Other callers of that wrapper are outside this capture.
+    const bool indexed = source != DrawSource::LabelUp;
+    const bool bound   = source == DrawSource::IndexedBuffer;
     if (!indexed && ctx.lr != 0x82304258)
         return {};
     std::lock_guard lock(captureMutex);
@@ -157,24 +171,49 @@ std::unique_ptr<Capture> before(const PPCContext& ctx, bool indexed = true)
             session->armed = true;
         }
         if (session->frameConsumer && session->owner != std::this_thread::get_id())
-            throw std::runtime_error("guest UI draws and swap must share one CPU thread");
+            throw std::runtime_error("guest menu draws and swap must share one CPU thread");
         ++session->calls;
         if (!session->frameConsumer && session->calls == 256)
             enabled.store(false, std::memory_order_release);
         // The two admitted GFx call sites use the indexed UP wrapper. Its raw
         // hook retains the original stack argument and all original effects.
-        if ((indexed && ctx.lr != 0x82303E40 && ctx.lr != 0x82303E90) || ctx.r4.u32 != 4)
+        if ((!bound && indexed && ctx.lr != 0x82303E40 && ctx.lr != 0x82303E90) || ctx.r4.u32 != 4)
             throw std::runtime_error("unexpected caller at guest menu draw boundary");
-        const auto stride = indexed ? word(copyMemory(std::uint64_t(ctx.r1.u32) + 84, 4).data()) : ctx.r7.u32;
-        if ((indexed && stride != 4 && stride != 8 && stride != 12 && stride != 28) || (!indexed && stride != 28))
+        if (bound && (ctx.r5.u32 || ctx.r6.u32 || (ctx.r7.u32 != 12 && ctx.r7.u32 != 1536)))
+            throw std::runtime_error("unsupported guest scene base, start or index count");
+        const auto stride = bound ? 32U : indexed ? word(copyMemory(std::uint64_t(ctx.r1.u32) + 84, 4).data())
+                                                  : ctx.r7.u32;
+        if ((!bound && indexed && stride != 4 && stride != 8 && stride != 12 && stride != 28) || (!indexed && stride != 28))
             throw std::runtime_error("unsupported guest menu vertex stride");
-        const auto         minimumVertex = indexed ? ctx.r5.u32 : 0U;
-        const auto         vertexCount   = indexed ? ctx.r6.u32 : ctx.r5.u32;
-        const auto         indexCount    = indexed ? ctx.r7.u32 : 0U;
-        const auto         indexAddress  = indexed ? ctx.r8.u32 : 0U;
-        const auto         indexFormat   = indexed ? ctx.r9.u32 : 0U;
-        const auto         vertexAddress = indexed ? ctx.r10.u32 : ctx.r6.u32;
-        const auto         state         = copyMemory(ctx.r3.u32, kStateBytes);
+        const auto                minimumVertex = indexed ? ctx.r5.u32 : 0U;
+        auto                      vertexCount   = indexed ? ctx.r6.u32 : ctx.r5.u32;
+        const auto                indexCount    = indexed ? ctx.r7.u32 : 0U;
+        auto                      indexAddress  = indexed ? ctx.r8.u32 : 0U;
+        const auto                indexFormat   = bound ? 1U : indexed ? ctx.r9.u32
+                                                                       : 0U;
+        auto                      vertexAddress = indexed ? ctx.r10.u32 : ctx.r6.u32;
+        const auto                state         = copyMemory(ctx.r3.u32, kStateBytes);
+        std::vector<std::uint8_t> indexHeader;
+        if (bound)
+        {
+            // 0x826ACEA0 emits the fetch array at G+0x480 in six-word groups.
+            // The pinned scene VS reads the last pair (logical vf0, fetch 95).
+            const auto address = word(state.data() + 0x778);
+            const auto size    = word(state.data() + 0x77C);
+            const auto bytes   = ((size >> 2) & 0xFFFFFFU) * 4U;
+            if ((address & 3) != 3 || (size & 3) != 2 ||
+                !((indexCount == 12 && bytes == 256) || (indexCount == 1536 && bytes == 9248)))
+                throw std::runtime_error("unsupported guest scene vertex fetch");
+            vertexAddress = address & ~3U;
+            vertexCount   = bytes / stride;
+            // 0x826A3C9C uses the bound resource's +0 flags and +24 backing.
+            // Only its BE16, zero-start stream is admitted here.
+            indexHeader = copyMemory(word(state.data() + 0x3094), 28);
+            if ((word(indexHeader.data()) & 0xE0000000U) != 0x20000000U)
+                throw std::runtime_error("unsupported guest scene index resource");
+            const auto raw = word(indexHeader.data() + 24);
+            indexAddress   = (raw & 0x1FFFFFFFU) + (((raw >> 20) + 512U) & 0x1000U);
+        }
         NativeTextureFetch fetch;
         for (std::size_t i = 0; i < fetch.size(); ++i)
             fetch[i] = word(state.data() + 0x480 + i * 4);
@@ -189,28 +228,37 @@ std::unique_ptr<Capture> before(const PPCContext& ctx, bool indexed = true)
         session->layouts.insert(layout);
         auto capture       = std::make_unique<Capture>();
         capture->session   = session;
+        capture->source    = source;
         capture->directory = session->frameConsumer ? session->directory / fmt::format("frame-{:04}", session->frame) /
                                                           fmt::format("draw-{:04}", session->frameDraws)
                                                     : session->directory / fmt::format("draw-{:04}", session->captures);
         ++session->captures;
         ++session->frameDraws;
         std::filesystem::create_directory(capture->directory);
-        capture->fetch    = fetch;
-        capture->graphics = ctx.r3.u32;
-        capture->cursor   = word(state.data() + 48);
-        capture->metadata = toml::table{
+        capture->fetch         = fetch;
+        capture->graphics      = ctx.r3.u32;
+        capture->vertexAddress = vertexAddress;
+        capture->indexAddress  = indexAddress;
+        capture->cursor        = word(state.data() + 48);
+        capture->metadata      = toml::table{
             { "schema", 1 }, { "caller", static_cast<std::int64_t>(ctx.lr) }, { "graphics", ctx.r3.u32 }, { "primitive", ctx.r4.u32 }, { "indexed", indexed }, { "minimum_vertex", minimumVertex }, { "vertex_count", vertexCount }, { "index_count", indexCount }, { "index_address", indexAddress }, { "index_format", indexFormat }, { "vertex_address", vertexAddress }, { "stride", stride }, { "cursor_before", capture->cursor }, { "original_returned", false }
         };
         save(*capture, "state-before.be.bin", state);
+        if (bound)
+        {
+            capture->metadata.insert("bound_indexed", true);
+            capture->metadata.insert("index_resource", word(state.data() + 0x3094));
+            save(*capture, "index-header.be.bin", indexHeader);
+        }
         const auto vertexSize = std::uint64_t(vertexCount) * stride;
         const auto indexSize  = std::uint64_t(indexCount) * ((indexFormat & 4) ? 4 : 2);
         if (!vertexSize || vertexSize > kMaxGeometryBytes || (indexed && !indexSize) || indexSize > kMaxGeometryBytes)
             throw std::runtime_error("guest menu geometry exceeds capture bounds");
         capture->vertexSize = static_cast<std::uint32_t>(vertexSize);
         capture->indexSize  = static_cast<std::uint32_t>(indexSize);
-        capture->vertices   = copyMemory(std::uint64_t(vertexAddress) + std::uint64_t(minimumVertex) * stride, vertexSize);
+        capture->vertices   = copyMemory(std::uint64_t(vertexAddress) + std::uint64_t(minimumVertex) * stride, vertexSize, bound);
         if (indexed)
-            capture->indices = copyMemory(indexAddress, indexSize);
+            capture->indices = copyMemory(indexAddress, indexSize, bound);
         capture->draw.indexed       = indexed;
         capture->draw.primitive     = ctx.r4.u32;
         capture->draw.minimumVertex = minimumVertex;
@@ -239,7 +287,7 @@ std::unique_ptr<Capture> before(const PPCContext& ctx, bool indexed = true)
             capture->metadata.insert("texture_error", error);
         session->ownedBytes += capture->vertices.size() + capture->indices.size() + texture.bytes.size() + kStateBytes;
         if (session->ownedBytes > 512U * 1024U * 1024U)
-            throw std::runtime_error("guest UI inputs exceed session byte bound");
+            throw std::runtime_error("guest menu inputs exceed session byte bound");
         return capture;
     }
     catch (const std::exception& exception)
@@ -311,6 +359,29 @@ void selectedShader(Capture& capture, std::uint32_t graphics, std::uint32_t shad
     }
 }
 
+void indexedSubmission(Capture& capture, std::uint32_t graphics, std::uint32_t cursor, std::uint32_t index, std::uint32_t size, std::uint32_t count, std::uint32_t requested)
+{
+    std::lock_guard lock(captureMutex);
+    if (session != capture.session || session->failed || capture.source != DrawSource::IndexedBuffer)
+        return;
+    try
+    {
+        // 0x826A3E18 follows the indexed packet stores, immediately before
+        // publishing its final word through G+0x30. Large split draws are excluded.
+        if (graphics != capture.graphics || ++capture.submissions != 1 ||
+            count != capture.draw.indexCount || requested != count)
+            throw std::runtime_error("unsupported guest scene submission boundary");
+        capture.submittedCursor = cursor;
+        capture.submittedIndex  = index;
+        capture.submittedSize   = size;
+        capture.metadata.insert("submission", toml::table{ { "boundary", 0x826A3E18LL }, { "cursor", cursor }, { "index_address", index }, { "index_size_word", size }, { "index_count", count } });
+    }
+    catch (const std::exception& exception)
+    {
+        fail(exception);
+    }
+}
+
 void after(Capture& capture, const PPCContext& ctx)
 {
     std::lock_guard lock(captureMutex);
@@ -321,8 +392,8 @@ void after(Capture& capture, const PPCContext& ctx)
         const auto state = copyMemory(capture.graphics, kStateBytes);
         save(capture, "state-after.be.bin", state);
         const auto cursor = word(state.data() + 48);
-        // A successful wrapper returns memcpy's destination, not an HRESULT.
-        // Preserve raw completion observations instead of inferring success.
+        // UP wrappers return memcpy's destination. Bound draws instead publish
+        // the cursor observed after the indexed packet's stores.
         capture.metadata.insert_or_assign("original_returned", true);
         capture.metadata.insert("r3_after", ctx.r3.u32);
         capture.metadata.insert("cursor_after", cursor);
@@ -330,9 +401,24 @@ void after(Capture& capture, const PPCContext& ctx)
         const auto indexOutput  = word(state.data() + 0x348C);
         capture.metadata.insert("vertex_output", vertexOutput);
         capture.metadata.insert("index_output", indexOutput);
+        const bool bound     = capture.source == DrawSource::IndexedBuffer;
         const auto output    = capture.draw.indexed ? indexOutput : vertexOutput;
-        const bool completed = output && ctx.r3.u32 == output && cursor == word(state.data() + 0x3484);
-        if (completed)
+        const bool completed = bound ? capture.submissions == 1 && cursor == capture.submittedCursor &&
+                                           capture.submittedIndex == capture.indexAddress &&
+                                           capture.submittedSize == (0x40000000U | capture.draw.indexCount)
+                                     : output && ctx.r3.u32 == output && cursor == word(state.data() + 0x3484);
+        if (bound && completed)
+        {
+            const auto vertices = copyMemory(capture.vertexAddress, capture.vertexSize, true);
+            const auto indices  = copyMemory(capture.indexAddress, capture.indexSize, true);
+            save(capture, "vertex-after.bin", vertices);
+            save(capture, "index-after.bin", indices);
+            if (vertices != capture.vertices || indices != capture.indices ||
+                word(state.data() + 0x778) != (capture.vertexAddress | 3U) ||
+                (((word(state.data() + 0x77C) >> 2) & 0xFFFFFFU) * 4) != capture.vertexSize)
+                throw std::runtime_error("guest scene bound geometry changed during the draw");
+        }
+        if (!bound && completed)
         {
             save(capture, "vertex-output.bin", copyMemory(vertexOutput, capture.vertexSize));
             if (capture.draw.indexed)
@@ -371,10 +457,46 @@ void after(Capture& capture, const PPCContext& ctx)
         if (session->consumer)
         {
             if (!completed || capture.vertexMicrocode.empty())
-                throw std::runtime_error("guest UI draw did not complete its upload and shader selection");
+                throw std::runtime_error("guest menu draw did not complete its submission and shader selection");
             for (std::size_t i = 0; i < capture.fetch.size(); ++i)
                 if (capture.fetch[i] != word(state.data() + 0x480 + i * 4))
                     throw std::runtime_error("guest texture binding changed during the draw");
+            std::vector<std::uint8_t> vertexLiterals;
+            if (bound)
+            {
+                // 0x826ADB98 reads the shader's literal records and emits their
+                // resource backing as LOAD_ALU_CONSTANT, outside the G shadow.
+                const auto shader = word(state.data() + 0x3198);
+                const auto header = copyMemory(std::uint64_t(shader) + 872, 24);
+                save(capture, "vertex-literal-header.be.bin", header);
+                const auto relative = word(header.data() + 20);
+                if (!relative)
+                    throw std::runtime_error("guest scene shader has no literal table");
+                const auto tableAddress = std::uint64_t(shader) + 872 + relative;
+                const auto table        = copyMemory(tableAddress, 20);
+                save(capture, "vertex-literal-table.be.bin", table);
+                const auto recordBytes = word(table.data() + 16);
+                if (recordBytes < 8 || recordBytes > 128 || recordBytes % 4)
+                    throw std::runtime_error("unsupported guest scene literal table");
+                const auto record = copyMemory(tableAddress + 20, recordBytes);
+                save(capture, "vertex-literal-record.be.bin", record);
+                if (word(record.data()) != 0x00FC0010U)
+                    throw std::runtime_error("unsupported guest scene literal range");
+                // The loader stops at a zero count before reading that record's
+                // address. The table may include bytes after this terminator.
+                if (recordBytes != 8 && (word(record.data() + 8) & 0xFFFFU))
+                    throw std::runtime_error("unsupported additional guest scene literals");
+                const auto resource = copyMemory(std::uint64_t(shader) + 32, 4);
+                save(capture, "vertex-literal-resource.be.bin", resource);
+                const auto raw = std::uint64_t(word(resource.data())) + word(record.data() + 4);
+                if (raw > UINT32_MAX)
+                    throw std::runtime_error("guest scene literals exceed address bounds");
+                const auto physical = (raw & 0x1FFFFFFFULL) + (((raw >> 20) + 512) & 0x1000);
+                vertexLiterals      = copyMemory(physical, 64, true);
+                save(capture, "vertex-literals.be.bin", vertexLiterals);
+                capture.metadata.insert("vertex_literals", toml::table{ { "shader", shader }, { "table", static_cast<std::int64_t>(tableAddress) }, { "physical", static_cast<std::int64_t>(physical) }, { "first_constant", 252 }, { "word_count", 16 } });
+            }
+            capture.draw.vertexLiterals  = vertexLiterals;
             capture.draw.state           = state;
             capture.draw.vertices        = capture.vertices;
             capture.draw.indices         = capture.indices;
@@ -404,7 +526,7 @@ bool StartNativeGuestDrawCapture(const std::filesystem::path& directory, std::st
     try
     {
         if (bool(consumer) != bool(frameConsumer))
-            throw std::runtime_error("guest UI replay requires draw and frame consumers together");
+            throw std::runtime_error("guest menu replay requires draw and frame consumers together");
         if (session || !std::filesystem::create_directories(directory))
             throw std::runtime_error("guest draw capture requires a fresh directory and one session");
         session                = std::make_shared<Session>();
@@ -441,7 +563,7 @@ void NotifyNativeGuestFrameBoundary()
         else
         {
             if (session->owner != std::this_thread::get_id() || !session->frameDraws || session->finished != session->captures)
-                throw std::runtime_error("guest UI frame is empty, interleaved, or has unfinished draws");
+                throw std::runtime_error("guest menu frame is empty, interleaved, or has unfinished draws");
             std::string error;
             const bool  last = session->frame == 2;
             if (!session->frameConsumer(session->directory, last, error))
@@ -486,6 +608,23 @@ void ObserveNativeGuestVertexSelection(PPCRegister& r30, PPCRegister& r31, PPCRe
         rerevved::gpu::diagnostics::selectedShader(*capture, r30.u32, r31.u32, r15.u32, r19.u32);
 }
 
+void ObserveNativeGuestIndexedSubmission(PPCRegister& r31, PPCRegister& r11, PPCRegister& r28, PPCRegister& r29, PPCRegister& r27, PPCRegister& r19)
+{
+    if (auto* capture = rerevved::gpu::diagnostics::activeCapture)
+        rerevved::gpu::diagnostics::indexedSubmission(*capture, r31.u32, r11.u32, r28.u32, r29.u32, r27.u32, r19.u32);
+}
+
+REX_HOOK_RAW(sub_826A39F8)
+{
+    auto  capture                             = rerevved::gpu::diagnostics::before(ctx, rerevved::gpu::diagnostics::DrawSource::IndexedBuffer);
+    auto* previous                            = rerevved::gpu::diagnostics::activeCapture;
+    rerevved::gpu::diagnostics::activeCapture = capture.get();
+    __imp__sub_826A39F8(ctx, base);
+    rerevved::gpu::diagnostics::activeCapture = previous;
+    if (capture)
+        rerevved::gpu::diagnostics::after(*capture, ctx);
+}
+
 REX_HOOK_RAW(sub_826A3568)
 {
     auto  capture                             = rerevved::gpu::diagnostics::before(ctx);
@@ -509,7 +648,7 @@ REX_HOOK_RAW(sub_826AD150)
 
 REX_HOOK_RAW(sub_826A3000)
 {
-    auto  capture                             = rerevved::gpu::diagnostics::before(ctx, false);
+    auto  capture                             = rerevved::gpu::diagnostics::before(ctx, rerevved::gpu::diagnostics::DrawSource::LabelUp);
     auto* previous                            = rerevved::gpu::diagnostics::activeCapture;
     rerevved::gpu::diagnostics::activeCapture = capture.get();
     __imp__sub_826A3000(ctx, base);

@@ -8,7 +8,10 @@ namespace rerevved::gpu
 struct NativeGuestMenuDraw
 {
     // Owned by the caller for this call. State and shader words are guest BE.
-    std::span<const std::uint8_t>  state, vertexMicrocode, pixelMicrocode;
+    // Indexed inputs use guest indexFormat 1 with BE16 index bytes.
+    std::span<const std::uint8_t> state, vertexMicrocode, pixelMicrocode;
+    // The scene shader's c252..c255 literals come from its resource loader.
+    std::span<const std::uint8_t>  vertexLiterals;
     std::span<const std::uint8_t>  vertices, indices;
     const NativeDrawReplayTexture* texture   = nullptr;
     std::uint32_t                  primitive = 0, minimumVertex = 0, vertexCount = 0;
@@ -16,8 +19,9 @@ struct NativeGuestMenuDraw
     bool                           indexed = true;
 };
 
-// The admitted indexed GFx and nonindexed label pairs use at most one texture. Shader
-// identity, fixed state, and the full viewport must match the supported path.
+// The admitted indexed GFx, indexed scene, and nonindexed label pairs use at
+// most one texture. Shader identity, fixed state, and the full viewport must
+// match the supported path.
 bool BuildNativeGuestMenuDrawRecipe(const NativeGuestMenuDraw& draw,
                                     const NativeMenuShaders&   shaders,
                                     NativeDrawReplayRecipe&    recipe,

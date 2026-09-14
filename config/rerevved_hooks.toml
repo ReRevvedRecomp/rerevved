@@ -104,6 +104,11 @@ name = "ObserveNativeGuestVertexSelection"
 registers = ["r30", "r31", "r15", "r19"]
 
 [[midasm_hook]]
+address = 0x826A3E18
+name = "ObserveNativeGuestIndexedSubmission"
+registers = ["r31", "r11", "r28", "r29", "r27", "r19"]
+
+[[midasm_hook]]
 address = 0x826A4888
 name = "TraceVdSwapReturn"
 registers = ["r3", "r30", "r31"]

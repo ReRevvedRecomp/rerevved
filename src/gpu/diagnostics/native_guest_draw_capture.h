@@ -9,7 +9,7 @@
 namespace rerevved::gpu::diagnostics
 {
 
-// Captures bounded, owned CPU inputs to the original GFx and label UP draws. The
+// Captures owned CPU inputs to the original menu scene, GFx and label draws. The
 // caller creates an arm file only after reaching the intended game state.
 using NativeGuestDrawConsumer  = std::function<bool(const NativeGuestMenuDraw&,
                                                     const std::filesystem::path&,

@@ -106,6 +106,11 @@ EXPECTED_HOOKS = [
         "registers": ["r30", "r31", "r15", "r19"],
     },
     {
+        "address": 0x826A3E18,
+        "name": "ObserveNativeGuestIndexedSubmission",
+        "registers": ["r31", "r11", "r28", "r29", "r27", "r19"],
+    },
+    {
         "address": 0x826A4888,
         "name": "TraceVdSwapReturn",
         "registers": ["r3", "r30", "r31"],
@@ -401,6 +406,26 @@ class HookContractTests(unittest.TestCase):
         )
         self.assertEqual(occurrences, 1)
 
+    def test_indexed_submission_precedes_cursor_publication_when_available(
+        self,
+    ) -> None:
+        paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
+        if not paths:
+            self.skipTest("generated sources are not available")
+        expected = (
+            "loc_826A3E18:\n\t// subf. r10,r27,r19\n"
+            "\tObserveNativeGuestIndexedSubmission("
+            "ctx.r31, ctx.r11, ctx.r28, ctx.r29, ctx.r27, ctx.r19);\n"
+            "\tctx.r10.u64 = ctx.r19.u64 - ctx.r27.u64;\n"
+            "\tctx.cr0.compare<int32_t>(ctx.r10.s32, 0, ctx.xer);\n"
+            "\t// stw r11,48(r31)\n"
+            "\tREX_STORE_U32(ctx.r31.u32 + 48, ctx.r11.u32);"
+        )
+        occurrences = sum(
+            path.read_text(encoding="utf-8").count(expected) for path in paths
+        )
+        self.assertEqual(occurrences, 1)
+
     def test_only_verified_hooks_are_configured(self) -> None:
         with HOOK_CONFIG.open("rb") as stream:
             config = tomllib.load(stream)
@@ -419,7 +444,7 @@ class HookContractTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         source_names.update(
             re.findall(
-                r"^void (ObserveNativeGuestVertexSelection)[ \t]*\(",
+                r"^void (ObserveNativeGuest(?:VertexSelection|IndexedSubmission))[ \t]*\(",
                 capture_source,
                 re.MULTILINE,
             )
