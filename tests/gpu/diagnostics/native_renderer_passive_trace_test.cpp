@@ -194,7 +194,8 @@ int main()
     auto oldEpochLease = buffer->BeginRecord();
     require(static_cast<bool>(oldEpochLease), "old epoch lease acquired");
     std::atomic<bool> epochResult{ false };
-    std::thread       epochThread([&buffer, &epochResult]()
+    std::atomic<bool> epochFinished{ false };
+    std::thread       epochThread([&buffer, &epochResult, &epochFinished]()
                                   {
                                 PassiveTraceEvent resetEvent{};
                                 resetEvent.point =
@@ -202,8 +203,15 @@ int main()
                                 epochResult.store(
                                     buffer->BeginObservationEpoch(resetEvent),
                                     std::memory_order_release);
+                                epochFinished.store(true, std::memory_order_release);
                                   });
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    // Observe the closed admission gate before attempting a competing reset.
+    // A scheduling delay must not let this thread claim the transition first.
+    while (buffer->Enabled() && !epochFinished.load(std::memory_order_acquire))
+    {
+        std::this_thread::yield();
+    }
+    require(!buffer->Enabled(), "epoch transition closed admission");
     PassiveTraceEvent competingReset{};
     competingReset.point = PassiveTracePoint::RingResetBegin;
     require(!buffer->BeginObservationEpoch(competingReset),
