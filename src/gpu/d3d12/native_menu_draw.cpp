@@ -125,8 +125,10 @@ bool state(const NativeMenuDrawView& view, const ShaderContract& shader, NativeD
         { 0x2307, 0xFF000 },
         { 0x2308, 0xFF100 },
     };
+    // RB_COLORCONTROL's low bits select the comparison for a disabled alpha
+    // test in both the menu and copyright UI states.
     for (const auto [index, value] : required)
-        if (r[index] != value)
+        if (r[index] != value && !(index == 0x2202 && !shader.scene && r[index] == 0x87000007U))
         {
             std::ostringstream text;
             text << "unsupported menu register 0x" << std::hex << index
@@ -277,14 +279,16 @@ bool DecodeNativeMenuDrawGeometry(const NativeMenuDrawView& view,
     return true;
 }
 
-bool ValidateNativeMenuInitialClear(const NativeMenuDrawView& view, std::string& error)
+bool ValidateNativeMenuInitialClear(const NativeMenuDrawView& view, std::uint8_t& alpha, std::string& error)
 {
+    const auto geometryDigest = digest(view.vertexBytes);
+    const bool knownGeometry  = geometryDigest == "266933252713ae004038e3977d90a79a9f3f49544a47245f68b2c08a645cd08e" ||
+                                geometryDigest == "cb82e2af580b4b39271ad48d97a3d9e664a7a1969a96f43e23419790b3f0d744";
     if (view.registers.size() != 0x5003 || view.indexed || view.indexCount != 3 ||
         view.vertexShaderHash != 0x1E6883FCCDE1F688ULL || view.pixelShaderHash != 0xA4A965C189287B99ULL ||
         wordDigest(view.vertexMicrocode) != "2b2fe8f96319434015034dc955df9b2ab30d0e979645821cb592e667c4f58295" ||
         wordDigest(view.pixelMicrocode) != "f73f655ea80c22bde4bc93575f87664e81056b6f4714bef3a4defaa18994d18a" ||
-        view.vertexBytes.size() != 84 ||
-        digest(view.vertexBytes) != "266933252713ae004038e3977d90a79a9f3f49544a47245f68b2c08a645cd08e")
+        view.vertexBytes.size() != 84 || !knownGeometry)
         return fail(error, "unsupported menu initial clear geometry or shader");
     const auto                                    r          = view.registers;
     const std::pair<std::uint32_t, std::uint32_t> required[] = {
@@ -315,6 +319,9 @@ bool ValidateNativeMenuInitialClear(const NativeMenuDrawView& view, std::string&
     if ((r[0x4800] & 3) != 3 || (r[0x4801] & 3) != 2 ||
         (r[0x4800] & ~3U) != view.vertexGuestBase || ((r[0x4801] >> 2) & 0xFFFFFF) * 4 != 84)
         return fail(error, "initial clear bytes do not match vertex fetch zero");
+    // Both pinned vertex buffers clear black at far depth. Their fourth color
+    // components differ, so preserve that alpha in the native clear.
+    alpha = bigWord(view.vertexBytes.data() + 24) == 0x3F800000U ? 255 : 0;
     return true;
 }
 

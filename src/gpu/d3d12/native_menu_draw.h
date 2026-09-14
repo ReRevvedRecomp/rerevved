@@ -47,7 +47,7 @@ bool LoadNativeMenuShaders(const std::filesystem::path& directory,
 bool DecodeNativeMenuDrawGeometry(const NativeMenuDrawView& view,
                                   NativeDrawReplayRecipe&   recipe,
                                   std::string&              error);
-bool ValidateNativeMenuInitialClear(const NativeMenuDrawView& view, std::string& error);
+bool ValidateNativeMenuInitialClear(const NativeMenuDrawView& view, std::uint8_t& alpha, std::string& error);
 bool BuildNativeMenuDrawRecipe(const NativeMenuDrawView& view,
                                const NativeMenuShaders&  shaders,
                                NativeDrawReplayRecipe&   recipe,

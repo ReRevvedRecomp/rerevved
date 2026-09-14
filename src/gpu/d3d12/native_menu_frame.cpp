@@ -14,7 +14,7 @@ bool fail(std::string& error, const std::string& reason)
     return false;
 }
 
-bool resolveState(const NativeMenuFrameEventView& event, std::size_t half, std::uint32_t destination, std::string& error)
+bool resolveState(const NativeMenuFrameEventView& event, std::size_t half, std::uint32_t destination, std::uint8_t clearAlpha, std::string& error)
 {
     const auto                                    r          = event.draw.registers;
     const std::pair<std::uint32_t, std::uint32_t> expected[] = {
@@ -35,8 +35,8 @@ bool resolveState(const NativeMenuFrameEventView& event, std::size_t half, std::
         { 0x231B, 0x01000300 },
         { 0x231C, 0xFFF },
         { 0x231D, 0xFFFFFF00 },
-        { 0x231E, 0 },
-        { 0x231F, 0 },
+        { 0x231E, std::uint32_t(clearAlpha) << 24 },
+        { 0x231F, std::uint32_t(clearAlpha) << 24 },
     };
     for (const auto [index, value] : expected)
         if (r[index] != value)
@@ -78,6 +78,7 @@ bool BuildNativeMenuFrameRecipe(std::span<const NativeMenuFrameEventView> events
     bool                            swapped        = false;
     std::size_t                     half           = 0;
     std::uint32_t                   frontbuffer    = 0;
+    std::uint8_t                    clearAlpha     = 0;
     const NativeMenuFrameEventView* pendingCopy    = nullptr;
     std::uint64_t                   previousId     = 0;
     for (const auto& event : events)
@@ -110,7 +111,7 @@ bool BuildNativeMenuFrameRecipe(std::span<const NativeMenuFrameEventView> events
                 if (!frontbuffer || frontbuffer > 0x20000000U - tiledFrameBytes || (frontbuffer & 0xFFF))
                     return fail(error, "invalid menu resolve destination range");
             }
-            if (!resolveState(event, half, frontbuffer + (half ? 0x14000U : 0U), error))
+            if (!resolveState(event, half, frontbuffer + (half ? 0x14000U : 0U), clearAlpha, error))
                 return false;
             ++half;
             pendingCopy    = nullptr;
@@ -135,7 +136,7 @@ bool BuildNativeMenuFrameRecipe(std::span<const NativeMenuFrameEventView> events
         }
         if (event.primitiveType == 8 && !initialized && !half)
         {
-            if (!ValidateNativeMenuInitialClear(event.draw, error))
+            if (!ValidateNativeMenuInitialClear(event.draw, clearAlpha, error))
                 return false;
             initialized = true;
             continue;
@@ -145,6 +146,8 @@ bool BuildNativeMenuFrameRecipe(std::span<const NativeMenuFrameEventView> events
         NativeDrawReplayRecipe draw;
         if (!BuildNativeMenuDrawRecipe(event.draw, shaders, draw, error))
             return fail(error, "menu event " + std::to_string(event.id) + ": " + error);
+        if (recipe.halves[half].empty())
+            draw.clearColor[3] = clearAlpha;
         if (draw.viewport.x != (half ? -640.0F : 0.0F) ||
             (draw.depth.enabled && (depthDiscarded || uiSeen)))
             return fail(error, "menu draw crosses its resolve or discarded depth boundary");

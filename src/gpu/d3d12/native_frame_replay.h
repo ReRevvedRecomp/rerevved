@@ -12,8 +12,8 @@ namespace rerevved::gpu
 
 struct NativeFrameReplayRecipe
 {
-    // Each half starts with native black color and far depth. Draw attachments
-    // stay on the GPU until that half's resolve and gamma pass have completed.
+    // Each half starts with native black color (the first draw's clear alpha)
+    // and far depth. Attachments stay on the GPU through resolve and gamma.
     std::array<std::vector<NativeDrawReplayRecipe>, 2> halves;
     std::array<std::uint32_t, 256>                     gammaTable{};
     std::filesystem::path                              outputPath;

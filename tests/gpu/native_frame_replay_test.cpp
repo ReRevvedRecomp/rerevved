@@ -54,6 +54,15 @@ int main()
     auto        frame = makeFrame();
     std::string error;
     require(ValidateNativeFrameReplayRecipe(frame, error), "native clear frame admission");
+    frame.halves[0][0].clearColor[3] = 255;
+    frame.halves[1][0].clearColor[3] = 255;
+    require(ValidateNativeFrameReplayRecipe(frame, error), "opaque boot clear admission");
+    frame.halves[0][0].clearColor[3] = 128;
+    require(!ValidateNativeFrameReplayRecipe(frame, error), "unsupported clear alpha rejected");
+    frame.halves[0][0].clearColor[3] = 255;
+    frame.halves[0].push_back(frame.halves[0][0]);
+    require(!ValidateNativeFrameReplayRecipe(frame, error), "clear alpha belongs to the first draw only");
+    frame                                 = makeFrame();
     frame.halves[0][0].depth.enabled      = true;
     frame.halves[0][0].depth.writeEnabled = true;
     require(ValidateNativeFrameReplayRecipe(frame, error), "native far depth clear admission");

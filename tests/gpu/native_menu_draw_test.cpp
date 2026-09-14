@@ -1,6 +1,7 @@
 #include "gpu/d3d12/native_menu_draw.h"
 #include "gpu/d3d12/native_menu_frame.h"
 
+#include <algorithm>
 #include <bit>
 #include <cstdlib>
 #include <fstream>
@@ -93,7 +94,7 @@ void geometry()
 void fixture(const std::filesystem::path& root, const NativeMenuShaders& shaders)
 {
     const auto             table     = toml::parse_file((root / "view.toml").string());
-    const auto             registers = words(read(root / "registers.bin"));
+    auto                   registers = words(read(root / "registers.bin"));
     const auto             vs        = words(read(root / "vertex.ucode.bin"));
     const auto             ps        = words(read(root / "pixel.ucode.bin"));
     const auto             vertices  = read(root / "vertex-fetch.bin");
@@ -143,6 +144,17 @@ void fixture(const std::filesystem::path& root, const NativeMenuShaders& shaders
             root.string() + " depth, rasterizer and blend state");
     require(actual.initialSample0.empty() && actual.initialSample1.empty() && actual.depth.initialSamples.empty(),
             "native clears have no captured attachments");
+    if (!actual.depth.enabled)
+    {
+        const auto colorControl = registers[0x2202];
+        registers[0x2202]       = 0x87000004U;
+        require(BuildNativeMenuDrawRecipe(view, shaders, actual, error), "menu disabled alpha test");
+        registers[0x2202] = 0x87000007U;
+        require(BuildNativeMenuDrawRecipe(view, shaders, actual, error), "copyright disabled alpha test");
+        registers[0x2202] |= 8;
+        require(!BuildNativeMenuDrawRecipe(view, shaders, actual, error), "enabled UI alpha test rejected");
+        registers[0x2202] = colorControl;
+    }
 }
 
 void frameFixture(const std::filesystem::path& root, const NativeMenuShaders& shaders)
@@ -218,22 +230,50 @@ void frameFixture(const std::filesystem::path& root, const NativeMenuShaders& sh
     NativeFrameReplayRecipe frame;
     std::string             error;
     require(BuildNativeMenuFrameRecipe(events, shaders, gamma, frame, error), error);
-    require(frame.halves[0].size() == 77 && frame.halves[1].size() == 77, "saved full frame draw order");
-    auto withStart = events;
-    auto start     = events.back();
-    start.id       = 1;
-    for (auto& event : withStart)
-        ++event.id;
-    withStart.insert(withStart.begin(), start);
-    require(BuildNativeMenuFrameRecipe(withStart, shaders, gamma, frame, error), "completed start swap boundary: " + error);
-    auto damaged = events;
-    damaged.erase(damaged.begin() + 48);
+    const auto expectedDraws = table["draws_per_half"].value_or(77U);
+    require(frame.halves[0].size() == expectedDraws && frame.halves[1].size() == expectedDraws,
+            "captured full frame draw order");
+    const auto expectedAlpha = table["clear_alpha"].value_or(0U);
+    require(frame.halves[0].front().clearColor[3] == expectedAlpha &&
+                frame.halves[1].front().clearColor[3] == expectedAlpha,
+            "captured clear alpha retained in each native half");
+    if (events.front().kind != NativeMenuFrameEventView::Kind::Swap)
+    {
+        auto withStart = events;
+        auto start     = events.back();
+        start.id       = 1;
+        for (auto& event : withStart)
+            ++event.id;
+        withStart.insert(withStart.begin(), start);
+        require(BuildNativeMenuFrameRecipe(withStart, shaders, gamma, frame, error),
+                "completed start swap boundary: " + error);
+    }
+    auto       damaged      = events;
+    const auto initialClear = std::find_if(damaged.begin(), damaged.end(), [](const auto& event)
+                                           {
+                                               return event.kind == NativeMenuFrameEventView::Kind::Draw &&
+                                                      event.hostIssued && event.primitiveType == 8 &&
+                                                      event.draw.vertexBytes.size() == 84;
+                                           });
+    require(initialClear != damaged.end(), "frame fixture initial clear metadata");
+    damaged.erase(initialClear);
     require(!BuildNativeMenuFrameRecipe(damaged, shaders, gamma, frame, error), "missing initial clear rejected");
-    damaged                        = events;
-    damaged[0].hostPixelShaderHash = 1;
+    damaged              = events;
+    const auto firstDraw = std::find_if(damaged.begin(), damaged.end(), [](const auto& event)
+                                        {
+                                            return event.kind == NativeMenuFrameEventView::Kind::Draw &&
+                                                   event.primitiveType == 1;
+                                        });
+    require(firstDraw != damaged.end(), "frame fixture image-producing metadata");
+    firstDraw->hostPixelShaderHash = 1;
     require(!BuildNativeMenuFrameRecipe(damaged, shaders, gamma, frame, error), "image-producing point rejected");
     damaged              = events;
-    damaged[129].resolve = false;
+    const auto firstCopy = std::find_if(damaged.begin(), damaged.end(), [](const auto& event)
+                                        {
+                                            return event.kind == NativeMenuFrameEventView::Kind::Copy;
+                                        });
+    require(firstCopy != damaged.end(), "frame fixture resolve metadata");
+    firstCopy->resolve = false;
     require(!BuildNativeMenuFrameRecipe(damaged, shaders, gamma, frame, error), "foreign resolve rejected");
     damaged = events;
     damaged.back().frontbuffer += 4096;

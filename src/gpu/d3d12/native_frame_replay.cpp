@@ -102,7 +102,8 @@ bool ValidateNativeFrameReplayRecipe(const NativeFrameReplayRecipe& recipe,
                 draw.targetFormat != NativeDrawReplayTargetFormat::Rgba8 ||
                 !draw.initialSample0.empty() || !draw.initialSample1.empty() ||
                 !draw.depth.initialSamples.empty() || draw.depth.initialClear != 1.0F ||
-                draw.clearColor != std::array<std::uint8_t, 4>{ 0, 0, 0, 0 })
+                (draw.clearColor != std::array<std::uint8_t, 4>{ 0, 0, 0, 0 } &&
+                 !(&draw == &half.front() && draw.clearColor == std::array<std::uint8_t, 4>{ 0, 0, 0, 255 })))
             {
                 error = "frame draws require the menu extent and native black/far clears without captured attachments";
                 return false;

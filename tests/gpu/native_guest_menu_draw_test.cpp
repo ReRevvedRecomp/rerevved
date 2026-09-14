@@ -149,8 +149,9 @@ int main(int argc, char** argv)
     }
     if (draw.stride != 8)
     {
-        const auto expectedAddress = draw.stride == 32 ? std::array<std::uint32_t, 3>{ 1, 1, 3 }
-                                                       : std::array<std::uint32_t, 3>{ 3, 3, 3 };
+        const bool copyright       = bigWord(state, 0x293C) == 0x87000007U;
+        const auto expectedAddress = draw.stride == 32 || copyright ? std::array<std::uint32_t, 3>{ 1, 1, 3 }
+                                                                    : std::array<std::uint32_t, 3>{ 3, 3, 3 };
         require(recipe.sampler.address == expectedAddress &&
                     recipe.sampler.minLinear && recipe.sampler.magLinear && recipe.sampler.mipLinear &&
                     recipe.sampler.mipBias == 0 && recipe.texture.bytes == texture.bytes,
