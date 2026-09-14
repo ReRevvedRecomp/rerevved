@@ -575,11 +575,10 @@ NativeRendererD3D12::~NativeRendererD3D12()
 
 bool NativeRendererD3D12::Impl::initializeDeviceAndCommandObjects(bool replayDiagnostics)
 {
-    if (replayDiagnostics)
+    if (!replayDiagnostics)
     {
-        enableReplayDebugLayer();
+        enableDred();
     }
-    enableDred();
     HRESULT result = CreateDXGIFactory2(0, IID_PPV_ARGS(&factory));
     if (FAILED(result))
     {
@@ -608,9 +607,10 @@ bool NativeRendererD3D12::Impl::initializeDeviceAndCommandObjects(bool replayDia
         }
 
         ComPtr<ID3D12Device> candidateDevice;
-        if (SUCCEEDED(D3D12CreateDevice(candidate.Get(),
-                                        D3D_FEATURE_LEVEL_11_0,
-                                        IID_PPV_ARGS(&candidateDevice))))
+        result = D3D12CreateDevice(candidate.Get(),
+                                   D3D_FEATURE_LEVEL_11_0,
+                                   IID_PPV_ARGS(&candidateDevice));
+        if (SUCCEEDED(result))
         {
             adapter = std::move(candidate);
             device  = std::move(candidateDevice);
@@ -620,6 +620,7 @@ bool NativeRendererD3D12::Impl::initializeDeviceAndCommandObjects(bool replayDia
                         description.DeviceId);
             break;
         }
+        logFailure("adapter device creation", result);
     }
     if (!device)
     {
@@ -2217,6 +2218,14 @@ bool NativeRendererD3D12::Initialize(rex::ui::Window& window)
 #endif
 }
 
+void NativeRendererD3D12::ConfigureReplayDiagnostics()
+{
+#if defined(_WIN32)
+    enableReplayDebugLayer();
+    enableDred();
+#endif
+}
+
 NativeDrawReplayResult NativeRendererD3D12::ReplayOffscreen(
     const NativeDrawReplayRecipe& recipe)
 {
@@ -2234,7 +2243,7 @@ NativeDrawReplayResult NativeRendererD3D12::ReplayOffscreen(
     }
     if (recipe.outputPath.empty())
     {
-        result.error = "native D3D12 replay output path must be supplied by the CLI";
+        result.error = "native D3D12 replay output path must be supplied by the caller";
         return result;
     }
     if (impl->gpuObjectsAbandoned.load(std::memory_order_acquire))

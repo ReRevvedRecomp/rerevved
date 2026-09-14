@@ -4,7 +4,7 @@ project(rerevved VERSION 1.0.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(rexglue 0.11.0 REQUIRED CONFIG)
+find_package(rexglue 0.12.0 REQUIRED CONFIG)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/rexglue-sdk.lock.json" REREVVED_SDK_LOCK)
@@ -58,6 +58,10 @@ set(REREVVED_SOURCES
     src/gpu/d3d12/native_renderer_d3d12.h
     src/gpu/d3d12/native_draw_replay.cpp
     src/gpu/d3d12/native_draw_replay.h
+    src/gpu/d3d12/native_menu_panel.cpp
+    src/gpu/d3d12/native_menu_panel.h
+    src/gpu/diagnostics/native_menu_shadow.cpp
+    src/gpu/diagnostics/native_menu_shadow.h
     src/gpu/diagnostics/native_renderer_guest_state.cpp
     src/gpu/diagnostics/native_renderer_guest_state.h
     src/gpu/diagnostics/native_renderer_passive_trace.cpp
@@ -479,6 +483,15 @@ if(BUILD_TESTING)
     )
     target_link_libraries(native_draw_replay_tests PRIVATE rex::runtime)
     add_test(NAME native_draw_replay_recipe COMMAND native_draw_replay_tests)
+
+    add_executable(native_menu_panel_tests
+        src/gpu/d3d12/native_draw_replay.cpp
+        src/gpu/d3d12/native_menu_panel.cpp
+        tests/gpu/native_menu_panel_test.cpp
+    )
+    target_include_directories(native_menu_panel_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_link_libraries(native_menu_panel_tests PRIVATE rex::runtime)
+    add_test(NAME native_menu_panel COMMAND native_menu_panel_tests)
 
     add_executable(fence_trace_finalization_gate_tests
         tests/fence_trace_finalization_gate_test.cpp

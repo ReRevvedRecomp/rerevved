@@ -52,6 +52,7 @@ int main(int argc, char** argv)
         }
     }
 
+    rerevved::gpu::NativeRendererD3D12::ConfigureReplayDiagnostics();
     rerevved::gpu::NativeRendererD3D12 renderer;
     const auto                         result = renderer.ReplayOffscreen(recipe);
     renderer.Shutdown();

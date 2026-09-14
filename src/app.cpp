@@ -46,6 +46,10 @@ REXCVAR_DEFINE_STRING(native_renderer_passive_trace_output, "", "ReRevved", "Ign
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_STRING(native_renderer_fence_trace_output, "", "ReRevved", "Ignored local CSV path for the bounded Xenos consumer/fence trace")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
+REXCVAR_DEFINE_STRING(native_menu_shadow_output, "", "ReRevved", "Fresh ignored directory for one live native menu draw comparison")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
+REXCVAR_DEFINE_STRING(native_menu_shadow_shaders, "", "ReRevved", "Ignored directory containing the validated panel vs.dxil and ps.dxil")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 namespace
 {
@@ -173,6 +177,30 @@ bool resolvePassiveTracePath(std::string_view       configured,
     return isContainedPath(canonicalRoot, outputPath);
 }
 
+bool resolveShadowDirectory(std::string_view       configured,
+                            bool                   fresh,
+                            std::filesystem::path& output)
+{
+    std::error_code error;
+    const auto      root = std::filesystem::absolute("out", error).lexically_normal();
+    if (error || configured.empty())
+    {
+        return false;
+    }
+    const auto path = std::filesystem::absolute(configured, error).lexically_normal();
+    if (error || !isContainedPath(root, path) || containsExistingReparsePoint(root, path))
+    {
+        return false;
+    }
+    const bool exists = std::filesystem::exists(path, error);
+    if (error || (fresh ? exists : !std::filesystem::is_directory(path, error)) || error)
+    {
+        return false;
+    }
+    output = path;
+    return true;
+}
+
 rerevved::native_renderer::SnapshotFields readCoverageSnapshot() noexcept
 {
     GameplayState state{};
@@ -262,6 +290,24 @@ bool App::SetupEnvironment()
     REXLOG_INFO("ReRevved renderer selected: {}",
                 rerevved::gpu::RendererBackendName(rendererBackend));
 
+    const std::string shadowOutput  = REXCVAR_GET(native_menu_shadow_output);
+    const std::string shadowShaders = REXCVAR_GET(native_menu_shadow_shaders);
+    if (!shadowOutput.empty() || !shadowShaders.empty())
+    {
+#if !defined(_WIN32)
+        REXLOG_ERROR("Live native menu draw comparison requires Windows D3D12");
+        return false;
+#else
+        if (rendererBackend != rerevved::gpu::RendererBackend::Xenos ||
+            !resolveShadowDirectory(shadowOutput, true, nativeMenuShadowOutput) ||
+            !resolveShadowDirectory(shadowShaders, false, nativeMenuShadowShaders))
+        {
+            REXLOG_ERROR("Live native menu comparison requires Xenos, a fresh output directory, and a shader directory under out");
+            return false;
+        }
+#endif
+    }
+
     const std::string passiveTraceOutput =
         REXCVAR_GET(native_renderer_passive_trace_output);
     const std::string fenceTraceOutput =
@@ -333,6 +379,16 @@ bool App::SetupPresentation()
     else
     {
         rex::cvar::SetFlagAsApplicationDefault("render_target_path_d3d12", "rov");
+    }
+
+    if (!nativeMenuShadowOutput.empty())
+    {
+        std::string error;
+        if (!nativeMenuShadow.Start(nativeMenuShadowOutput, nativeMenuShadowShaders, error))
+        {
+            REXLOG_ERROR("Live native menu comparison setup failed: {}", error);
+            return false;
+        }
     }
 
     const std::string runId = REXCVAR_GET(native_renderer_coverage_run);
@@ -499,6 +555,7 @@ void App::OnGuestThreadExit(rex::system::XThread* thread)
 
 void App::OnShutdown()
 {
+    nativeMenuShadow.Stop();
     finalizeFenceTrace();
     finalizePassiveTrace();
     finalizeCoverage(rerevved::native_renderer::ExitClass::Shutdown);
@@ -513,6 +570,7 @@ void App::OnShutdown()
 
 bool App::OnWindowCloseRequested()
 {
+    nativeMenuShadow.Stop();
     finalizeFenceTrace();
     finalizePassiveTrace();
     finalizeCoverage(rerevved::native_renderer::ExitClass::WindowClose);

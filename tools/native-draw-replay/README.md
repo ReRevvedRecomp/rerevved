@@ -11,6 +11,33 @@ native_draw_replay.exe <recipe-file> <output-samples-file>
 The title driver supplies `-Stage Replay`, `-ReplayRecipe`, and
 `-ReplayOutput`; the harness never starts the guest application.
 
+## Live panel comparison
+
+The Windows title also supports a default-off, one-shot native comparison
+while Xenos runs the guest. Supply `--native_menu_shadow_output=<fresh-dir>`
+and `--native_menu_shadow_shaders=<shader-dir>` through the title driver's
+interactive Launch stage. Both directories must be under the ignored `out/`
+tree. The shader directory contains `vs.dxil` and `ps.dxil` for the validated
+panel pair; the decoder checks their exact digests and the live guest shader
+identity before submission. Private shader binaries are not distributed here.
+
+After the natural menu is ready, create an `arm` file in the output directory's
+`capture/` child. The Xenos command processor captures the next eligible panel
+draw and completes its queue fence before publishing owned bytes to the title.
+A title worker decodes that draw and submits it to native D3D12 in the same
+process. The output includes the original capture, native and reference sample
+planes, and `comparison.toml`. Completion requires a nonempty visible change
+and at most two byte values of error per channel across both sample planes.
+
+This comparison uses the live Xenos color contents before the panel as the
+initial blend target. It exercises input acquisition, native submission and
+retirement for one draw. Xenos retains guest execution and presentation;
+continuous native frames and guest D3D replacement require separate work.
+
+The standalone replay tool configures debug-layer and DRED diagnostics before
+device creation. Live replay inherits the host's process settings and owns its
+own queue, command objects, resources, and completion fence.
+
 Schema 1 admits the captured untextured panel pair. Schema 2 supports translated
 triangle draws with one to sixteen packed float4 vertex attributes and an
 optional texture at fetch slot zero. Both use these base tables:

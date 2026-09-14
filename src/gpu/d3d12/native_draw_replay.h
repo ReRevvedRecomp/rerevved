@@ -128,7 +128,7 @@ struct NativeDrawReplayRecipe
 {
     std::uint32_t         schemaVersion = 1;
     std::filesystem::path sourcePath;
-    // The harness replaces this with its second CLI argument before replay.
+    // The caller supplies a fresh output path before replay.
     std::filesystem::path outputPath;
 
     std::vector<std::uint8_t>  vertexShaderDxil;
