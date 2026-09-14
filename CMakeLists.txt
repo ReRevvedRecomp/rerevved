@@ -66,10 +66,14 @@ set(REREVVED_SOURCES
     src/gpu/d3d12/native_menu_draw.h
     src/gpu/d3d12/native_menu_frame.cpp
     src/gpu/d3d12/native_menu_frame.h
+    src/gpu/d3d12/native_texture_upload.cpp
+    src/gpu/d3d12/native_texture_upload.h
     src/gpu/diagnostics/native_menu_shadow.cpp
     src/gpu/diagnostics/native_menu_shadow.h
     src/gpu/diagnostics/native_menu_frame_shadow.cpp
     src/gpu/diagnostics/native_menu_frame_shadow.h
+    src/gpu/diagnostics/native_guest_draw_capture.cpp
+    src/gpu/diagnostics/native_guest_draw_capture.h
     src/gpu/diagnostics/native_renderer_guest_state.cpp
     src/gpu/diagnostics/native_renderer_guest_state.h
     src/gpu/diagnostics/native_renderer_passive_trace.cpp
@@ -522,6 +526,23 @@ if(BUILD_TESTING)
     target_include_directories(native_menu_draw_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     target_link_libraries(native_menu_draw_tests PRIVATE rex::runtime)
     add_test(NAME native_menu_draw COMMAND native_menu_draw_tests)
+
+    add_executable(native_texture_upload_tests
+        src/gpu/d3d12/native_texture_upload.cpp
+        tests/gpu/native_texture_upload_test.cpp
+    )
+    target_include_directories(native_texture_upload_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_link_libraries(native_texture_upload_tests PRIVATE rex::runtime)
+    add_test(NAME native_texture_upload COMMAND native_texture_upload_tests)
+
+    add_executable(native_guest_draw_capture_tests
+        tests/gpu/native_guest_draw_capture_test.cpp
+        src/gpu/diagnostics/native_guest_draw_capture.cpp
+        src/gpu/d3d12/native_texture_upload.cpp
+    )
+    target_include_directories(native_guest_draw_capture_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_link_libraries(native_guest_draw_capture_tests PRIVATE rex::runtime)
+    add_test(NAME native_guest_draw_capture COMMAND native_guest_draw_capture_tests)
 
     add_executable(fence_trace_finalization_gate_tests
         tests/fence_trace_finalization_gate_test.cpp

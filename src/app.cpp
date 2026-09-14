@@ -24,6 +24,7 @@
 #include "build_info.h"
 #include "discord_presence.h"
 #include "game_content.h"
+#include "gpu/diagnostics/native_guest_draw_capture.h"
 #include "gpu/diagnostics/native_renderer_passive_trace.h"
 #include "gpu/guest_gpu_service.h"
 #include "main_menu_logo_asset.h"
@@ -50,6 +51,9 @@ REXCVAR_DEFINE_STRING(native_menu_shadow_output, "", "ReRevved", "Fresh ignored 
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_STRING(native_menu_shadow_shaders, "", "ReRevved", "Ignored directory containing the validated panel vs.dxil and ps.dxil")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
+REXCVAR_DEFINE_STRING(native_guest_draw_output, "", "ReRevved", "Fresh ignored directory for bounded guest menu draw inputs")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
+
 REXCVAR_DEFINE_STRING(native_menu_frame_output, "", "ReRevved", "Fresh ignored directory for one live native menu frame comparison")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_STRING(native_menu_frame_shaders, "", "ReRevved", "Ignored directory containing the validated native menu shaders")
@@ -330,6 +334,15 @@ bool App::SetupEnvironment()
 #endif
     }
 
+    const std::string guestDrawOutput = REXCVAR_GET(native_guest_draw_output);
+    if (!guestDrawOutput.empty() &&
+        (rendererBackend != rerevved::gpu::RendererBackend::Xenos ||
+         !resolveShadowDirectory(guestDrawOutput, true, nativeGuestDrawOutput)))
+    {
+        REXLOG_ERROR("Guest menu draw capture requires Xenos and a fresh output directory under out");
+        return false;
+    }
+
     const std::string passiveTraceOutput =
         REXCVAR_GET(native_renderer_passive_trace_output);
     const std::string fenceTraceOutput =
@@ -419,6 +432,16 @@ bool App::SetupPresentation()
         if (!nativeMenuFrameShadow.Start(nativeMenuFrameOutput, nativeMenuFrameShaders, error))
         {
             REXLOG_ERROR("Live native menu frame setup failed: {}", error);
+            return false;
+        }
+    }
+
+    if (!nativeGuestDrawOutput.empty())
+    {
+        std::string error;
+        if (!rerevved::gpu::diagnostics::StartNativeGuestDrawCapture(nativeGuestDrawOutput, error))
+        {
+            REXLOG_ERROR("Guest menu draw capture setup failed: {}", error);
             return false;
         }
     }
@@ -587,6 +610,7 @@ void App::OnGuestThreadExit(rex::system::XThread* thread)
 
 void App::OnShutdown()
 {
+    rerevved::gpu::diagnostics::StopNativeGuestDrawCapture();
     nativeMenuFrameShadow.Stop();
     nativeMenuShadow.Stop();
     finalizeFenceTrace();
@@ -603,6 +627,7 @@ void App::OnShutdown()
 
 bool App::OnWindowCloseRequested()
 {
+    rerevved::gpu::diagnostics::StopNativeGuestDrawCapture();
     nativeMenuFrameShadow.Stop();
     nativeMenuShadow.Stop();
     finalizeFenceTrace();

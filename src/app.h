@@ -85,6 +85,7 @@ private:
     rerevved::gpu::diagnostics::NativeMenuShadow      nativeMenuShadow;
     rerevved::gpu::diagnostics::NativeMenuFrameShadow nativeMenuFrameShadow;
     std::filesystem::path                             nativeMenuFrameOutput;
+    std::filesystem::path                             nativeGuestDrawOutput;
     std::filesystem::path                             nativeMenuFrameShaders;
     std::filesystem::path                             nativeMenuShadowOutput;
     std::filesystem::path                             nativeMenuShadowShaders;
