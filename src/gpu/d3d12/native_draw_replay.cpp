@@ -377,14 +377,23 @@ bool ValidateNativeDrawReplayRecipe(const NativeDrawReplayRecipe& recipe,
         error = "recipe shader hashes do not match the supported captured draw";
         return false;
     }
-    if (recipe.textureMask > 1 || (recipe.textureMask == 0 && !recipe.texture.bytes.empty()))
+    if (recipe.textureMask != 0 && recipe.textureMask != 1 && recipe.textureMask != 7)
     {
-        error = "replay supports only the explicitly supplied texture at fetch slot zero";
+        error = "replay requires zero, one, or three contiguous textures";
         return false;
     }
-    if (recipe.textureMask == 1)
+    for (std::size_t slot = 0; slot < recipe.textures.size(); ++slot)
     {
-        const auto& texture = recipe.texture;
+        const auto& texture = recipe.textures[slot];
+        if (!(recipe.textureMask & (1U << slot)))
+        {
+            if (!texture.bytes.empty())
+            {
+                error = "replay contains an unbound texture payload";
+                return false;
+            }
+            continue;
+        }
         if (texture.width == 0 || texture.height == 0 ||
             texture.width > kMaxTargetExtent || texture.height > kMaxTargetExtent)
         {
@@ -790,51 +799,67 @@ bool LoadNativeDrawReplayRecipe(const std::filesystem::path& recipePath,
     }
     if (recipe.textureMask != 0)
     {
-        const auto* texture = table["texture"].as_table();
-        const auto* sampler = table["sampler"].as_table();
-        if (recipe.schemaVersion != 2 || recipe.textureMask != 1 || !texture || !sampler)
+        const auto*       single   = table["texture"].as_table();
+        const auto*       multiple = table["textures"].as_array();
+        const auto*       sampler  = table["sampler"].as_table();
+        const std::size_t count    = recipe.textureMask == 7 ? 3 : 1;
+        if (recipe.schemaVersion != 2 || !sampler ||
+            (recipe.textureMask != 1 && recipe.textureMask != 7) ||
+            (count == 1 && (!single || table.contains("textures"))) ||
+            (count == 3 && (table.contains("texture") || !multiple || multiple->size() != count)))
         {
-            error = "textured replay requires schema 2 and texture/sampler tables";
+            error = "textured replay requires schema 2, a sampler, and exactly the bound textures";
             return false;
         }
-        std::filesystem::path texturePath;
-        std::string           format;
-        if (!readRequiredPath(*texture, "file", texturePath, error) ||
-            !resolveRecipePath(root, texturePath, resolved, error) ||
-            !readBytes(resolved, kMaxTextureBytes, recipe.texture.bytes, error) ||
-            !readRequired(*texture, "format", format, error))
-            return false;
-        if (format == "rgba8_unorm")
-            recipe.texture.format = NativeDrawReplayTextureFormat::Rgba8;
-        else if (format == "r8_unorm")
-            recipe.texture.format = NativeDrawReplayTextureFormat::R8;
-        else if (format == "bc1_unorm")
-            recipe.texture.format = NativeDrawReplayTextureFormat::Bc1;
-        else if (format == "bc2_unorm")
-            recipe.texture.format = NativeDrawReplayTextureFormat::Bc2;
-        else
+        for (std::size_t slot = 0; slot < count; ++slot)
         {
-            error = "unsupported replay texture format";
-            return false;
+            const auto* texture = count == 1 ? single : (*multiple)[slot].as_table();
+            if (!texture)
+            {
+                error = "each replay texture must be a table";
+                return false;
+            }
+            auto&                 output = recipe.textures[slot];
+            std::filesystem::path texturePath;
+            std::string           format;
+            if (!readRequiredPath(*texture, "file", texturePath, error) ||
+                !resolveRecipePath(root, texturePath, resolved, error) ||
+                !readBytes(resolved, kMaxTextureBytes, output.bytes, error) ||
+                !readRequired(*texture, "format", format, error))
+                return false;
+            if (format == "rgba8_unorm")
+                output.format = NativeDrawReplayTextureFormat::Rgba8;
+            else if (format == "r8_unorm")
+                output.format = NativeDrawReplayTextureFormat::R8;
+            else if (format == "bc1_unorm")
+                output.format = NativeDrawReplayTextureFormat::Bc1;
+            else if (format == "bc2_unorm")
+                output.format = NativeDrawReplayTextureFormat::Bc2;
+            else
+            {
+                error = "unsupported replay texture format";
+                return false;
+            }
+            if (!readRequired(*texture, "width", value, error))
+                return false;
+            if (value <= 0 || value > kMaxTargetExtent)
+            {
+                error = "texture width is outside the supported range";
+                return false;
+            }
+            output.width = static_cast<std::uint32_t>(value);
+            if (!readRequired(*texture, "height", value, error))
+                return false;
+            if (value <= 0 || value > kMaxTargetExtent)
+            {
+                error = "texture height is outside the supported range";
+                return false;
+            }
+            output.height = static_cast<std::uint32_t>(value);
+            if (!readColor(*texture, "swizzle", output.swizzle, error))
+                return false;
         }
-        if (!readRequired(*texture, "width", value, error))
-            return false;
-        if (value <= 0 || value > kMaxTargetExtent)
-        {
-            error = "texture width is outside the supported range";
-            return false;
-        }
-        recipe.texture.width = static_cast<std::uint32_t>(value);
-        if (!readRequired(*texture, "height", value, error))
-            return false;
-        if (value <= 0 || value > kMaxTargetExtent)
-        {
-            error = "texture height is outside the supported range";
-            return false;
-        }
-        recipe.texture.height = static_cast<std::uint32_t>(value);
-        if (!readColor(*texture, "swizzle", recipe.texture.swizzle, error) ||
-            !readRequired(*sampler, "min_linear", recipe.sampler.minLinear, error) ||
+        if (!readRequired(*sampler, "min_linear", recipe.sampler.minLinear, error) ||
             !readRequired(*sampler, "mag_linear", recipe.sampler.magLinear, error) ||
             !readRequired(*sampler, "mip_linear", recipe.sampler.mipLinear, error) ||
             !readFloat(*sampler, "min_lod", recipe.sampler.minLod, error) ||
@@ -869,6 +894,11 @@ bool LoadNativeDrawReplayRecipe(const std::filesystem::path& recipePath,
             }
             recipe.sampler.border[component] = static_cast<float>(*number);
         }
+    }
+    else if (table.contains("texture") || table.contains("textures") || table.contains("sampler"))
+    {
+        error = "untextured replay must not supply texture or sampler tables";
+        return false;
     }
     if (!resolveRecipePath(root, vertexDxilPath, resolved, error) || !readBytes(resolved, kMaxShaderBytes, recipe.vertexShaderDxil, error))
         return false;

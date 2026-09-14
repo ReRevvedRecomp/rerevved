@@ -52,7 +52,7 @@ bool decodeTexture(const DrawCaptureTexture& source, const DrawCaptureTextureUse
         error = reason;
         return false;
     };
-    if (!use.data_available || use.is_signed || use.fetch_constant != 0 || source.scaled_resolve ||
+    if (!use.data_available || use.is_signed || source.scaled_resolve ||
         source.mip_level != 0 || source.host_depth_or_array_size != 1 ||
         !source.host_width || !source.host_height || source.host_width > 4096 || source.host_height > 4096)
         return fail("unsupported live menu texture binding or extent");
@@ -114,11 +114,11 @@ bool decodeTexture(const DrawCaptureTexture& source, const DrawCaptureTextureUse
     return true;
 }
 
-bool buildViews(const DrawCaptureFrameSnapshot&        snapshot,
-                std::vector<NativeMenuFrameEventView>& events,
-                std::vector<NativeDrawReplayTexture>&  textures,
-                std::vector<NativeDrawReplaySampler>&  samplers,
-                std::string&                           error)
+bool buildViews(const DrawCaptureFrameSnapshot&                      snapshot,
+                std::vector<NativeMenuFrameEventView>&               events,
+                std::vector<std::array<NativeDrawReplayTexture, 3>>& textures,
+                std::vector<NativeDrawReplaySampler>&                samplers,
+                std::string&                                         error)
 {
     if (snapshot.events.empty() || snapshot.events.size() > 1024 ||
         snapshot.start_frame >= snapshot.end_frame || snapshot.start_submission > snapshot.end_submission)
@@ -151,6 +151,7 @@ bool buildViews(const DrawCaptureFrameSnapshot&        snapshot,
         event.frontbufferWidth    = source.frontbuffer_width;
         event.frontbufferHeight   = source.frontbuffer_height;
         auto& view                = event.draw;
+        view.primitive            = draw.primitive_type;
         view.registers            = draw.registers;
         view.vertexMicrocode      = draw.vertex_ucode;
         view.pixelMicrocode       = draw.pixel_ucode;
@@ -162,7 +163,7 @@ bool buildViews(const DrawCaptureFrameSnapshot&        snapshot,
         view.indexEndian          = draw.index.endianness;
         view.indexBytes           = draw.index.bytes;
         view.halfPixelOffset      = draw.half_pixel_offset;
-        const auto slot           = draw.primitive_type == 4 ? 95U : 0U;
+        const auto slot           = (draw.primitive_type == 4 || draw.primitive_type == 6) ? 95U : 0U;
         for (const auto& fetch : draw.vertex_fetches)
             if (fetch.fetch_constant == slot)
             {
@@ -174,13 +175,14 @@ bool buildViews(const DrawCaptureFrameSnapshot&        snapshot,
                 view.vertexBytes     = fetch.bytes;
                 view.vertexGuestBase = fetch.base;
             }
-        if (event.kind != NativeMenuFrameEventView::Kind::Draw || draw.primitive_type != 4)
+        if (event.kind != NativeMenuFrameEventView::Kind::Draw || (draw.primitive_type != 4 && draw.primitive_type != 6))
             continue;
-        if (draw.guest_primitive_type != 4 || draw.host_primitive_type != 4 ||
+        const bool movie = draw.primitive_type == 6;
+        if (draw.guest_primitive_type != draw.primitive_type || draw.host_primitive_type != draw.primitive_type ||
             draw.host_vertex_shader_type != 0 || draw.tessellation_mode != 0 ||
-            draw.host_primitive_reset_enabled || draw.native_topology != 4 ||
+            draw.host_primitive_reset_enabled || draw.native_topology != (movie ? 5U : 4U) ||
             draw.guest_draw_vertex_count != draw.requested_index_count ||
-            draw.host_draw_vertex_count != draw.requested_index_count || draw.used_texture_mask > 1 ||
+            draw.host_draw_vertex_count != draw.requested_index_count || (movie ? draw.used_texture_mask != 7 : draw.used_texture_mask > 1) ||
             draw.native_instance_count != 1 || draw.native_start_vertex || draw.native_start_index ||
             draw.native_base_vertex || draw.native_start_instance ||
             (draw.index.present ? draw.native_index_count != draw.requested_index_count
@@ -196,25 +198,44 @@ bool buildViews(const DrawCaptureFrameSnapshot&        snapshot,
             error = "live menu draw has incomplete translated texture bindings";
             return false;
         }
-        const DrawCaptureTextureUse* selected = nullptr;
+        std::array<const DrawCaptureTextureUse*, 3> selected{};
+        constexpr std::array<unsigned, 3>           movieFetches{ 2, 0, 1 };
         for (const auto& use : source.draw.texture_uses)
         {
             if (use.is_signed && !use.data_available)
                 continue;
-            if (use.stage != 1 || use.fetch_constant != 0 || !use.data_available ||
-                use.texture_index >= snapshot.textures.size() || selected)
+            const auto slot = movie ? use.shader_binding_index / 2 : 0U;
+            if (slot >= selected.size() || use.stage != 1 || use.is_signed ||
+                use.fetch_constant != (movie ? movieFetches[slot] : 0U) ||
+                use.shader_binding_index != slot * 2 || !use.data_available ||
+                use.texture_index >= snapshot.textures.size() || selected[slot])
             {
                 error = "unsupported or incomplete point-of-use texture set";
                 return false;
             }
-            selected = &use;
+            selected[slot] = &use;
         }
-        if (selected)
+        for (unsigned slot = 0; slot < (movie ? 3U : 1U); ++slot)
         {
-            if (!decodeTexture(snapshot.textures[selected->texture_index], *selected, textures[i], samplers[i], error))
+            if (!selected[slot])
+            {
+                if (movie || draw.used_texture_mask)
+                {
+                    error = "live draw is missing a texture plane";
+                    return false;
+                }
+                continue;
+            }
+            const auto& use = *selected[slot];
+            if (slot && use.sampler_value != selected[0]->sampler_value)
+            {
+                error = "movie plane samplers disagree";
                 return false;
-            view.texture = &textures[i];
-            view.sampler = &samplers[i];
+            }
+            if (!decodeTexture(snapshot.textures[use.texture_index], use, textures[i][slot], samplers[i], error))
+                return false;
+            view.textures[slot] = &textures[i][slot];
+            view.sampler        = &samplers[i];
         }
     }
     return true;
@@ -336,11 +357,11 @@ void NativeMenuFrameShadow::Impl::Compare(const DrawCaptureFrameSnapshot& snapsh
         swap.output_format != 24 || swap.output_width != 1280 || swap.output_height != 720 ||
         swap.output_row_size != 1280 * 4 || swap.output_row_count != 720 || swap.output_bytes.size() != 1280U * 720U * 4U)
         throw std::runtime_error("unsupported live final gamma or presentation format");
-    std::vector<NativeMenuFrameEventView> views;
-    std::vector<NativeDrawReplayTexture>  textures;
-    std::vector<NativeDrawReplaySampler>  samplers;
-    NativeFrameReplayRecipe               recipe;
-    std::string                           error;
+    std::vector<NativeMenuFrameEventView>               views;
+    std::vector<std::array<NativeDrawReplayTexture, 3>> textures;
+    std::vector<NativeDrawReplaySampler>                samplers;
+    NativeFrameReplayRecipe                             recipe;
+    std::string                                         error;
     if (!buildViews(snapshot, views, textures, samplers, error) ||
         !BuildNativeMenuFrameRecipe(views, shaders, swap.gamma.gamma_256, recipe, error))
         throw std::runtime_error(error);

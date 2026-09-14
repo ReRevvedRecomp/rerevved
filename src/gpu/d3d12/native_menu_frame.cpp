@@ -141,7 +141,8 @@ bool BuildNativeMenuFrameRecipe(std::span<const NativeMenuFrameEventView> events
             initialized = true;
             continue;
         }
-        if (event.primitiveType != 4 || !initialized || half >= 2)
+        if ((event.primitiveType != 4 && event.primitiveType != 6) || !initialized || half >= 2 ||
+            event.draw.primitive != event.primitiveType)
             return fail(error, "unexpected image-producing operation in native menu frame");
         NativeDrawReplayRecipe draw;
         if (!BuildNativeMenuDrawRecipe(event.draw, shaders, draw, error))

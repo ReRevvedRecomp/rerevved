@@ -69,7 +69,7 @@ bool ValidateNativeDrawFramesRecipe(const NativeDrawFramesRecipe& recipe, std::s
             }
             if (!ValidateNativeDrawReplayRecipe(draw, error))
                 return false;
-            for (const auto size : { draw.vertexShaderDxil.size(), draw.pixelShaderDxil.size(), draw.vertexData.size(), draw.indices.size() * sizeof(std::uint32_t), draw.vertexConstants.size(), draw.pixelConstants.size(), draw.sharedConstants.size(), draw.texture.bytes.size() })
+            for (const auto size : { draw.vertexShaderDxil.size(), draw.pixelShaderDxil.size(), draw.vertexData.size(), draw.indices.size() * sizeof(std::uint32_t), draw.vertexConstants.size(), draw.pixelConstants.size(), draw.sharedConstants.size(), draw.textures[0].bytes.size() + draw.textures[1].bytes.size() + draw.textures[2].bytes.size() })
             {
                 if (size > kMaxFrameBytes - bytes)
                 {
@@ -111,7 +111,7 @@ bool ValidateNativeFrameReplayRecipe(const NativeFrameReplayRecipe& recipe,
             }
             if (!ValidateNativeDrawReplayRecipe(draw, error))
                 return false;
-            for (const auto size : { draw.vertexShaderDxil.size(), draw.pixelShaderDxil.size(), draw.vertexData.size(), draw.indices.size() * sizeof(std::uint32_t), draw.vertexConstants.size(), draw.pixelConstants.size(), draw.sharedConstants.size(), draw.texture.bytes.size() })
+            for (const auto size : { draw.vertexShaderDxil.size(), draw.pixelShaderDxil.size(), draw.vertexData.size(), draw.indices.size() * sizeof(std::uint32_t), draw.vertexConstants.size(), draw.pixelConstants.size(), draw.sharedConstants.size(), draw.textures[0].bytes.size() + draw.textures[1].bytes.size() + draw.textures[2].bytes.size() })
             {
                 if (size > kMaxFrameBytes - bytes)
                 {
@@ -202,7 +202,7 @@ bool LoadNativeFrameReplayRecipe(const std::filesystem::path& path,
                 const auto drawBytes = draw.vertexShaderDxil.size() + draw.pixelShaderDxil.size() +
                                        draw.vertexData.size() + draw.indices.size() * sizeof(std::uint32_t) +
                                        draw.vertexConstants.size() + draw.pixelConstants.size() +
-                                       draw.sharedConstants.size() + draw.texture.bytes.size();
+                                       draw.sharedConstants.size() + draw.textures[0].bytes.size() + draw.textures[1].bytes.size() + draw.textures[2].bytes.size();
                 if (drawBytes > kMaxFrameBytes - bytes)
                 {
                     error = "loaded frame inputs exceed the byte bound";

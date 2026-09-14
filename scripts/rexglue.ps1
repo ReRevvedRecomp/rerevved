@@ -32,6 +32,9 @@
 .PARAMETER ReplayOutput
   Fresh sample-readback file for the Replay stage, in an existing directory.
 
+.PARAMETER ShaderRecipe
+  Pinned raw shader translation inputs for Codegen instead of guest CPU codegen.
+
 .PARAMETER RenderDocCmd
   Optional renderdoccmd.exe used to inject RenderDoc before device creation.
   Requires an interactive Launch stage. Its exit code is the capture launcher
@@ -74,6 +77,7 @@ param(
     [string]$LaunchArgumentJson,
     [string]$ReplayRecipe,
     [string]$ReplayOutput,
+    [string]$ShaderRecipe,
     [string]$RenderDocCmd,
     [switch]$SelfTest,
     [string]$SdkRepo,
@@ -88,6 +92,18 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+if ($PSBoundParameters.ContainsKey('ShaderRecipe')) {
+    if ($Stage -ne 'Codegen' -or [string]::IsNullOrWhiteSpace($ShaderRecipe) -or
+        $Interactive -or $LaunchArgument.Count -ne 0 -or $LaunchArgumentJson -or
+        $ReplayRecipe -or $ReplayOutput -or $RenderDocCmd) {
+        throw '-ShaderRecipe requires -Stage Codegen without launch or replay arguments.'
+    }
+    $shaderArguments = @((Join-Path $PSScriptRoot 'build-native-shaders.py'),
+        [IO.Path]::GetFullPath($ShaderRecipe))
+    if ($SelfTest) { $shaderArguments += '--check' }
+    & python @shaderArguments
+    exit $LASTEXITCODE
+}
 $sdkLock = Join-Path $repo 'rexglue-sdk.lock.json'
 $manifest = Join-Path $repo 'rerevved_manifest.toml'
 $xex = Join-Path $repo 'game\default.xex'

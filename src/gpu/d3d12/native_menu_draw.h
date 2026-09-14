@@ -18,6 +18,7 @@ struct NativeMenuDrawView
     std::uint64_t                  pixelShaderHash  = 0;
     std::uint32_t                  vertexGuestBase  = 0;
     std::uint32_t                  indexCount       = 0;
+    std::uint32_t                  primitive        = 4;
     bool                           indexed          = true;
     std::uint32_t                  indexFormat      = 0;
     std::uint32_t                  indexEndian      = 1;
@@ -27,8 +28,8 @@ struct NativeMenuDrawView
     // Direct UP input bytes have a CPU lifetime, not a GPU fetch allocation.
     bool guestSourceVertices = false;
     // These are owned by the caller and describe the actual sampled resource.
-    const NativeDrawReplayTexture* texture = nullptr;
-    const NativeDrawReplaySampler* sampler = nullptr;
+    std::array<const NativeDrawReplayTexture*, 3> textures{};
+    const NativeDrawReplaySampler*                sampler = nullptr;
 };
 
 struct NativeMenuShaderPair
@@ -39,7 +40,7 @@ struct NativeMenuShaderPair
     std::vector<std::uint8_t> pixelDxil;
 };
 
-using NativeMenuShaders = std::array<NativeMenuShaderPair, 5>;
+using NativeMenuShaders = std::array<NativeMenuShaderPair, 6>;
 
 bool LoadNativeMenuShaders(const std::filesystem::path& directory,
                            NativeMenuShaders&           shaders,

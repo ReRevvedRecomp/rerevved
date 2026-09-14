@@ -471,7 +471,8 @@ bool App::SetupPresentation()
                 const auto drawBytes = recipe.vertexShaderDxil.size() + recipe.pixelShaderDxil.size() +
                                        recipe.vertexData.size() + recipe.indices.size() * sizeof(std::uint32_t) +
                                        recipe.vertexConstants.size() + recipe.pixelConstants.size() +
-                                       recipe.sharedConstants.size() + recipe.texture.bytes.size();
+                                       recipe.sharedConstants.size() + recipe.textures[0].bytes.size() +
+                                       recipe.textures[1].bytes.size() + recipe.textures[2].bytes.size();
                 if (drawBytes > 512U * 1024U * 1024U - bytes || frames->frames.back().size() >= 256)
                 {
                     error = "guest native menu recipes exceed the owned input bound";

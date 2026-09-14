@@ -1,5 +1,6 @@
 #include "native_guest_draw_capture.h"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <fstream>
@@ -32,7 +33,7 @@ constexpr std::uint32_t kMaxGeometryBytes = 16U * 1024U * 1024U;
 enum class DrawSource
 {
     IndexedUp,
-    LabelUp,
+    NonindexedUp,
     IndexedBuffer,
 };
 
@@ -57,20 +58,20 @@ struct Session
 
 struct Capture
 {
-    std::shared_ptr<Session>  session;
-    std::filesystem::path     directory;
-    toml::table               metadata;
-    std::uint32_t             graphics = 0, cursor = 0;
-    std::uint32_t             frame      = 0;
-    std::uint32_t             vertexSize = 0, indexSize = 0;
-    std::uint32_t             vertexAddress = 0, indexAddress = 0;
-    std::vector<std::uint8_t> vertices, indices, vertexMicrocode;
-    NativeTextureFetch        fetch{};
-    NativeDrawReplayTexture   texture;
-    NativeGuestMenuDraw       draw;
-    DrawSource                source          = DrawSource::IndexedUp;
-    std::uint32_t             submittedCursor = 0, submittedIndex = 0, submittedSize = 0;
-    std::uint32_t             submissions = 0;
+    std::shared_ptr<Session>               session;
+    std::filesystem::path                  directory;
+    toml::table                            metadata;
+    std::uint32_t                          graphics = 0, cursor = 0;
+    std::uint32_t                          frame      = 0;
+    std::uint32_t                          vertexSize = 0, indexSize = 0;
+    std::uint32_t                          vertexAddress = 0, indexAddress = 0;
+    std::vector<std::uint8_t>              vertices, indices, vertexMicrocode;
+    std::array<NativeTextureFetch, 3>      fetches{};
+    std::array<NativeDrawReplayTexture, 3> textures;
+    NativeGuestMenuDraw                    draw;
+    DrawSource                             source          = DrawSource::IndexedUp;
+    std::uint32_t                          submittedCursor = 0, submittedIndex = 0, submittedSize = 0;
+    std::uint32_t                          submissions = 0;
 };
 
 std::mutex               captureMutex;
@@ -158,11 +159,11 @@ std::unique_ptr<Capture> before(const PPCContext& ctx, DrawSource source = DrawS
 {
     if (!enabled.load(std::memory_order_acquire))
         return {};
-    // 0x82304254 submits the expanded label triangles through the nonindexed
-    // UP wrapper. Other callers of that wrapper are outside this capture.
-    const bool indexed = source != DrawSource::LabelUp;
+    // Labels and the movie submit their CPU vertices through this wrapper.
+    const bool indexed = source != DrawSource::NonindexedUp;
     const bool bound   = source == DrawSource::IndexedBuffer;
-    if (!indexed && ctx.lr != 0x82304258)
+    const bool movie   = !indexed && ctx.lr == 0x82E3987C;
+    if (!indexed && ctx.lr != 0x82304258 && !movie)
         return {};
     std::lock_guard lock(captureMutex);
     if (!session || !enabled.load(std::memory_order_relaxed))
@@ -191,13 +192,16 @@ std::unique_ptr<Capture> before(const PPCContext& ctx, DrawSource source = DrawS
             enabled.store(false, std::memory_order_release);
         // The two admitted GFx call sites use the indexed UP wrapper. Its raw
         // hook retains the original stack argument and all original effects.
-        if ((!bound && indexed && ctx.lr != 0x82303E40 && ctx.lr != 0x82303E90) || ctx.r4.u32 != 4)
+        if ((!bound && indexed && ctx.lr != 0x82303E40 && ctx.lr != 0x82303E90) ||
+            ctx.r4.u32 != (movie ? 6U : 4U))
             throw std::runtime_error("unexpected caller at guest menu draw boundary");
         if (bound && (ctx.r5.u32 || ctx.r6.u32 || (ctx.r7.u32 != 12 && ctx.r7.u32 != 1536)))
             throw std::runtime_error("unsupported guest scene base, start or index count");
         const auto stride = bound ? 32U : indexed ? word(copyMemory(std::uint64_t(ctx.r1.u32) + 84, 4).data())
                                                   : ctx.r7.u32;
-        if ((!bound && indexed && stride != 4 && stride != 8 && stride != 12 && stride != 28) || (!indexed && stride != 28))
+        if ((!bound && indexed && stride != 4 && stride != 8 && stride != 12 && stride != 28) ||
+            (!indexed && stride != (movie ? 20U : 28U)) ||
+            (movie && (ctx.r5.u32 != 4 || std::uint64_t(ctx.r6.u32) != std::uint64_t(ctx.r1.u32) + 0x70)))
             throw std::runtime_error("unsupported guest menu vertex stride");
         const auto minimumVertex = indexed ? ctx.r5.u32 : 0U;
         auto       vertexCount   = indexed ? ctx.r6.u32 : ctx.r5.u32;
@@ -253,7 +257,6 @@ std::unique_ptr<Capture> before(const PPCContext& ctx, DrawSource source = DrawS
         ++session->captures;
         ++session->frameDraws;
         std::filesystem::create_directory(capture->directory);
-        capture->fetch         = fetch;
         capture->graphics      = ctx.r3.u32;
         capture->frame         = session->frame;
         capture->vertexAddress = vertexAddress;
@@ -291,24 +294,47 @@ std::unique_ptr<Capture> before(const PPCContext& ctx, DrawSource source = DrawS
         capture->draw.stride        = stride;
         save(*capture, "vertex.bin", capture->vertices);
         save(*capture, "index.bin", capture->indices);
-        NativeTextureMemoryRange range;
-        auto&                    texture = capture->texture;
-        std::string              error;
-        if (GetNativeTextureMemoryRange(fetch, range, error))
+        const auto                        textureCount = movie ? 3U : 1U;
+        constexpr std::array<unsigned, 3> movieFetches{ 2, 0, 1 };
+        toml::array                       textureMetadata;
+        for (unsigned slot = 0; slot < textureCount; ++slot)
         {
-            const auto source = copyMemory(range.address, range.size, true);
-            if (!DecodeNativeTexture(fetch, source, texture, error))
+            const auto fetchIndex = movie ? movieFetches[slot] : 0;
+            auto&      input      = capture->fetches[slot];
+            for (std::size_t i = 0; i < input.size(); ++i)
+                input[i] = word(state.data() + 0x480 + fetchIndex * 24 + i * 4);
+            NativeTextureMemoryRange range;
+            auto&                    texture = capture->textures[slot];
+            std::string              error;
+            if (GetNativeTextureMemoryRange(input, range, error))
+            {
+                const auto sourceBytes = copyMemory(range.address, range.size, true);
+                if (!DecodeNativeTexture(input, sourceBytes, texture, error))
+                    throw std::runtime_error(error);
+                const auto prefix = movie ? "texture-" + std::to_string(slot) : "texture";
+                save(*capture, (prefix + "-guest.bin").c_str(), sourceBytes);
+                save(*capture, (prefix + "-native.bin").c_str(), texture.bytes);
+                toml::array swizzle;
+                for (const auto component : texture.swizzle)
+                    swizzle.push_back(component);
+                toml::table description{ { "address", range.address }, { "width", texture.width }, { "height", texture.height }, { "format", static_cast<std::int64_t>(texture.format) }, { "swizzle", std::move(swizzle) } };
+                if (movie)
+                {
+                    description.insert("fetch", fetchIndex);
+                    textureMetadata.push_back(std::move(description));
+                }
+                else
+                    capture->metadata.insert("texture", std::move(description));
+            }
+            else if (movie)
                 throw std::runtime_error(error);
-            save(*capture, "texture-guest.bin", source);
-            save(*capture, "texture-native.bin", texture.bytes);
-            toml::array swizzle;
-            for (const auto component : texture.swizzle)
-                swizzle.push_back(component);
-            capture->metadata.insert("texture", toml::table{ { "address", range.address }, { "width", texture.width }, { "height", texture.height }, { "format", static_cast<std::int64_t>(texture.format) }, { "swizzle", std::move(swizzle) } });
+            else
+                capture->metadata.insert("texture_error", error);
+            session->ownedBytes += texture.bytes.size();
         }
-        else
-            capture->metadata.insert("texture_error", error);
-        session->ownedBytes += capture->vertices.size() + capture->indices.size() + texture.bytes.size() + kStateBytes;
+        if (movie)
+            capture->metadata.insert("textures", std::move(textureMetadata));
+        session->ownedBytes += capture->vertices.size() + capture->indices.size() + kStateBytes;
         if (session->ownedBytes > 512U * 1024U * 1024U)
             throw std::runtime_error("guest menu inputs exceed session byte bound");
         return capture;
@@ -489,9 +515,28 @@ void after(Capture& capture, const PPCContext& ctx)
         {
             if (!completed || capture.vertexMicrocode.empty())
                 throw std::runtime_error("guest menu draw did not complete its submission and shader selection");
-            for (std::size_t i = 0; i < capture.fetch.size(); ++i)
-                if (capture.fetch[i] != word(state.data() + 0x480 + i * 4))
-                    throw std::runtime_error("guest texture binding changed during the draw");
+            const bool                        movie = !capture.draw.indexed && capture.draw.stride == 20;
+            constexpr std::array<unsigned, 3> movieFetches{ 2, 0, 1 };
+            for (unsigned slot = 0; slot < (movie ? 3U : 1U); ++slot)
+            {
+                const auto  fetchIndex = movie ? movieFetches[slot] : 0;
+                const auto& fetch      = capture.fetches[slot];
+                for (std::size_t i = 0; i < fetch.size(); ++i)
+                    if (fetch[i] != word(state.data() + 0x480 + fetchIndex * 24 + i * 4))
+                        throw std::runtime_error("guest texture binding changed during the draw");
+                if (movie)
+                {
+                    NativeTextureMemoryRange range;
+                    NativeDrawReplayTexture  afterTexture;
+                    std::string              error;
+                    if (!GetNativeTextureMemoryRange(fetch, range, error) ||
+                        !DecodeNativeTexture(fetch, copyMemory(range.address, range.size, true), afterTexture, error))
+                        throw std::runtime_error(error);
+                    if (afterTexture.bytes != capture.textures[slot].bytes)
+                        throw std::runtime_error("movie texture bytes changed during the original draw");
+                }
+                capture.draw.textures[slot] = &capture.textures[slot];
+            }
             std::vector<std::uint8_t> vertexLiterals;
             if (bound)
             {
@@ -527,13 +572,62 @@ void after(Capture& capture, const PPCContext& ctx)
                 save(capture, "vertex-literals.be.bin", vertexLiterals);
                 capture.metadata.insert("vertex_literals", toml::table{ { "shader", shader }, { "table", static_cast<std::int64_t>(tableAddress) }, { "physical", static_cast<std::int64_t>(physical) }, { "first_constant", 252 }, { "word_count", 16 } });
             }
+            std::vector<std::uint8_t> pixelLiterals;
+            if (movie)
+            {
+                // 0x826ADEF8 passes PS+0x28 and *(PS+0x18) to the same
+                // literal loader. Its record indices cover the unified ALU file.
+                const auto header = copyMemory(std::uint64_t(pixelObject) + 40, 24);
+                save(capture, "pixel-literal-header.be.bin", header);
+                const auto relative = word(header.data() + 20);
+                if (!relative)
+                    throw std::runtime_error("movie shader has no pixel literal table");
+                const auto tableAddress = std::uint64_t(pixelObject) + 40 + relative;
+                const auto table        = copyMemory(tableAddress, 20);
+                save(capture, "pixel-literal-table.be.bin", table);
+                const auto recordBytes = word(table.data() + 16);
+                if (recordBytes < 8 || recordBytes > 128 || recordBytes % 4)
+                    throw std::runtime_error("unsupported movie pixel literal table");
+                const auto records = copyMemory(tableAddress + 20, recordBytes);
+                save(capture, "pixel-literal-records.be.bin", records);
+                pixelLiterals.resize(64);
+                unsigned    covered = 0;
+                toml::array ranges;
+                for (std::size_t offset = 0; offset < records.size(); offset += 8)
+                {
+                    const auto record = word(records.data() + offset);
+                    const auto first = record >> 16, count = record & 0xFFFFU;
+                    if (!count)
+                        break;
+                    // The resource block starts at PS c252, unified slot 508.
+                    if (offset + 8 > records.size() || first < 508 || first > 511 ||
+                        count > (512 - first) * 4)
+                        throw std::runtime_error("movie pixel literal range is outside c252 through c255");
+                    const auto destination = (first - 508) * 4;
+                    const auto mask        = ((1U << count) - 1U) << destination;
+                    if (covered & mask)
+                        throw std::runtime_error("movie pixel literal ranges overlap");
+                    const auto raw = std::uint64_t(word(pixelHeader.data() + 24)) + word(records.data() + offset + 4);
+                    if (raw > UINT32_MAX)
+                        throw std::runtime_error("movie pixel literals exceed address bounds");
+                    const auto physical = (raw & 0x1FFFFFFFULL) + (((raw >> 20) + 512) & 0x1000);
+                    const auto bytes    = copyMemory(physical, count * 4, true);
+                    std::copy(bytes.begin(), bytes.end(), pixelLiterals.begin() + destination * 4);
+                    covered |= mask;
+                    ranges.push_back(toml::table{ { "first_alu_constant", first }, { "word_count", count }, { "physical", static_cast<std::int64_t>(physical) } });
+                }
+                if (covered != 0xFFFF)
+                    throw std::runtime_error("movie pixel literals do not cover c252 through c255");
+                save(capture, "pixel-literals.be.bin", pixelLiterals);
+                capture.metadata.insert("pixel_literals", std::move(ranges));
+            }
+            capture.draw.pixelLiterals   = pixelLiterals;
             capture.draw.vertexLiterals  = vertexLiterals;
             capture.draw.state           = state;
             capture.draw.vertices        = capture.vertices;
             capture.draw.indices         = capture.indices;
             capture.draw.vertexMicrocode = capture.vertexMicrocode;
             capture.draw.pixelMicrocode  = pixelMicrocode;
-            capture.draw.texture         = &capture.texture;
             std::string error;
             if (!session->consumer(capture.draw, capture.directory, error))
                 throw std::runtime_error(error);
@@ -689,7 +783,7 @@ REX_HOOK_RAW(sub_826AD150)
 
 REX_HOOK_RAW(sub_826A3000)
 {
-    auto  capture                             = rerevved::gpu::diagnostics::before(ctx, rerevved::gpu::diagnostics::DrawSource::LabelUp);
+    auto  capture                             = rerevved::gpu::diagnostics::before(ctx, rerevved::gpu::diagnostics::DrawSource::NonindexedUp);
     auto* previous                            = rerevved::gpu::diagnostics::activeCapture;
     rerevved::gpu::diagnostics::activeCapture = capture.get();
     __imp__sub_826A3000(ctx, base);

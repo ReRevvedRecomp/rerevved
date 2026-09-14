@@ -89,6 +89,18 @@ void geometry()
     view.indexBytes = indices;
     indices[5]      = 3;
     require(!DecodeNativeMenuDrawGeometry(view, recipe, error), "CPU source indices remain bounded by owned vertex bytes");
+    std::vector<std::uint8_t> movieVertices(80);
+    view.vertexShaderHash = 0xC33871A8CFA8967AULL;
+    view.pixelShaderHash  = 0xA8D1E41B3FBB2D15ULL;
+    view.vertexBytes      = movieVertices;
+    view.indexBytes       = {};
+    view.indexed          = false;
+    view.primitive        = 6;
+    view.indexCount       = 4;
+    require(DecodeNativeMenuDrawGeometry(view, recipe, error), "four-vertex movie strip admitted");
+    require(recipe.indices == std::vector<std::uint32_t>{ 0, 1, 2, 2, 1, 3 }, "movie strip preserves alternating winding");
+    view.primitive = 4;
+    require(!DecodeNativeMenuDrawGeometry(view, recipe, error), "movie list topology rejected");
 }
 
 void fixture(const std::filesystem::path& root, const NativeMenuShaders& shaders)
@@ -111,12 +123,14 @@ void fixture(const std::filesystem::path& root, const NativeMenuShaders& shaders
     view.vertexGuestBase  = registers[0x48BE] & ~3U;
     view.vertexBytes      = vertices;
     view.indexBytes       = indices;
-    view.indexCount       = expected.indexCount;
+    view.primitive        = table["primitive"].value_or(4U);
+    view.indexCount       = table["requested_count"].value_or(expected.indexCount);
     view.indexed          = table["indexed"].value_or(true);
     view.indexEndian      = static_cast<std::uint32_t>(table["index_endian"].value_or(1));
     view.indexFormat      = static_cast<std::uint32_t>(table["index_format"].value_or(0));
-    view.texture          = &expected.texture;
-    view.sampler          = &expected.sampler;
+    for (std::size_t i = 0; i < expected.textures.size(); ++i)
+        view.textures[i] = &expected.textures[i];
+    view.sampler = &expected.sampler;
     NativeDrawReplayRecipe actual;
     require(BuildNativeMenuDrawRecipe(view, shaders, actual, error), root.string() + ": " + error);
     require(actual.vertexData == expected.vertexData && actual.indices == expected.indices,
@@ -129,6 +143,13 @@ void fixture(const std::filesystem::path& root, const NativeMenuShaders& shaders
     require(actual.vertexStrideBytes == expected.vertexStrideBytes && actual.vertexAttributeCount == expected.vertexAttributeCount &&
                 actual.sampleMask == expected.sampleMask && actual.textureMask == expected.textureMask,
             root.string() + " input layout and masks");
+    for (std::size_t slot = 0; slot < expected.textures.size(); ++slot)
+        require(actual.textures[slot].bytes == expected.textures[slot].bytes &&
+                    actual.textures[slot].width == expected.textures[slot].width &&
+                    actual.textures[slot].height == expected.textures[slot].height &&
+                    actual.textures[slot].format == expected.textures[slot].format &&
+                    actual.textures[slot].swizzle == expected.textures[slot].swizzle,
+                root.string() + " ordered texture payload and mapping");
     require(actual.viewport.x == expected.viewport.x && actual.viewport.y == expected.viewport.y &&
                 actual.viewport.width == expected.viewport.width && actual.viewport.height == expected.viewport.height &&
                 actual.viewport.minDepth == expected.viewport.minDepth && actual.viewport.maxDepth == expected.viewport.maxDepth &&
@@ -138,13 +159,14 @@ void fixture(const std::filesystem::path& root, const NativeMenuShaders& shaders
     require(actual.depth.enabled == expected.depth.enabled && actual.depth.writeEnabled == expected.depth.writeEnabled &&
                 actual.depth.compare == expected.depth.compare && actual.rasterizer.cull == expected.rasterizer.cull &&
                 actual.rasterizer.frontCounterClockwise == expected.rasterizer.frontCounterClockwise &&
+                actual.blend.enabled == expected.blend.enabled &&
                 actual.blend.sourceColor == expected.blend.sourceColor && actual.blend.destinationColor == expected.blend.destinationColor &&
                 actual.blend.sourceAlpha == expected.blend.sourceAlpha && actual.blend.destinationAlpha == expected.blend.destinationAlpha &&
                 actual.blend.colorOp == expected.blend.colorOp && actual.blend.alphaOp == expected.blend.alphaOp,
             root.string() + " depth, rasterizer and blend state");
     require(actual.initialSample0.empty() && actual.initialSample1.empty() && actual.depth.initialSamples.empty(),
             "native clears have no captured attachments");
-    if (!actual.depth.enabled)
+    if (!actual.depth.enabled && view.primitive != 6)
     {
         const auto colorControl = registers[0x2202];
         registers[0x2202]       = 0x87000004U;
@@ -209,6 +231,7 @@ void frameFixture(const std::filesystem::path& root, const NativeMenuShaders& sh
         event.hostIssued            = metadata["host_issued"].value_or(false);
         event.resolve               = metadata["resolve"].value_or(false);
         event.primitiveType         = static_cast<std::uint32_t>(integer("primitive_type"));
+        event.draw.primitive        = event.primitiveType;
         event.hostPixelShaderHash   = hash("host_pixel_hash");
         event.frontbuffer           = hash("frontbuffer");
         event.frontbufferWidth      = static_cast<std::uint32_t>(integer("frontbuffer_width"));
@@ -225,12 +248,13 @@ void frameFixture(const std::filesystem::path& root, const NativeMenuShaders& sh
         event.draw.indexed          = metadata["indexed"].value_or(false);
         event.draw.indexFormat      = static_cast<std::uint32_t>(integer("index_format"));
         event.draw.indexEndian      = static_cast<std::uint32_t>(integer("index_endian"));
-        if (event.primitiveType == 4)
+        if (event.primitiveType == 4 || event.primitiveType == 6)
         {
             std::string error;
             const auto  expectedPath = root.parent_path() / metadata["prepared"].value_or(std::string{}) / "frame.toml";
             require(LoadNativeDrawReplayRecipe(expectedPath, storage.expected, error), error);
-            event.draw.texture = &storage.expected.texture;
+            for (std::size_t slot = 0; slot < storage.expected.textures.size(); ++slot)
+                event.draw.textures[slot] = &storage.expected.textures[slot];
             event.draw.sampler = &storage.expected.sampler;
         }
     }

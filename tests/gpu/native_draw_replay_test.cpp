@@ -41,11 +41,11 @@ NativeDrawReplayRecipe makeRecipe()
     recipe.sharedConstants.resize(336);
     recipe.initialSample0.resize(64);
     recipe.initialSample1.resize(64);
-    recipe.viewport      = { 0.0F, 0.0F, 4.0F, 4.0F, 0.0F, 1.0F };
-    recipe.scissor       = { 0, 0, 4, 4 };
-    recipe.textureMask   = 1;
-    recipe.texture.width = recipe.texture.height = 4;
-    recipe.texture.bytes.resize(64);
+    recipe.viewport          = { 0.0F, 0.0F, 4.0F, 4.0F, 0.0F, 1.0F };
+    recipe.scissor           = { 0, 0, 4, 4 };
+    recipe.textureMask       = 1;
+    recipe.textures[0].width = recipe.textures[0].height = 4;
+    recipe.textures[0].bytes.resize(64);
     return recipe;
 }
 
@@ -95,18 +95,18 @@ int main()
                          NativeDrawReplayTextureFormat::Bc1,
                          NativeDrawReplayTextureFormat::Bc2 })
     {
-        recipe                = makeRecipe();
-        recipe.texture.format = format;
-        recipe.texture.bytes.resize(format == NativeDrawReplayTextureFormat::Rgba8 ? 64 : format == NativeDrawReplayTextureFormat::Bc1 ? 8
-                                                                                                                                       : 16);
+        recipe                    = makeRecipe();
+        recipe.textures[0].format = format;
+        recipe.textures[0].bytes.resize(format == NativeDrawReplayTextureFormat::Rgba8 ? 64 : format == NativeDrawReplayTextureFormat::Bc1 ? 8
+                                                                                                                                           : 16);
         require(ValidateNativeDrawReplayRecipe(recipe, error), "texture format payload admission");
-        recipe.texture.bytes.pop_back();
+        recipe.textures[0].bytes.pop_back();
         require(!ValidateNativeDrawReplayRecipe(recipe, error), "truncated texture rejection");
     }
-    recipe                 = makeRecipe();
-    recipe.texture.swizzle = { 5, 5, 5, 0 };
+    recipe                     = makeRecipe();
+    recipe.textures[0].swizzle = { 5, 5, 5, 0 };
     require(ValidateNativeDrawReplayRecipe(recipe, error), "constant component mapping admission");
-    recipe.texture.swizzle[0] = 6;
+    recipe.textures[0].swizzle[0] = 6;
     require(!ValidateNativeDrawReplayRecipe(recipe, error), "invalid component selector rejection");
     recipe                    = makeRecipe();
     recipe.sampler.address[0] = 0;
@@ -120,11 +120,21 @@ int main()
     recipe             = makeRecipe();
     recipe.textureMask = 2;
     require(!ValidateNativeDrawReplayRecipe(recipe, error), "unbound texture slot rejection");
+    recipe             = makeRecipe();
+    recipe.textureMask = 7;
+    recipe.textures[1] = recipe.textures[0];
+    require(!ValidateNativeDrawReplayRecipe(recipe, error), "missing third movie plane rejected");
+    recipe.textures[2] = recipe.textures[0];
+    require(ValidateNativeDrawReplayRecipe(recipe, error), "three complete texture planes admitted");
+    recipe.textures[2].bytes.pop_back();
+    require(!ValidateNativeDrawReplayRecipe(recipe, error), "truncated third plane rejected");
+    recipe.textureMask = 1;
+    require(!ValidateNativeDrawReplayRecipe(recipe, error), "unused plane payload rejected");
     recipe               = makeRecipe();
     recipe.schemaVersion = 1;
     require(!ValidateNativeDrawReplayRecipe(recipe, error), "schema one subset remains restricted");
     recipe.textureMask = 0;
-    recipe.texture.bytes.clear();
+    recipe.textures[0].bytes.clear();
     recipe.vertexShaderHash     = 0x11213E38D7154104ULL;
     recipe.pixelShaderHash      = 0x3A92D78FE55C7B83ULL;
     recipe.vertexAttributeCount = 2;

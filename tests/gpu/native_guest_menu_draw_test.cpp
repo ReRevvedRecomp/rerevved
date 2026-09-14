@@ -67,41 +67,48 @@ int main(int argc, char** argv)
     auto       vs       = read(root / "vertex-shader.be.bin");
     const auto ps       = read(root / "pixel-shader.be.bin");
     const auto vertices = read(root / "vertex.bin"), indices = read(root / "index.bin");
-    const auto literals  = manifest["stride"].value_or(0U) == 32 ? read(root / "vertex-literals.be.bin") : std::vector<std::uint8_t>{};
-    draw.vertexLiterals  = literals;
-    draw.state           = state;
-    draw.vertexMicrocode = vs;
-    draw.pixelMicrocode  = ps;
-    draw.vertices        = vertices;
-    draw.indices         = indices;
-    draw.minimumVertex   = manifest["minimum_vertex"].value_or(0U);
-    draw.vertexCount     = manifest["vertex_count"].value_or(0U);
-    draw.indexCount      = manifest["index_count"].value_or(0U);
-    draw.stride          = manifest["stride"].value_or(0U);
-    draw.indexFormat     = manifest["index_format"].value_or(0U);
-    draw.indexed         = manifest["indexed"].value_or(true);
-    draw.firstInFrame    = manifest["first_in_frame"].value_or(false);
-    NativeDrawReplayTexture texture;
+    const auto literals      = manifest["stride"].value_or(0U) == 32 ? read(root / "vertex-literals.be.bin") : std::vector<std::uint8_t>{};
+    const bool movie         = manifest["stride"].value_or(0U) == 20;
+    const auto pixelLiterals = movie ? read(root / "pixel-literals.be.bin") : std::vector<std::uint8_t>{};
+    draw.pixelLiterals       = pixelLiterals;
+    draw.primitive           = manifest["primitive"].value_or(4U);
+    draw.vertexLiterals      = literals;
+    draw.state               = state;
+    draw.vertexMicrocode     = vs;
+    draw.pixelMicrocode      = ps;
+    draw.vertices            = vertices;
+    draw.indices             = indices;
+    draw.minimumVertex       = manifest["minimum_vertex"].value_or(0U);
+    draw.vertexCount         = manifest["vertex_count"].value_or(0U);
+    draw.indexCount          = manifest["index_count"].value_or(0U);
+    draw.stride              = manifest["stride"].value_or(0U);
+    draw.indexFormat         = manifest["index_format"].value_or(0U);
+    draw.indexed             = manifest["indexed"].value_or(true);
+    draw.firstInFrame        = manifest["first_in_frame"].value_or(false);
+    std::array<NativeDrawReplayTexture, 3> textures;
+    constexpr std::array<unsigned, 3>      movieFetches{ 2, 0, 1 };
     if (draw.stride != 8)
-    {
-        NativeTextureFetch fetch;
-        for (std::size_t i = 0; i < fetch.size(); ++i)
+        for (unsigned slot = 0; slot < (movie ? 3U : 1U); ++slot)
         {
-            const auto* b = state.data() + 0x480 + i * 4;
-            fetch[i]      = (std::uint32_t(b[0]) << 24) | (std::uint32_t(b[1]) << 16) | (std::uint32_t(b[2]) << 8) | b[3];
+            NativeTextureFetch fetch;
+            const auto         fetchIndex = movie ? movieFetches[slot] : 0;
+            for (std::size_t i = 0; i < fetch.size(); ++i)
+                fetch[i] = bigWord(state, 0x480 + fetchIndex * 24 + i * 4);
+            const auto prefix = movie ? "texture-" + std::to_string(slot) : "texture";
+            const auto source = read(root / (prefix + "-guest.bin"));
+            require(DecodeNativeTexture(fetch, source, textures[slot], error), error);
+            require(textures[slot].bytes == read(root / (prefix + "-native.bin")), "guest texture conversion stable");
+            draw.textures[slot] = &textures[slot];
         }
-        const auto source = read(root / "texture-guest.bin");
-        require(DecodeNativeTexture(fetch, source, texture, error), error);
-        require(texture.bytes == read(root / "texture-native.bin"), "guest texture conversion stable");
-        draw.texture = &texture;
-    }
     require(BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), error);
     require(recipe.width == 1280 && recipe.height == 720 && recipe.viewport.x == 0 &&
                 recipe.viewport.width == 1280 && recipe.scissor.right == 1280,
             "guest full viewport must produce one full-width native target");
     require(recipe.initialSample0.empty() && recipe.initialSample1.empty() &&
-                recipe.textureMask == (draw.stride == 8 ? 0U : 1U) &&
-                recipe.indexCount == (draw.indexed ? draw.indexCount : draw.vertexCount),
+                recipe.textureMask == (movie ? 7U : draw.stride == 8 ? 0U
+                                                                     : 1U) &&
+                recipe.indexCount == (movie ? 6U : draw.indexed ? draw.indexCount
+                                                                : draw.vertexCount),
             "guest draw must own its inputs and require no captured attachments");
     const bool firstInFrame = draw.firstInFrame;
     draw.firstInFrame       = true;
@@ -153,7 +160,7 @@ int main(int argc, char** argv)
         draw.indexFormat = 1;
         require(BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), error);
     }
-    if (!draw.indexed)
+    if (!draw.indexed && !movie)
     {
         require(recipe.vertexStrideBytes == 48 && recipe.vertexAttributeCount == 3,
                 "label position, UV and color must use the pinned shader interface");
@@ -164,18 +171,37 @@ int main(int argc, char** argv)
         draw.indexed = false;
         require(BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), error);
     }
-    if (draw.stride != 8)
+    if (draw.stride != 8 && !movie)
     {
         const bool notice          = bigWord(state, 0x2934) == 0x24F00770U && bigWord(state, 0x293C) == 0x87000007U;
         const auto expectedAddress = draw.stride == 32 || notice ? std::array<std::uint32_t, 3>{ 1, 1, 3 }
                                                                  : std::array<std::uint32_t, 3>{ 3, 3, 3 };
         require(recipe.sampler.address == expectedAddress &&
                     recipe.sampler.minLinear && recipe.sampler.magLinear && recipe.sampler.mipLinear &&
-                    recipe.sampler.mipBias == 0 && recipe.texture.bytes == texture.bytes,
+                    recipe.sampler.mipBias == 0 && recipe.textures[0].bytes == textures[0].bytes,
                 "base-level guest sampler must match captured menu binding");
         state[0x490 + 3] ^= 4;
         require(!BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), "mipmapped guest texture rejected");
         state[0x490 + 3] ^= 4;
+    }
+    if (movie)
+    {
+        require(recipe.indices == std::vector<std::uint32_t>{ 0, 1, 2, 2, 1, 3 }, "movie strip winding");
+        require(recipe.pixelConstants.size() == 4096 && !recipe.blend.enabled &&
+                    recipe.textureMask == 7 && recipe.sampler.maxLod == 0.25F,
+                "movie shader constants, planes and base-map sampler");
+        for (std::size_t i = 0; i < 16; ++i)
+            require(littleWord(recipe.pixelConstants, (1008 + i) * 4) == bigWord(pixelLiterals, i * 4),
+                    "movie shader resource literals override the device shadow");
+        draw.pixelLiterals = {};
+        require(!BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), "missing movie literals rejected");
+        draw.pixelLiterals = std::span(pixelLiterals).first(48);
+        require(!BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), "partial movie literal block rejected");
+        draw.pixelLiterals = pixelLiterals;
+        draw.textures[2]   = nullptr;
+        require(!BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), "missing movie plane rejected");
+        draw.textures[2] = &textures[2];
+        require(BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), error);
     }
     vs[0] ^= 1;
     require(!BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error), "changed guest shader rejected");

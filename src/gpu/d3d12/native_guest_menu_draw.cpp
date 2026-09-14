@@ -17,17 +17,19 @@ bool BuildNativeGuestMenuDrawRecipe(const NativeGuestMenuDraw& draw,
 {
     recipe                   = {};
     const bool label         = !draw.indexed && draw.stride == 28;
+    const bool movie         = !draw.indexed && draw.stride == 20;
     const bool scene         = draw.indexed && draw.stride == 32;
     const bool indexed       = draw.indexed && (draw.stride == 4 || draw.stride == 8 || draw.stride == 12 || scene);
     const bool sceneGeometry = !scene ||
                                ((draw.vertexCount == 8 && draw.indexCount == 12) ||
                                 (draw.vertexCount == 289 && draw.indexCount == 1536));
-    if (draw.state.size() != 0x3500 || draw.primitive != 4 || draw.minimumVertex != 0 ||
-        (!label && !indexed) || !draw.vertexCount || !sceneGeometry ||
+    if (draw.state.size() != 0x3500 || draw.primitive != (movie ? 6U : 4U) || draw.minimumVertex != 0 ||
+        (!label && !movie && !indexed) || !draw.vertexCount || !sceneGeometry ||
         draw.vertexLiterals.size() != (scene ? 64U : 0U) ||
+        draw.pixelLiterals.size() != (movie ? 64U : 0U) || (movie && draw.vertexCount != 4) ||
         std::uint64_t(draw.vertexCount) * draw.stride != draw.vertices.size() ||
         (indexed && (draw.indexFormat != 1 || std::uint64_t(draw.indexCount) * 2 != draw.indices.size())) ||
-        (label && (draw.indexFormat != 0 || draw.indexCount != 0 || !draw.indices.empty())))
+        ((label || movie) && (draw.indexFormat != 0 || draw.indexCount != 0 || !draw.indices.empty())))
     {
         error = "unsupported guest menu input tuple or state extent";
         return false;
@@ -58,8 +60,11 @@ bool BuildNativeGuestMenuDrawRecipe(const NativeGuestMenuDraw& draw,
     if (scene)
         for (std::size_t i = 0; i < 16; ++i)
             registers[0x4000 + 1008 + i] = word(draw.vertexLiterals, i * 4);
+    if (movie)
+        for (std::size_t i = 0; i < 16; ++i)
+            registers[0x4400 + 1008 + i] = word(draw.pixelLiterals, i * 4);
     // 0x82690138 retains x, y, clipped width/height, and min/max depth here.
-    const std::array<float, 6> viewport{ 0, 0, 1280, 720, 0, scene ? 1.0F : 0.0F };
+    const std::array<float, 6> viewport{ 0, 0, 1280, 720, 0, scene || movie ? 1.0F : 0.0F };
     for (std::size_t i = 0; i < viewport.size(); ++i)
         if (word(draw.state, 0x3168 + i * 4) != std::bit_cast<std::uint32_t>(viewport[i]))
         {
@@ -94,45 +99,60 @@ bool BuildNativeGuestMenuDrawRecipe(const NativeGuestMenuDraw& draw,
             view.vertexShaderHash = 0x2BA2325A7EA93DE3ULL;
             view.pixelShaderHash  = 0xC3BEC99768EF0D6BULL;
         }
-        // These pinned shader pairs have one normalized 2D fetch from slot 0,
-        // with all sampler filters inherited from its fetch constant.
-        if (ps.size() < 6 || ps[3] != (scene ? 0x10081001U : 0x10080001U) ||
-            ps[4] != (label ? 0x1F1FF7FFU : 0x1F1FF688U) || ps[5] != 0x00004000)
+        if (movie)
         {
-            error = "unsupported guest menu texture instruction";
-            return false;
+            view.vertexShaderHash = 0xC33871A8CFA8967AULL;
+            view.pixelShaderHash  = 0xA8D1E41B3FBB2D15ULL;
         }
-        std::array<std::uint32_t, 6> words;
-        for (std::size_t i = 0; i < words.size(); ++i)
-            words[i] = word(draw.state, 0x480 + i * 4);
-        namespace xenos = rex::graphics::xenos;
-        xenos::xe_gpu_texture_fetch_t fetch{};
-        std::memcpy(&fetch, words.data(), sizeof(fetch));
-        if (fetch.type != xenos::FetchConstantType::kTexture || fetch.dimension != xenos::DataDimension::k2DOrStacked ||
-            fetch.stacked || fetch.mip_min_level || fetch.mip_max_level || fetch.mip_address || fetch.packed_mips ||
-            static_cast<unsigned>(fetch.mag_filter) > 1 || static_cast<unsigned>(fetch.min_filter) > 1 ||
-            static_cast<unsigned>(fetch.mip_filter) > 1 || static_cast<unsigned>(fetch.aniso_filter) ||
-            static_cast<unsigned>(fetch.border_color))
+        // The movie's three point-of-use samplers must agree. Its pinned PS
+        // consumes the planes in fetch order 2, 0, 1.
+        const auto                        count = movie ? 3U : 1U;
+        constexpr std::array<unsigned, 3> movieFetches{ 2, 0, 1 };
+        for (unsigned slot = 0; slot < count; ++slot)
         {
-            error = "unsupported guest menu base-level sampler";
-            return false;
+            NativeDrawReplaySampler      selected;
+            const auto                   fetchIndex = movie ? movieFetches[slot] : 0;
+            std::array<std::uint32_t, 6> words;
+            for (std::size_t i = 0; i < words.size(); ++i)
+                words[i] = word(draw.state, 0x480 + fetchIndex * 24 + i * 4);
+            namespace xenos = rex::graphics::xenos;
+            xenos::xe_gpu_texture_fetch_t fetch{};
+            std::memcpy(&fetch, words.data(), sizeof(fetch));
+            if (fetch.type != xenos::FetchConstantType::kTexture || fetch.dimension != xenos::DataDimension::k2DOrStacked ||
+                fetch.stacked || fetch.mip_min_level || fetch.mip_max_level || fetch.mip_address || fetch.packed_mips ||
+                static_cast<unsigned>(fetch.mag_filter) > 1 || static_cast<unsigned>(fetch.min_filter) > 1 ||
+                static_cast<unsigned>(fetch.mip_filter) > (movie ? 2U : 1U) || static_cast<unsigned>(fetch.aniso_filter) ||
+                static_cast<unsigned>(fetch.border_color))
+            {
+                error = "unsupported guest menu base-level sampler";
+                return false;
+            }
+            // Match texture_util's 2D axis normalization and D3D12 WriteSampler.
+            // LOD bias stays in translated shader state; the texture has one level.
+            constexpr std::array<std::uint32_t, 8> addressModes{ 1, 2, 3, 5, 3, 5, 4, 5 };
+            selected.address   = { addressModes[static_cast<unsigned>(fetch.clamp_x)],
+                                   addressModes[static_cast<unsigned>(fetch.clamp_y)],
+                                   3 };
+            selected.magLinear = fetch.mag_filter == xenos::TextureFilter::kLinear;
+            selected.minLinear = fetch.min_filter == xenos::TextureFilter::kLinear;
+            selected.mipLinear = fetch.mip_filter == xenos::TextureFilter::kLinear;
+            selected.maxLod    = fetch.mip_filter == xenos::TextureFilter::kBaseMap ? 0.25F : std::numeric_limits<float>::max();
+            if (slot && (selected.address != sampler.address || selected.minLinear != sampler.minLinear ||
+                         selected.magLinear != sampler.magLinear || selected.mipLinear != sampler.mipLinear ||
+                         selected.maxLod != sampler.maxLod))
+            {
+                error = "movie plane samplers disagree";
+                return false;
+            }
+            sampler             = selected;
+            view.textures[slot] = draw.textures[slot];
         }
-        // Match texture_util's 2D axis normalization and D3D12 WriteSampler.
-        // LOD bias stays in translated shader state; the texture has one level.
-        constexpr std::array<std::uint32_t, 8> addressModes{ 1, 2, 3, 5, 3, 5, 4, 5 };
-        sampler.address   = { addressModes[static_cast<unsigned>(fetch.clamp_x)],
-                              addressModes[static_cast<unsigned>(fetch.clamp_y)],
-                              3 };
-        sampler.magLinear = fetch.mag_filter == xenos::TextureFilter::kLinear;
-        sampler.minLinear = fetch.min_filter == xenos::TextureFilter::kLinear;
-        sampler.mipLinear = fetch.mip_filter == xenos::TextureFilter::kLinear;
-        sampler.maxLod    = std::numeric_limits<float>::max();
-        view.texture      = draw.texture;
-        view.sampler      = &sampler;
+        view.sampler = &sampler;
     }
     view.vertexBytes         = draw.vertices;
     view.indexBytes          = draw.indices;
     view.indexed             = draw.indexed;
+    view.primitive           = draw.primitive;
     view.indexCount          = draw.indexed ? draw.indexCount : draw.vertexCount;
     view.fullViewportTarget  = true;
     view.guestSourceVertices = true;

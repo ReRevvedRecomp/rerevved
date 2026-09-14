@@ -141,15 +141,15 @@ struct NativeDrawReplayRecipe
     std::vector<std::uint8_t>  initialSample0;
     std::vector<std::uint8_t>  initialSample1;
 
-    std::array<std::uint8_t, 4>  clearColor = { 0, 0, 0, 255 };
-    NativeDrawReplayViewport     viewport;
-    NativeDrawReplayScissor      scissor;
-    NativeDrawReplayBlendState   blend;
-    NativeDrawReplayTexture      texture;
-    NativeDrawReplaySampler      sampler;
-    NativeDrawReplayDepthState   depth;
-    NativeDrawReplayRasterizer   rasterizer;
-    NativeDrawReplayTargetFormat targetFormat = NativeDrawReplayTargetFormat::Rgba8;
+    std::array<std::uint8_t, 4>            clearColor = { 0, 0, 0, 255 };
+    NativeDrawReplayViewport               viewport;
+    NativeDrawReplayScissor                scissor;
+    NativeDrawReplayBlendState             blend;
+    std::array<NativeDrawReplayTexture, 3> textures;
+    NativeDrawReplaySampler                sampler;
+    NativeDrawReplayDepthState             depth;
+    NativeDrawReplayRasterizer             rasterizer;
+    NativeDrawReplayTargetFormat           targetFormat = NativeDrawReplayTargetFormat::Rgba8;
 
     std::uint32_t width                = 0;
     std::uint32_t height               = 0;

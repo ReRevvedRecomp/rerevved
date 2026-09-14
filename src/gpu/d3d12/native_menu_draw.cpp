@@ -29,6 +29,7 @@ struct ShaderContract
     std::uint32_t        stride, attributes, program, context, interpolators;
     std::array<Fetch, 3> fetches;
     bool                 scene;
+    bool                 movie = false;
 };
 
 // The input order and digests bind these layouts to the translated shader
@@ -39,6 +40,7 @@ constexpr ShaderContract kShaders[] = {
     { 0x1EE55F3AB5213177ULL, 0x47F2D46F3B8F1668ULL, "e2cde9a88d5760b5b4291c5148306356f5182c53549dad55e2c1a30267536a03", "873ad152186e5cb71b2c3178f333a0468f932d34439265b434477f89e50536d2", "6cbc31bb7931421b290bb9972497613c204c3ef32b22b870ffe6c4be55566007", "4d11dbc023caf7150a434c5e91f6527befa346cb68169d20242dc6eaf6f05d3a", 3, 3, 0x10210202, 8, 0x10007, { { { 25, 0 }, { 6, 1 }, { 6, 2 } } }, false },
     { 0x2BA2325A7EA93DE3ULL, 0xC3BEC99768EF0D6BULL, "80e55d6dee0e08d066bbfdb6bdc6f1ee077f27f04862c57cce91decc76b113b4", "da7bca278e09ebf26d765b3dfc7a755a47fb04ef955476f352028ddfbaaa488b", "a3b53ebb450ef4c13485f0673fa80f09f486fd39160165cdb08c53bb2dd32d5b", "b67ad629276d3089eaa0e9fc890038e514609c1cdb9fbf634a789adafddaed3a", 7, 3, 0x10110201, 8, 0x10003, { { { 38, 0 }, { 37, 4 }, { 6, 6 } } }, false },
     { 0xC3BAB94E67553E12ULL, 0x64D8E6A475FFCB2DULL, "ca4917e94fd85d07331bfcb1949fe134234c59f1229953de8227af39dd236b91", "2cac681fefe9253f28a78bd8e5e0b5e523a62f2ff768b2ed343e163c56de3757", "9a7d0273718864046019aab013aec91532d80503a0628ff3b7d8b1bf7e44c1ce", "17fa2fb9075504e4fd7239ddab65c21ad05014d007fcfe1f2016aba896100cb8", 8, 3, 0x10210204, 8, 0x10007, { { { 57, 0 }, { 37, 3 }, { 57, 5 } } }, true },
+    { 0xC33871A8CFA8967AULL, 0xA8D1E41B3FBB2D15ULL, "e610becd7e1f7e103fb68e444ac8ddee22b14278b13ea214808182bd3c3b110c", "5e1c86b144a49960dba3d0cd0f86727bd268859df562dc64bb28188eca99dcce", "7bf2988ed570651256a86eb78df2aa8f299091f742f9ebf8d34fdbc1bb87c2ce", "8a1afbe7358925402fbbc00cd6da423dc14758d7c50c9911ea1c25a28b0ee7f1", 5, 2, 0x10010101, 4, 0x10001, { { { 57, 0 }, { 37, 3 }, {} } }, false, true },
 };
 
 const ShaderContract* contract(const NativeMenuDrawView& view)
@@ -109,17 +111,19 @@ bool state(const NativeMenuDrawView& view, const ShaderContract& shader, NativeD
         { 0x2110, 0x44200000 },
         { 0x2111, 0xC3B40000 },
         { 0x2112, 0x43B40000 },
-        { 0x2113, shader.scene ? 0x3F800000U : 0U },
+        { 0x2113, shader.scene || shader.movie ? 0x3F800000U : 0U },
         { 0x2114, 0 },
         { 0x2180, shader.program },
         { 0x2181, shader.context },
         { 0x2182, shader.interpolators },
         { 0x2200, shader.scene ? 0x24F00736U : 0x24F00770U },
-        { 0x2201, shader.scene ? 0x00010706U : 0x07060706U },
-        { 0x2202, shader.scene ? 0x8700000CU : 0x87000004U },
-        { 0x2204, 0x80000 },
+        { 0x2201, shader.movie ? 0x10001U : shader.scene ? 0x00010706U
+                                                         : 0x07060706U },
+        { 0x2202, shader.movie ? 0x87000007U : shader.scene ? 0x8700000CU
+                                                            : 0x87000004U },
+        { 0x2204, shader.movie ? 0x90000U : 0x80000U },
         { 0x2205, shader.scene ? 0x18002U : 0x18000U },
-        { 0x2206, 0x43F },
+        { 0x2206, shader.movie ? 0x400U : 0x43FU },
         { 0x2208, 4 },
         { 0x2302, 4 },
         { 0x2307, 0xFF000 },
@@ -129,8 +133,7 @@ bool state(const NativeMenuDrawView& view, const ShaderContract& shader, NativeD
     // stencil tests are disabled.
     for (const auto [index, value] : required)
         if (r[index] != value &&
-            !(!shader.scene && ((index == 0x2200 && r[index] == 0x24F00270U) ||
-                                (index == 0x2202 && r[index] == 0x87000007U))))
+            !(!shader.scene && !shader.movie && ((index == 0x2200 && r[index] == 0x24F00270U) || (index == 0x2202 && r[index] == 0x87000007U))))
         {
             std::ostringstream text;
             text << "unsupported menu register 0x" << std::hex << index
@@ -145,12 +148,12 @@ bool state(const NativeMenuDrawView& view, const ShaderContract& shader, NativeD
     recipe.sampleCount   = 4;
     recipe.sampleMask    = shader.scene ? 9 : 15;
     recipe.clearColor    = { 0, 0, 0, 0 };
-    recipe.viewport      = { !full && right ? -640.0F : 0.0F, 0, 1280, 720, 0, shader.scene ? 1.0F : 0.0F };
+    recipe.viewport      = { !full && right ? -640.0F : 0.0F, 0, 1280, 720, 0, shader.scene || shader.movie ? 1.0F : 0.0F };
     recipe.scissor       = { 0, 0, static_cast<std::int32_t>(recipe.width), 720 };
     recipe.depth.enabled = recipe.depth.writeEnabled = shader.scene;
     recipe.rasterizer.cull                           = shader.scene ? 2 : 0;
     recipe.rasterizer.frontCounterClockwise          = shader.scene;
-    recipe.blend.enabled                             = true;
+    recipe.blend.enabled                             = !shader.movie;
     recipe.blend.sourceColor                         = NativeDrawReplayBlendFactor::SourceAlpha;
     recipe.blend.destinationColor                    = NativeDrawReplayBlendFactor::InverseSourceAlpha;
     recipe.blend.sourceAlpha                         = shader.scene ? NativeDrawReplayBlendFactor::One : NativeDrawReplayBlendFactor::SourceAlpha;
@@ -162,7 +165,7 @@ bool state(const NativeMenuDrawView& view, const ShaderContract& shader, NativeD
             store(bytes, offset + i * 4, r[first + i]);
     };
     copy(0x4000, 256 * 4, recipe.vertexConstants);
-    copy(0x4400, 224 * 4, recipe.pixelConstants);
+    copy(0x4400, (shader.movie ? 256 : 224) * 4, recipe.pixelConstants);
     recipe.sharedConstants.resize(336);
     copy(0x4900, 8, recipe.sharedConstants, 256);
     store(recipe.sharedConstants, 292, std::bit_cast<std::uint32_t>(1.0F / 1280.0F));
@@ -223,7 +226,9 @@ bool DecodeNativeMenuDrawGeometry(const NativeMenuDrawView& view,
     recipe.indices.clear();
     const auto* shader = contract(view);
     if (!shader || view.registers.size() != 0x5003 || !view.indexCount ||
-        view.indexCount % 3 || view.indexCount > kMaxGeometryBytes / 4)
+        (shader->movie ? (view.primitive != 6 || view.indexed || view.indexCount != 4)
+                       : (view.primitive != 4 || view.indexCount % 3)) ||
+        view.indexCount > kMaxGeometryBytes / 4)
         return fail(error, "unsupported menu geometry identity, registers or triangle count");
     const auto r    = view.registers;
     const auto size = view.guestSourceVertices ? view.vertexBytes.size() : std::uint64_t((r[0x48BF] >> 2) & 0xFFFFFF) * 4;
@@ -246,12 +251,15 @@ bool DecodeNativeMenuDrawGeometry(const NativeMenuDrawView& view,
         recipe.indices[i] = index;
         maximum           = std::max(maximum, index);
     }
+    // Guest primitive six is a strip. Preserve the second triangle's winding.
+    if (shader->movie)
+        recipe.indices = { 0, 1, 2, 2, 1, 3 };
     const auto count = std::uint64_t(maximum) + 1;
     if (count * shader->stride * 4 > size || count * shader->attributes * 16 > kMaxGeometryBytes)
         return fail(error, "menu index references bytes outside the captured vertex range");
     recipe.vertexAttributeCount = shader->attributes;
     recipe.vertexStrideBytes    = shader->attributes * 16;
-    recipe.indexCount           = view.indexCount;
+    recipe.indexCount           = static_cast<std::uint32_t>(recipe.indices.size());
     recipe.vertexData.resize(static_cast<std::size_t>(count * recipe.vertexStrideBytes));
     for (std::uint32_t vertex = 0; vertex <= maximum; ++vertex)
         for (std::uint32_t attribute = 0; attribute < shader->attributes; ++attribute)
@@ -352,11 +360,17 @@ bool BuildNativeMenuDrawRecipe(const NativeMenuDrawView& view,
     recipe.pixelShaderDxil  = found->pixelDxil;
     if (expected != &kShaders[0])
     {
-        if (!view.texture || !view.sampler)
+        const auto count = expected->movie ? 3U : 1U;
+        if (!view.sampler)
             return fail(error, "textured menu shader is missing its point-of-use texture or sampler");
-        recipe.textureMask = 1;
-        recipe.texture     = *view.texture;
-        recipe.sampler     = *view.sampler;
+        recipe.textureMask = expected->movie ? 7 : 1;
+        for (std::size_t i = 0; i < count; ++i)
+        {
+            if (!view.textures[i])
+                return fail(error, "textured menu shader is missing a texture plane");
+            recipe.textures[i] = *view.textures[i];
+        }
+        recipe.sampler = *view.sampler;
     }
     return ValidateNativeDrawReplayRecipe(recipe, error);
 }
