@@ -21,6 +21,8 @@ REX_EXTERN(__imp__sub_826A3568);
 REX_EXTERN(__imp__sub_826A3000);
 REX_EXTERN(__imp__sub_826A39F8);
 REX_EXTERN(__imp__sub_826AD150);
+REX_EXTERN(__imp__sub_826A7040);
+REX_EXTERN(__imp__sub_826A7138);
 
 namespace rerevved::gpu::diagnostics
 {
@@ -54,6 +56,12 @@ struct Session
     toml::table                            frameMetadata;
     std::array<std::uint32_t, 3>           vertexIdentity{};
     std::vector<std::uint8_t>              vertexMicrocode;
+    std::uint32_t                          gammaGraphics = 0;
+    std::uint64_t                          gammaSequence = 0;
+    std::array<std::uint32_t, 256>         gammaTable{};
+    std::vector<std::uint8_t>              gammaBytes;
+    std::string                            gammaThread;
+    NativeGuestGammaEmission               gammaEmission;
 };
 
 struct Capture
@@ -643,7 +651,213 @@ void after(Capture& capture, const PPCContext& ctx)
     }
 }
 
+void observeGamma(std::uint32_t graphics, std::uint32_t stack, bool pwl)
+{
+    if (!enabled.load(std::memory_order_acquire))
+        return;
+    std::lock_guard lock(captureMutex);
+    if (!session || !session->frameConsumer || !enabled.load(std::memory_order_relaxed))
+        return;
+    try
+    {
+        if (pwl)
+            throw std::runtime_error("guest native frame does not support PWL gamma");
+        if (!graphics || (session->gammaSequence && graphics != session->gammaGraphics))
+            throw std::runtime_error("guest gamma producer changed device");
+        auto                           bytes = copyMemory(std::uint64_t(stack) + 80, 1536);
+        std::array<std::uint32_t, 256> table{};
+        std::string                    error;
+        if (!DecodeNativeGuestGammaTable(bytes, table, error))
+            throw std::runtime_error(error);
+        session->gammaGraphics = graphics;
+        session->gammaTable    = table;
+        session->gammaBytes    = std::move(bytes);
+        session->gammaThread   = hostThread();
+        ++session->gammaSequence;
+    }
+    catch (const std::exception& exception)
+    {
+        fail(exception);
+    }
+}
+
+std::shared_ptr<Session> beforeGammaEmission(const PPCContext& ctx)
+{
+    if (!enabled.load(std::memory_order_acquire))
+        return {};
+    std::lock_guard lock(captureMutex);
+    if (!session || !session->frameConsumer || !enabled.load(std::memory_order_relaxed))
+        return {};
+    try
+    {
+        if (session->gammaEmission.Pending() || !ctx.r3.u32 ||
+            (session->gammaEmission.Sequence() && session->gammaEmission.Graphics() != ctx.r3.u32))
+            throw std::runtime_error("guest gamma emissions overlap or change device");
+        const auto  bytes = copyMemory(ctx.r4.u32, 1536);
+        std::string error;
+        if (!session->gammaEmission.Begin(ctx.r3.u32, ctx.r4.u32, bytes, error))
+            throw std::runtime_error(error);
+        return session;
+    }
+    catch (const std::exception& exception)
+    {
+        fail(exception);
+        return {};
+    }
+}
+
+void afterGammaEmission(const std::shared_ptr<Session>& emission)
+{
+    std::lock_guard lock(captureMutex);
+    if (session != emission || !enabled.load(std::memory_order_relaxed))
+        return;
+    emission->gammaEmission.Complete();
+}
+
+void saveFrameGamma(const std::filesystem::path& directory)
+{
+    if (!session->gammaSequence || session->gammaGraphics != session->graphics)
+        throw std::runtime_error("guest frame has no converted gamma for its device");
+    // The swap owner emits changed gamma after VdSwap. A newer setter value
+    // alone must not become this frame's gamma before its original emission.
+    std::string emissionError;
+    if (!session->gammaEmission.Matches(session->graphics,
+                                        session->gammaTable,
+                                        session->gammaBytes,
+                                        emissionError))
+        throw std::runtime_error(emissionError);
+    // The original setter retains the converted channels at device +15004.
+    // Require them to agree at submission, including when its copy was elided.
+    if (copyMemory(std::uint64_t(session->graphics) + 15004, 1536) != session->gammaBytes)
+        throw std::runtime_error("guest retained gamma differs from its observed producer");
+    std::array<std::uint8_t, 1024> packed{};
+    for (std::size_t i = 0; i < session->gammaTable.size(); ++i)
+        for (std::size_t byte = 0; byte < 4; ++byte)
+            packed[i * 4 + byte] = static_cast<std::uint8_t>(session->gammaTable[i] >> (byte * 8));
+    const auto saveGamma = [&](const char* name, std::span<const std::uint8_t> bytes)
+    {
+        std::ofstream file(directory / name, std::ios::binary | std::ios::noreplace);
+        file.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+        file.close();
+        if (!file)
+            throw std::runtime_error("could not save direct guest gamma");
+        return toml::table{ { "file", name }, { "bytes", static_cast<std::int64_t>(bytes.size()) }, { "sha256", rex::crypto::sha256(std::string_view(reinterpret_cast<const char*>(bytes.data()), bytes.size())) } };
+    };
+    session->frameMetadata.insert("gamma", toml::table{ { "producer", 0x8268FE30LL }, { "sequence", static_cast<std::int64_t>(session->gammaSequence) }, { "graphics", session->gammaGraphics }, { "host_thread", session->gammaThread }, { "retained_channels_equal", true }, { "emitter", 0x826A7040LL }, { "emission_sequence", static_cast<std::int64_t>(session->gammaEmission.Sequence()) }, { "emission_address", session->gammaEmission.Address() }, { "original_emitter_returned", true }, { "emitted_channels_equal", true }, { "channels", saveGamma("gamma.be.bin", session->gammaBytes) }, { "packed", saveGamma("gamma.bin", packed) } });
+}
+
 } // namespace
+
+bool DecodeNativeGuestGammaTable(std::span<const std::uint8_t>   bytes,
+                                 std::array<std::uint32_t, 256>& table,
+                                 std::string&                    error)
+{
+    table = {};
+    error.clear();
+    if (bytes.size() != 1536)
+    {
+        error = "guest converted gamma requires three complete 256-entry channels";
+        return false;
+    }
+    std::array<std::uint32_t, 256> decoded{};
+    for (std::size_t channel = 0; channel < 3; ++channel)
+        for (std::size_t i = 0; i < decoded.size(); ++i)
+        {
+            const auto offset = channel * 512 + i * 2;
+            const auto value  = (std::uint32_t(bytes[offset]) << 8) | bytes[offset + 1];
+            if (value & 63U)
+            {
+                error = "guest converted gamma is not aligned to ten bits";
+                return false;
+            }
+            decoded[i] |= (value >> 6) << ((2 - channel) * 10);
+        }
+    table = decoded;
+    return true;
+}
+
+bool NativeGuestGammaEmission::Begin(std::uint32_t                 graphics,
+                                     std::uint32_t                 address,
+                                     std::span<const std::uint8_t> bytes,
+                                     std::string&                  error)
+{
+    error.clear();
+    if (pending || (sequence && this->graphics != graphics) || !graphics || !address)
+    {
+        error = "guest gamma emissions overlap or change device";
+        return false;
+    }
+    std::array<std::uint32_t, 256> decoded{};
+    if (!DecodeNativeGuestGammaTable(bytes, decoded, error))
+        return false;
+    pendingGraphics = graphics;
+    pendingAddress  = address;
+    pendingTable    = decoded;
+    pendingBytes.assign(bytes.begin(), bytes.end());
+    pending = true;
+    return true;
+}
+
+void NativeGuestGammaEmission::Complete() noexcept
+{
+    if (!pending)
+        return;
+    graphics        = pendingGraphics;
+    address         = pendingAddress;
+    table           = pendingTable;
+    bytes           = std::move(pendingBytes);
+    pendingGraphics = 0;
+    pendingAddress  = 0;
+    pendingTable    = {};
+    pending         = false;
+    ++sequence;
+}
+
+bool NativeGuestGammaEmission::Matches(std::uint32_t                         graphics,
+                                       const std::array<std::uint32_t, 256>& producerTable,
+                                       std::span<const std::uint8_t>         producerBytes,
+                                       std::string&                          error) const
+{
+    error.clear();
+    if (pending || !sequence || !graphics || this->graphics != graphics || this->table != producerTable ||
+        this->bytes.size() != producerBytes.size() ||
+        !std::equal(this->bytes.begin(), this->bytes.end(), producerBytes.begin()))
+    {
+        error = "guest frame gamma has no matching completed emission";
+        return false;
+    }
+    return true;
+}
+
+bool NativeGuestGammaEmission::Pending() const noexcept
+{
+    return pending;
+}
+
+std::uint64_t NativeGuestGammaEmission::Sequence() const noexcept
+{
+    return sequence;
+}
+
+std::uint32_t NativeGuestGammaEmission::Graphics() const noexcept
+{
+    return graphics;
+}
+
+std::uint32_t NativeGuestGammaEmission::Address() const noexcept
+{
+    return address;
+}
+
+const std::array<std::uint32_t, 256>& NativeGuestGammaEmission::Table() const noexcept
+{
+    return table;
+}
+
+std::span<const std::uint8_t> NativeGuestGammaEmission::Bytes() const noexcept
+{
+    return bytes;
+}
 
 bool StartNativeGuestDrawCapture(const std::filesystem::path& directory, std::string& error, NativeGuestDrawConsumer consumer, NativeGuestFrameConsumer frameConsumer)
 {
@@ -691,10 +905,11 @@ void NotifyNativeGuestFrameBoundary(std::uint32_t graphics, std::uint32_t reserv
                 throw std::runtime_error("guest frame has a foreign device, is empty, or has unfinished draws");
             session->frameMetadata.insert("end", toml::table{ { "host_thread", hostThread() }, { "reservation", reservation }, { "descriptor", descriptor } });
             session->frameMetadata.insert("original_draws_returned", session->frameDraws);
+            saveFrameGamma(session->directory / fmt::format("frame-{:04}", session->frame));
             writeMetadata(session->directory / fmt::format("frame-{:04}", session->frame) / "frame.toml", session->frameMetadata);
             std::string error;
             const bool  last = session->frame == 2;
-            if (!session->frameConsumer(session->directory, last, error))
+            if (!session->frameConsumer(session->directory, session->gammaTable, last, error))
                 throw std::runtime_error(error);
             ++session->frame;
             if (last)
@@ -743,6 +958,16 @@ void ObserveNativeGuestVertexSelection(PPCRegister& r30, PPCRegister& r31, PPCRe
         rerevved::gpu::diagnostics::selectedShader(*capture, r30.u32, r31.u32, r15.u32, r19.u32);
 }
 
+void ObserveNativeGuestGammaTable(PPCRegister& r31, PPCRegister& r1)
+{
+    rerevved::gpu::diagnostics::observeGamma(r31.u32, r1.u32, false);
+}
+
+void ObserveNativeGuestPwlGamma(PPCRegister& r31)
+{
+    rerevved::gpu::diagnostics::observeGamma(r31.u32, 0, true);
+}
+
 void ObserveNativeGuestIndexedSubmission(PPCRegister& r31, PPCRegister& r11, PPCRegister& r28, PPCRegister& r29, PPCRegister& r27, PPCRegister& r19)
 {
     if (auto* capture = rerevved::gpu::diagnostics::activeCapture)
@@ -758,6 +983,20 @@ REX_HOOK_RAW(sub_826A39F8)
     rerevved::gpu::diagnostics::activeCapture = previous;
     if (capture)
         rerevved::gpu::diagnostics::after(*capture, ctx);
+}
+
+REX_HOOK_RAW(sub_826A7040)
+{
+    auto emission = rerevved::gpu::diagnostics::beforeGammaEmission(ctx);
+    __imp__sub_826A7040(ctx, base);
+    if (emission)
+        rerevved::gpu::diagnostics::afterGammaEmission(emission);
+}
+
+REX_HOOK_RAW(sub_826A7138)
+{
+    rerevved::gpu::diagnostics::observeGamma(ctx.r3.u32, 0, true);
+    __imp__sub_826A7138(ctx, base);
 }
 
 REX_HOOK_RAW(sub_826A3568)

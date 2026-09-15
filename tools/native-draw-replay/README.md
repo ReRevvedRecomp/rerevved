@@ -61,13 +61,18 @@ CPU draw intervals after `<fresh-dir>/arm` is created. Each interval is
 submitted before its original guest swap to a persistent native D3D12 worker.
 The worker owns at most one submitted frame, retains color/depth between draws,
 and completes its native fence before releasing the owned CPU inputs. Native
-sample planes and completion records are saved in `<fresh-dir>/native/`.
+sample planes, resolved RGB10A2 images and completion records are saved in
+`<fresh-dir>/native/`. Gamma comes from the converted guest channel table,
+observed from startup and checked against both retained device bytes and the
+last completed original gamma emitter. Missing, pending, mismatched or PWL
+gamma fails the capture. The native output averages the two color sample
+planes with byte half-up rounding before applying that table.
 Xenos continues the original draws and presentation. These native fences do
 not complete guest queries or establish Xenos GPU completion.
 
 The Windows `native_frame_stream` CTest exercises attachment preservation,
-next-frame clears, readback-free submission, terminal renderer failure and
-shutdown. It requires a D3D12 device and is enabled with
+next-frame clears, gamma channel mapping and updates, readback-free submission,
+terminal renderer failure and shutdown. It requires a D3D12 device and is enabled with
 `$env:REREVVED_TEST_NATIVE_D3D12 = '1'` before running CTest; otherwise it is
 reported as skipped.
 

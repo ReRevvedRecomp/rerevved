@@ -7,6 +7,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstring>
+#include <cwctype>
 #include <exception>
 #include <fstream>
 #include <functional>
@@ -108,6 +109,21 @@ bool compileReplayShader(const char*       source,
         return logFailure("replay helper shader compilation", result);
     }
     return true;
+}
+
+bool equivalentWindowsPath(const std::filesystem::path& left,
+                           const std::filesystem::path& right)
+{
+    const auto leftString  = left.wstring();
+    const auto rightString = right.wstring();
+    return leftString.size() == rightString.size() &&
+           std::equal(leftString.begin(),
+                      leftString.end(),
+                      rightString.begin(),
+                      [](wchar_t leftCharacter, wchar_t rightCharacter)
+                      {
+                          return std::towlower(leftCharacter) == std::towlower(rightCharacter);
+                      });
 }
 
 D3D12_BLEND mapBlendFactor(NativeDrawReplayBlendFactor factor)
@@ -355,6 +371,7 @@ struct NativeRendererD3D12::Impl
     std::string                                         initializationError;
     std::vector<NativeDrawReplayRecipe>                 drawStreamDraws;
     std::filesystem::path                               drawStreamSampleOutputPath;
+    std::optional<NativeDrawStreamOutput>               drawStreamOutput;
     std::optional<std::promise<NativeDrawReplayResult>> drawStreamPromise;
 
 #if defined(_WIN32)
@@ -2278,6 +2295,7 @@ void NativeRendererD3D12::drawStreamThreadMain()
     {
         std::vector<NativeDrawReplayRecipe>                 draws;
         std::filesystem::path                               sampleOutputPath;
+        std::optional<NativeDrawStreamOutput>               outputRequest;
         std::optional<std::promise<NativeDrawReplayResult>> promise;
         bool                                                cancel = false;
         {
@@ -2292,6 +2310,7 @@ void NativeRendererD3D12::drawStreamThreadMain()
             {
                 draws                   = std::move(impl->drawStreamDraws);
                 sampleOutputPath        = std::move(impl->drawStreamSampleOutputPath);
+                outputRequest           = std::move(impl->drawStreamOutput);
                 promise                 = std::move(impl->drawStreamPromise);
                 impl->drawStreamPending = false;
                 cancel                  = true;
@@ -2300,6 +2319,7 @@ void NativeRendererD3D12::drawStreamThreadMain()
             {
                 draws                    = std::move(impl->drawStreamDraws);
                 sampleOutputPath         = std::move(impl->drawStreamSampleOutputPath);
+                outputRequest            = std::move(impl->drawStreamOutput);
                 promise                  = std::move(impl->drawStreamPromise);
                 impl->drawStreamPending  = false;
                 impl->drawStreamInFlight = true;
@@ -2308,7 +2328,9 @@ void NativeRendererD3D12::drawStreamThreadMain()
         impl->stateCv.notify_all();
 
         NativeDrawReplayResult result;
-        result.outputPath = sampleOutputPath;
+        result.outputPath = sampleOutputPath.empty() && outputRequest
+                                ? outputRequest->outputPath
+                                : sampleOutputPath;
         if (cancel)
         {
             result.error = "native draw stream stopped before frame submission";
@@ -2317,13 +2339,17 @@ void NativeRendererD3D12::drawStreamThreadMain()
         {
             try
             {
-                const bool                readback = !sampleOutputPath.empty();
+                const bool                readback = !sampleOutputPath.empty() || outputRequest.has_value();
                 std::vector<std::uint8_t> output;
                 for (std::size_t index = 0; index < draws.size(); ++index)
                 {
                     const bool last   = index + 1 == draws.size();
                     const auto replay = impl->executeOffscreenReplayOnRendererThread(
-                        draws[index], index != 0, last && readback, nullptr, readback && last ? &output : nullptr);
+                        draws[index],
+                        index != 0,
+                        last && readback,
+                        outputRequest && last ? &outputRequest->gammaTable : nullptr,
+                        readback && last ? &output : nullptr);
                     if (!replay.success)
                     {
                         result.error = "native draw stream draw " + std::to_string(index) + ": " + replay.error;
@@ -2337,26 +2363,50 @@ void NativeRendererD3D12::drawStreamThreadMain()
                         const auto planeBytes     = static_cast<std::size_t>(draws[index].width) *
                                                     draws[index].height * 4U;
                         const auto colorBytes     = planeBytes * 2U;
-                        const auto expectedPlanes = draws[index].depth.enabled ? 4U : 2U;
+                        const auto expectedPlanes = (draws[index].depth.enabled ? 4U : 2U) +
+                                                    (outputRequest ? 1U : 0U);
                         if (output.size() != planeBytes * expectedPlanes)
                         {
                             result.error = "native draw stream readback has an incomplete sample layout";
                             break;
                         }
-                        std::ofstream file(sampleOutputPath, std::ios::binary | std::ios::trunc);
-                        if (!file)
+                        if (!sampleOutputPath.empty())
                         {
-                            result.error = "could not open native draw stream sample output";
-                            break;
+                            std::ofstream file(sampleOutputPath, std::ios::binary | std::ios::noreplace);
+                            if (!file)
+                            {
+                                result.error = "could not open native draw stream sample output";
+                                break;
+                            }
+                            file.write(reinterpret_cast<const char*>(output.data()),
+                                       static_cast<std::streamsize>(colorBytes));
+                            file.flush();
+                            file.close();
+                            if (!file)
+                            {
+                                result.error = "could not write native draw stream sample output";
+                                break;
+                            }
                         }
-                        file.write(reinterpret_cast<const char*>(output.data()),
-                                   static_cast<std::streamsize>(colorBytes));
-                        file.flush();
-                        file.close();
-                        if (!file)
+                        if (outputRequest)
                         {
-                            result.error = "could not write native draw stream sample output";
-                            break;
+                            const auto    gammaOffset = planeBytes * (expectedPlanes - 1U);
+                            std::ofstream file(outputRequest->outputPath,
+                                               std::ios::binary | std::ios::noreplace);
+                            if (!file)
+                            {
+                                result.error = "could not open native draw stream output";
+                                break;
+                            }
+                            file.write(reinterpret_cast<const char*>(output.data() + gammaOffset),
+                                       static_cast<std::streamsize>(planeBytes));
+                            file.flush();
+                            file.close();
+                            if (!file)
+                            {
+                                result.error = "could not write native draw stream output";
+                                break;
+                            }
                         }
                     }
                     result.success              = true;
@@ -2823,6 +2873,7 @@ bool NativeRendererD3D12::StartDrawStream(std::string& error)
     impl->drawStreamInFlight = false;
     impl->drawStreamDraws.clear();
     impl->drawStreamSampleOutputPath.clear();
+    impl->drawStreamOutput.reset();
     impl->drawStreamPromise.reset();
     impl->rendererThread = std::thread(&NativeRendererD3D12::drawStreamThreadMain, this);
     impl->stateCv.wait(lock, [this]()
@@ -2844,14 +2895,16 @@ bool NativeRendererD3D12::StartDrawStream(std::string& error)
 }
 
 NativeDrawReplayResult NativeRendererD3D12::SubmitDrawFrame(
-    std::vector<NativeDrawReplayRecipe> draws,
-    const std::filesystem::path&        sampleOutputPath)
+    std::vector<NativeDrawReplayRecipe>   draws,
+    const std::filesystem::path&          sampleOutputPath,
+    std::optional<NativeDrawStreamOutput> output)
 {
     NativeDrawReplayResult result;
-    result.outputPath = sampleOutputPath;
+    result.outputPath = sampleOutputPath.empty() && output ? output->outputPath : sampleOutputPath;
 #if !defined(_WIN32)
     (void)draws;
     (void)sampleOutputPath;
+    (void)output;
     result.error = "native D3D12 draw stream requires Windows";
     return result;
 #else
@@ -2875,17 +2928,60 @@ NativeDrawReplayResult NativeRendererD3D12::SubmitDrawFrame(
             result.error = "native D3D12 draw stream is unavailable";
             return result;
         }
+        std::filesystem::path sampleCanonicalPath;
+        std::filesystem::path outputCanonicalPath;
+        std::error_code       pathError;
         if (!sampleOutputPath.empty())
         {
-            std::error_code pathError;
+            sampleCanonicalPath = std::filesystem::weakly_canonical(sampleOutputPath, pathError);
+            if (pathError)
+            {
+                result.error = "native draw stream sample output path could not be resolved";
+                return result;
+            }
+        }
+        if (output)
+        {
+            if (output->outputPath.empty())
+            {
+                result.error = "native draw stream output requires a distinct path";
+                return result;
+            }
+            pathError.clear();
+            outputCanonicalPath = std::filesystem::weakly_canonical(output->outputPath, pathError);
+            if (pathError)
+            {
+                result.error = "native draw stream output path could not be resolved";
+                return result;
+            }
+            if (!sampleOutputPath.empty() &&
+                equivalentWindowsPath(sampleCanonicalPath, outputCanonicalPath))
+            {
+                result.error = "native draw stream output paths must be distinct";
+                return result;
+            }
+        }
+        if (!sampleOutputPath.empty())
+        {
+            pathError.clear();
             if (std::filesystem::exists(sampleOutputPath, pathError) || pathError)
             {
                 result.error = "native draw stream sample output must be a fresh writable path";
                 return result;
             }
         }
+        if (output)
+        {
+            pathError.clear();
+            if (std::filesystem::exists(output->outputPath, pathError) || pathError)
+            {
+                result.error = "native draw stream output must be a fresh writable path";
+                return result;
+            }
+        }
         impl->drawStreamDraws            = std::move(draws);
         impl->drawStreamSampleOutputPath = sampleOutputPath;
+        impl->drawStreamOutput           = std::move(output);
         impl->drawStreamPromise.emplace(std::move(promise));
         impl->drawStreamPending = true;
     }
@@ -2904,6 +3000,7 @@ void NativeRendererD3D12::Shutdown()
         impl->drawStreamStarted   = false;
         impl->drawStreamPending   = false;
         impl->drawStreamInFlight  = false;
+        impl->drawStreamOutput.reset();
         impl->stateCv.notify_all();
         return;
     }
@@ -2922,6 +3019,7 @@ void NativeRendererD3D12::Shutdown()
     impl->drawStreamStarted   = false;
     impl->drawStreamPending   = false;
     impl->drawStreamInFlight  = false;
+    impl->drawStreamOutput.reset();
 }
 
 bool NativeRendererD3D12::Initialized() const noexcept

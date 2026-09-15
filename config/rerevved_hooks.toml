@@ -108,6 +108,18 @@ address = 0x826A3E18
 name = "ObserveNativeGuestIndexedSubmission"
 registers = ["r31", "r11", "r28", "r29", "r27", "r19"]
 
+# Converted display gamma is live on the stack before the original setter
+# compares and retains it. The alternate PWL layout is not a 256-entry table.
+[[midasm_hook]]
+address = 0x8268FE30
+name = "ObserveNativeGuestGammaTable"
+registers = ["r31", "r1"]
+
+[[midasm_hook]]
+address = 0x8268FEF8
+name = "ObserveNativeGuestPwlGamma"
+registers = ["r31"]
+
 [[midasm_hook]]
 address = 0x826A4888
 name = "TraceVdSwapReturn"

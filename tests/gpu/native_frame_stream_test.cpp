@@ -90,6 +90,49 @@ void checkImage(const std::filesystem::path&       path,
             }
 }
 
+std::uint32_t packGammaEntry(std::uint32_t red, std::uint32_t green, std::uint32_t blue)
+{
+    return (red << 20) | (green << 10) | blue;
+}
+
+std::uint32_t packRgb10Output(std::uint32_t red, std::uint32_t green, std::uint32_t blue)
+{
+    return (3U << 30) | (blue << 20) | (green << 10) | red;
+}
+
+std::array<std::uint32_t, 256> makeGammaTable(std::uint32_t zeroRed,
+                                              std::uint32_t zeroGreen,
+                                              std::uint32_t zeroBlue,
+                                              std::uint32_t fullRed,
+                                              std::uint32_t fullGreen,
+                                              std::uint32_t fullBlue)
+{
+    std::array<std::uint32_t, 256> table{};
+    for (std::uint32_t index = 0; index < table.size(); ++index)
+        table[index] = packGammaEntry(index, (index * 3U) & 1023U, (index * 5U) & 1023U);
+    table[0]   = packGammaEntry(zeroRed, zeroGreen, zeroBlue);
+    table[255] = packGammaEntry(fullRed, fullGreen, fullBlue);
+    return table;
+}
+
+void checkGammaImage(const std::filesystem::path& path,
+                     std::uint32_t                left,
+                     std::uint32_t                right)
+{
+    std::ifstream             file(path, std::ios::binary);
+    std::vector<std::uint8_t> bytes{ std::istreambuf_iterator<char>(file), {} };
+    require(bytes.size() == 1280U * 720U * 4U, "complete RGB10 output required");
+    for (std::size_t y = 0; y < 720; ++y)
+        for (std::size_t x = 0; x < 1280; ++x)
+        {
+            const auto    offset   = (y * 1280 + x) * 4;
+            const auto    expected = x < 640 ? left : right;
+            std::uint32_t actual   = 0;
+            std::memcpy(&actual, bytes.data() + offset, sizeof(actual));
+            require(actual == expected, "gamma output channels or preservation differ from expected values");
+        }
+}
+
 } // namespace
 
 int main()
@@ -110,24 +153,70 @@ int main()
         const auto red       = makeDraw({ 1, 0, 0, 1 }, false);
         const auto blue      = makeDraw({ 0, 0, 1, 1 }, true);
         const auto green     = makeDraw({ 0, 1, 0, 1 }, true);
+        const auto gammaA    = makeGammaTable(17, 31, 47, 311, 617, 919);
+        const auto gammaB    = makeGammaTable(97, 149, 211, 701, 809, 997);
         const auto directory = std::filesystem::current_path() /
                                ("native-frame-stream-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
         require(std::filesystem::create_directory(directory), "fresh test output directory required");
+        NativeDrawStreamOutput firstOutput;
+        firstOutput.outputPath = directory / "first.rgb10";
+        firstOutput.gammaTable = gammaA;
+        NativeDrawStreamOutput secondOutput;
+        secondOutput.outputPath = directory / "second.rgb10";
+        secondOutput.gammaTable = gammaB;
         NativeRendererD3D12 renderer;
         std::string         error;
         require(!renderer.SubmitDrawFrame({ red }).success, "submission before startup must fail");
         require(renderer.StartDrawStream(error), error);
         require(!renderer.SubmitDrawFrame({}).success, "empty frame must fail admission");
-        auto result = renderer.SubmitDrawFrame({ red, blue }, directory / "first.rgba");
+        auto result = renderer.SubmitDrawFrame({ red, blue }, directory / "first.rgba", firstOutput);
         require(result.success && result.completionFenceValue, result.error);
         auto fence = result.completionFenceValue;
         checkImage(directory / "first.rgba", { 0, 0, 255, 255 }, { 255, 0, 0, 255 });
+        checkGammaImage(directory / "first.rgb10",
+                        packRgb10Output(17, 31, 919),
+                        packRgb10Output(311, 31, 47));
         require(!renderer.SubmitDrawFrame({ red }, directory / "first.rgba").success,
                 "submission must not overwrite an existing output");
-        result = renderer.SubmitDrawFrame({ green }, directory / "second.rgba");
+        require(!renderer.SubmitDrawFrame({ red }, {}, firstOutput).success,
+                "submission must not overwrite an existing gamma output");
+        result = renderer.SubmitDrawFrame({ red, blue }, directory / "second.rgba", secondOutput);
         require(result.success && result.completionFenceValue > fence, result.error);
         fence = result.completionFenceValue;
-        checkImage(directory / "second.rgba", { 0, 255, 0, 255 }, { 0, 0, 0, 0 });
+        checkImage(directory / "second.rgba", { 0, 0, 255, 255 }, { 255, 0, 0, 255 });
+        checkGammaImage(directory / "second.rgb10",
+                        packRgb10Output(97, 149, 997),
+                        packRgb10Output(701, 149, 211));
+        NativeDrawStreamOutput invalidOutput;
+        invalidOutput.gammaTable = gammaA;
+        require(!renderer.SubmitDrawFrame({ red }, {}, invalidOutput).success,
+                "gamma output without a path must be rejected");
+        NativeDrawStreamOutput aliasedOutput;
+        aliasedOutput.outputPath = directory / "." / "alias.rgb10";
+        aliasedOutput.gammaTable = gammaA;
+        require(!renderer.SubmitDrawFrame({ red }, directory / "alias.rgb10", aliasedOutput).success,
+                "sample and gamma output aliases must be rejected");
+        NativeDrawStreamOutput caseAliasedOutput;
+        caseAliasedOutput.outputPath = directory / "FIRST.RGBA";
+        caseAliasedOutput.gammaTable = gammaA;
+        require(!renderer.SubmitDrawFrame({ red }, directory / "first.rgba", caseAliasedOutput).success,
+                "case-equivalent sample and gamma output aliases must be rejected");
+        checkImage(directory / "first.rgba", { 0, 0, 255, 255 }, { 255, 0, 0, 255 });
+        NativeDrawStreamOutput gammaOnlyOutput;
+        gammaOnlyOutput.outputPath = directory / "gamma-only.rgb10";
+        gammaOnlyOutput.gammaTable = gammaA;
+        result                     = renderer.SubmitDrawFrame({ red }, {}, gammaOnlyOutput);
+        require(result.success && result.completionFenceValue > fence,
+                "gamma-only output must complete its native fence");
+        fence = result.completionFenceValue;
+        checkGammaImage(directory / "gamma-only.rgb10",
+                        packRgb10Output(311, 31, 47),
+                        packRgb10Output(311, 31, 47));
+        result = renderer.SubmitDrawFrame({ green }, directory / "third.rgba");
+        require(result.success && result.completionFenceValue > fence,
+                "render with sample readback must complete its native fence");
+        fence = result.completionFenceValue;
+        checkImage(directory / "third.rgba", { 0, 255, 0, 255 }, { 0, 0, 0, 0 });
         result = renderer.SubmitDrawFrame({ red });
         require(result.success && result.completionFenceValue > fence, "render without readback must complete its native fence");
         auto firstQueued  = std::async(std::launch::async, [&]()
@@ -156,15 +245,22 @@ int main()
 
         NativeRendererD3D12 stopping;
         require(stopping.StartDrawStream(error), error);
-        auto pending = std::async(std::launch::async, [&]()
-                                  {
-                                      return stopping.SubmitDrawFrame({ red, blue });
-                                  });
+        NativeDrawStreamOutput stoppingOutput;
+        stoppingOutput.outputPath = directory / "shutdown.rgb10";
+        stoppingOutput.gammaTable = gammaA;
+        auto pending              = std::async(std::launch::async, [&]()
+                                               {
+                                      return stopping.SubmitDrawFrame({ red, blue }, {}, stoppingOutput);
+                                               });
         stopping.Shutdown();
         require(pending.wait_for(std::chrono::seconds(10)) == std::future_status::ready,
                 "shutdown must resolve a concurrent submitter");
         const auto stopped = pending.get();
         require(!stopped.success || stopped.completionFenceValue, "accepted work must finish before shutdown returns success");
+        if (stopped.success)
+            checkGammaImage(directory / "shutdown.rgb10",
+                            packRgb10Output(17, 31, 919),
+                            packRgb10Output(311, 31, 47));
         std::cout << "Persistent native frame preservation, clears, fences, rejection and shutdown passed\n";
     }
     catch (const std::exception& exception)

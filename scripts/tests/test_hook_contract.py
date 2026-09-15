@@ -111,6 +111,16 @@ EXPECTED_HOOKS = [
         "registers": ["r31", "r11", "r28", "r29", "r27", "r19"],
     },
     {
+        "address": 0x8268FE30,
+        "name": "ObserveNativeGuestGammaTable",
+        "registers": ["r31", "r1"],
+    },
+    {
+        "address": 0x8268FEF8,
+        "name": "ObserveNativeGuestPwlGamma",
+        "registers": ["r31"],
+    },
+    {
         "address": 0x826A4888,
         "name": "TraceVdSwapReturn",
         "registers": ["r3", "r30", "r31"],
@@ -390,6 +400,24 @@ TERRAIN_YIELD_HOOK_SITES = [
 
 
 class HookContractTests(unittest.TestCase):
+    def test_gamma_observers_preserve_original_setter_when_available(self) -> None:
+        paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
+        if not paths:
+            self.skipTest("generated sources are not available")
+        for call in (
+            "ObserveNativeGuestGammaTable(ctx.r31, ctx.r1);",
+            "ObserveNativeGuestPwlGamma(ctx.r31);",
+        ):
+            expected = (
+                "\t// addi r30,r31,15004\n\t"
+                + call
+                + "\n\tctx.r30.s64 = ctx.r31.s64 + 15004;"
+            )
+            occurrences = sum(
+                path.read_text(encoding="utf-8").count(expected) for path in paths
+            )
+            self.assertEqual(occurrences, 1)
+
     def test_vertex_selection_observer_precedes_restore_when_available(self) -> None:
         paths = sorted(GENERATED.glob("rerevved_recomp.*.cpp"))
         if not paths:
@@ -444,7 +472,7 @@ class HookContractTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         source_names.update(
             re.findall(
-                r"^void (ObserveNativeGuest(?:VertexSelection|IndexedSubmission))[ \t]*\(",
+                r"^void (ObserveNativeGuest(?:VertexSelection|IndexedSubmission|GammaTable|PwlGamma))[ \t]*\(",
                 capture_source,
                 re.MULTILINE,
             )

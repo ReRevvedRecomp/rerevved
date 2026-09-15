@@ -492,7 +492,10 @@ bool App::SetupPresentation()
                 submission->draws.push_back(std::move(recipe));
                 return true;
             };
-            frameConsumer = [submission](const std::filesystem::path& directory, bool last, std::string& error)
+            frameConsumer = [submission](const std::filesystem::path&          directory,
+                                         const std::array<std::uint32_t, 256>& gamma,
+                                         bool                                  last,
+                                         std::string&                          error)
             {
                 const auto nativeDirectory = directory / "native";
                 if (submission->frame == 0)
@@ -505,10 +508,13 @@ bool App::SetupPresentation()
                     if (!submission->renderer.StartDrawStream(error))
                         return false;
                 }
-                const auto drawCount  = submission->draws.size();
-                const auto inputBytes = submission->bytes;
-                const auto result     = submission->renderer.SubmitDrawFrame(
-                    std::move(submission->draws), nativeDirectory / fmt::format("frame-{}.rgba", submission->frame));
+                const auto                            drawCount  = submission->draws.size();
+                const auto                            inputBytes = submission->bytes;
+                rerevved::gpu::NativeDrawStreamOutput output;
+                output.outputPath = nativeDirectory / fmt::format("frame-{}.rgb10", submission->frame);
+                output.gammaTable = gamma;
+                const auto result = submission->renderer.SubmitDrawFrame(
+                    std::move(submission->draws), nativeDirectory / fmt::format("frame-{}.rgba", submission->frame), std::move(output));
                 submission->draws.clear();
                 submission->bytes = 0;
                 error             = result.error;
@@ -521,6 +527,8 @@ bool App::SetupPresentation()
                 record << "frame_epoch = " << submission->frame
                        << "\nsubmitted_draws = " << drawCount
                        << "\nowned_input_bytes = " << inputBytes
+                       << "\nowned_gamma_bytes = " << sizeof(gamma)
+                       << "\nresolved_gamma_output = true"
                        << "\ncompletion_fence = " << result.completionFenceValue
                        << "\ncompleted_before_guest_swap = true\n";
                 record.close();
