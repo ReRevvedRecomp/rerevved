@@ -70,6 +70,13 @@ planes with byte half-up rounding before applying that table.
 Xenos continues the original draws and presentation. These native fences do
 not complete guest queries or establish Xenos GPU completion.
 
+With those capture options, `--native_guest_present=true` queues each completed
+native RGB10A2 image through the existing SDK D3D12 presenter. This opt-in bridge
+uses native readback and an SDK-device upload. Each original Xenos refresh runs
+before the queued image replaces its presentation output. Once the bounded
+queue empties, the next original refresh presents Xenos output again. There is
+one HWND swapchain; the presenter may coalesce images before painting them.
+
 The Windows `native_frame_stream` CTest exercises attachment preservation,
 next-frame clears, gamma channel mapping and updates, readback-free submission,
 terminal renderer failure and shutdown. It requires a D3D12 device and is enabled with

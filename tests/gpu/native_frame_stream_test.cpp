@@ -12,6 +12,7 @@
 #include <future>
 #include <iostream>
 #include <iterator>
+#include <span>
 #include <stdexcept>
 #include <vector>
 
@@ -115,12 +116,10 @@ std::array<std::uint32_t, 256> makeGammaTable(std::uint32_t zeroRed,
     return table;
 }
 
-void checkGammaImage(const std::filesystem::path& path,
-                     std::uint32_t                left,
-                     std::uint32_t                right)
+void checkGammaPixels(std::span<const std::uint8_t> bytes,
+                      std::uint32_t                 left,
+                      std::uint32_t                 right)
 {
-    std::ifstream             file(path, std::ios::binary);
-    std::vector<std::uint8_t> bytes{ std::istreambuf_iterator<char>(file), {} };
     require(bytes.size() == 1280U * 720U * 4U, "complete RGB10 output required");
     for (std::size_t y = 0; y < 720; ++y)
         for (std::size_t x = 0; x < 1280; ++x)
@@ -131,6 +130,15 @@ void checkGammaImage(const std::filesystem::path& path,
             std::memcpy(&actual, bytes.data() + offset, sizeof(actual));
             require(actual == expected, "gamma output channels or preservation differ from expected values");
         }
+}
+
+void checkGammaImage(const std::filesystem::path& path,
+                     std::uint32_t                left,
+                     std::uint32_t                right)
+{
+    std::ifstream                   file(path, std::ios::binary);
+    const std::vector<std::uint8_t> bytes{ std::istreambuf_iterator<char>(file), {} };
+    checkGammaPixels(bytes, left, right);
 }
 
 } // namespace
@@ -159,8 +167,9 @@ int main()
                                ("native-frame-stream-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
         require(std::filesystem::create_directory(directory), "fresh test output directory required");
         NativeDrawStreamOutput firstOutput;
-        firstOutput.outputPath = directory / "first.rgb10";
-        firstOutput.gammaTable = gammaA;
+        firstOutput.outputPath           = directory / "first.rgb10";
+        firstOutput.gammaTable           = gammaA;
+        firstOutput.returnResolvedOutput = true;
         NativeDrawStreamOutput secondOutput;
         secondOutput.outputPath = directory / "second.rgb10";
         secondOutput.gammaTable = gammaB;
@@ -171,7 +180,9 @@ int main()
         require(!renderer.SubmitDrawFrame({}).success, "empty frame must fail admission");
         auto result = renderer.SubmitDrawFrame({ red, blue }, directory / "first.rgba", firstOutput);
         require(result.success && result.completionFenceValue, result.error);
-        auto fence = result.completionFenceValue;
+        auto fence       = result.completionFenceValue;
+        auto ownedPixels = std::move(result.resolvedOutput);
+        checkGammaPixels(ownedPixels, packRgb10Output(17, 31, 919), packRgb10Output(311, 31, 47));
         checkImage(directory / "first.rgba", { 0, 0, 255, 255 }, { 255, 0, 0, 255 });
         checkGammaImage(directory / "first.rgb10",
                         packRgb10Output(17, 31, 919),
@@ -187,6 +198,15 @@ int main()
         checkGammaImage(directory / "second.rgb10",
                         packRgb10Output(97, 149, 997),
                         packRgb10Output(701, 149, 211));
+        require(result.resolvedOutput.empty(), "unrequested returned pixels must remain empty");
+        checkGammaPixels(ownedPixels, packRgb10Output(17, 31, 919), packRgb10Output(311, 31, 47));
+        NativeDrawStreamOutput returnedOutput;
+        returnedOutput.gammaTable           = gammaB;
+        returnedOutput.returnResolvedOutput = true;
+        result                              = renderer.SubmitDrawFrame({ red, blue }, {}, returnedOutput);
+        require(result.success && result.completionFenceValue > fence, result.error);
+        fence = result.completionFenceValue;
+        checkGammaPixels(result.resolvedOutput, packRgb10Output(97, 149, 997), packRgb10Output(701, 149, 211));
         NativeDrawStreamOutput invalidOutput;
         invalidOutput.gammaTable = gammaA;
         require(!renderer.SubmitDrawFrame({ red }, {}, invalidOutput).success,

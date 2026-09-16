@@ -66,6 +66,7 @@ private:
     void finalizeCoverage(rerevved::native_renderer::ExitClass exitClass);
     void finalizePassiveTrace();
     void finalizeFenceTrace();
+    void clearNativeGuestPresentation();
 
     std::atomic<bool>                                 coverageStarted{ false };
     std::atomic<bool>                                 coverageFinalizeStarted{ false };
@@ -87,6 +88,7 @@ private:
     std::filesystem::path                             nativeMenuFrameOutput;
     std::filesystem::path                             nativeGuestDrawOutput;
     std::filesystem::path                             nativeGuestDrawShaders;
+    bool                                              nativeGuestPresent = false;
     std::filesystem::path                             nativeMenuFrameShaders;
     std::filesystem::path                             nativeMenuShadowOutput;
     std::filesystem::path                             nativeMenuShadowShaders;

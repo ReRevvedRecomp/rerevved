@@ -2388,7 +2388,7 @@ void NativeRendererD3D12::drawStreamThreadMain()
                                 break;
                             }
                         }
-                        if (outputRequest)
+                        if (outputRequest && !outputRequest->outputPath.empty())
                         {
                             const auto    gammaOffset = planeBytes * (expectedPlanes - 1U);
                             std::ofstream file(outputRequest->outputPath,
@@ -2407,6 +2407,11 @@ void NativeRendererD3D12::drawStreamThreadMain()
                                 result.error = "could not write native draw stream output";
                                 break;
                             }
+                        }
+                        if (outputRequest && outputRequest->returnResolvedOutput)
+                        {
+                            const auto gammaOffset = planeBytes * (expectedPlanes - 1U);
+                            result.resolvedOutput.assign(output.begin() + gammaOffset, output.end());
                         }
                     }
                     result.success              = true;
@@ -2942,11 +2947,14 @@ NativeDrawReplayResult NativeRendererD3D12::SubmitDrawFrame(
         }
         if (output)
         {
-            if (output->outputPath.empty())
+            if (output->outputPath.empty() && !output->returnResolvedOutput)
             {
-                result.error = "native draw stream output requires a distinct path";
+                result.error = "native draw stream output requires a fresh path or returned pixels";
                 return result;
             }
+        }
+        if (output && !output->outputPath.empty())
+        {
             pathError.clear();
             outputCanonicalPath = std::filesystem::weakly_canonical(output->outputPath, pathError);
             if (pathError)
@@ -2970,7 +2978,7 @@ NativeDrawReplayResult NativeRendererD3D12::SubmitDrawFrame(
                 return result;
             }
         }
-        if (output)
+        if (output && !output->outputPath.empty())
         {
             pathError.clear();
             if (std::filesystem::exists(output->outputPath, pathError) || pathError)

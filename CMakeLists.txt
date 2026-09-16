@@ -4,7 +4,7 @@ project(rerevved VERSION 1.0.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(rexglue 0.12.0 REQUIRED CONFIG)
+find_package(rexglue 0.14.0 REQUIRED CONFIG)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/rexglue-sdk.lock.json" REREVVED_SDK_LOCK)

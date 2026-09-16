@@ -24,10 +24,11 @@ namespace rerevved::gpu
 
 struct NativeDrawStreamOutput
 {
-    // The caller supplies a fresh path and a copied direct guest 256-entry
-    // B10G10R10X2 table. The stream owns both until native completion.
+    // The stream owns the copied B10G10R10X2 table through native completion.
+    // At least a fresh output path or returned output must be requested.
     std::filesystem::path          outputPath;
     std::array<std::uint32_t, 256> gammaTable{};
+    bool                           returnResolvedOutput = false;
 };
 
 class NativeRendererD3D12

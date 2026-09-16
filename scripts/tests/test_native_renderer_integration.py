@@ -118,6 +118,27 @@ class NativeRendererIntegrationTests(unittest.TestCase):
             self.assertNotIn(category, APP_CPP)
             self.assertNotIn(category, COMPAT_CPP)
 
+    def test_cpu_presentation_uses_the_existing_presenter(self) -> None:
+        self.assertIn(
+            'REXCVAR_DEFINE_BOOL(native_guest_present, false, "ReRevved",', APP_CPP
+        )
+        self.assertIn("guestDrawOutput.empty() || guestDrawShaders.empty()", APP_CPP)
+        self.assertIn("graphics->presenter()", APP_CPP)
+        self.assertIn("QueueCpuGuestOutputFrame(std::move(frame))", APP_CPP)
+        self.assertNotIn("RefreshGuestOutput(", APP_CPP)
+        for begin, end in (
+            ("void App::OnShutdown()", "bool App::OnWindowCloseRequested()"),
+            (
+                "bool App::OnWindowCloseRequested()",
+                "void App::clearNativeGuestPresentation()",
+            ),
+        ):
+            body = APP_CPP[APP_CPP.index(begin) : APP_CPP.index(end)]
+            self.assertLess(
+                body.index("StopNativeGuestDrawCapture()"),
+                body.index("clearNativeGuestPresentation()"),
+            )
+
     def test_native_guest_gpu_service_is_native_only(self) -> None:
         consumers = []
         source_suffixes = {".c", ".cc", ".cpp", ".cxx", ".h", ".hpp", ".inc"}

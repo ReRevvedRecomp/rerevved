@@ -170,6 +170,8 @@ struct NativeDrawReplayResult
     std::string           error;
     // Non-zero only for a successfully completed persistent stream frame.
     std::uint64_t completionFenceValue = 0;
+    // Owned packed R10G10B10A2 pixels, only when requested by a stream caller.
+    std::vector<std::uint8_t> resolvedOutput;
 };
 
 bool LoadNativeDrawReplayRecipe(const std::filesystem::path& recipePath,
