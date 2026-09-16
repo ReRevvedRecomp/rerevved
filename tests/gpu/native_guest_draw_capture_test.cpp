@@ -196,6 +196,54 @@ int main()
     {
         return true;
     };
+    unsigned                      stopped = 0;
+    NativeGuestDrawCaptureOptions continuous;
+    continuous.continuous = true;
+    require(!StartNativeGuestDrawCapture(root, error, consume, endFrame, continuous),
+            "continuous replay cannot start without a way to release queued work");
+    continuous.stopConsumer = [&]
+    {
+        ++stopped;
+    };
+    require(!StartNativeGuestDrawCapture(root, error, {}, {}, continuous),
+            "continuous replay requires complete frame consumers");
+    require(!std::filesystem::exists(root), "invalid continuous setup must not create output");
+    require(StartNativeGuestDrawCapture(root, error, consume, endFrame, continuous),
+            "continuous replay starts unarmed");
+    StopNativeGuestDrawCapture();
+    StopNativeGuestDrawCapture();
+    const auto idleStop = toml::parse_file((root / "result.toml").string());
+    require(stopped == 1 && idleStop["complete"].value_or(false) &&
+                idleStop["frames"].value_or(-1) == 0 &&
+                idleStop["stop_reason"].value_or(std::string{}) == "shutdown",
+            "normal continuous shutdown releases consumers once even before arming");
+    std::filesystem::remove(root / "result.toml");
+    std::filesystem::remove(root);
+    require(StartNativeGuestDrawCapture(root, error, consume, endFrame, continuous),
+            "continuous marker session starts");
+    std::ofstream(root / "arm").close();
+    std::ofstream(root / "stop").close();
+    NotifyNativeGuestFrameBoundary(0xFFFFFFFCU, 0, 0);
+    const auto markerStop = toml::parse_file((root / "result.toml").string());
+    require(stopped == 2 && markerStop["complete"].value_or(false) &&
+                markerStop["stop_reason"].value_or(std::string{}) == "stop_marker" &&
+                !std::filesystem::exists(root / "frame-0000"),
+            "stop marker takes priority over arming and guest memory access");
+    checkOriginal();
+    StopNativeGuestDrawCapture();
+    require(stopped == 2, "marker completion must not repeat shutdown callbacks");
+    std::filesystem::remove(root / "arm");
+    std::filesystem::remove(root / "stop");
+    std::filesystem::remove(root / "result.toml");
+    std::filesystem::remove(root);
+    require(StartNativeGuestDrawCapture(root, error, consume, endFrame, continuous),
+            "continuous failure session starts");
+    checkOriginal(sub_826A7138);
+    StopNativeGuestDrawCapture();
+    require(stopped == 3 && !toml::parse_file((root / "result.toml").string())["complete"].value_or(true),
+            "gamma failure clears continuous consumers once and preserves original effects");
+    std::filesystem::remove(root / "result.toml");
+    std::filesystem::remove(root);
     require(!StartNativeGuestDrawCapture(root, error, consume), "unpaired frame callbacks rejected");
     require(StartNativeGuestDrawCapture(root, error, consume, endFrame), "frame capture starts");
     std::ofstream(root / "arm").close();

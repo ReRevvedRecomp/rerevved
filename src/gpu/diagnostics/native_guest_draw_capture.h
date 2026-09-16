@@ -62,7 +62,19 @@ private:
     std::vector<std::uint8_t>      bytes;
 };
 
-bool StartNativeGuestDrawCapture(const std::filesystem::path& directory, std::string& error, NativeGuestDrawConsumer consumer = {}, NativeGuestFrameConsumer frameConsumer = {});
+inline constexpr std::uint64_t kNativeGuestEvidenceFrames = 3;
+
+struct NativeGuestDrawCaptureOptions
+{
+    // Continuous sessions export only the first three frames. A stop file or
+    // StopNativeGuestDrawCapture discards the current partial frame.
+    bool continuous = false;
+    // Called once on cancellation or failure, serialized with both consumers.
+    // Must not reenter capture APIs; release owned inputs and pending output.
+    std::function<void()> stopConsumer;
+};
+
+bool StartNativeGuestDrawCapture(const std::filesystem::path& directory, std::string& error, NativeGuestDrawConsumer consumer = {}, NativeGuestFrameConsumer frameConsumer = {}, NativeGuestDrawCaptureOptions options = {});
 // Called before VdSwap at 0x826A4884; records a CPU submission interval, not GPU
 // completion. Draws must use this device and finish before its next boundary.
 void NotifyNativeGuestFrameBoundary(std::uint32_t graphics, std::uint32_t reservation, std::uint32_t descriptor);

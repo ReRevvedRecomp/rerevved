@@ -88,7 +88,8 @@ private:
     std::filesystem::path                             nativeMenuFrameOutput;
     std::filesystem::path                             nativeGuestDrawOutput;
     std::filesystem::path                             nativeGuestDrawShaders;
-    bool                                              nativeGuestPresent = false;
+    bool                                              nativeGuestPresent    = false;
+    bool                                              nativeGuestContinuous = false;
     std::filesystem::path                             nativeMenuFrameShaders;
     std::filesystem::path                             nativeMenuShadowOutput;
     std::filesystem::path                             nativeMenuShadowShaders;

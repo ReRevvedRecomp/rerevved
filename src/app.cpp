@@ -5,6 +5,8 @@
 #include <rex/ui/d3d12/d3d12_presenter.h>
 #endif
 
+#include <algorithm>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -57,9 +59,11 @@ REXCVAR_DEFINE_STRING(native_menu_shadow_shaders, "", "ReRevved", "Ignored direc
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_STRING(native_guest_draw_output, "", "ReRevved", "Fresh ignored directory for bounded guest menu draw inputs")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
-REXCVAR_DEFINE_STRING(native_guest_draw_shaders, "", "ReRevved", "Validated native shaders for three swap-delimited menu frames from guest CPU inputs")
+REXCVAR_DEFINE_STRING(native_guest_draw_shaders, "", "ReRevved", "Validated native shaders for swap-delimited menu frames from guest CPU inputs")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
-REXCVAR_DEFINE_BOOL(native_guest_present, false, "ReRevved", "Queue the three captured native frames through the existing D3D12 presenter")
+REXCVAR_DEFINE_BOOL(native_guest_present, false, "ReRevved", "Queue captured native frames through the existing D3D12 presenter")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
+REXCVAR_DEFINE_BOOL(native_guest_continuous, false, "ReRevved", "Present native menu frames until a stop file or shutdown; save only the first three frames")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 REXCVAR_DEFINE_STRING(native_menu_frame_output, "", "ReRevved", "Fresh ignored directory for one live native menu frame comparison")
@@ -345,9 +349,15 @@ bool App::SetupEnvironment()
     const std::string guestDrawOutput  = REXCVAR_GET(native_guest_draw_output);
     const std::string guestDrawShaders = REXCVAR_GET(native_guest_draw_shaders);
     nativeGuestPresent                 = REXCVAR_GET(native_guest_present);
+    nativeGuestContinuous              = REXCVAR_GET(native_guest_continuous);
+    if (nativeGuestContinuous && !nativeGuestPresent)
+    {
+        REXLOG_ERROR("Continuous native menu rendering requires native_guest_present");
+        return false;
+    }
     if (nativeGuestPresent && (guestDrawOutput.empty() || guestDrawShaders.empty()))
     {
-        REXLOG_ERROR("Native guest presentation requires bounded guest capture and native shaders");
+        REXLOG_ERROR("Native guest presentation requires guest capture and native shaders");
         return false;
     }
 #if !defined(_WIN32)
@@ -466,9 +476,11 @@ bool App::SetupPresentation()
 
     if (!nativeGuestDrawOutput.empty())
     {
-        std::string                                          error;
-        rerevved::gpu::diagnostics::NativeGuestDrawConsumer  consumer;
-        rerevved::gpu::diagnostics::NativeGuestFrameConsumer frameConsumer;
+        std::string                                               error;
+        rerevved::gpu::diagnostics::NativeGuestDrawConsumer       consumer;
+        rerevved::gpu::diagnostics::NativeGuestFrameConsumer      frameConsumer;
+        rerevved::gpu::diagnostics::NativeGuestDrawCaptureOptions captureOptions;
+        captureOptions.continuous = nativeGuestContinuous;
         if (!nativeGuestDrawShaders.empty())
         {
             rerevved::gpu::NativeMenuShaders shaders;
@@ -483,13 +495,41 @@ bool App::SetupPresentation()
                 rerevved::gpu::NativeRendererD3D12                 renderer;
                 std::vector<rerevved::gpu::NativeDrawReplayRecipe> draws;
                 std::size_t                                        bytes = 0;
-                std::uint32_t                                      frame = 0;
+                std::uint64_t                                      frame = 0, peakBytes = 0;
+                std::uint64_t                                      firstToken = 0, lastToken = 0, lastFence = 0;
+                std::chrono::steady_clock::time_point              started{}, completed{};
+                double                                             renderSeconds = 0, maximumRenderSeconds = 0;
             };
 
-            auto submission = std::make_shared<FrameSubmission>();
-            consumer        = [shaders = std::move(shaders), submission](const rerevved::gpu::NativeGuestMenuDraw& draw,
-                                                                         const std::filesystem::path&              directory,
-                                                                         std::string&                              error)
+            auto submission             = std::make_shared<FrameSubmission>();
+            captureOptions.stopConsumer = [this, submission]
+            {
+                // Capture serializes this with submission, including window
+                // close. No producer may queue after the pending output clears.
+                submission->renderer.Shutdown();
+                submission->draws.clear();
+                submission->bytes = 0;
+                clearNativeGuestPresentation();
+                if (nativeGuestContinuous && submission->frame)
+                {
+                    std::ofstream record(nativeGuestDrawOutput / "native" / "session.toml");
+                    record << "submitted_frames = " << submission->frame
+                           << "\npeak_owned_input_bytes = " << submission->peakBytes
+                           << "\nfirst_presenter_cpu_token = " << submission->firstToken
+                           << "\nlast_presenter_cpu_token = " << submission->lastToken
+                           << "\nlast_completion_fence = " << submission->lastFence
+                           << "\nsubmission_seconds = " << submission->renderSeconds
+                           << "\nmaximum_submission_seconds = " << submission->maximumRenderSeconds
+                           << "\nelapsed_seconds = " << std::chrono::duration<double>(submission->completed - submission->started).count()
+                           << "\npacing = 'synchronous_native_completion'\n";
+                    record.close();
+                    if (!record)
+                        REXLOG_ERROR("Could not save continuous native submission summary");
+                }
+            };
+            consumer = [shaders = std::move(shaders), submission](const rerevved::gpu::NativeGuestMenuDraw& draw,
+                                                                  const std::filesystem::path&              directory,
+                                                                  std::string&                              error)
             {
                 rerevved::gpu::NativeDrawReplayRecipe recipe;
                 if (!rerevved::gpu::BuildNativeGuestMenuDrawRecipe(draw, shaders, recipe, error))
@@ -517,6 +557,7 @@ bool App::SetupPresentation()
                 const auto nativeDirectory = directory / "native";
                 if (submission->frame == 0)
                 {
+                    submission->started = std::chrono::steady_clock::now();
                     if (!std::filesystem::create_directory(nativeDirectory))
                     {
                         error = "guest native submission requires a fresh output directory";
@@ -525,14 +566,23 @@ bool App::SetupPresentation()
                     if (!submission->renderer.StartDrawStream(error))
                         return false;
                 }
-                const auto                            drawCount  = submission->draws.size();
-                const auto                            inputBytes = submission->bytes;
+                const auto drawCount    = submission->draws.size();
+                const auto inputBytes   = submission->bytes;
+                const bool saveEvidence = submission->frame < rerevved::gpu::diagnostics::kNativeGuestEvidenceFrames;
+                submission->peakBytes   = std::max(submission->peakBytes, static_cast<std::uint64_t>(inputBytes));
                 rerevved::gpu::NativeDrawStreamOutput output;
-                output.outputPath           = nativeDirectory / fmt::format("frame-{}.rgb10", submission->frame);
+                if (saveEvidence)
+                    output.outputPath = nativeDirectory / fmt::format("frame-{}.rgb10", submission->frame);
                 output.gammaTable           = gamma;
                 output.returnResolvedOutput = nativeGuestPresent;
-                auto result                 = submission->renderer.SubmitDrawFrame(
-                    std::move(submission->draws), nativeDirectory / fmt::format("frame-{}.rgba", submission->frame), std::move(output));
+                const auto submitted        = std::chrono::steady_clock::now();
+                // The guest producer waits for this one owned frame. No second
+                // frame can accumulate while native work or readback is pending.
+                auto result = submission->renderer.SubmitDrawFrame(
+                    std::move(submission->draws), saveEvidence ? nativeDirectory / fmt::format("frame-{}.rgba", submission->frame) : std::filesystem::path{}, std::move(output));
+                const double renderSeconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - submitted).count();
+                submission->renderSeconds += renderSeconds;
+                submission->maximumRenderSeconds = std::max(submission->maximumRenderSeconds, renderSeconds);
                 submission->draws.clear();
                 submission->bytes = 0;
                 error             = result.error;
@@ -551,8 +601,9 @@ bool App::SetupPresentation()
                     auto* presenter = graphics ? dynamic_cast<rex::ui::d3d12::D3D12Presenter*>(graphics->presenter()) : nullptr;
                     if (presenter)
                     {
-                        presentationDigest = rex::crypto::sha256(std::string_view(
-                            reinterpret_cast<const char*>(result.resolvedOutput.data()), result.resolvedOutput.size()));
+                        if (saveEvidence)
+                            presentationDigest = rex::crypto::sha256(std::string_view(
+                                reinterpret_cast<const char*>(result.resolvedOutput.data()), result.resolvedOutput.size()));
                         rex::ui::d3d12::D3D12Presenter::CpuGuestOutputFrame frame;
                         frame.width       = 1280;
                         frame.height      = 720;
@@ -569,34 +620,42 @@ bool App::SetupPresentation()
                     }
                 }
 #endif
-                std::ofstream record(nativeDirectory / fmt::format("frame-{}.toml", submission->frame));
-                record << "frame_epoch = " << submission->frame
-                       << "\nsubmitted_draws = " << drawCount
-                       << "\nowned_input_bytes = " << inputBytes
-                       << "\nowned_gamma_bytes = " << sizeof(gamma)
-                       << "\nresolved_gamma_output = true"
-                       << "\ncompletion_fence = " << result.completionFenceValue
-                       << "\ncompleted_before_guest_swap = true\n";
-                if (presentationToken)
-                    record << "presenter_cpu_token = " << presentationToken
-                           << "\nqueued_before_guest_swap = true\n"
-                           << "presentation_transport = 'cpu_readback_upload'\n"
-                           << "presentation_sha256 = '" << presentationDigest << "'\n";
-                record.close();
-                if (!record)
+                if (saveEvidence)
                 {
-                    error = "could not save native frame completion record";
-                    clearNativeGuestPresentation();
-                    submission->renderer.Shutdown();
-                    return false;
+                    std::ofstream record(nativeDirectory / fmt::format("frame-{}.toml", submission->frame));
+                    record << "frame_epoch = " << submission->frame
+                           << "\nsubmitted_draws = " << drawCount
+                           << "\nowned_input_bytes = " << inputBytes
+                           << "\nowned_gamma_bytes = " << sizeof(gamma)
+                           << "\nresolved_gamma_output = true"
+                           << "\ncompletion_fence = " << result.completionFenceValue
+                           << "\ncompleted_before_guest_swap = true\n";
+                    if (presentationToken)
+                        record << "presenter_cpu_token = " << presentationToken
+                               << "\nqueued_before_guest_swap = true\n"
+                               << "presentation_transport = 'cpu_readback_upload'\n"
+                               << "presentation_sha256 = '" << presentationDigest << "'\n";
+                    record.close();
+                    if (!record)
+                    {
+                        error = "could not save native frame completion record";
+                        clearNativeGuestPresentation();
+                        submission->renderer.Shutdown();
+                        return false;
+                    }
                 }
+                submission->completed = std::chrono::steady_clock::now();
+                if (!submission->firstToken)
+                    submission->firstToken = presentationToken;
+                submission->lastToken = presentationToken;
+                submission->lastFence = result.completionFenceValue;
                 ++submission->frame;
                 if (last)
                     submission->renderer.Shutdown();
                 return true;
             };
         }
-        if (!rerevved::gpu::diagnostics::StartNativeGuestDrawCapture(nativeGuestDrawOutput, error, std::move(consumer), std::move(frameConsumer)))
+        if (!rerevved::gpu::diagnostics::StartNativeGuestDrawCapture(nativeGuestDrawOutput, error, std::move(consumer), std::move(frameConsumer), std::move(captureOptions)))
         {
             REXLOG_ERROR("Guest menu draw capture setup failed: {}", error);
             return false;

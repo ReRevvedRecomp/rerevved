@@ -77,6 +77,23 @@ before the queued image replaces its presentation output. Once the bounded
 queue empties, the next original refresh presents Xenos output again. There is
 one HWND swapchain; the presenter may coalesce images before painting them.
 
+Add `--native_guest_continuous=true` to keep submitting menu frames after the
+first three. It requires `native_guest_present` and uses the same explicit arm
+file. Only the first three frames save draw inputs, samples and output images;
+later frames still validate guest inputs and completed gamma emission. The
+guest producer waits synchronously for each native frame, bounding pending
+work without promising a target frame rate. Per-draw resource creation and GPU
+waits currently limit rendering speed.
+
+Create `<fresh-dir>/stop` to stop at the next guest swap boundary, discard the
+current unsubmitted frame, drain the native worker and clear pending presenter
+images. The next original refresh restores Xenos output. Normal window closure
+also stops the producer before clearing presentation. `result.toml` records
+the stop reason and completed frame count; `native/session.toml` records
+submission timing and peak owned recipe bytes when frames completed. These
+counts describe submitted frames, while SDK token logs distinguish images
+that reached a successful swapchain Present.
+
 The Windows `native_frame_stream` CTest exercises attachment preservation,
 next-frame clears, gamma channel mapping and updates, readback-free submission,
 terminal renderer failure and shutdown. It requires a D3D12 device and is enabled with
@@ -104,7 +121,7 @@ and at most two byte values of error per channel across both sample planes.
 This comparison uses the live Xenos color contents before the panel as the
 initial blend target. It exercises input acquisition, native submission and
 retirement for one draw. Xenos retains guest execution and presentation;
-continuous native frames and guest D3D replacement require separate work.
+guest D3D replacement requires separate work.
 
 The standalone replay tool configures debug-layer and DRED diagnostics before
 device creation. Live replay inherits the host's process settings and owns its

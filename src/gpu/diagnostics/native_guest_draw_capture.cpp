@@ -9,6 +9,7 @@
 #include <set>
 #include <sstream>
 #include <thread>
+#include <utility>
 
 #include <rex/crypto/sha256.h>
 #include <rex/hook.h>
@@ -44,14 +45,16 @@ struct Session
     std::filesystem::path                  directory;
     std::chrono::steady_clock::time_point  nextPoll{};
     bool                                   armed = false, failed = false;
-    std::uint32_t                          calls = 0, captures = 0, finished = 0;
+    std::uint64_t                          calls = 0, captures = 0, finished = 0;
     std::set<std::array<std::uint32_t, 5>> layouts;
     NativeGuestDrawConsumer                consumer;
     NativeGuestFrameConsumer               frameConsumer;
-    std::uint32_t                          frame = 0, frameDraws = 0;
-    std::uint64_t                          ownedBytes = 0;
-    bool                                   complete   = false;
-    std::uint32_t                          graphics   = 0;
+    NativeGuestDrawCaptureOptions          options;
+    std::uint64_t                          frame      = 0;
+    std::uint32_t                          frameDraws = 0;
+    std::uint64_t                          ownedBytes = 0, peakFrameBytes = 0;
+    bool                                   complete = false;
+    std::uint32_t                          graphics = 0;
     std::array<std::uint32_t, 2>           clearWords{};
     toml::table                            frameMetadata;
     std::array<std::uint32_t, 3>           vertexIdentity{};
@@ -62,6 +65,11 @@ struct Session
     std::vector<std::uint8_t>              gammaBytes;
     std::string                            gammaThread;
     NativeGuestGammaEmission               gammaEmission;
+
+    bool savesEvidence() const
+    {
+        return !frameConsumer || frame < kNativeGuestEvidenceFrames;
+    }
 };
 
 struct Capture
@@ -70,7 +78,7 @@ struct Capture
     std::filesystem::path                  directory;
     toml::table                            metadata;
     std::uint32_t                          graphics = 0, cursor = 0;
-    std::uint32_t                          frame      = 0;
+    std::uint64_t                          frame      = 0;
     std::uint32_t                          vertexSize = 0, indexSize = 0;
     std::uint32_t                          vertexAddress = 0, indexAddress = 0;
     std::vector<std::uint8_t>              vertices, indices, vertexMicrocode;
@@ -119,6 +127,8 @@ std::vector<std::uint8_t> copyMemory(std::uint64_t address, std::uint64_t size, 
 
 void save(Capture& capture, const char* name, std::span<const std::uint8_t> bytes)
 {
+    if (!capture.session->savesEvidence())
+        return;
     std::ofstream file(capture.directory / name, std::ios::binary);
     file.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
     file.close();
@@ -145,6 +155,9 @@ void fail(const std::exception& exception) noexcept
         if (session)
         {
             session->failed = true;
+            // Clear before calling so repeated failure/stop cannot invoke twice.
+            if (auto stop = std::exchange(session->options.stopConsumer, {}))
+                stop();
             writeMetadata(session->directory / "result.toml",
                           toml::table{ { "complete", false }, { "error", exception.what() } });
         }
@@ -154,11 +167,22 @@ void fail(const std::exception& exception) noexcept
     }
 }
 
+void finishContinuous(const char* reason)
+{
+    enabled.store(false, std::memory_order_release);
+    if (auto stop = std::exchange(session->options.stopConsumer, {}))
+        stop();
+    writeMetadata(session->directory / "result.toml",
+                  toml::table{ { "complete", true }, { "continuous", true }, { "stop_reason", reason }, { "frames", static_cast<std::int64_t>(session->frame) }, { "captures", static_cast<std::int64_t>(session->captures) }, { "calls", static_cast<std::int64_t>(session->calls) }, { "original_draws_returned", static_cast<std::int64_t>(session->finished) }, { "discarded_frame_draws", session->frameDraws }, { "peak_frame_input_bytes", static_cast<std::int64_t>(session->peakFrameBytes) }, { "evidence_frames", static_cast<std::int64_t>(std::min(session->frame, kNativeGuestEvidenceFrames)) }, { "boundary", 0x826A4884LL } });
+    session->complete = true;
+    REXLOG_INFO("Continuous native guest capture stopped: {} after {} frames", reason, session->frame);
+}
+
 void finishIfReady()
 {
     if (!session->frameConsumer && session->calls == 256 && session->finished == session->captures)
     {
-        writeMetadata(session->directory / "result.toml", toml::table{ { "complete", true }, { "calls", 256 }, { "captures", session->finished } });
+        writeMetadata(session->directory / "result.toml", toml::table{ { "complete", true }, { "calls", 256 }, { "captures", static_cast<std::int64_t>(session->finished) } });
         session->complete = true;
     }
 }
@@ -255,7 +279,8 @@ std::unique_ptr<Capture> before(const PPCContext& ctx, DrawSource source = DrawS
         }
         if ((!session->frameConsumer && session->captures >= 16) || session->frameDraws >= 256)
             throw std::runtime_error("guest menu layout count exceeds capture bound");
-        session->layouts.insert(layout);
+        if (!session->frameConsumer)
+            session->layouts.insert(layout);
         auto capture       = std::make_unique<Capture>();
         capture->session   = session;
         capture->source    = source;
@@ -264,7 +289,8 @@ std::unique_ptr<Capture> before(const PPCContext& ctx, DrawSource source = DrawS
                                                     : session->directory / fmt::format("draw-{:04}", session->captures);
         ++session->captures;
         ++session->frameDraws;
-        std::filesystem::create_directory(capture->directory);
+        if (session->savesEvidence())
+            std::filesystem::create_directory(capture->directory);
         capture->graphics      = ctx.r3.u32;
         capture->frame         = session->frame;
         capture->vertexAddress = vertexAddress;
@@ -273,7 +299,7 @@ std::unique_ptr<Capture> before(const PPCContext& ctx, DrawSource source = DrawS
         capture->metadata      = toml::table{
             { "schema", 1 }, { "caller", static_cast<std::int64_t>(ctx.lr) }, { "graphics", ctx.r3.u32 }, { "primitive", ctx.r4.u32 }, { "indexed", indexed }, { "minimum_vertex", minimumVertex }, { "vertex_count", vertexCount }, { "index_count", indexCount }, { "index_address", indexAddress }, { "index_format", indexFormat }, { "vertex_address", vertexAddress }, { "stride", stride }, { "cursor_before", capture->cursor }, { "original_returned", false }
         };
-        capture->metadata.insert("frame_epoch", capture->frame);
+        capture->metadata.insert("frame_epoch", static_cast<std::int64_t>(capture->frame));
         capture->metadata.insert("host_thread", hostThread());
         save(*capture, "state-before.be.bin", state);
         if (bound)
@@ -343,8 +369,9 @@ std::unique_ptr<Capture> before(const PPCContext& ctx, DrawSource source = DrawS
         if (movie)
             capture->metadata.insert("textures", std::move(textureMetadata));
         session->ownedBytes += capture->vertices.size() + capture->indices.size() + kStateBytes;
+        session->peakFrameBytes = std::max(session->peakFrameBytes, session->ownedBytes);
         if (session->ownedBytes > 512U * 1024U * 1024U)
-            throw std::runtime_error("guest menu inputs exceed session byte bound");
+            throw std::runtime_error("guest menu inputs exceed frame byte bound");
         return capture;
     }
     catch (const std::exception& exception)
@@ -357,7 +384,7 @@ std::unique_ptr<Capture> before(const PPCContext& ctx, DrawSource source = DrawS
 void patchedShader(Capture& capture, std::uint32_t shader, std::uint32_t code, std::uint32_t patchState, std::uint32_t variant, std::uint64_t caller)
 {
     std::lock_guard lock(captureMutex);
-    if (session != capture.session || session->failed)
+    if (session != capture.session || session->failed || session->complete)
         return;
     try
     {
@@ -386,7 +413,7 @@ void patchedShader(Capture& capture, std::uint32_t shader, std::uint32_t code, s
 void selectedShader(Capture& capture, std::uint32_t graphics, std::uint32_t shader, std::uint32_t conditional, std::uint32_t variant)
 {
     std::lock_guard lock(captureMutex);
-    if (session != capture.session || session->failed)
+    if (session != capture.session || session->failed || session->complete)
         return;
     try
     {
@@ -419,7 +446,7 @@ void selectedShader(Capture& capture, std::uint32_t graphics, std::uint32_t shad
 void indexedSubmission(Capture& capture, std::uint32_t graphics, std::uint32_t cursor, std::uint32_t index, std::uint32_t size, std::uint32_t count, std::uint32_t requested)
 {
     std::lock_guard lock(captureMutex);
-    if (session != capture.session || session->failed || capture.source != DrawSource::IndexedBuffer)
+    if (session != capture.session || session->failed || session->complete || capture.source != DrawSource::IndexedBuffer)
         return;
     try
     {
@@ -442,7 +469,7 @@ void indexedSubmission(Capture& capture, std::uint32_t graphics, std::uint32_t c
 void after(Capture& capture, const PPCContext& ctx)
 {
     std::lock_guard lock(captureMutex);
-    if (session != capture.session || session->failed)
+    if (session != capture.session || session->failed || session->complete)
         return;
     try
     {
@@ -641,7 +668,8 @@ void after(Capture& capture, const PPCContext& ctx)
                 throw std::runtime_error(error);
             capture.metadata.insert("live_native_draw", true);
         }
-        writeMetadata(capture.directory / "manifest.toml", capture.metadata);
+        if (session->savesEvidence())
+            writeMetadata(capture.directory / "manifest.toml", capture.metadata);
         ++session->finished;
         finishIfReady();
     }
@@ -730,6 +758,8 @@ void saveFrameGamma(const std::filesystem::path& directory)
     // Require them to agree at submission, including when its copy was elided.
     if (copyMemory(std::uint64_t(session->graphics) + 15004, 1536) != session->gammaBytes)
         throw std::runtime_error("guest retained gamma differs from its observed producer");
+    if (!session->savesEvidence())
+        return;
     std::array<std::uint8_t, 1024> packed{};
     for (std::size_t i = 0; i < session->gammaTable.size(); ++i)
         for (std::size_t byte = 0; byte < 4; ++byte)
@@ -859,19 +889,22 @@ std::span<const std::uint8_t> NativeGuestGammaEmission::Bytes() const noexcept
     return bytes;
 }
 
-bool StartNativeGuestDrawCapture(const std::filesystem::path& directory, std::string& error, NativeGuestDrawConsumer consumer, NativeGuestFrameConsumer frameConsumer)
+bool StartNativeGuestDrawCapture(const std::filesystem::path& directory, std::string& error, NativeGuestDrawConsumer consumer, NativeGuestFrameConsumer frameConsumer, NativeGuestDrawCaptureOptions options)
 {
     std::lock_guard lock(captureMutex);
     try
     {
         if (bool(consumer) != bool(frameConsumer))
             throw std::runtime_error("guest menu replay requires draw and frame consumers together");
+        if (options.continuous && (!frameConsumer || !options.stopConsumer))
+            throw std::runtime_error("continuous guest replay requires frame and stop consumers");
         if (session || !std::filesystem::create_directories(directory))
             throw std::runtime_error("guest draw capture requires a fresh directory and one session");
         session                = std::make_shared<Session>();
         session->directory     = directory;
         session->consumer      = std::move(consumer);
         session->frameConsumer = std::move(frameConsumer);
+        session->options       = std::move(options);
         enabled.store(true, std::memory_order_release);
         REXLOG_INFO("Native guest draw capture waiting for {}/arm", directory.string());
         return true;
@@ -892,6 +925,11 @@ void NotifyNativeGuestFrameBoundary(std::uint32_t graphics, std::uint32_t reserv
         return;
     try
     {
+        if (session->options.continuous && std::filesystem::is_regular_file(session->directory / "stop"))
+        {
+            finishContinuous("stop_marker");
+            return;
+        }
         if (!session->armed)
         {
             if (!std::filesystem::is_regular_file(session->directory / "arm"))
@@ -906,31 +944,35 @@ void NotifyNativeGuestFrameBoundary(std::uint32_t graphics, std::uint32_t reserv
             session->frameMetadata.insert("end", toml::table{ { "host_thread", hostThread() }, { "reservation", reservation }, { "descriptor", descriptor } });
             session->frameMetadata.insert("original_draws_returned", session->frameDraws);
             saveFrameGamma(session->directory / fmt::format("frame-{:04}", session->frame));
-            writeMetadata(session->directory / fmt::format("frame-{:04}", session->frame) / "frame.toml", session->frameMetadata);
+            if (session->savesEvidence())
+                writeMetadata(session->directory / fmt::format("frame-{:04}", session->frame) / "frame.toml", session->frameMetadata);
             std::string error;
-            const bool  last = session->frame == 2;
+            const bool  last = !session->options.continuous && session->frame + 1 == kNativeGuestEvidenceFrames;
             if (!session->frameConsumer(session->directory, session->gammaTable, last, error))
                 throw std::runtime_error(error);
             ++session->frame;
             if (last)
             {
-                writeMetadata(session->directory / "result.toml", toml::table{ { "complete", true }, { "frames", session->frame }, { "captures", session->finished }, { "calls", session->calls }, { "boundary", 0x826A4884LL } });
+                writeMetadata(session->directory / "result.toml", toml::table{ { "complete", true }, { "frames", static_cast<std::int64_t>(session->frame) }, { "captures", static_cast<std::int64_t>(session->finished) }, { "calls", static_cast<std::int64_t>(session->calls) }, { "boundary", 0x826A4884LL } });
                 session->complete = true;
                 enabled.store(false, std::memory_order_release);
                 return;
             }
         }
         session->frameDraws = 0;
+        session->ownedBytes = 0;
         session->vertexMicrocode.clear();
         session->vertexIdentity = {};
-        std::filesystem::create_directory(session->directory / fmt::format("frame-{:04}", session->frame));
+        if (session->savesEvidence())
+            std::filesystem::create_directory(session->directory / fmt::format("frame-{:04}", session->frame));
         // These retained Resolve copy-clear words initialize the bounded native
         // replay. The first draw must observe the same words before and after
         // its original submission; this does not replace the guest Clear API.
         const auto clear       = copyMemory(std::uint64_t(graphics) + 0x2A30, 8);
         session->clearWords    = { word(clear.data()), word(clear.data() + 4) };
-        session->frameMetadata = toml::table{ { "frame_epoch", session->frame }, { "graphics", graphics }, { "copy_clear", session->clearWords[0] }, { "copy_clear_low", session->clearWords[1] }, { "begin", toml::table{ { "host_thread", hostThread() }, { "reservation", reservation }, { "descriptor", descriptor } } } };
-        writeMetadata(session->directory / fmt::format("frame-{:04}", session->frame) / "frame.toml", session->frameMetadata);
+        session->frameMetadata = toml::table{ { "frame_epoch", static_cast<std::int64_t>(session->frame) }, { "graphics", graphics }, { "copy_clear", session->clearWords[0] }, { "copy_clear_low", session->clearWords[1] }, { "begin", toml::table{ { "host_thread", hostThread() }, { "reservation", reservation }, { "descriptor", descriptor } } } };
+        if (session->savesEvidence())
+            writeMetadata(session->directory / fmt::format("frame-{:04}", session->frame) / "frame.toml", session->frameMetadata);
     }
     catch (const std::exception& exception)
     {
@@ -944,8 +986,17 @@ void StopNativeGuestDrawCapture()
     enabled.store(false, std::memory_order_release);
     if (session && !session->failed && !session->complete)
     {
-        const std::runtime_error cancelled("guest draw capture stopped before completion");
-        fail(cancelled);
+        try
+        {
+            if (session->options.continuous)
+                finishContinuous("shutdown");
+            else
+                throw std::runtime_error("guest draw capture stopped before completion");
+        }
+        catch (const std::exception& exception)
+        {
+            fail(exception);
+        }
     }
     session.reset();
 }
