@@ -1,0 +1,108 @@
+# With native_video_scaler_stub, skip only the scaler import. Preserve the
+# 800-byte copy and G+0x30 store; the remaining hooks only observe.
+
+# sub_826B02B0 calls VdInitializeScalerCommandBuffer at 0x826B0430.
+[[midasm_hook]]
+address = 0x826B042C
+name = "ReplaceNativeVideoScalerCall"
+registers = ["r1", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r30", "r31"]
+after_instruction = true
+jump_address_on_true = 0x826B0434
+
+[[midasm_hook]]
+address = 0x826B0434
+name = "ObserveNativeVideoScalerReturn"
+registers = ["r1", "r3", "r30", "r31"]
+
+[[midasm_hook]]
+address = 0x826B044C
+name = "ObserveNativeVideoScalerCopy"
+registers = ["r1", "r30", "r31"]
+after_instruction = true
+
+# With native_video_display_mode_stub, skip only VdSetDisplayMode.
+# Preserve the display-information call and device stores.
+
+# Display owner: sub_826A61F0; import: 0x826A6260.
+[[midasm_hook]]
+address = 0x826A6260
+name = "ReplaceNativeVideoDisplayModeCall"
+registers = ["r1", "r3", "r31", "lr"]
+after_instruction = false
+jump_address_on_true = 0x826A6264
+
+# Do not sample LR before reconvergence: skipping the call leaves it stale.
+[[midasm_hook]]
+address = 0x826A6264
+name = "ObserveNativeVideoDisplayModeReturn"
+registers = ["r1", "r3", "r5", "r31"]
+after_instruction = false
+
+[[midasm_hook]]
+address = 0x826A626C
+name = "ObserveNativeVideoDisplayModeReconverged"
+registers = ["r1", "r3", "r5", "r31", "lr"]
+after_instruction = false
+
+# Each enabled stub skips only its import call; otherwise the original runs.
+# The remaining hooks only observe.
+
+# This call is reached when cached training state is zero. Return/effect observers
+# omit LR because it stays stale until the retained child call.
+
+# HSIO owner: sub_826A63E8; import: VdIsHSIOTrainingSucceeded at 0x826A65A4.
+# LR stays at 0x826A6594 until the bl at 0x826A65C8 sets 0x826A65CC.
+[[midasm_hook]]
+address = 0x826A65A4
+name = "ReplaceNativeVideoHsioCall"
+registers = ["r1", "r3", "r11", "r30", "r31", "r13", "lr"]
+after_instruction = false
+jump_address_on_true = 0x826A65A8
+
+[[midasm_hook]]
+address = 0x826A65A8
+name = "ObserveNativeVideoHsioReturn"
+registers = ["r1", "r3", "r11", "r30", "r31", "r13"]
+after_instruction = false
+
+[[midasm_hook]]
+address = 0x826A65C4
+name = "ObserveNativeVideoHsioEffect"
+registers = ["r1", "r11", "r30", "r31", "r13", "cr0"]
+after_instruction = false
+
+[[midasm_hook]]
+address = 0x826A65CC
+name = "ObserveNativeVideoHsioPostChild"
+registers = ["r1", "r3", "r11", "r30", "r31", "r13", "cr0", "lr"]
+after_instruction = false
+
+# This call is reached when saved r5's low word is nonzero. Return/pre-retrain
+# observers omit LR until the retained retrain call.
+
+# Worker owner: sub_826B0508; import: VdRetrainEDRAMWorker at 0x826B053C.
+# LR stays at 0x826B0530 until the bl at 0x826B0564 sets 0x826B0568.
+[[midasm_hook]]
+address = 0x826B053C
+name = "ReplaceNativeVideoEdramWorkerCall"
+registers = ["r1", "r3", "r29", "r30", "r31", "r13", "lr"]
+after_instruction = false
+jump_address_on_true = 0x826B0540
+
+[[midasm_hook]]
+address = 0x826B0540
+name = "ObserveNativeVideoEdramWorkerReturn"
+registers = ["r1", "r3", "r29", "r30", "r31", "r13"]
+after_instruction = false
+
+[[midasm_hook]]
+address = 0x826B0564
+name = "ObserveNativeVideoEdramWorkerPreRetrain"
+registers = ["r1", "r3", "r4", "r5", "r6", "r7", "r8", "r29", "r30", "r31", "r13"]
+after_instruction = false
+
+[[midasm_hook]]
+address = 0x826B0568
+name = "ObserveNativeVideoEdramWorkerPostRetrain"
+registers = ["r1", "r3", "r4", "r5", "r6", "r7", "r8", "r29", "r30", "r31", "r13", "lr"]
+after_instruction = false

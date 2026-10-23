@@ -1,0 +1,50 @@
+# Observe the title's device publication after the original indirect store.
+# Native mode validates the stored value without changing guest state.
+[[midasm_hook]]
+address = 0x826A6460
+name = "ObserveNativeDevicePublication"
+registers = ["r11", "r31"]
+
+# Observe one statically proved renderer-texture backend store site. Native mode
+# validates the completed store without retaining guest pointers or changing
+# guest state. Runtime reachability remains unobserved.
+[[midasm_hook]]
+address = 0x82305104
+name = "ObserveNativeTexturePublication"
+registers = ["r22", "r3"]
+
+# Observe the resource-manager result immediately before its per-item dispatch.
+# Native mode interprets explicit-buffer slots only after the vptr matches.
+[[midasm_hook]]
+address = 0x8250AE84
+name = "ObserveNativeResolveProviderIdentity"
+registers = ["r3"]
+
+# Observe each explicit-buffer factory store before the slot pointer advances.
+# Native mode verifies the completed store and reads the container identity.
+[[midasm_hook]]
+address = 0x82518614
+name = "ObserveNativeExplicitBufferFactoryStore"
+registers = ["r28", "r29", "r30", "r3"]
+
+[[midasm_hook]]
+address = 0x8269F360
+name = "TraceResolveReturn"
+registers = ["r1"]
+
+[[midasm_hook]]
+address = 0x826AE5B8
+name = "ObserveNativeGuestVertexSelection"
+registers = ["r30", "r31", "r15", "r19"]
+
+# Converted display gamma is live on the stack before the original setter
+# compares and retains it. The alternate PWL layout is not a 256-entry table.
+[[midasm_hook]]
+address = 0x8268FE30
+name = "ObserveNativeGuestGammaTable"
+registers = ["r31", "r1"]
+
+[[midasm_hook]]
+address = 0x8268FEF8
+name = "ObserveNativeGuestPwlGamma"
+registers = ["r31"]
