@@ -1,0 +1,41 @@
+# Publish the gameplay snapshot once per guest frame.
+[[midasm_hook]]
+address = 0x82C7DF58
+name = "PublishGameplayState"
+
+# Fast combat selects the guest's native 0.5 presentation divisor only after
+# setup selected an observed native 2.0 or 1.5 divisor.
+[[midasm_hook]]
+address = 0x82D7F934
+name = "ApplyCombatPaceOverride"
+
+# Correct the active divisor for rush cost before the displayed and submitted
+# cost returns, then coordinate the consumer before its production and treasury
+# stores.
+[[midasm_hook]]
+address = 0x82CE2938
+name = "FixRushCostDisplay"
+registers = ["r27", "r30", "r31", "r6", "r7", "r11"]
+
+[[midasm_hook]]
+address = 0x82D17A9C
+name = "FixRushCostApply"
+registers = ["r25", "r26", "r28", "r3", "r6", "r8"]
+
+# Only reconcile live attachments of type 30 that belong to the same player. Do
+# this after forced border relocation and the two verified successful returns
+# from movement after combat. The repair changes only the General's tile
+# coordinates.
+[[midasm_hook]]
+address = 0x82CBF534
+name = "FixGreatGeneralBorderCompletion"
+
+[[midasm_hook]]
+address = 0x82CDFA64
+name = "FixGreatGeneralPostCombat"
+registers = ["r31", "r15"]
+
+[[midasm_hook]]
+address = 0x82CDFCC4
+name = "FixGreatGeneralPostCombat"
+registers = ["r31", "r26"]

@@ -1,0 +1,31 @@
+# CityUpdate 0x82D13978: after extsh r10,r11 at 0x82D153E0,
+# before the native q+1 at 0x82D153F8. Both city-byte owner guards remain native.
+[[midasm_hook]]
+address = 0x82D153E4
+name = "ApplyRagingBarbariansFecundity"
+registers = ["r10", "r31", "r24"]
+
+# Native credit has passed the separate zero-mode suppression at this join.
+[[midasm_hook]]
+address = 0x82D1544C
+name = "ObserveRagingBarbariansCredit"
+registers = ["r30", "r11", "r31", "r24"]
+
+# Before mr r27,r3 and the native -1 failure branch. Observes slot zero too.
+[[midasm_hook]]
+address = 0x82D15AB4
+name = "ObserveRagingBarbariansCreation"
+registers = ["r3", "r26", "r25", "r31", "r1"]
+
+# City ordinal lookup: after the native barbarian-owner guard, before extsh r10,r11.
+# Both the zero/99 test and the later extsh r11,r11 / 3-a consume this local r11.
+[[midasm_hook]]
+address = 0x82CB3F44
+name = "ApplyRagingBarbariansAggression"
+registers = ["r11", "r3"]
+
+# Before cmpw cr6,r9,r3. C, R, unit weight and all native branches stay unchanged.
+[[midasm_hook]]
+address = 0x82CC1308
+name = "ObserveRagingBarbariansDeparture"
+registers = ["r9", "r3", "r20", "r26", "r10"]

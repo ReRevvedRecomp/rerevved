@@ -1,0 +1,8 @@
+# Reset per-game policy state before deserialization.
+# Reapply the staged sidecar after the reset.
+
+# Load routine sub_82D86400, before its serializer call (sub_82CC4040 with
+# r3 = 1; the save path calls it with r3 = 0).
+[[midasm_hook]]
+address = 0x82D86674
+name = "ResetAiCivilizationsOnLoad"

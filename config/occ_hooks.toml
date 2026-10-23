@@ -1,0 +1,24 @@
+# Final merged signed population operands, Settlers definition index 0 only.
+[[midasm_hook]]
+address = 0x82CEC7A8
+name = "ApplyOccCandidateThreshold"
+registers = ["r11", "r30", "r8"]
+
+[[midasm_hook]]
+address = 0x82D15A7C
+name = "ApplyOccCompletionThreshold"
+registers = ["r11", "r25", "r8"]
+
+# Before the first candidate-table read, return -1 through the native epilogue.
+[[midasm_hook]]
+address = 0x82CB5544
+name = "GuardOccAiChoice"
+registers = ["r1", "r16"]
+jump_address_on_true = 0x82CB6E30
+
+# Only the 100g tier. Keep its text and native marker continuation.
+[[midasm_hook]]
+address = 0x82CF5760
+name = "ApplyOccGoldReward"
+registers = ["r22", "r15"]
+jump_address_on_true = 0x82CF57E8

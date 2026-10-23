@@ -1,0 +1,100 @@
+# With hide_research_prompt, automatic sub_82CECCD8 calls take the dismissal path.
+# The advisor show sub_82CE8338 uses the cleanup exit at 0x82CE87A8.
+# The player request in sub_82D259E8 and other advisor shows remain native.
+
+# Turn-start check in sub_82D1D1C0.
+[[midasm_hook]]
+address = 0x82D1D604
+name = "ArmAutomaticResearchPrompt"
+registers = ["r1"]
+
+[[midasm_hook]]
+address = 0x82D1D608
+name = "DisarmAutomaticResearchPrompt"
+
+# Village visit in sub_82D0E340, after the outcome is applied.
+[[midasm_hook]]
+address = 0x82D0F09C
+name = "ArmAutomaticResearchPrompt"
+registers = ["r1"]
+
+[[midasm_hook]]
+address = 0x82D0F0A4
+name = "DisarmAutomaticResearchPrompt"
+
+# City change technology reward in sub_82D1B400.
+[[midasm_hook]]
+address = 0x82D1C3A8
+name = "ArmAutomaticResearchPrompt"
+registers = ["r1"]
+
+[[midasm_hook]]
+address = 0x82D1C3B0
+name = "DisarmAutomaticResearchPrompt"
+
+[[midasm_hook]]
+address = 0x82CED0CC
+name = "HideAutomaticResearchPrompt"
+registers = ["r1"]
+
+# After the show's nesting check, with r27 and r31 loaded for the early-out.
+[[midasm_hook]]
+address = 0x82CE83A4
+name = "SuppressResearchPromptShow"
+registers = ["r1"]
+jump_address_on_true = 0x82CE87A8
+
+# Hidden advisor shows use the native cleanup exit, which clears buffers and
+# returns -1. The three prompt callers interpret -1 as decline.
+
+# Call sites: advisor_popups.h; show: sub_82CE8338; cleanup: 0x82CE87A8.
+
+# After the nesting check and the research prompt hook at 0x82CE83A4, with
+# r27 and r31 loaded for the early-out and r12 still holding the entry LR.
+[[midasm_hook]]
+address = 0x82CE83A8
+name = "SuppressAdvisorPopupShow"
+registers = ["r12"]
+jump_address_on_true = 0x82CE87A8
+
+# Skip first-contact presentation through the native unseen-village path.
+# Leave the band-shown bit clear and retain the shared tail.
+
+# sub_82CCEFA8: band bit 0x830E4550; unseen path 0x82CD4738; shared tail 0x82CD473C.
+
+# After the band-shown check, with r30 and r22 loaded for the tail.
+[[midasm_hook]]
+address = 0x82CD4498
+name = "SkipBarbarianContactMessage"
+jump_address_on_true = 0x82CD4738
+
+# Captured-village messages use the advisor cleanup exit to clear caller-set
+# buffers and flags. Their callers ignore the -1 result.
+
+# Call sites: barbarian_messages.h; show: sub_82CE8338; cleanup: 0x82CE87A8.
+
+# Removed-civilization farewell and nested leader messages use the same cleanup exit.
+
+# Elimination: sub_82D0C1E0 (call 0x82D0C3A0).
+# Nested leader message: sub_82CC85D0 (call 0x82CC87A0).
+
+# In sub_82CC85D0 after its prologue, with r12 still holding the entry LR and
+# r3 the leader's player.
+[[midasm_hook]]
+address = 0x82CC85DC
+name = "BeginBarbarianLeaderMessage"
+registers = ["r1", "r12", "r3"]
+
+# The only exit of sub_82CC85D0, after its show returns.
+[[midasm_hook]]
+address = 0x82CC8800
+name = "EndBarbarianLeaderMessage"
+registers = ["r1"]
+
+# After the show's nesting checks and the other suppression hooks, with r27
+# and r31 loaded for the early-out.
+[[midasm_hook]]
+address = 0x82CE83B0
+name = "SuppressBarbarianLeaderShow"
+registers = ["r1"]
+jump_address_on_true = 0x82CE87A8

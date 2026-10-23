@@ -1,0 +1,77 @@
+# Evidence: https://github.com/ReRevvedRecomp/rerevved-research/blob/main/manifests/game-of-the-week-local-generation.json
+# settingsSeedContract.insertion:
+# Apply the launch seed after the native session gate and before the writer call.
+[[midasm_hook]]
+address = 0x82E76ED4
+name = "ApplyGotwSeed"
+registers = ["r3", "r4", "r5"]
+
+# The automatic selector has returned; r30 still holds the setup-global base.
+[[midasm_hook]]
+address = 0x82E76ED8
+name = "LogGotwSeed"
+registers = ["r30", "r29"]
+
+# sessionAndStatistics.result / leaderboardColumnMap.display.producer:
+# After native result guards, take the nonlocal cleanup arm: outcome=-1 and completion=1.
+[[midasm_hook]]
+address = 0x82D7DC44
+name = "GuardGotwOutcome"
+registers = ["r28"]
+jump_address_on_true = 0x82D7DC90
+
+# leaderboardWeekConsumption.prefetchCache.copy:
+# Skip only the score/week stores. Preserve the +4=-2 completion store and native epilogue.
+[[midasm_hook]]
+address = 0x82DBF138
+name = "GuardGotwScoreCache"
+jump_address_on_true = 0x82DBF13C
+
+[[midasm_hook]]
+address = 0x82DBF14C
+name = "GuardGotwWeekCache"
+jump_address_on_true = 0x82DBF150
+
+# leaderboardColumnMap.victoryChildWrite.submissionGate:
+# Use the native no-submission continuation, which restores the frame and returns 1.
+[[midasm_hook]]
+address = 0x82DBE69C
+name = "GuardGotwSubmission"
+jump_address_on_true = 0x82DBE7AC
+
+# New-game setup writer 0x82D91A94 -> 0x82DADC88 (r5=0) runs after the first
+# GOTW writer and before map generation: reapply the matching launch policy.
+[[midasm_hook]]
+address = 0x82D91A94
+name = "ReapplyGotwSeed"
+registers = ["r3", "r4", "r5"]
+
+# Read-only observers enabled by gotw_trace.
+[[midasm_hook]]
+address = 0x82DADC88
+name = "TraceGotwWriterEntry"
+registers = ["lr", "r3", "r4", "r5"]
+
+[[midasm_hook]]
+address = 0x82DADD1C
+name = "TraceGotwWriterExit"
+registers = ["lr", "r3", "r4", "r5", "r31"]
+
+[[midasm_hook]]
+address = 0x82D0F13C
+name = "TraceGotwGeneratorSeed"
+registers = ["r9"]
+
+[[midasm_hook]]
+address = 0x82D0F168
+name = "TraceGotwPrng"
+registers = ["r27"]
+
+[[midasm_hook]]
+address = 0x82D0F100
+name = "TraceGotwProcedural"
+
+[[midasm_hook]]
+address = 0x82D0F0F4
+name = "TraceGotwNamedLoad"
+registers = ["r3"]

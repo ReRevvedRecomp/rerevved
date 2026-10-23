@@ -1,0 +1,12 @@
+# Evidence: https://github.com/ReRevvedRecomp/rerevved-research/blob/main/docs/reference/save-storage.md#sidecar-intervention-edges
+# Before the deserializer bctrl, whose native return address is 0x82D844CC.
+[[midasm_hook]]
+address = 0x82D844C8
+name = "ReadGameplaySidecarBeforeDeserialize"
+
+# Write only after serialization and file finalization succeed;
+# r29 holds the normalized slot name.
+[[midasm_hook]]
+address = 0x82D829E8
+name = "WriteGameplaySidecarAfterSave"
+registers = ["r25", "r29"]
