@@ -1,0 +1,26 @@
+# Skip VdSwap only when the native replacement consumes the call. Resume at the
+# G+0x30 store so the reservation still advances. Otherwise run the original call.
+
+# Present owner: sub_826A4638; VdSwap call: 0x826A4884.
+[[midasm_hook]]
+address = 0x826A4880
+name = "ReplaceVdSwapCall"
+registers = ["r1", "r3", "r4", "r9", "r10", "r30", "r31"]
+after_instruction = true
+jump_address_on_true = 0x826A4888
+
+[[midasm_hook]]
+address = 0x826A4884
+name = "ObserveRendererSwapSource"
+registers = ["r3", "r4", "r30", "r31"]
+
+[[midasm_hook]]
+address = 0x826A4888
+name = "TraceVdSwapReturn"
+
+# sub_826A4150: observe decoded r11 before rlwinm packs it at bit 8.
+# The observer preserves every register and the guest presentation policy.
+[[midasm_hook]]
+address = 0x826A4258
+name = "ObserveDecodedSwapInterval"
+registers = ["r11", "r31"]
