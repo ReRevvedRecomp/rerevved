@@ -1,0 +1,82 @@
+# Configuration
+
+Use F1 to open Settings. Select **Save** at the bottom to keep changes in
+`rerevved.toml`. Settings that require a restart take effect on the next launch.
+Close ReRevved before editing the file directly.
+
+## Settings
+
+- **Gameplay**: combat speed, AI civilizations, resources, Raging Barbarians,
+  One City Challenge, Game of the Week, and the Support section.
+- **Notifications**: research prompts, advisor pop-ups, and Barbarian messages.
+  **Disable Save Reminder** suppresses a prompt; it does not save the game.
+- **Online**: connection status, player name, relay invite, and Discord options.
+  See [Online play](online-play.md).
+- **Controls**: keyboard/controller bindings, mouse sensitivity, vibration,
+  controller input in the background, and overlay hotkeys.
+- **Display**: window and presentation options, described below.
+- **Audio**: Volume, Mute, and Play Sound in Background.
+
+Gameplay options that initialize a new game do not rewrite an existing save.
+The [runtime contracts](rexglue-runtime.md) document individual option behavior.
+
+## Display and audio
+
+ReRevved renders with Xenos. **Render Resolution** selects 1280x720,
+2560x1440, or 3840x2160. **Window Size** changes the host window, not the render
+resolution. **Monitor** selects a display. **Fullscreen** fills that monitor
+and applies immediately.
+
+Monitor, Window Size, Render Resolution, Upscaling, and Anti-Aliasing require
+a restart. Select **Save**, exit, and launch again after changing them.
+Explicit `window_width` and `window_height` values in the config or command
+line override Window Size.
+
+Volume and Mute apply immediately. Turn off **Play Sound in Background** to
+silence the game when its window is unfocused or minimized.
+
+## File locations
+
+The default player data folder is separate from the application folder:
+
+| Platform | Default data folder |
+| --- | --- |
+| Windows | `Documents\My Games\ReRevved` |
+| Linux, experimental | `$XDG_DATA_HOME/rerevved`, or `~/.local/share/rerevved` if unset |
+
+Windows uses your actual Documents location, including a redirected folder.
+The data folder holds `rerevved.toml`, `logs/`, `cache/`, saves, achievements,
+and saved mod/asset selections. **F1 > Gameplay > Support > Open Log Folder**
+opens the active log folder, including when a profile or log override is used.
+
+A named profile stores its state under `profiles/<id>/` inside the data folder.
+For example, launch `rerevved.exe --profile=second` for a separate profile.
+Use the same argument each time: the selected profile is not remembered.
+Omit it or use `--profile=default` to return to the default profile.
+See the [storage profile contract](rexglue-runtime.md#storage-profiles) for
+valid names, copying a default profile, shared content, and path overrides.
+
+## Back up or restore progress
+
+1. Exit every running copy of ReRevved.
+2. Copy the entire player data folder to a separate backup location. Include
+   `profiles/` if you use named profiles.
+3. To restore, close ReRevved and copy the backup to the same location.
+
+If you set explicit paths for user data, logs, or caches, account for those
+locations separately. Installed mods and asset overrides live beside the executable;
+back up custom packages separately as described in [Mods](mods.md).
+Do not share a backup publicly: it can contain saves, account identities,
+paths, and relay credentials.
+
+## Select different content
+
+For one launch without changing the saved location, use:
+
+```text
+rerevved.exe --game_data_root="D:\Games\CivRev"
+```
+
+To reopen the selector, exit ReRevved, back up `rerevved.toml`, then remove its
+`game_data_root` entry. The next launch asks for content again. Do not delete
+your saves or the whole data folder to change the content path.

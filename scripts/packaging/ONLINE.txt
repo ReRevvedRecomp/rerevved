@@ -1,0 +1,164 @@
+REREVVED ONLINE
+
+Online play for ReRevved. One player's PC runs a relay to forward game traffic. Everyone must run the identical release.
+
+HOSTING
+
+1. Set up your game content as in README.txt.
+2. Close ReRevved, then double-click host-online.cmd. It tries to open UDP
+   port 30100 with router UPnP, makes invites, copies the friends' code to the
+   clipboard, starts the relay, and launches ReRevved connected to it.
+3. Allow rexglue.exe through the Windows Firewall prompt.
+4. Let friends use Discord Join (see JOINING), or send them the copied code
+   privately.
+5. Keep the script window open while playing. Press Ctrl+C there when done.
+   Check the port mapping was removed; remove it in your router if it remains.
+
+The relay allows up to eight members. ReRevved starts with Direct LAN off and
+your this-PC code for this session only. Saved Online settings stay unchanged.
+
+The script stores relay-secret.txt, invite-codes.txt, and relay.log in:
+  Documents\My Games\ReRevved\relay
+It uses your Windows Documents location, even if redirected. An existing
+secret is reused, never overwritten.
+
+For another UDP port, run: host-online.cmd -Port 30200
+
+If ReRevved was already running, close it and run the script again.
+The script tries to remove mappings it added or reclaimed. Closing its window
+can leave a mapping open. A stale mapping it repoints stays for a later run to
+reclaim. Check your router after testing even if hosting worked.
+
+JOINING
+
+Discord Join is recommended. Use the Discord desktop app, not the browser.
+1. Start the game once with Join Button on (the default) to register with
+   Discord.
+2. Close ReRevved, then click Join on the host's Discord profile while they
+   host a Player Match game with an open slot.
+
+Discord starts the game on the host's relay. Your saved Invite Code and Direct
+LAN settings are kept but unused for that launch.
+
+To use a code instead:
+1. Start the game, press F1 for Settings, and select Online.
+2. Paste the complete RXR1-... code into Invite Code. Click outside the field
+   or press Enter to apply it. Keep Direct LAN off when using an invite.
+3. Select Save at the bottom, exit the game, and start it again.
+4. Check Status at the top of F1 > Online. After a few seconds it should read
+   "Relay: connected as 198.18.x.y".
+
+Optional settings: Player Name accepts 1-15 characters: letters, digits,
+spaces, hyphens, underscores, or periods. Empty gives Player-XXXX.
+Peer-to-Peer lets two players who enable it try a direct connection with
+relay fallback. A random player identity is created and saved automatically
+on the first online launch.
+
+If ReRevved is running when you click Discord Join, it joins in place on the
+same relay with Player Match Through Relay on. Otherwise, it explains why and
+asks you to close the game and click Join again.
+
+PLAYING
+
+Open Multiplayer > Player Match. Player Match Through Relay is on by default.
+Everyone must use the same relay and room. One player hosts with an open
+public slot; the others see it in the game list with the host's name and ping,
+and join.
+Ranked Match finds no games.
+
+CAN'T HOST?
+
+On a Public network profile, Windows blocks the router's UPnP discovery.
+Switch to Private:
+  Settings > Network & internet > Ethernet or Wi-Fi >
+  Network profile type > Private network
+
+Other causes: router UPnP is off, CGNAT, or another NAT layer. When automatic
+hosting fails, the script says so and asks for an address friends can reach.
+
+A friend hosts: someone whose PC can host automatically runs host-online.cmd,
+and everyone else joins.
+
+Overlay VPN: everyone installs a VPN such as Tailscale or ZeroTier and joins
+the same network. The host runs host-online.cmd again and enters their overlay
+address when asked, such as the 100.x.y.z address Tailscale shows.
+
+Manual port forward, for advanced users: forward UDP 30100 (or your chosen
+port) in your router to this PC's local IPv4 address. Run host-manual.cmd and
+enter your public IPv4 or DNS name when asked. It makes codes and runs the
+relay. Start the game yourself with the this-PC code (see JOINING). Use copied
+codes: this script does not set the public advertised address for Discord
+Join. Remove the rule after testing.
+
+Discord Join needs an address friends can reach. The automatic script sets
+the advertised address when the full address and port fit the SDK's
+35-character limit. Otherwise, it tells friends to use the copied code.
+
+TWO COPIES ON ONE PC
+
+Start the first copy normally. From a Command Prompt in the package folder,
+start the second with a separate storage profile:
+  rerevved.exe --profile=second
+Use this argument every time. Set up its content and Online settings
+separately, with a different player name. Its config and automatically saved
+identity are separate; do not copy the first profile's config. On the relay
+PC, use the this-PC code from invite-codes.txt. See README.txt for profile
+details.
+
+WHAT TO REPORT
+
+Report exact Status text, approximate time, what you tried, what happened,
+package version, and whether you hosted or joined.
+F1 > Gameplay > Support > Open Log Folder opens game logs. The second copy's
+logs are in profiles\second\logs. Hosts can also provide relay.log from the
+relay folder above. Never share relay-secret.txt or invite codes publicly.
+Check screenshots and attachments for codes before sharing.
+
+TROUBLESHOOTING
+
+Off: Paste the invite, click outside the field, Save, and restart.
+LAN: Turn Direct LAN off before using an invite, Save, and restart.
+Relay: waiting for System Link: The game has not started networking yet; wait
+  a few seconds after the intro.
+Relay: connecting: Wait briefly, then check the host's script window is open.
+Relay: connected as 198.18.x.y: The relay connection is ready. If the game
+  list is empty, check for a Player Match host with an open slot in your room
+  and Player Match Through Relay on for both players.
+(Live sessions inactive): Player Match needs an invite and Direct LAN off.
+Relay: lost connection: Check the host's script window and both Internet
+  connections. Restart the game once the relay is reachable.
+Relay: disconnected: The game closed its online session normally.
+
+For "Relay failed: <reason>":
+not an invite code: Copy the complete code again without labels or extra text.
+invite code is damaged or incomplete: Copy the complete code again.
+invite code was made for a newer version: Everyone must run the identical
+  package.
+LAN and relay cannot be enabled together: Turn Direct LAN off, Save, and
+  restart.
+relay address not resolved: Ask the host to check the DNS name and make a new
+  code if needed. Check your Internet connection.
+relay not reachable (handshake timeout): Check the host's script window and
+  port are open (see CAN'T HOST?). The host's PC uses the this-PC code.
+wrong secret: Ask the host for the current code from invite-codes.txt.
+different game build: Everyone must unzip and run the same download.
+protocol version: Everyone must unzip and run the same download.
+room full: Close extra game copies and wait for their connections to expire
+  before retrying. The script allows eight members.
+too many rooms: Ask the host to finish unused test sessions, then retry with
+  the group's current code.
+rate limited: Stop repeated connection attempts, wait briefly, and retry. If
+  it continues, report the time and relevant logs in Discord. Remove invite
+  codes first: https://discord.gg/j6VttvdnMD
+invite expired; ask for a new invite: The Discord join expired. Close the game
+  and click Join again while the host's game is still hosted.
+
+After changing an invite or other Online setting, Save and restart. Only Rich
+Presence applies without a restart.
+
+SECURITY LIMITS
+
+Invite codes contain the room secret. Treat them like passwords; share only
+with players joining your game. Relay traffic has no encryption or integrity
+check against tampering. Run the relay only for the private play session and
+close the port afterwards.
