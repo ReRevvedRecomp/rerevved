@@ -1,0 +1,28 @@
+# CityCreate success tail, before displaced 0x7E038378 (mr r3,r16).
+# The hook reads saved incoming LR at F+0x178, never the current LR or mode.
+[[midasm_hook]]
+address = 0x82D1A314
+name = "ApplyCityFoundingUnit"
+registers = ["r1", "r16", "r20", "r13", "fpscr"]
+
+# Compose the +0x46 Gold cache and, in mode 0, the owner aggregate.
+# Excluded-player paths and failed guarded reads retain native values.
+[[midasm_hook]]
+address = 0x82D1537C
+name = "ApplyChineseLibraryGoldCache"
+registers = ["r1", "r15", "r17", "r27", "r31"]
+
+# Apply the matching pending addition to the reserve store; leave stack Gold unchanged.
+[[midasm_hook]]
+address = 0x82D15610
+name = "ApplyChineseLibraryGoldCredit"
+registers = ["r1", "r8", "r17", "r31"]
+
+# After the guarded Wonder claim, grant Religion only when the new Stonehenge
+# claim matches the live city and owner. Use native availability and acquisition calls.
+
+# CityUpdate Wonder claim helper: 0x82D16BA0.
+[[midasm_hook]]
+address = 0x82D16344
+name = "GrantStonehengeReligion"
+registers = ["r23", "r27"]
