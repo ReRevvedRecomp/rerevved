@@ -1,0 +1,33 @@
+[project]
+name = "rerevved"
+sdk_version = "0.11.0"
+game_root = "game"
+
+[entrypoint]
+file_path = "game/default.xex"
+out_directory_path = "generated/default"
+includes = [
+    "config/rerevved_functions.toml",
+    "config/gameplay_hooks.toml",
+    "config/asset_hooks.toml",
+    "config/graphics_compat_hooks.toml",
+    "config/unit_rules_hooks.toml",
+    "config/civilization_rules_hooks.toml",
+    "config/nation_select_text_hooks.toml",
+    "config/city_effect_hooks.toml",
+    "config/terrain_hooks.toml",
+    "config/advisor_hooks.toml",
+    "config/ai_civilizations_hooks.toml",
+    "config/occ_hooks.toml",
+    "config/raging_barbarians_hooks.toml",
+    "config/gotw_hooks.toml",
+    "config/save_sidecar_hooks.toml",
+    "config/native_progress_hooks.toml",
+    "config/native_tiling_probe_hooks.toml",
+    "config/native_resource_hooks.toml",
+    "config/native_present_hooks.toml",
+    "config/native_video_hooks.toml",
+    "config/native_completion_probe_hooks.toml",
+    "config/scene_probe_hooks.toml",
+    "config/system_link_trace_hooks.toml",
+]

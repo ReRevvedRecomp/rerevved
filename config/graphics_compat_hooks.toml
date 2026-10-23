@@ -1,0 +1,26 @@
+# Ring-buffer initialization brackets the guest reset. Pause the host GPU while
+# the guest resets the ring, then resume it before the next instruction.
+[[midasm_hook]]
+address = 0x8269CAE0
+name = "CompatRingInitializeBegin"
+registers = ["r3", "r4"]
+
+[[midasm_hook]]
+address = 0x8269CAE4
+name = "CompatRingInitializeEnd"
+
+# Retain a failed render config until the same renderer supplies valid caps.
+[[midasm_hook]]
+address = 0x82245050
+name = "RememberGfxRenderConfig"
+registers = ["r3", "r4"]
+
+[[midasm_hook]]
+address = 0x82302E90
+name = "HandleGfxRenderCapsBegin"
+registers = ["r3", "r4", "lr"]
+
+[[midasm_hook]]
+address = 0x82302F0C
+name = "HandleGfxRenderCapsEnd"
+registers = ["r3", "r31"]
