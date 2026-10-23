@@ -1,0 +1,8 @@
+manifest_version = 1
+
+[asset_pack]
+id = "rerevved-logo"
+name = "ReRevved Main Menu Logo"
+version = "1.0"
+author = "Aeshur"
+description = "Replaces the main menu logo with ReRevved branding."

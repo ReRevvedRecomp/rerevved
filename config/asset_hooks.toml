@@ -1,0 +1,7 @@
+# Replace the exact main-menu logo File Data payload after ResLoadByName and
+# before the native output load. Invalid guest memory, allocation failure, and
+# unmatched filenames preserve the original path.
+[[midasm_hook]]
+address = 0x82E87B90
+name = "ApplyAssetFileOverride"
+registers = ["r1", "r11", "r30"]
