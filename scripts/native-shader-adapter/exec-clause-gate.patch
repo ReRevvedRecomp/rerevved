@@ -1,0 +1,154 @@
+diff --git a/XenosRecomp/shader_recompiler.cpp b/XenosRecomp/shader_recompiler.cpp
+--- a/XenosRecomp/shader_recompiler.cpp
++++ b/XenosRecomp/shader_recompiler.cpp
+@@ -2112,6 +2112,54 @@
+         out += "\t\t{\n";
+     }
+ 
++    const auto emitEndEpilogue = [&]
++    {
++        if (isPixelShader)
++        {
++            specConstantsMask |= SPEC_CONSTANT_ALPHA_TEST;
++
++            indent();
++            out += "[branch] if (g_SpecConstants() & SPEC_CONSTANT_ALPHA_TEST)";
++            indent();
++            out += '{';
++
++            indent();
++            out += "\tclip(oC0.w - g_AlphaThreshold);\n";
++
++            indent();
++            out += "}";
++
++        #ifdef UNLEASHED_RECOMP
++            specConstantsMask |= SPEC_CONSTANT_ALPHA_TO_COVERAGE;
++
++            indent();
++            out += "else if (g_SpecConstants() & SPEC_CONSTANT_ALPHA_TO_COVERAGE)";
++            indent();
++            out += '{';
++
++            indent();
++            out += "\toC0.w *= 1.0 + computeMipLevel(pixelCoord) * 0.25;\n";
++            indent();
++            out += "\toC0.w = 0.5 + (oC0.w - g_AlphaThreshold) / max(fwidth(oC0.w), 1e-6);\n";
++
++            indent();
++            out += '}';
++        #endif
++        }
++        else
++        {
++        #ifdef UNLEASHED_RECOMP
++            if (!hasMtxProjection)
++        #endif
++            {
++                out += "\toPos.xy += g_HalfPixelOffset * oPos.w;\n";
++            }
++        }
++    };
++    // As the SDK's translator, which completes the shader after its main
++    // loop, control reaching past the last clause still needs the epilogue.
++    bool fallsOffEnd = true;
++
+     controlFlowCode = code;
+     instrAddress = 0;
+     uint32_t pc = 0;
+@@ -2209,6 +2257,15 @@
+                 count = cfInstr.condExecPred.count;
+                 sequence = cfInstr.condExecPred.sequence;
+                 shouldReturn = (cfInstr.opcode == ControlFlowOpcode::CondExecPredEnd);
++                // As DxbcShaderTranslator::UpdateExecConditionalsAndEmitDisassembly,
++                // the whole clause runs only where p0 matched on entry, and its
++                // end returns from inside that gate (ProcessExecInstructionEnd).
++                indent();
++                println("if ({}p0)", cfInstr.condExecPred.condition ? "" : "!");
++                indent();
++                out += "{\n";
++                ++indentation;
++                shouldCloseCurlyBracket = true;
+                 break;
+ 
+             case ControlFlowOpcode::LoopStart:
+@@ -2378,47 +2435,7 @@
+ 
+             if (shouldReturn)
+             {
+-                if (isPixelShader)
+-                {
+-                    specConstantsMask |= SPEC_CONSTANT_ALPHA_TEST;
+-
+-                    indent();
+-                    out += "[branch] if (g_SpecConstants() & SPEC_CONSTANT_ALPHA_TEST)";
+-                    indent();
+-                    out += '{';
+-
+-                    indent();
+-                    out += "\tclip(oC0.w - g_AlphaThreshold);\n";
+-
+-                    indent();
+-                    out += "}";
+-
+-                #ifdef UNLEASHED_RECOMP
+-                    specConstantsMask |= SPEC_CONSTANT_ALPHA_TO_COVERAGE;
+-
+-                    indent();
+-                    out += "else if (g_SpecConstants() & SPEC_CONSTANT_ALPHA_TO_COVERAGE)";
+-                    indent();
+-                    out += '{';
+-
+-                    indent();
+-                    out += "\toC0.w *= 1.0 + computeMipLevel(pixelCoord) * 0.25;\n";
+-                    indent();
+-                    out += "\toC0.w = 0.5 + (oC0.w - g_AlphaThreshold) / max(fwidth(oC0.w), 1e-6);\n";
+-
+-                    indent();
+-                    out += '}';
+-                #endif
+-                }
+-                else
+-                {
+-                #ifdef UNLEASHED_RECOMP
+-                    if (!hasMtxProjection)
+-                #endif
+-                    {
+-                        out += "\toPos.xy += g_HalfPixelOffset * oPos.w;\n";
+-                    }
+-                }
++                emitEndEpilogue();
+ 
+                 if (simpleControlFlow)
+                 {
+@@ -2446,6 +2463,12 @@
+                 indent();
+                 out += "}\n";
+             }
++
++            // Only an unconditional end at the outermost level ends every path.
++            if (cfInstr.opcode != ControlFlowOpcode::Nop && cfInstr.opcode != ControlFlowOpcode::Alloc &&
++                cfInstr.opcode != ControlFlowOpcode::MarkVsFetchDone)
++                fallsOffEnd = !shouldReturn || shouldCloseCurlyBracket ||
++                    indentation != (simpleControlFlow ? 1u : 3u);
+         }
+ 
+         controlFlowCode += 3;
+@@ -2454,6 +2477,8 @@
+ 
+     if (!simpleControlFlow)
+     {
++        if (fallsOffEnd)
++            emitEndEpilogue();
+         out += "\t\t\tbreak;\n";
+         out += "\t\t}\n";
+         out += "\t\tbreak;\n";
+@@ -2473,6 +2498,8 @@
+                 out += "}\n";
+             }
+         }
++        if (fallsOffEnd)
++            emitEndEpilogue();
+     }
+ 
+ #ifdef UNLEASHED_RECOMP

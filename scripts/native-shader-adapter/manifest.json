@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "upstream": "https://github.com/zolaware/reblue-XenosRecomp.git",
+  "upstream_revision": "339af41df2c23dbe3256c1c377716b81a0e0fe6b",
+  "license": {
+    "file": "LICENSE.md",
+    "upstream_path": "LICENSE.md",
+    "sha256": "bcb33ae2cbc6c0f2818712d806112e774e684fce01ce80573f92adf80b7487f4"
+  },
+  "submodules": {
+    "thirdparty/dxc-bin": "737ac9f51c3d06f0cd1ee7e14dc065bafd52310d",
+    "thirdparty/fmt": "873670ba3f9e7bc77ec2c1c94b04f1f8bef77e9f",
+    "thirdparty/smol-v": "9dd54c379ac29fa148cb1b829bb939ba7381d8f4",
+    "thirdparty/xxHash": "2bf8313b934633b2a5b7e8fd239645b85e10c852",
+    "thirdparty/zstd": "f7a8bb1263448e5028aceeba606a08fe3809550f"
+  },
+  "reconstruction_patch": {
+    "file": "raw-interface.patch",
+    "sha256": "cdc21477b2aed62880c910ec75158efbe7d2317d9037e0735b593f2778f167ff"
+  },
+  "lod_patch": {
+    "file": "pixel-register-lod.patch",
+    "sha256": "fc101964451170838c621098bfbe47e067fbad6905f803b9f07ad3a20e7cd584"
+  },
+  "write_mask_patch": {
+    "file": "fetch-write-mask.patch",
+    "sha256": "4bb26d9a8dfb674b849e8abb53556ec9ebf0dc1503882ad57ea1631d43b39842"
+  },
+  "exec_gate_patch": {
+    "file": "exec-clause-gate.patch",
+    "sha256": "0fa2a5f6b09339ed16345f458d5e520691fce91076ede9b841a7c6d400903ded"
+  },
+  "lod_flow_patch": {
+    "file": "register-lod-flow.patch",
+    "sha256": "9ffa00bdc01226558bb5c03c5a6cf6a34713d35879cf3fd878d3e4a37b04349b"
+  },
+  "loop_patch": {
+    "file": "loop-constants.patch",
+    "sha256": "d5e7093a7fd307263e559fdab0aed63ab244209d1475091d6321a322400deedf"
+  },
+  "shared_header": {
+    "file": "shader_common.h",
+    "sha256": "10fa7936c825b0b4a294678f05c20e73f2a90ca6b85a1ea252220c6a5d2ee357"
+  },
+  "frozen_adapter": {
+    "emitter_sha256": "05a99249ab612a02584b1cdc2942bbf0b19272eaba356d2cde86e7412955a171"
+  },
+  "adapter_input": {
+    "file": "raw_adapter.cpp",
+    "sha256": "f145fdd0e4d0b61c343c36b7d37a5bd8337192bd2db27109085950312f627c97"
+  }
+}

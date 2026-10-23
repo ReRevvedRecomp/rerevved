@@ -1,0 +1,26 @@
+diff --git a/XenosRecomp/shader_recompiler.cpp b/XenosRecomp/shader_recompiler.cpp
+--- a/XenosRecomp/shader_recompiler.cpp
++++ b/XenosRecomp/shader_recompiler.cpp
+@@ -186,6 +186,9 @@ void ShaderRecompiler::recompile(const VertexFetchInstruction& instr, uint32_t a
+         ++indentation;
+     }
+ 
++    // A fetch that writes no component (only Keep, Zero or One) emits no
++    // assignment: dxc rejects the empty write mask.
++    const auto assignment = out.size();
+     indent();
+     print("r{}.", instr.dstRegister);
+     printDstSwizzle(instr.dstSwizzle, false);
+@@ -278,6 +281,12 @@ void ShaderRecompiler::recompile(const VertexFetchInstruction& instr, uint32_t a
+ 
+     out += ";\n";
+ 
++    bool written = false;
++    for (uint32_t i = 0; i < 4; i++)
++        written |= getDestSwizzle(instr.dstSwizzle, i) <= FetchDestinationSwizzle::W;
++    if (!written)
++        out.resize(assignment);
++
+     printDstSwizzle01(instr.dstRegister, instr.dstSwizzle);
+ 
+     if (instr.isPredicated)

@@ -1,0 +1,124 @@
+diff --git a/XenosRecomp/shader_recompiler.cpp b/XenosRecomp/shader_recompiler.cpp
+--- a/XenosRecomp/shader_recompiler.cpp
++++ b/XenosRecomp/shader_recompiler.cpp
+@@ -2400,6 +2400,43 @@
+                 break;
+ 
+             case ControlFlowOpcode::LoopStart:
++                if (rawInput)
++                {
++                    if (!simpleControlFlow)
++                        throw std::runtime_error("unsupported raw loop: unstructured control flow");
++                    // The SDK skips to loop_start's address and loops back to
++                    // loop_end's; only the canonical targets match this nesting.
++                    const uint32_t startIndex = pc - 1;
++                    const auto loopEnd = loopEndFor.find(startIndex);
++                    if (loopEnd == loopEndFor.end() || cfInstr.loopStart.address != loopEnd->second + 1 ||
++                        cfInstructions[loopEnd->second].loopEnd.address != startIndex + 1)
++                        throw std::runtime_error("unsupported raw loop: noncanonical targets");
++                    // As the SDK's DxbcShaderTranslator loop instructions: count in
++                    // bits 0..7 (zero skips the body), initial aL in 8..15 unless
++                    // repeating, signed step in 16..23; leaving restores the outer aL.
++                    const uint32_t loopId = cfInstr.loopStart.loopId;
++                    const size_t depth = rawLoopIds.size();
++                    rawLoopIds.push_back(loopId);
++                    indent();
++                    out += "{\n";
++                    ++indentation;
++                    indent();
++                    println("int aL{} = aL;", depth);
++                    indent();
++                    println("uint loopConstant{} = g_LoopConstants({});", depth, loopId);
++                    if (!cfInstr.loopStart.isRepeat)
++                    {
++                        indent();
++                        println("aL = int((loopConstant{} >> 8) & 0xFFu);", depth);
++                    }
++                    indent();
++                    println("[loop] for (uint loopCount{0} = loopConstant{0} & 0xFFu; loopCount{0} != 0u; --loopCount{0}, aL += asint(loopConstant{0} << 8) >> 24)",
++                        depth);
++                    indent();
++                    out += "{\n";
++                    ++indentation;
++                    break;
++                }
+                 if (simpleControlFlow)
+                 {
+                     indent();
+@@ -2418,6 +2455,22 @@
+                 break;
+ 
+             case ControlFlowOpcode::LoopEnd:
++                if (rawInput)
++                {
++                    // loop_end adds its own constant's step; it must name the loop.
++                    if (rawLoopIds.empty() || rawLoopIds.back() != cfInstr.loopEnd.loopId)
++                        throw std::runtime_error("unsupported raw loop: mismatched loop end");
++                    rawLoopIds.pop_back();
++                    --indentation;
++                    indent();
++                    out += "}\n";
++                    indent();
++                    println("aL = aL{};", rawLoopIds.size());
++                    --indentation;
++                    indent();
++                    out += "}\n";
++                    break;
++                }
+                 if (simpleControlFlow)
+                 {
+                     --indentation;
+@@ -2655,6 +2708,8 @@
+     rawInput = true;
+     isPixelShader = pixel;
+     rawPixelRegisterLodSet = false;
++    rawLoopIds.clear();
++    rawUsesLoops = false;
+     rawRegisters = registers;
+     std::vector<be<uint32_t>> code(words.size());
+     for (size_t i = 0; i < words.size(); ++i)
+@@ -2675,8 +2730,14 @@
+         for (uint64_t cf : halves)
+         {
+             uint32_t opcode = (cf >> 44) & 15;
+-            if (opcode == 7 || opcode == 8 || opcode == 9 || opcode == 10)
+-                throw std::runtime_error("raw adapter has no verified loop or call constants");
++            if (opcode == 9 || opcode == 10)
++                throw std::runtime_error("raw adapter has no verified calls");
++            if (opcode == 7 || opcode == 8)
++            {
++                if (opcode == 8 && ((cf >> 21) & 1))
++                    throw std::runtime_error("unsupported raw loop: predicated break");
++                rawUsesLoops = true;
++            }
+             if (opcode != 1 && opcode != 2 && opcode != 3 && opcode != 4 &&
+                 opcode != 5 && opcode != 6 && opcode != 13 && opcode != 14)
+                 continue;
+@@ -2749,7 +2810,14 @@
+     println("\tfloat4 c[{}];", pixel ? 224 : 256);
+     out += "};\n";
+     out += "#define c(INDEX) select(uint(INDEX) < 256u, c[min(uint(INDEX), 255u)], 0.0)\n";
+-    out += "cbuffer SharedConstants : register(b2, space4)\n{\n\tDEFINE_SHARED_CONSTANTS();\n};\n";
++    out += "cbuffer SharedConstants : register(b2, space4)\n{\n\tDEFINE_SHARED_CONSTANTS();\n";
++    // Loops read i0..i31 after the bools (bytes 336..463); only shaders with
++    // loops declare them, so loop-free output is unchanged.
++    if (rawUsesLoops)
++        out += "\tuint4 g_LoopConstantsArr[8] : packoffset(c21);\n";
++    out += "};\n";
++    if (rawUsesLoops)
++        out += "#define g_LoopConstants(i) (g_LoopConstantsArr[(i) / 4][(i) % 4])\n";
+     out += "void main(\n";
+     if (pixel)
+     {
+diff --git a/XenosRecomp/shader_recompiler.h b/XenosRecomp/shader_recompiler.h
+--- a/XenosRecomp/shader_recompiler.h
++++ b/XenosRecomp/shader_recompiler.h
+@@ -30,6 +30,8 @@
+     bool rawStructuredControlFlow = false;
+     bool rawClausePredicated = false;
+     const std::vector<uint32_t>* rawRegisters = nullptr;
++    std::vector<uint32_t> rawLoopIds;
++    bool rawUsesLoops = false;
+     const uint8_t* constantTableData = nullptr;
+     std::unordered_map<uint32_t, VertexElement> vertexElements;
+     std::unordered_map<uint32_t, std::string> interpolators;

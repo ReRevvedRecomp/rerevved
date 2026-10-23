@@ -1,0 +1,304 @@
+diff --git a/XenosRecomp/shader_recompiler.cpp b/XenosRecomp/shader_recompiler.cpp
+--- a/XenosRecomp/shader_recompiler.cpp
++++ b/XenosRecomp/shader_recompiler.cpp
+@@ -309,15 +309,36 @@
+         switch (instr.opcode)
+         {
+         case FetchOpcode::SetTextureLod:
+-            if (instr.isPredicated)
+-                throw std::runtime_error("unsupported pixel register LOD: predicated setter");
++        {
+             if (instr.srcRegisterAm)
+                 throw std::runtime_error("unsupported pixel register LOD: relative setter");
+-
++            if (!rawStructuredControlFlow)
++                throw std::runtime_error("unsupported pixel register LOD: unstructured control flow");
++
++            // As the SDK's DxbcShaderTranslator::ProcessTextureFetchInstruction,
++            // the setter writes per-pixel LOD state only where its clause and
++            // predicate execute. Only an unconditional top-level setter dominates.
++            // Its clause is gated on entry p0; its own predicate tests current p0.
++            const bool dominating = indentation == 1 && !rawClausePredicated && !instr.isPredicated;
++            if (instr.isPredicated)
++            {
++                indent();
++                println("if ({}p0)", instr.predCondition ? "" : "!");
++                indent();
++                out += "{\n";
++                ++indentation;
++            }
+             indent();
+             println("registerLod = r{}.{};", instr.srcRegister, SWIZZLES[instr.srcSwizzle & 0x3]);
+-            rawPixelRegisterLodSet = true;
++            if (instr.isPredicated)
++            {
++                --indentation;
++                indent();
++                out += "}\n";
++            }
++            rawPixelRegisterLodSet |= dominating;
+             return;
++        }
+ 
+         case FetchOpcode::SetTextureGradientsHorz:
+         case FetchOpcode::SetTextureGradientsVert:
+@@ -326,19 +347,24 @@
+         case FetchOpcode::TextureFetch:
+             if (instr.useRegLod)
+             {
+-                if (instr.isPredicated)
++                if (instr.isPredicated || rawClausePredicated)
+                     throw std::runtime_error("unsupported pixel register LOD: predicated fetch");
+                 if (instr.srcRegisterAm || instr.dstRegisterAm)
+                     throw std::runtime_error("unsupported pixel register LOD: relative fetch");
+                 if (!rawPixelRegisterLodSet)
+-                    throw std::runtime_error("pixel register LOD fetch has no preceding setter");
++                    throw std::runtime_error("pixel register LOD fetch has no preceding dominating setter");
+                 if (instr.dimension != TextureDimension::Texture2D &&
+                         instr.dimension != TextureDimension::TextureCube)
+                     throw std::runtime_error("unsupported pixel register LOD: texture dimension");
+                 if (instr.texCoordDenorm)
+                     throw std::runtime_error("unsupported pixel register LOD: unnormalized coordinates");
+-                if (instr.useCompLod || instr.useRegGradients)
++                if (instr.useRegGradients)
+                     throw std::runtime_error("unsupported pixel register LOD: computed or gradient mode");
++                // Computed plus register LOD scales screen gradients, so it is
++                // admitted only for a top-level 2D fetch with mip filtering.
++                if (instr.useCompLod && (instr.dimension != TextureDimension::Texture2D ||
++                        indentation != 1 || instr.mipFilter == 2))
++                    throw std::runtime_error("unsupported pixel register LOD: computed mode");
+                 if (instr.lodBias != 0 || instr.offsetX != 0 ||
+                     instr.offsetY != 0 || instr.offsetZ != 0)
+                     throw std::runtime_error("unsupported pixel register LOD: bias or offset");
+@@ -443,8 +469,8 @@
+     #endif
+ 
+         if (registerLodFetch)
+-            out += instr.dimension == TextureDimension::TextureCube ?
+-                "tfetchCubeRegisterLod" : "tfetch2DRegisterLod";
++            out += instr.dimension == TextureDimension::TextureCube ? "tfetchCubeRegisterLod" :
++                instr.useCompLod ? "tfetch2DComputedRegisterLod" : "tfetch2DRegisterLod";
+         else
+             out += "tfetch";
+         break;
+@@ -1905,6 +1931,7 @@
+     std::vector<CfSummary> cfSummaries;
+     std::vector<uint32_t> loopStarts;
+     std::unordered_map<uint32_t, uint32_t> loopEndFor;
++    std::vector<ControlFlowInstruction> cfInstructions;
+     uint32_t cfIndex = 0;
+ 
+     while (instrAddress < instrSize)
+@@ -1967,6 +1994,7 @@
+ 
+             if (cfSummaries.size() == cfIndex)
+                 cfSummaries.push_back({});
++            cfInstructions.push_back(cfInstr);
+ 
+             if (address != 0)
+                 instrSize = std::min<uint32_t>(instrSize, address * 12);
+@@ -1981,6 +2009,108 @@
+     if (!loopStarts.empty())
+         simpleControlFlow = false;
+ 
++    // Raw pixel register LOD only: a predicated jump ending the fall-through of
++    // the opposite predicated jump is always taken when nothing between them
++    // writes p0 and no other jump enters that range, so it structures as the
++    // else exit. Other shaders keep the upstream output byte for byte.
++    std::unordered_set<uint32_t> provenJumps;
++    const uint32_t cfCount = std::min<uint32_t>(uint32_t(cfInstructions.size()), (instrSize / 12) * 2);
++    const auto usesRegisterLod = [&]
++    {
++        for (uint32_t c = 0; c < cfCount; ++c)
++        {
++            const auto& cf = cfInstructions[c];
++            switch (cf.opcode)
++            {
++            case ControlFlowOpcode::Exec: case ControlFlowOpcode::ExecEnd:
++            case ControlFlowOpcode::CondExec: case ControlFlowOpcode::CondExecEnd:
++            case ControlFlowOpcode::CondExecPred: case ControlFlowOpcode::CondExecPredEnd:
++            case ControlFlowOpcode::CondExecPredClean: case ControlFlowOpcode::CondExecPredCleanEnd:
++                break;
++            default:
++                continue;
++            }
++            uint32_t sequence = cf.exec.sequence;
++            for (uint32_t i = 0; i < cf.exec.count; ++i, sequence >>= 2)
++            {
++                if (!(sequence & 1))
++                    continue;
++                const uint32_t index = (cf.exec.address + i) * 3;
++                const uint32_t fetchWords[3] = { code[index], code[index + 1], code[index + 2] };
++                TextureFetchInstruction fetch;
++                std::memcpy(&fetch, fetchWords, sizeof(fetch));
++                if (fetch.opcode == FetchOpcode::SetTextureLod || (fetch.opcode == FetchOpcode::TextureFetch && fetch.useRegLod))
++                    return true;
++            }
++        }
++        return false;
++    };
++    if (rawInput && isPixelShader && simpleControlFlow && usesRegisterLod())
++    {
++        const auto writesPredicate = [&](const ControlFlowInstruction& cf)
++        {
++            switch (cf.opcode)
++            {
++            case ControlFlowOpcode::Exec: case ControlFlowOpcode::ExecEnd:
++            case ControlFlowOpcode::CondExec: case ControlFlowOpcode::CondExecEnd:
++            case ControlFlowOpcode::CondExecPred: case ControlFlowOpcode::CondExecPredEnd:
++            case ControlFlowOpcode::CondExecPredClean: case ControlFlowOpcode::CondExecPredCleanEnd:
++                break;
++            default:
++                return false;
++            }
++            uint32_t sequence = cf.exec.sequence;
++            for (uint32_t i = 0; i < cf.exec.count; ++i, sequence >>= 2)
++            {
++                if (sequence & 1)
++                    continue;
++                const uint32_t index = (cf.exec.address + i) * 3;
++                const uint32_t aluWords[3] = { code[index], code[index + 1], code[index + 2] };
++                AluInstruction alu;
++                std::memcpy(&alu, aluWords, sizeof(alu));
++                if ((alu.vectorOpcode >= AluVectorOpcode::SetpEqPush && alu.vectorOpcode <= AluVectorOpcode::SetpGePush) ||
++                    (alu.scalarOpcode >= AluScalarOpcode::SetpEq && alu.scalarOpcode <= AluScalarOpcode::SetpRstr))
++                    return true;
++            }
++            return false;
++        };
++        const auto jumpTarget = [&](const ControlFlowInstruction& cf) -> int64_t
++        {
++            switch (cf.opcode)
++            {
++            case ControlFlowOpcode::CondJmp: return cf.condJmp.address;
++            case ControlFlowOpcode::CondCall: return cf.condCall.address;
++            case ControlFlowOpcode::LoopStart: return cf.loopStart.address;
++            case ControlFlowOpcode::LoopEnd: return cf.loopEnd.address;
++            default: return -1;
++            }
++        };
++        for (uint32_t i = 0; i < cfCount; ++i)
++        {
++            const auto& first = cfInstructions[i];
++            const uint32_t t = cfSummaries[i].target;
++            if (cfSummaries[i].kind != CfKind::Cond || !first.condJmp.isPredicated || t < i + 2 || t > cfCount)
++                continue;
++            const auto& second = cfInstructions[t - 1];
++            if (cfSummaries[t - 1].kind != CfKind::Cond || !second.condJmp.isPredicated ||
++                second.condJmp.condition == first.condJmp.condition || cfSummaries[t - 1].target < t)
++                continue;
++            bool proven = true;
++            for (uint32_t k = 0; k < cfCount && proven; ++k)
++            {
++                if (k > i && k + 1 < t)
++                    proven = !writesPredicate(cfInstructions[k]);
++                else if (k != i)
++                    proven = !(jumpTarget(cfInstructions[k]) > int64_t(i) && jumpTarget(cfInstructions[k]) < int64_t(t));
++            }
++            if (proven)
++            {
++                cfSummaries[t - 1].kind = CfKind::Uncond;
++                provenJumps.insert(t - 1);
++            }
++        }
++    }
++
+     if (simpleControlFlow)
+     {
+         // Recursive-descent structurizer. Xenos control flow in practice is
+@@ -2097,6 +2227,7 @@
+         ifEndLabels.clear();
+         elseLabels.clear();
+     }
++    rawStructuredControlFlow = simpleControlFlow;
+ 
+     if (simpleControlFlow)
+     {
+@@ -2306,7 +2437,7 @@
+ 
+             case ControlFlowOpcode::CondJmp:
+             {
+-                if (cfInstr.condJmp.isUnconditional)
++                if (cfInstr.condJmp.isUnconditional || provenJumps.count(pc - 1))
+                 {
+                     // Structured mode: the then-branch exit jump was consumed by
+                     // the "} else {" emitted at the next instruction.
+@@ -2360,6 +2491,9 @@
+             }
+             }
+ 
++            // Register LOD fetches and dominance consult the clause kind.
++            rawClausePredicated = cfInstr.opcode == ControlFlowOpcode::CondExecPred ||
++                cfInstr.opcode == ControlFlowOpcode::CondExecPredEnd;
+             auto instructionCode = code + address * 3;
+             
+             for (uint32_t i = 0; i < count; i++)
+@@ -2530,9 +2664,7 @@
+     // builder. Each vertex fetch instruction gets one generic IA attribute.
+     std::vector<uint32_t> fetches;
+     std::unordered_set<uint32_t> seen;
+-    bool hasExplicitLod = false;
+     std::vector<std::pair<uint32_t, bool>> rawInstructionOrder;
+-    bool hasConditionalControlFlow = false;
+     size_t boundary = words.size() / 3;
+     for (size_t pair = 0; pair < boundary; ++pair)
+     {
+@@ -2545,10 +2677,6 @@
+             uint32_t opcode = (cf >> 44) & 15;
+             if (opcode == 7 || opcode == 8 || opcode == 9 || opcode == 10)
+                 throw std::runtime_error("raw adapter has no verified loop or call constants");
+-            if (opcode == 3 || opcode == 4 || opcode == 5 || opcode == 6 ||
+-                opcode == 7 || opcode == 8 || opcode == 9 || opcode == 11 ||
+-                opcode == 13 || opcode == 14)
+-                hasConditionalControlFlow = true;
+             if (opcode != 1 && opcode != 2 && opcode != 3 && opcode != 4 &&
+                 opcode != 5 && opcode != 6 && opcode != 13 && opcode != 14)
+                 continue;
+@@ -2568,26 +2696,6 @@
+                             throw std::runtime_error("raw vertex input interface exceeds its bound");
+                         fetches.push_back(index);
+                     }
+-                    else if (pixel)
+-                    {
+-                        union
+-                        {
+-                            TextureFetchInstruction textureFetch;
+-                            struct
+-                            {
+-                                uint32_t code0;
+-                                uint32_t code1;
+-                                uint32_t code2;
+-                            };
+-                        } instruction{};
+-                        instruction.code0 = words[index * 3];
+-                        instruction.code1 = words[index * 3 + 1];
+-                        instruction.code2 = words[index * 3 + 2];
+-                        if (instruction.textureFetch.opcode == FetchOpcode::SetTextureLod ||
+-                            (instruction.textureFetch.opcode == FetchOpcode::TextureFetch &&
+-                             instruction.textureFetch.useRegLod))
+-                            hasExplicitLod = true;
+-                    }
+                 }
+             }
+         }
+@@ -2632,8 +2740,6 @@
+     }
+     if (cubeLodFetches && (cubeLodFetches != 1 || cubeOps != 1))
+         throw std::runtime_error("unsupported pixel cube register LOD: cube operation bound");
+-    if (pixel && hasExplicitLod && hasConditionalControlFlow)
+-        throw std::runtime_error("unsupported pixel register LOD: conditional control flow");
+     if (!pixel && fetches.empty())
+         throw std::runtime_error("raw vertex shader has no verified inputs");
+     out += include;
+diff --git a/XenosRecomp/shader_recompiler.h b/XenosRecomp/shader_recompiler.h
+--- a/XenosRecomp/shader_recompiler.h
++++ b/XenosRecomp/shader_recompiler.h
+@@ -27,6 +27,8 @@
+     bool isPixelShader = false;
+     bool rawInput = false;
+     bool rawPixelRegisterLodSet = false;
++    bool rawStructuredControlFlow = false;
++    bool rawClausePredicated = false;
+     const std::vector<uint32_t>* rawRegisters = nullptr;
+     const uint8_t* constantTableData = nullptr;
+     std::unordered_map<uint32_t, VertexElement> vertexElements;

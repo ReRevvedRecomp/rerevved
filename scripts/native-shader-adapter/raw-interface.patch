@@ -1,0 +1,167 @@
+diff --git a/XenosRecomp/shader_recompiler.cpp b/XenosRecomp/shader_recompiler.cpp
+index feaa90b..d42a99a 100644
+--- a/XenosRecomp/shader_recompiler.cpp
++++ b/XenosRecomp/shader_recompiler.cpp
+@@ -554,6 +554,16 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
+             {
+                 regFormatted = fmt::format("r{}", reg);
+             }
++            else if (rawInput)
++            {
++                // SDK ucode.h::src_const_is_addressed selects the first or
++                // later constant flag by operand order, including mulsc.
++                const bool relative = operand == VECTOR_0 ? instr.const0Relative :
++                    operand == VECTOR_1 ? (instr.src1Select ? instr.const0Relative : instr.const1Relative) :
++                    (instr.src1Select && instr.src2Select ? instr.const0Relative : instr.const1Relative);
++                regFormatted = fmt::format("c({}{})", reg,
++                    relative ? (instr.constAddressRegisterRelative ? " + a0" : " + aL") : "");
++            }
+             else
+             {
+                 auto findResult = float4Constants.find(reg);
+@@ -1784,6 +1794,11 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
+ 
+     const be<uint32_t>* code = reinterpret_cast<const be<uint32_t>*>(shaderData + shaderContainer->virtualSize + shader->physicalOffset);
+ 
++    recompileInstructions(code, shader->size);
++}
++
++void ShaderRecompiler::recompileInstructions(const be<uint32_t>* code, uint32_t codeBytes)
++{
+     union
+     {
+         ControlFlowInstruction controlFlow[2];
+@@ -1798,7 +1813,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
+ 
+     auto controlFlowCode = code;
+     uint32_t instrAddress = 0;
+-    uint32_t instrSize = shader->size;
++    uint32_t instrSize = codeBytes;
+     bool simpleControlFlow = true;
+ 
+     // Per-instruction control flow summary for the structurizer below.
+@@ -2391,3 +2406,105 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
+ 
+     out += "}";
+ }
++
++void ShaderRecompiler::recompileRaw(const std::vector<uint32_t>& words, bool pixel,
++                                   const std::string_view& include)
++{
++    if (words.empty() || words.size() > 16384 || words.size() % 3)
++        throw std::runtime_error("raw shader instruction extent is invalid");
++    rawInput = true;
++    isPixelShader = pixel;
++    std::vector<be<uint32_t>> code(words.size());
++    for (size_t i = 0; i < words.size(); ++i)
++        code[i].value = byteSwap(words[i]);
++
++    // Enumerate executed fetch clauses in the same order as the pinned raw
++    // builder. Each vertex fetch instruction gets one generic IA attribute.
++    std::vector<uint32_t> fetches;
++    std::unordered_set<uint32_t> seen;
++    size_t boundary = words.size() / 3;
++    for (size_t pair = 0; pair < boundary; ++pair)
++    {
++        uint64_t halves[2] = {
++            uint64_t(words[pair * 3]) | (uint64_t(words[pair * 3 + 1] & 0xFFFF) << 32),
++            uint64_t(words[pair * 3 + 1] >> 16) | (uint64_t(words[pair * 3 + 2]) << 16)
++        };
++        for (uint64_t cf : halves)
++        {
++            uint32_t opcode = (cf >> 44) & 15;
++            if (opcode == 7 || opcode == 8 || opcode == 9 || opcode == 10)
++                throw std::runtime_error("raw adapter has no verified loop or call constants");
++            if (opcode != 1 && opcode != 2 && opcode != 3 && opcode != 4 &&
++                opcode != 5 && opcode != 6 && opcode != 13 && opcode != 14)
++                continue;
++            uint32_t address = cf & 4095, count = (cf >> 12) & 7, sequence = (cf >> 16) & 4095;
++            if (!address || size_t(address + count) * 3 > words.size())
++                throw std::runtime_error("raw shader clause exceeds instruction extent");
++            boundary = std::min(boundary, size_t(address));
++            for (uint32_t offset = 0; offset < count; ++offset)
++            {
++                uint32_t index = address + offset;
++                if (((sequence >> (offset * 2)) & 1) && seen.insert(index).second &&
++                    (words[index * 3] & 31) == 0)
++                {
++                    if (pixel || fetches.size() == 16)
++                        throw std::runtime_error("raw vertex input interface exceeds its bound");
++                    fetches.push_back(index);
++                }
++            }
++        }
++    }
++    if (!pixel && fetches.empty())
++        throw std::runtime_error("raw vertex shader has no verified inputs");
++    out += include;
++    out += '\n';
++    println("cbuffer {}ShaderConstants : register(b{}, space4)", pixel ? "Pixel" : "Vertex", pixel ? 1 : 0);
++    out += "{\n";
++    println("\tfloat4 c[{}];", pixel ? 224 : 256);
++    out += "};\n";
++    out += "#define c(INDEX) select(uint(INDEX) < 256u, c[min(uint(INDEX), 255u)], 0.0)\n";
++    out += "cbuffer SharedConstants : register(b2, space4)\n{\n\tDEFINE_SHARED_CONSTANTS();\n};\n";
++    out += "void main(\n";
++    if (pixel)
++    {
++        out += "\tin float4 iPos : SV_Position,\n";
++        for (uint32_t i = 0; i < 16; ++i)
++            println("\tin float4 iTexCoord{} : TEXCOORD{},", i, i);
++        out += "\tin uint iFace : SV_IsFrontFace,\n\tout float4 oC0 : SV_Target0,\n\tout float oDepth : SV_Depth)\n{\n";
++        out += "\toC0 = 0.0;\n\toDepth = 0.0;\n";
++        // Native admission rejects enabled secondary color targets. Keep
++        // their guest export values local without adding host MRT outputs.
++        out += "\tfloat4 oC1 = 0.0;\n\tfloat4 oC2 = 0.0;\n\tfloat4 oC3 = 0.0;\n";
++    }
++    else
++    {
++        for (uint32_t i = 0; i < fetches.size(); ++i)
++        {
++            println("\tin float4 iTexCoord{} : TEXCOORD{},", i, i);
++            VertexElement element{};
++            element.address = fetches[i];
++            element.usage = DeclUsage::TexCoord;
++            element.usageIndex = i;
++            vertexElements.emplace(fetches[i], element);
++        }
++        out += "\tout float4 oPos : SV_Position";
++        for (uint32_t i = 0; i < 16; ++i)
++            print(",\n\tout float4 oTexCoord{} : TEXCOORD{}", i, i);
++        out += ")\n{\n\toPos = 0.0;\n";
++        for (uint32_t i = 0; i < 16; ++i)
++        {
++            println("\toTexCoord{} = 0.0;", i);
++            interpolators.emplace(i, fmt::format("oTexCoord{}", i));
++        }
++    }
++    for (uint32_t i = 0; i < 64; ++i)
++    {
++        if (pixel && i < 16)
++            println("\tfloat4 r{} = iTexCoord{};", i, i);
++        else
++            println("\tfloat4 r{} = 0.0;", i);
++    }
++    out += "\tint a0 = 0;\n\tint aL = 0;\n\tbool p0 = false;\n\tfloat ps = 0.0;\n";
++    out += "\tCubeMapData cubeMapData = (CubeMapData)0;\n";
++    recompileInstructions(code.data(), uint32_t(words.size() * 4));
++}
+diff --git a/XenosRecomp/shader_recompiler.h b/XenosRecomp/shader_recompiler.h
+index 791def7..ac96d0a 100644
+--- a/XenosRecomp/shader_recompiler.h
++++ b/XenosRecomp/shader_recompiler.h
+@@ -25,6 +25,7 @@ struct ShaderRecompiler : StringBuffer
+ {
+     uint32_t indentation = 0;
+     bool isPixelShader = false;
++    bool rawInput = false;
+     const uint8_t* constantTableData = nullptr;
+     std::unordered_map<uint32_t, VertexElement> vertexElements;
+     std::unordered_map<uint32_t, std::string> interpolators;
+@@ -62,4 +63,6 @@ struct ShaderRecompiler : StringBuffer
+     void recompile(const AluInstruction& instr);
+ 
+     void recompile(const uint8_t* shaderData, const std::string_view& include);
++    void recompileInstructions(const be<uint32_t>* code, uint32_t codeBytes);
++    void recompileRaw(const std::vector<uint32_t>& words, bool pixel, const std::string_view& include);
+ };

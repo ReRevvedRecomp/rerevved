@@ -1,0 +1,266 @@
+diff --git a/XenosRecomp/shader_recompiler.cpp b/XenosRecomp/shader_recompiler.cpp
+--- a/XenosRecomp/shader_recompiler.cpp
++++ b/XenosRecomp/shader_recompiler.cpp
+@@ -1,2 +1,3 @@
+ #include "shader_recompiler.h"
+ #include "shader_common.h"
++#include <cstring>
+@@ -289,6 +290,66 @@
+ 
+ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr, bool bicubic)
+ {
++    const bool registerLodFetch = rawInput && isPixelShader &&
++        instr.opcode == FetchOpcode::TextureFetch && instr.useRegLod;
++    if (rawInput && !isPixelShader && instr.opcode == FetchOpcode::TextureFetch &&
++        instr.useRegLod)
++        throw std::runtime_error("unsupported vertex register LOD");
++    if (rawInput && isPixelShader)
++    {
++        switch (instr.opcode)
++        {
++        case FetchOpcode::SetTextureLod:
++            if (instr.isPredicated)
++                throw std::runtime_error("unsupported pixel register LOD: predicated setter");
++            if (instr.srcRegisterAm)
++                throw std::runtime_error("unsupported pixel register LOD: relative setter");
++
++            indent();
++            println("registerLod = r{}.{};", instr.srcRegister, SWIZZLES[instr.srcSwizzle & 0x3]);
++            rawPixelRegisterLodSet = true;
++            return;
++
++        case FetchOpcode::SetTextureGradientsHorz:
++        case FetchOpcode::SetTextureGradientsVert:
++            throw std::runtime_error("unsupported pixel register LOD: gradients");
++
++        case FetchOpcode::TextureFetch:
++            if (instr.useRegLod)
++            {
++                if (instr.isPredicated)
++                    throw std::runtime_error("unsupported pixel register LOD: predicated fetch");
++                if (instr.srcRegisterAm || instr.dstRegisterAm)
++                    throw std::runtime_error("unsupported pixel register LOD: relative fetch");
++                if (!rawPixelRegisterLodSet)
++                    throw std::runtime_error("pixel register LOD fetch has no preceding setter");
++                if (instr.dimension != TextureDimension::Texture2D &&
++                        instr.dimension != TextureDimension::TextureCube)
++                    throw std::runtime_error("unsupported pixel register LOD: texture dimension");
++                if (instr.texCoordDenorm)
++                    throw std::runtime_error("unsupported pixel register LOD: unnormalized coordinates");
++                if (instr.useCompLod || instr.useRegGradients)
++                    throw std::runtime_error("unsupported pixel register LOD: computed or gradient mode");
++                if (instr.lodBias != 0 || instr.offsetX != 0 ||
++                    instr.offsetY != 0 || instr.offsetZ != 0)
++                    throw std::runtime_error("unsupported pixel register LOD: bias or offset");
++                if (!rawRegisters)
++                    throw std::runtime_error("pixel register LOD fetch has no register snapshot");
++                const uint32_t descriptor = (*rawRegisters)[0x4800 + instr.constIndex * 6 + 4];
++                if (((descriptor >> 12) & 0x3FFu) != 0)
++                    throw std::runtime_error("unsupported pixel register LOD: descriptor bias");
++            }
++            break;
++
++        case FetchOpcode::GetTextureComputedLod:
++        case FetchOpcode::GetTextureGradients:
++            throw std::runtime_error("unsupported pixel register LOD: computed or gradient instruction");
++
++        default:
++            break;
++        }
++    }
++
+     if (instr.opcode != FetchOpcode::TextureFetch && instr.opcode != FetchOpcode::GetTextureWeights)
+         return;
+ 
+@@ -372,7 +433,11 @@
+             out += "1.0 - ";
+     #endif
+ 
+-        out += "tfetch";
++        if (registerLodFetch)
++            out += instr.dimension == TextureDimension::TextureCube ?
++                "tfetchCubeRegisterLod" : "tfetch2DRegisterLod";
++        else
++            out += "tfetch";
+         break;
+     }
+     case FetchOpcode::GetTextureWeights:
+@@ -405,7 +470,8 @@
+         break;
+     }
+ 
+-    out += dimension;
++    if (!registerLodFetch)
++        out += dimension;
+ 
+ #ifdef UNLEASHED_RECOMP
+     if (bicubic)
+@@ -419,6 +485,10 @@
+     {
+     case TextureDimension::Texture2D:
+         print(", float2({}, {})", instr.offsetX * 0.5f, instr.offsetY * 0.5f);
++        if (registerLodFetch)
++            out += ", registerLod";
+         break;
+     case TextureDimension::TextureCube:
+         out += ", cubeMapData";
++        if (registerLodFetch)
++            out += ", registerLod";
+@@ -2408,12 +2478,14 @@
+ }
+ 
+ void ShaderRecompiler::recompileRaw(const std::vector<uint32_t>& words, bool pixel,
+-                                   const std::string_view& include)
++    const std::string_view& include, const std::vector<uint32_t>* registers)
+ {
+     if (words.empty() || words.size() > 16384 || words.size() % 3)
+         throw std::runtime_error("raw shader instruction extent is invalid");
+     rawInput = true;
+     isPixelShader = pixel;
++    rawPixelRegisterLodSet = false;
++    rawRegisters = registers;
+     std::vector<be<uint32_t>> code(words.size());
+     for (size_t i = 0; i < words.size(); ++i)
+         code[i].value = byteSwap(words[i]);
+@@ -2422,6 +2494,9 @@
+     // builder. Each vertex fetch instruction gets one generic IA attribute.
+     std::vector<uint32_t> fetches;
+     std::unordered_set<uint32_t> seen;
++    bool hasExplicitLod = false;
++    std::vector<std::pair<uint32_t, bool>> rawInstructionOrder;
++    bool hasConditionalControlFlow = false;
+     size_t boundary = words.size() / 3;
+     for (size_t pair = 0; pair < boundary; ++pair)
+     {
+@@ -2434,6 +2509,10 @@
+             uint32_t opcode = (cf >> 44) & 15;
+             if (opcode == 7 || opcode == 8 || opcode == 9 || opcode == 10)
+                 throw std::runtime_error("raw adapter has no verified loop or call constants");
++            if (opcode == 3 || opcode == 4 || opcode == 5 || opcode == 6 ||
++                opcode == 7 || opcode == 8 || opcode == 9 || opcode == 11 ||
++                opcode == 13 || opcode == 14)
++                hasConditionalControlFlow = true;
+             if (opcode != 1 && opcode != 2 && opcode != 3 && opcode != 4 &&
+                 opcode != 5 && opcode != 6 && opcode != 13 && opcode != 14)
+                 continue;
+@@ -2444,16 +2523,81 @@
+             for (uint32_t offset = 0; offset < count; ++offset)
+             {
+                 uint32_t index = address + offset;
++                rawInstructionOrder.emplace_back(index, ((sequence >> (offset * 2)) & 1) != 0);
+-                if (((sequence >> (offset * 2)) & 1) && seen.insert(index).second &&
+-                    (words[index * 3] & 31) == 0)
+-                {
+-                    if (pixel || fetches.size() == 16)
+-                        throw std::runtime_error("raw vertex input interface exceeds its bound");
+-                    fetches.push_back(index);
+-                }
+-            }
+-        }
+-    }
++                if (((sequence >> (offset * 2)) & 1) && seen.insert(index).second)
++                {
++                    if ((words[index * 3] & 31) == 0)
++                    {
++                        if (pixel || fetches.size() == 16)
++                            throw std::runtime_error("raw vertex input interface exceeds its bound");
++                        fetches.push_back(index);
++                    }
++                    else if (pixel)
++                    {
++                        union
++                        {
++                            TextureFetchInstruction textureFetch;
++                            struct
++                            {
++                                uint32_t code0;
++                                uint32_t code1;
++                                uint32_t code2;
++                            };
++                        } instruction{};
++                        instruction.code0 = words[index * 3];
++                        instruction.code1 = words[index * 3 + 1];
++                        instruction.code2 = words[index * 3 + 2];
++                        if (instruction.textureFetch.opcode == FetchOpcode::SetTextureLod ||
++                            (instruction.textureFetch.opcode == FetchOpcode::TextureFetch &&
++                             instruction.textureFetch.useRegLod))
++                            hasExplicitLod = true;
++                    }
++                }
++            }
++        }
++    }
++    // Only one authored canonical cube chain may use pixel register LOD.
++    // Frozen ALU words are authored and decoded with SDK ucode structures.
++    uint32_t cubeOps = 0, cubeLodFetches = 0;
++    for (size_t ordinal = 0; ordinal < rawInstructionOrder.size(); ++ordinal)
++    {
++        const auto [index, isFetch] = rawInstructionOrder[ordinal];
++        if (!isFetch)
++        {
++            AluInstruction alu{};
++            std::memcpy(&alu, &words[index * 3], sizeof(alu));
++            if (alu.vectorOpcode == AluVectorOpcode::Cube && alu.vectorWriteMask)
++                ++cubeOps;
++            continue;
++        }
++        TextureFetchInstruction fetch{};
++        std::memcpy(&fetch, &words[index * 3], sizeof(fetch));
++        if (!pixel || fetch.opcode != FetchOpcode::TextureFetch || !fetch.useRegLod ||
++            fetch.dimension != TextureDimension::TextureCube)
++            continue;
++        ++cubeLodFetches;
++        constexpr uint32_t canonicalAlu[] = {
++            0xC80F0001, 0x00A6CD00, 0xD2000000,
++            0x4C400100, 0x000000C6, 0x20000081,
++            0xC8030001, 0x0000C66C, 0xCB010100
++        };
++        bool canonical = ordinal >= 3 && fetch.srcRegister == 1 && fetch.srcSwizzle == 0x31 &&
++            rawRegisters && (*rawRegisters)[0x4400] == 0x3FC00000;
++        if (canonical)
++            for (size_t step = 0; step < 3; ++step)
++            {
++                const auto [aluIndex, aluIsFetch] = rawInstructionOrder[ordinal - 3 + step];
++                canonical &= !aluIsFetch &&
++                    std::equal(canonicalAlu + step * 3, canonicalAlu + step * 3 + 3,
++                        words.begin() + aluIndex * 3);
++            }
++        if (!canonical)
++            throw std::runtime_error("unsupported pixel cube register LOD: canonical chain");
++    }
++    if (cubeLodFetches && (cubeLodFetches != 1 || cubeOps != 1))
++        throw std::runtime_error("unsupported pixel cube register LOD: cube operation bound");
++    if (pixel && hasExplicitLod && hasConditionalControlFlow)
++        throw std::runtime_error("unsupported pixel register LOD: conditional control flow");
+     if (!pixel && fetches.empty())
+         throw std::runtime_error("raw vertex shader has no verified inputs");
+     out += include;
+@@ -2505,6 +2649,8 @@
+             println("\tfloat4 r{} = 0.0;", i);
+     }
+     out += "\tint a0 = 0;\n\tint aL = 0;\n\tbool p0 = false;\n\tfloat ps = 0.0;\n";
++    if (pixel)
++        out += "\tfloat registerLod = 0.0;\n";
+     out += "\tCubeMapData cubeMapData = (CubeMapData)0;\n";
+     recompileInstructions(code.data(), uint32_t(words.size() * 4));
+ }
+diff --git a/XenosRecomp/shader_recompiler.h b/XenosRecomp/shader_recompiler.h
+--- a/XenosRecomp/shader_recompiler.h
++++ b/XenosRecomp/shader_recompiler.h
+@@ -26,6 +26,8 @@
+     uint32_t indentation = 0;
+     bool isPixelShader = false;
+     bool rawInput = false;
++    bool rawPixelRegisterLodSet = false;
++    const std::vector<uint32_t>* rawRegisters = nullptr;
+     const uint8_t* constantTableData = nullptr;
+     std::unordered_map<uint32_t, VertexElement> vertexElements;
+     std::unordered_map<uint32_t, std::string> interpolators;
+@@ -64,5 +66,6 @@
+ 
+     void recompile(const uint8_t* shaderData, const std::string_view& include);
+     void recompileInstructions(const be<uint32_t>* code, uint32_t codeBytes);
+-    void recompileRaw(const std::vector<uint32_t>& words, bool pixel, const std::string_view& include);
++    void recompileRaw(const std::vector<uint32_t>& words, bool pixel, const std::string_view& include,
++        const std::vector<uint32_t>* registers = nullptr);
+ };
