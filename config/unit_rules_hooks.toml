@@ -1,0 +1,46 @@
+# Compose Unique Unit base attack and defense before the native accessors apply
+# their built-in unit and civilization modifiers.
+[[midasm_hook]]
+address = 0x82CF225C
+name = "ApplyUniqueUnitBaseAttack"
+registers = ["r28", "r29", "r27"]
+
+[[midasm_hook]]
+address = 0x82CF21D8
+name = "ApplyUniqueUnitBaseDefense"
+registers = ["r29", "r30", "r31"]
+
+# On the ordinary EffectiveUnitMovementLookup return, add movement deltas
+# selected by identity to the completed native result. The special return
+# bypasses this site and remains native.
+[[midasm_hook]]
+address = 0x82CF2198
+name = "ApplyUnitMovementBase"
+registers = ["r30", "r28", "r3"]
+
+# After all native discounts have been composed, apply production cost
+# percentages selected by identity to the shared effective unit cost scalar.
+[[midasm_hook]]
+address = 0x82CF1268
+name = "ApplyUnitProductionCostPercent"
+registers = ["r30", "r29", "r28"]
+
+# When a unit is created, apply Veteran and native special upgrade grants for a
+# matching runtime base type. The native +0x3C gate, UEA 50 route, increment,
+# and saturation follow this site unchanged.
+[[midasm_hook]]
+address = 0x82D15B84
+name = "ApplyUnitEffectCreationGrants"
+registers = ["r26", "r28", "r30"]
+
+# Join Forest combat percentages selected by identity immediately before native
+# CombatResolve modifier calls; codegen preserves each displaced call.
+[[midasm_hook]]
+address = 0x82CDABBC
+name = "ApplyUnitCombatAttackPercent"
+registers = ["r1", "r16"]
+
+[[midasm_hook]]
+address = 0x82CDAC10
+name = "ApplyUnitCombatDefensePercent"
+registers = ["r1", "r17"]
