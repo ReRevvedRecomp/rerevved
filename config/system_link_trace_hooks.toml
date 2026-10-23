@@ -1,0 +1,77 @@
+# Read-only System Link observers, enabled by system_link_trace.
+[[midasm_hook]]
+address = 0x82C9D9DC
+name = "TraceSystemLinkLanUpdate"
+registers = ["r5", "r6"]
+
+[[midasm_hook]]
+address = 0x82C9D9E0
+name = "TraceSystemLinkLanUpdateResult"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82C9F438
+name = "TraceSystemLinkQr2Init"
+registers = ["r5", "r8", "r9"]
+
+[[midasm_hook]]
+address = 0x82C9F43C
+name = "TraceSystemLinkQr2InitResult"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82C9D760
+name = "TraceSystemLinkBrowserCallback"
+registers = ["r4"]
+
+# Observe whether the System Link host admits GT2 connections. Disabled by
+# default.
+[[midasm_hook]]
+address = 0x82E87980
+name = "TraceSystemLinkAdmissionCall"
+registers = ["r6", "r10"]
+
+[[midasm_hook]]
+address = 0x82E87988
+name = "TraceSystemLinkAdmissionResult"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82CA0A04
+name = "TraceSystemLinkAdmissionRole"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82CA0AB0
+name = "TraceSystemLinkAdmissionHostResult"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82CA0AFC
+name = "TraceSystemLinkAdmissionVersion"
+registers = ["r1", "r3"]
+
+[[midasm_hook]]
+address = 0x82CA0AA8
+name = "TraceSystemLinkAdmissionHostCall"
+registers = ["r4", "r10"]
+
+[[midasm_hook]]
+address = 0x82CA6A74
+name = "TraceSystemLinkAdmissionPeers"
+registers = ["r30"]
+
+[[midasm_hook]]
+address = 0x82CA6AD4
+name = "TraceSystemLinkAdmissionSession"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82CA6B1C
+name = "TraceSystemLinkAdmissionAppCall"
+registers = ["r10"]
+
+[[midasm_hook]]
+address = 0x82CA6B24
+name = "TraceSystemLinkAdmissionAppResult"
+registers = ["r3"]
