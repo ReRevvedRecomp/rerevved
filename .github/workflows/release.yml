@@ -1,0 +1,132 @@
+name: Release
+
+# A push to main whose project version has no tag publishes that version. The
+# tag is created here with the workflow token, which does not start workflows,
+# so nothing depends on a tag push event.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Plan Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      publish: ${{ steps.plan.outputs.publish }}
+      tag: ${{ steps.plan.outputs.tag }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Decide whether this version needs a release
+        id: plan
+        shell: bash
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          version="$(sed -nE 's/^project\(rerevved VERSION ([0-9]+\.[0-9]+\.[0-9]+) .*/\1/p' CMakeLists.txt)"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo 'project version not found in CMakeLists.txt' >&2
+            exit 1
+          fi
+          tag="v$version"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if [[ "$REF" != refs/heads/main ]]; then
+            echo "::notice::Releases are published from main only; $REF publishes nothing."
+            echo 'publish=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          existing="$(git ls-remote --tags origin "refs/tags/$tag")"
+          if [[ -n "$existing" ]]; then
+            echo "::notice::$tag already exists; nothing to publish."
+            echo 'publish=false' >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::$tag has no release; publishing it."
+            echo 'publish=true' >> "$GITHUB_OUTPUT"
+          fi
+
+  verify:
+    name: Verify Release Source
+    needs: plan
+    if: needs.plan.outputs.publish == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - name: Install verification tools
+        run: python -m pip install --disable-pip-version-check -r scripts/requirements-dev.txt
+      - name: Install PowerShell checks
+        shell: pwsh
+        run: |
+          $settings = Import-PowerShellDataFile ./scripts/powershell-checks.psd1
+          Install-Module -Name $settings.Module.ModuleName `
+            -RequiredVersion $settings.Module.RequiredVersion `
+            -Repository PSGallery -Scope CurrentUser -Force -ErrorAction Stop
+      - name: Run repository checks
+        shell: pwsh
+        run: .\scripts\verify.ps1
+
+  build:
+    name: Build
+    needs: [plan, verify]
+    if: needs.plan.outputs.publish == 'true'
+    uses: ./.github/workflows/build.yml
+    with:
+      publish_mode: release
+    secrets:
+      ASSETS_TOKEN: ${{ secrets.ASSETS_TOKEN }}
+
+  release:
+    name: Publish Release
+    needs: [plan, verify, build]
+    if: needs.plan.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Download archives
+        uses: actions/download-artifact@v8
+        with:
+          pattern: rerevved-*-x64
+          path: artifacts
+          merge-multiple: true
+
+      # The API refuses an existing tag, so a concurrent publisher cannot move it.
+      - name: Create release tag
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: >-
+          gh api "repos/$GITHUB_REPOSITORY/git/refs"
+          -f "ref=refs/tags/$TAG" -f "sha=$GITHUB_SHA"
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.plan.outputs.tag }}
+          name: ReRevved ${{ needs.plan.outputs.tag }}
+          generate_release_notes: true
+          prerelease: false
+          files: |
+            artifacts/*.zip
+            artifacts/*.tar.gz
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

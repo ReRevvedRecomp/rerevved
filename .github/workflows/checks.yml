@@ -1,0 +1,99 @@
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  repository-checks:
+    name: Repository Checks
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - name: Install verification tools
+        run: python -m pip install --disable-pip-version-check -r scripts/requirements-dev.txt
+      - name: Install PowerShell checks
+        shell: pwsh
+        run: |
+          $settings = Import-PowerShellDataFile ./scripts/powershell-checks.psd1
+          Install-Module -Name $settings.Module.ModuleName `
+            -RequiredVersion $settings.Module.RequiredVersion `
+            -Repository PSGallery -Scope CurrentUser -Force -ErrorAction Stop
+      - name: Run repository checks
+        shell: pwsh
+        run: .\scripts\verify.ps1
+
+  workflow-lint:
+    name: Workflow Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Run actionlint
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          "$(go env GOPATH)/bin/actionlint" -shellcheck= -color
+
+  pin-checks:
+    name: Pin Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Pins must sit on a maintained branch before they land on one; topic
+      # branches only warn.
+      PIN_TARGET: ${{ github.base_ref || github.ref_name }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Check out SDK
+        uses: actions/checkout@v7
+        with:
+          repository: ReRevvedRecomp/rerevved-sdk
+          path: rerevved-sdk-src
+          fetch-depth: 0
+          fetch-tags: true
+      # The SDK version derives from the upstream v* release tags.
+      - name: Fetch upstream SDK release tags
+        working-directory: rerevved-sdk-src
+        run: >-
+          git fetch --force --no-tags
+          https://github.com/rexglue/rexglue-sdk.git
+          'refs/tags/v*:refs/tags/v*'
+      - name: Check out mods
+        uses: actions/checkout@v7
+        with:
+          repository: ReRevvedRecomp/rerevved-mods
+          path: rerevved-mods-src
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - name: Check lock files
+        run: |
+          warn=()
+          if [[ "$PIN_TARGET" != main && "$PIN_TARGET" != develop ]]; then
+            warn=(--warn-only)
+          fi
+          python scripts/check_pins.py --sdk rerevved-sdk-src --mods rerevved-mods-src "${warn[@]}"
