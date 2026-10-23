@@ -1,0 +1,10 @@
+# Developer-only observations bracket scene resource writes.
+[[midasm_hook]]
+address = 0x8230575C
+name = "ObserveSceneRegionLocked"
+registers = ["r1", "r29", "r22", "r31", "r20"]
+
+[[midasm_hook]]
+address = 0x8230589C
+name = "ObserveSceneRegionWritten"
+registers = ["r1", "r29", "r22", "r31", "r20"]
