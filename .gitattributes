@@ -1,0 +1,20 @@
+# Auto-detect text files and normalize to LF in the repository.
+* text=auto eol=lf
+
+# Windows batch scripts require CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary release artwork and media are never diffed as text.
+*.ico binary
+*.png binary
+*.iso binary
+
+# Preserve pinned upstream bytes and unified patch context.
+scripts/native-shader-adapter/pixel-register-lod.patch whitespace=-blank-at-eol
+scripts/native-shader-adapter/raw-interface.patch whitespace=-blank-at-eol
+scripts/native-shader-adapter/fetch-write-mask.patch whitespace=-blank-at-eol
+scripts/native-shader-adapter/exec-clause-gate.patch whitespace=-blank-at-eol
+scripts/native-shader-adapter/register-lod-flow.patch whitespace=-blank-at-eol
+scripts/native-shader-adapter/loop-constants.patch whitespace=-blank-at-eol
+scripts/native-shader-adapter/shader_common.h whitespace=-blank-at-eol

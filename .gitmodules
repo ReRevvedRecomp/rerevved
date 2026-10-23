@@ -1,0 +1,7 @@
+[submodule "thirdparty/plume"]
+	path = thirdparty/plume
+	url = https://github.com/ReRevvedRecomp/plume.git
+	branch = rerevved-patches
+[submodule "thirdparty/catch2"]
+	path = thirdparty/catch2
+	url = https://github.com/catchorg/Catch2.git

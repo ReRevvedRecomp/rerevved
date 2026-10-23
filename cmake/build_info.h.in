@@ -1,0 +1,10 @@
+#pragma once
+
+#include <rex/version.h>
+
+#define REREVVED_GIT_COMMIT "@REREVVED_GIT_COMMIT@"
+#define REREVVED_GIT_DIRTY "@REREVVED_GIT_DIRTY@"
+#define REREVVED_BUILD_INFO                                                          \
+  "build: title=" REREVVED_GIT_COMMIT " title_dirty=" REREVVED_GIT_DIRTY         \
+  " sdk=" REXGLUE_GIT_REVISION " sdk_dirty=" REXGLUE_GIT_DIRTY                   \
+  " platform=" REXGLUE_BUILD_PLATFORM " config=" REXGLUE_BUILD_CONFIG
