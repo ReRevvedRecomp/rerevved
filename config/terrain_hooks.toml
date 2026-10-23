@@ -1,0 +1,145 @@
+# Evidence: https://github.com/ReRevvedRecomp/rerevved-research/blob/main/docs/reference/resource-identity-overrides.md
+# Before native terrain load/remainder matching; all native access gates remain.
+[[midasm_hook]]
+address = 0x82CF15C4
+name = "ApplyResourceIdentityOverride"
+registers = ["r11", "r8", "r7"]
+
+# Keep India's earlier RNG draw, skip only presence and +0xF4 refresh.
+[[midasm_hook]]
+address = 0x82D23324
+name = "SkipBalancedIndiaStartingResource"
+jump_address_on_true = 0x82D23330
+
+# Compose the terrain component's base value before native civilization and
+# tile modifiers continue from the original accessor branch.
+[[midasm_hook]]
+address = 0x82CF18B4
+name = "ApplyTerrainTradeBase"
+registers = ["r9", "r29"]
+
+[[midasm_hook]]
+address = 0x82CF1BAC
+name = "ApplyTerrainProductionBase"
+registers = ["r10", "r31"]
+
+[[midasm_hook]]
+address = 0x82CF1D9C
+name = "ApplyTerrainFoodBase"
+registers = ["r10", "r30"]
+
+# Read-only food inputs and additions in sub_82CF1CE8.
+[[midasm_hook]]
+address = 0x82CF1D78
+name = "TraceTerrainInput"
+registers = ["r10", "r8", "r29"]
+
+[[midasm_hook]]
+address = 0x82CF1D98
+name = "TraceTerrainNative"
+registers = ["r10", "r6", "r29"]
+
+[[midasm_hook]]
+address = 0x82CF1DA0
+name = "TraceTerrainEffective"
+registers = ["r30", "r10", "r29"]
+
+[[midasm_hook]]
+address = 0x82CF1DC0
+name = "TracePlainsBonus"
+registers = ["r30", "r8", "r29"]
+
+[[midasm_hook]]
+address = 0x82CF1DE8
+name = "TraceSeaBonus"
+registers = ["r30", "r8", "r29"]
+
+[[midasm_hook]]
+address = 0x82CF1DEC
+name = "TraceTerrainBonuses"
+registers = ["r30", "r10", "r29"]
+
+[[midasm_hook]]
+address = 0x82CF1E28
+name = "TraceTerrainAbility"
+registers = ["r30", "r3", "r29"]
+
+[[midasm_hook]]
+address = 0x82CF1E2C
+name = "TraceTerrainAbilityResult"
+registers = ["r30", "r3", "r29"]
+
+[[midasm_hook]]
+address = 0x82CF1E38
+name = "TraceAbilityTotal"
+registers = ["r30", "r29"]
+
+[[midasm_hook]]
+address = 0x82CF1EB0
+name = "TraceTileBits"
+registers = ["r30", "r9", "r10", "r29"]
+
+[[midasm_hook]]
+address = 0x82CF1EC8
+name = "TraceTileBonusAbility"
+registers = ["r30", "r3", "r29"]
+
+[[midasm_hook]]
+address = 0x82CF1EF4
+name = "TraceTileBonusPlayerMask"
+registers = ["r30", "r4", "r11", "r29"]
+
+[[midasm_hook]]
+address = 0x82CF1EFC
+name = "TraceTileBonus"
+registers = ["r30", "r29"]
+
+[[midasm_hook]]
+address = 0x82CF1F10
+name = "TraceFoodIdentity"
+registers = ["r30", "r3", "r29"]
+
+[[midasm_hook]]
+address = 0x82CF1F20
+name = "TraceResourceClass"
+registers = ["r30", "r3", "r10", "r29"]
+
+[[midasm_hook]]
+address = 0x82CF1F30
+name = "TraceResourceFoodCall"
+registers = ["r30", "r3", "r4", "r29"]
+
+[[midasm_hook]]
+address = 0x82CF1F34
+name = "TraceResourceFoodResult"
+registers = ["r30", "r3", "r29"]
+
+[[midasm_hook]]
+address = 0x82CF1F54
+name = "TracePlayerModifier"
+registers = ["r30", "r11", "r29"]
+
+[[midasm_hook]]
+address = 0x82CF1F5C
+name = "TracePlayerModifierAdd"
+registers = ["r30", "r11", "r7", "r29"]
+
+[[midasm_hook]]
+address = 0x82CF1F60
+name = "TraceFoodFinal"
+registers = ["r30", "r29"]
+
+[[midasm_hook]]
+address = 0x82D13F2C
+name = "TraceCityWorkTotals"
+registers = ["r1"]
+
+[[midasm_hook]]
+address = 0x82D931B8
+name = "TraceSettlersFood"
+registers = ["r29", "r30", "r3", "r31"]
+
+[[midasm_hook]]
+address = 0x82D931D0
+name = "TraceSettlersFoodCache"
+registers = ["r29", "r30", "r3", "r5", "r31"]

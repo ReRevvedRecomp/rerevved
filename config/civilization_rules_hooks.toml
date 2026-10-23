@@ -1,0 +1,38 @@
+# Replace one unlocked UEA cell only in the shared cumulative lookup. Exact
+# mode branches around this site and remains entirely native.
+[[midasm_hook]]
+address = 0x82CF0D6C
+name = "ApplyUniqueEraAbilityCell"
+registers = ["r4", "r9", "r11"]
+
+# The native Mongolian effect for capturing villages hard-codes civilization 14
+# and bypasses the shared UEA lookup. Re-evaluate its Ancient cell at that exact
+# gate so a replacement uses the native branch for ordinary village rewards.
+[[midasm_hook]]
+address = 0x82D1B758
+name = "ApplyBarbarianVillageCityReplacement"
+registers = ["r10"]
+
+# Retarget the unreachable retail UEA 57 scaffold for granting technology to the
+# one synthetic ability owned by the title. The surrounding native code retains
+# selector 17 eligibility, cumulative lookup, ownership, and TechnologyAcquire
+# behavior.
+[[midasm_hook]]
+address = 0x82D2127C
+name = "BeginHorsebackRidingOwnershipCheck"
+registers = ["r31"]
+
+[[midasm_hook]]
+address = 0x82D21280
+name = "EndHorsebackRidingOwnershipCheck"
+registers = ["r31"]
+
+[[midasm_hook]]
+address = 0x82D212A4
+name = "SelectHorsebackRidingAbility"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82D212C0
+name = "SelectHorsebackRidingTechnology"
+registers = ["r4"]

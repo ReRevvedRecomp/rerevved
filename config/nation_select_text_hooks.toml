@@ -1,0 +1,32 @@
+# Replace the civilization information fields while their selectors remain
+# live in the builder.
+[[midasm_hook]]
+address = 0x82D77F0C
+name = "ApplyLeaderNameNationSelectText"
+registers = ["r3", "r20"]
+
+[[midasm_hook]]
+address = 0x82D77FD0
+name = "ApplyCivilizationNameNationSelectText"
+registers = ["r3", "r20"]
+
+[[midasm_hook]]
+address = 0x82D7807C
+name = "ApplyEraAbilityNationSelectText"
+registers = ["r31", "r20"]
+
+[[midasm_hook]]
+address = 0x82D781AC
+name = "ApplyCivilizationTraitNationSelectText"
+registers = ["r30", "r20"]
+
+[[midasm_hook]]
+address = 0x82D78228
+name = "ApplyUniqueUnitSectionHeadingNationSelectText"
+registers = ["r3"]
+
+# Replace each localized Special Units name before the builder joins names.
+[[midasm_hook]]
+address = 0x82D783B4
+name = "ApplyUniqueUnitNationSelectText"
+registers = ["r3", "r27", "r20"]
