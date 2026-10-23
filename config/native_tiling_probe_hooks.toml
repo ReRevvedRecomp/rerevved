@@ -1,0 +1,93 @@
+# Developer-only native_tiling_quiesce_check observers sample the replay chain
+# without changing guest state.
+
+# Interpreter 0x826ABB90 returns through its epilogue branch at 0x826ABC48.
+[[midasm_hook]]
+address = 0x826ABC48
+name = "ObserveTilingInterpreterExit"
+
+[[midasm_hook]]
+address = 0x826ABD0C
+name = "ObserveTilingListWord"
+registers = ["r5"]
+
+# The callback is W+0x10 (r11, W = r31).
+[[midasm_hook]]
+address = 0x826ABD6C
+name = "ObserveTilingCallback"
+registers = ["r11", "r31"]
+
+[[midasm_hook]]
+address = 0x826AB770
+name = "ObserveTilingHandlerToken"
+registers = ["r10"]
+
+# The handler follows any word it does not dispatch (not exactly 0xC0000000) as a
+# link at 0x826AB960: r31 = r10 + 4. The interpreter never sees these words.
+[[midasm_hook]]
+address = 0x826AB960
+name = "ObserveTilingHandlerLink"
+registers = ["r10"]
+
+# This selected store writes P+8 with P = r31.
+[[midasm_hook]]
+address = 0x826AB120
+name = "ObserveTilingWrite826AB120"
+registers = ["r31"]
+
+[[midasm_hook]]
+address = 0x826AB4C8
+name = "ObserveTilingWrite826AB4C8"
+registers = ["r9"]
+
+[[midasm_hook]]
+address = 0x826AB60C
+name = "ObserveTilingWrite826AB60C"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x826AB6FC
+name = "ObserveTilingWrite826AB6FC"
+registers = ["r8"]
+
+# The worker W = r25 parks on an empty queue.
+[[midasm_hook]]
+address = 0x826ABF20
+name = "ObserveTilingWorkerIdle"
+registers = ["r25"]
+
+# EndTiling 0x826AC218 loads the optional submit's guard (stack+0x50, from
+# 0x8269BAE8) into r6 and tests it at 0x826AC348.
+[[midasm_hook]]
+address = 0x826AC348
+name = "ObserveTilingSubmitGuard"
+registers = ["r6"]
+
+# The publisher 0x8269B900 takes the device in r3 and calls through the sinks
+# G+0x541C and G+0x5B0C when they are set.
+[[midasm_hook]]
+address = 0x8269B900
+name = "ObserveTilingPublisher"
+registers = ["r3"]
+
+# Sample watchdog entry, global-gate return, reset, and pre-trap paths.
+# The device is in r3 at entry and r31 at the later sites.
+[[midasm_hook]]
+address = 0x826A5B48
+name = "ObserveTilingWatchdogEnter"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x826A5B98
+name = "ObserveTilingWatchdogGlobal"
+registers = ["r31"]
+
+[[midasm_hook]]
+address = 0x826A5BC8
+name = "ObserveTilingWatchdogReset"
+registers = ["r31"]
+
+[[midasm_hook]]
+address = 0x826A5BD4
+name = "ObserveTilingWatchdogZero"
+registers = ["r31"]

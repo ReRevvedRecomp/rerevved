@@ -1,0 +1,88 @@
+# Developer-only observers bracket completion stores, including shared branch
+# targets. They never request a jump.
+[[midasm_hook]]
+address = 0x8268D2AC
+name = "CompletionConstructed"
+registers = ["r31", "r30"]
+
+[[midasm_hook]]
+address = 0x8269BE1C
+name = "CompletionDeferredBegin"
+
+[[midasm_hook]]
+address = 0x8269BE20
+name = "CompletionDeferredEnd"
+registers = ["r30", "r26", "r11"]
+
+[[midasm_hook]]
+address = 0x8269BE4C
+name = "CompletionDirectBegin"
+
+[[midasm_hook]]
+address = 0x8269BE50
+name = "CompletionDirectEnd"
+registers = ["r30", "r26", "r11"]
+
+[[midasm_hook]]
+address = 0x826ABB34
+name = "CompletionRetireBegin"
+
+[[midasm_hook]]
+address = 0x826ABB38
+name = "CompletionRetireEnd"
+registers = ["r31", "r11"]
+
+[[midasm_hook]]
+address = 0x826A5BCC
+name = "CompletionWatchdogEnd"
+
+[[midasm_hook]]
+address = 0x8269B450
+name = "CompletionInterrupt"
+registers = ["r3", "r4"]
+
+[[midasm_hook]]
+address = 0x8269B4A4
+name = "CompletionInterruptCallback"
+registers = ["r31", "r30", "r3"]
+
+[[midasm_hook]]
+address = 0x8268CB88
+name = "CompletionOptional347C"
+registers = ["r9", "r4", "f1"]
+
+[[midasm_hook]]
+address = 0x826A3FA0
+name = "CompletionOptional40A0"
+registers = ["r31", "r11", "r3"]
+
+[[midasm_hook]]
+address = 0x826A40B4
+name = "CompletionOptional409C"
+registers = ["r31", "r9", "r3"]
+
+# After mflr r12; retain the caller before the function changes LR.
+[[midasm_hook]]
+address = 0x8269B81C
+name = "CompletionAllocationBegin"
+registers = ["r12", "r3", "r4", "r5"]
+
+[[midasm_hook]]
+address = 0x8269B8EC
+name = "CompletionAllocationEnd"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x826A6AB8
+name = "CompletionManagerBegin"
+registers = ["r3", "r4", "r5", "r6", "lr"]
+
+[[midasm_hook]]
+address = 0x826A6B18
+name = "CompletionManagerTarget"
+registers = ["r31", "r11", "r3", "r5"]
+
+[[midasm_hook]]
+address = 0x826A6B1C
+name = "CompletionManagerEnd"
+registers = ["r3"]

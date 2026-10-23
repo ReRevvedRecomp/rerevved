@@ -1,0 +1,150 @@
+# Native guest progress records for the completion ledger. Each observer only
+# reads guest state; without renderer=native no ledger is published and each
+# returns at once.
+[[midasm_hook]]
+address = 0x826A1D90
+name = "RecordGuestClearTarget"
+registers = ["r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r1", "f1"]
+
+# The exit of the Clear body 0x826A22F8, before the addi that closes its frame.
+[[midasm_hook]]
+address = 0x826A2960
+name = "RecordGuestClearReturn"
+registers = ["r1"]
+
+[[midasm_hook]]
+address = 0x8269E8A0
+name = "RecordGuestResolveWords"
+registers = ["r31", "r1"]
+
+# 0x826A4150 without a flip address: SCRATCH_REG1 = 1 written back to S2+4
+# with a wait for it, then a wait for S2+4 == 0 after the flip callback.
+[[midasm_hook]]
+address = 0x826A419C
+name = "RecordPresentFlipRequest"
+registers = ["r31"]
+
+[[midasm_hook]]
+address = 0x826A42BC
+name = "RecordPresentFlipWait"
+registers = ["r31"]
+
+# 0x8269C8E0 after its drain and before it frees B and S2: no ledger write for
+# an earlier span starts afterwards.
+[[midasm_hook]]
+address = 0x8269C92C
+name = "CloseGuestRingEpochWrites"
+
+# COHER_STATUS_HOST and AVIVO_D1SCL_UPDATE waits are ordering barriers
+# without guest writes. Unmodeled EVENT_WRITE_SHD records keep their spans pending.
+[[midasm_hook]]
+address = 0x82697E28
+name = "RecordCoherBarrier82697E28"
+
+[[midasm_hook]]
+address = 0x82698118
+name = "RecordCoherBarrier82698118"
+
+[[midasm_hook]]
+address = 0x8269BB94
+name = "RecordCoherBarrier8269BB94"
+
+[[midasm_hook]]
+address = 0x8269BC54
+name = "RecordCoherBarrier8269BC54"
+
+[[midasm_hook]]
+address = 0x826A44E0
+name = "RecordDisplayWait826A44E0"
+
+[[midasm_hook]]
+address = 0x826A45C8
+name = "RecordDisplayWait826A45C8"
+
+[[midasm_hook]]
+address = 0x826ACD84
+name = "RecordCoherBarrier826ACD84"
+
+[[midasm_hook]]
+address = 0x826A9CA8
+name = "RecordUnmodeledProgress826A9CA8"
+
+[[midasm_hook]]
+address = 0x826AB268
+name = "RecordUnmodeledProgress826AB268"
+
+# 0x826A9BA0 stores the GPU timestamp into B+0x40..0x5F beside the swap; the
+# ledger writes an increasing nonzero counter there in record order.
+[[midasm_hook]]
+address = 0x826A9BDC
+name = "RecordGpuTimestamp"
+registers = ["r30", "r31"]
+
+# Deferred kicks remain pending until the replay worker submits them.
+# Direct submissions carry EndTiling's side-buffer records.
+[[midasm_hook]]
+address = 0x8269C4E8
+name = "RecordTiledSegment"
+registers = ["r29", "r30"]
+
+[[midasm_hook]]
+address = 0x826AC0A8
+name = "BeginTiledList"
+
+[[midasm_hook]]
+address = 0x8269BDE8
+name = "RecordDeferredKick"
+registers = ["r28", "r27"]
+
+[[midasm_hook]]
+address = 0x8269BE5C
+name = "RecordDirectSubmit"
+registers = ["r28", "r27"]
+
+[[midasm_hook]]
+address = 0x826AB890
+name = "RecordReplaySubmit826AB890"
+registers = ["r11", "r10"]
+
+[[midasm_hook]]
+address = 0x826AB990
+name = "RecordReplaySubmit826AB990"
+registers = ["r10", "r11"]
+
+[[midasm_hook]]
+address = 0x826ABB90
+name = "MarkReplayWorker"
+
+# Suspend/resume changes G+0x2ABE bit 0x2 under G+0x3A60. The 30 ms timeout
+# replays the last swap under that lock. EndDeferredSwap is inert on the flag-clear path.
+
+# Device suspend 0x8268CF60 and resume 0x8268CFF8.
+[[midasm_hook]]
+address = 0x8268CFDC
+name = "RecordDeviceSuspend"
+registers = ["r1"]
+
+[[midasm_hook]]
+address = 0x8268D060
+name = "RecordDeviceResume"
+
+# Device acquire 0x8268CF10 stores the caller's thread id in the owner
+# G+0x2A88 at 0x8268CF38; release 0x8268CF50 clears it at 0x8268CF58.
+# Threads that share the device hand it over between these calls.
+[[midasm_hook]]
+address = 0x8268CF3C
+name = "RecordDeviceAcquire"
+
+[[midasm_hook]]
+address = 0x8268CF58
+name = "RecordDeviceRelease"
+
+[[midasm_hook]]
+address = 0x826ABF7C
+name = "BeginDeferredSwap"
+registers = ["r30"]
+
+[[midasm_hook]]
+address = 0x826ABF94
+name = "EndDeferredSwap"
+registers = ["r30"]
