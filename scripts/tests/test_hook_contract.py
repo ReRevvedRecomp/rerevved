@@ -2551,7 +2551,7 @@ class HookContractTests(unittest.TestCase):
         )
         self.assertIn('{ "", { "combat_speed", "ai_civilizations" } }', settings)
         self.assertIn('{ "ai_civilizations", Audience::kPlayer }', settings)
-        self.assertEqual(settings.count('"ai_civilizations"'), 4)
+        self.assertEqual(settings.count('"ai_civilizations"'), 5)
 
         source = AI_CIV_SOURCE.read_text(encoding="utf-8")
         override = source.split("REX_HOOK_RAW(sub_82D11AD8)", 1)[1]
