@@ -583,7 +583,7 @@ class NativeRendererIntegrationTests(unittest.TestCase):
             overlay,
         )
         self.assertIn(
-            '{ "renderer", "Native is experimental. Applies after restart." }',
+            '{ "renderer", "Native is experimental." }',
             overlay,
         )
 
