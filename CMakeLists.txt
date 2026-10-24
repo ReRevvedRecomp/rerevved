@@ -281,6 +281,8 @@ set(REREVVED_SOURCES
     src/discord_presence_model.h
     src/rush_cost.cpp
     src/rush_cost.h
+    src/gameplay_fixes.h
+    src/gameplay_fixes_hooks.cpp
     src/overlay_settings.cpp
     src/overlay_skin.cpp
     src/retail_ui_art.cpp
