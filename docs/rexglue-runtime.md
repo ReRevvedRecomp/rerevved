@@ -165,7 +165,9 @@ Monitor, Window Size, Render Resolution, Upscaling and Anti-Aliasing require
 a restart.
 
 Civilization Revolution renders a fixed 1280x720 guest image. The
-`resolution_scale` setting scales that image; `window_size` controls the host
+`resolution_scale` setting scales that image. ReRevved defaults it to 0
+(auto), which chooses the scale once at startup from the window or fullscreen
+monitor size and logs a `Display:` line. With a fixed scale, `window_size` controls the host
 window without changing render resolution. Explicit `window_width` and
 `window_height` values in the config file or command line override Window Size.
 ReRevved 0.5 renders with Xenos.

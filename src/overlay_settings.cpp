@@ -158,7 +158,7 @@ void rerevved::App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
                                  { "gotw_standard_rules", "Enable to play Game of the Week without gameplay changes." } };
     layout.choice_labels     = {
         // The guest renders 1280x720; the scale multiplies both axes.
-        { "resolution_scale", { { "1", "1280x720" }, { "2", "2560x1440" }, { "3", "3840x2160" } } },
+        { "resolution_scale", { { "0", "Auto (Match Display)" }, { "1", "1280x720" }, { "2", "2560x1440" }, { "3", "3840x2160" } } },
         { "renderer", { { "xenos", "Xenos" }, { "native", "Native (Experimental)" } } },
         { "window_size", { { "", "Default (1280x720)" }, { "maximized", "Maximized" } } },
         { "ai_civilizations", { { "0", "None (Multiplayer)" }, { "1", "1" }, { "2", "2" }, { "3", "3" }, { "4", "4 (Default)" } } },

@@ -22,9 +22,12 @@ The [runtime contracts](rexglue-runtime.md) document individual option behavior.
 
 ## Display and audio
 
-ReRevved renders with Xenos. **Render Resolution** selects 1280x720,
-2560x1440, or 3840x2160. **Window Size** changes the host window, not the render
-resolution. **Monitor** selects a display. **Fullscreen** fills that monitor
+ReRevved renders with Xenos. **Render Resolution** defaults to **Auto (Match
+Display)**, which renders at the smallest multiple of 1280x720 that covers the
+image height on your window or fullscreen monitor, such as 2560x1440 on a 1440p
+or 3440x1440 display. It can also be fixed at 1280x720, 2560x1440 or
+3840x2160. **Window Size** changes the host window, not the render resolution.
+**Monitor** selects a display. **Fullscreen** fills that monitor
 and applies immediately.
 
 Monitor, Window Size, Render Resolution, Upscaling, and Anti-Aliasing require
