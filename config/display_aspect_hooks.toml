@@ -1,0 +1,67 @@
+# display_aspect or display_aspect_probe enables the ultrawide hooks.
+# Cached wide projections keep the hooks active until restored.
+
+# sub_82303920 after the GFx affine composition: the composed matrix is at
+# r1+0x60 (a), r1+0x64 (b) and r1+0x68 (tx), and r10 is the GFx renderer.
+[[midasm_hook]]
+address = 0x82303920
+name = "CorrectDisplayAspectGfxAffine"
+registers = ["r1", "r10"]
+
+# sub_82302F60 calls sub_826903A0 (set viewport): device r3, record r1+144,
+# renderer r31. Restored next instruction because width and height are re-read.
+[[midasm_hook]]
+address = 0x823032B4
+name = "CompressDisplayAspectGfxViewport"
+registers = ["r1", "r3", "r31"]
+
+[[midasm_hook]]
+address = 0x823032B8
+name = "RestoreDisplayAspectGfxViewportRecord"
+registers = ["r1"]
+
+# sub_8268F9C0 after the viewport intersection and before the rectangle is packed:
+# r1 is the frame (the caller is saved at r1+0x78), r3 is the GFx device state, r4/r5 the left/top and r6/r7 the right/bottom.
+[[midasm_hook]]
+address = 0x8268FA7C
+name = "CorrectDisplayAspectGfxScissor"
+registers = ["r1", "r3", "r4", "r5", "r6", "r7"]
+
+# sub_82302F60 entry (GFx display begin). The route hooks own the raw hook on
+# this function, so the scope opens here instead; r3 is the GFx renderer.
+[[midasm_hook]]
+address = 0x82302F60
+name = "BeginDisplayAspectGfxScope"
+registers = ["r3", "lr"]
+
+# display_aspect_probe traces Scaleform draw and mask entries; r3 is the GFx
+# renderer, and mask enter takes the mask kind in r4.
+[[midasm_hook]]
+address = 0x82303C38
+name = "TraceDisplayAspectGearIndexed"
+registers = ["r3", "lr"]
+
+[[midasm_hook]]
+address = 0x82303EA8
+name = "TraceDisplayAspectGearLine"
+registers = ["r3", "lr"]
+
+[[midasm_hook]]
+address = 0x82303F70
+name = "TraceDisplayAspectGearBitmap"
+registers = ["r3", "lr"]
+
+[[midasm_hook]]
+address = 0x82304288
+name = "TraceDisplayAspectGearMaskEnter"
+registers = ["r3", "r4", "lr"]
+
+[[midasm_hook]]
+address = 0x82304440
+name = "TraceDisplayAspectGearMaskTest"
+registers = ["r3", "lr"]
+
+[[midasm_hook]]
+address = 0x823044C0
+name = "TraceDisplayAspectGearMaskExit"
+registers = ["r3", "lr"]

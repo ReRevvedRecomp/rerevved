@@ -85,7 +85,7 @@ void rerevved::App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
           } },
         { "Display",
           {
-              { "", { "fullscreen", "monitor", "window_size", "resolution_scale", "vsync", "present_effect", "swap_post_effect", "show_fps_counter" } },
+              { "", { "fullscreen", "monitor", "window_size", "display_aspect", "display_aspect_custom", "resolution_scale", "vsync", "present_effect", "swap_post_effect", "show_fps_counter" } },
           } },
         { "Audio", { { "", { "audio_volume", "audio_mute", "audio_play_in_background" } } } },
         { "Developer",
@@ -104,6 +104,8 @@ void rerevved::App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
         { "fullscreen", Audience::kPlayer },
         { "monitor", Audience::kPlayer },
         { "window_size", Audience::kPlayer },
+        { "display_aspect", Audience::kPlayer },
+        { "display_aspect_custom", Audience::kPlayer },
         { "resolution_scale", Audience::kPlayer },
         { "vsync", Audience::kPlayer },
         { "present_effect", Audience::kPlayer },
@@ -154,6 +156,8 @@ void rerevved::App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
     layout.float_decimals    = { { "mnk_sensitivity", 2 } };
     layout.inline_toggles    = { { "gotw_custom_week", "gotw_week", true } };
     layout.tooltips          = { { "renderer", "Native is experimental. Applies after restart." },
+                                 { "display_aspect", "Widens the world for ultrawide displays and keeps the interface centered; movies and menus stay 16:9 with blurred side bars." },
+                                 { "display_aspect_custom", "Used only when Display Aspect is Custom, for example 21:9 or 3440:1440." },
                                  { "gotw_custom_week", "Enable to play a different week's game instead of this week's." },
                                  { "gotw_standard_rules", "Enable to play Game of the Week without gameplay changes." } };
     layout.choice_labels     = {
@@ -161,6 +165,7 @@ void rerevved::App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
         { "resolution_scale", { { "0", "Auto (Match Display)" }, { "1", "1280x720" }, { "2", "2560x1440" }, { "3", "3840x2160" } } },
         { "renderer", { { "xenos", "Xenos" }, { "native", "Native (Experimental)" } } },
         { "window_size", { { "", "Default (1280x720)" }, { "maximized", "Maximized" } } },
+        { "display_aspect", { { "original", "Original (16:9)" }, { "auto", "Match Display" }, { "custom", "Custom" } } },
         { "ai_civilizations", { { "0", "None (Multiplayer)" }, { "1", "1" }, { "2", "2" }, { "3", "3" }, { "4", "4 (Default)" } } },
         { "resources", { { "0", "Normal" }, { "1", "Balanced" }, { "3", "Legendary" } } },
         { "swap_post_effect", { { "none", "Off" }, { "fxaa", "FXAA" }, { "fxaa_extreme", "FXAA (Extreme)" } } },
@@ -174,6 +179,8 @@ void rerevved::App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
         { "swap_post_effect", "Anti-Aliasing" },
         { "show_fps_counter", "FPS Counter" },
         { "window_size", "Window Size" },
+        { "display_aspect", "Display Aspect" },
+        { "display_aspect_custom", "Custom Aspect" },
         { "audio_volume", "Volume" },
         { "audio_mute", "Mute" },
         { "audio_play_in_background", "Play Sound in Background" },

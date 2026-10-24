@@ -30,6 +30,25 @@ or 3440x1440 display. It can also be fixed at 1280x720, 2560x1440 or
 **Monitor** selects a display. **Fullscreen** fills that monitor
 and applies immediately.
 
+**Aspect Ratio** defaults to **16:9**, which
+leaves every frame as the game draws it. **Ultrawide** matches the window or
+monitor shape and widens the world while the interface stays in a centered 16:9
+region. To force a shape, set `display_aspect_custom` in `rerevved.toml`, for
+example `"21:9"` or `"3440:1440"`. The
+guest image remains 1280x720; the extra width comes from an anamorphic
+projection, so Render Resolution is independent of this setting. Movies, menus,
+loading screens and every frame the game cannot be shown to be a world view stay
+16:9, and an aspect of 16:9 or narrower, an invalid `display_aspect_custom` or an
+unknown window size also leaves 16:9. Ultrawide sets `present_letterbox` on
+and both safe areas to 100 so the 16:9 frames keep their shape; explicit values
+that conflict keep 16:9. They also default `present_bar_fill` to `blur`, which
+fills the side bars of 16:9 menus, movies and loading screens with a dimmed,
+blurred copy of the image; set it to `black` for plain bars. A change applies
+from the next frame. Known limits:
+labels, the cursor and picking use the original 16:9 coordinates, and objects in
+the newly exposed width may be culled. Only gameplay world frames whose cameras
+match the accepted set are widened, and a frame with a recent movie stays 16:9.
+
 Monitor, Window Size, Render Resolution, Upscaling, and Anti-Aliasing require
 a restart. Select **Save**, exit, and launch again after changing them.
 Explicit `window_width` and `window_height` values in the config or command
