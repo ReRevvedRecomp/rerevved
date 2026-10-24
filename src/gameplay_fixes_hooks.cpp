@@ -1,10 +1,10 @@
-// Always-on repairs of native selection and admission bugs.
-
 #include "gameplay_fixes.h"
 
 #include <atomic>
 #include <cstdint>
+#include <string>
 
+#include <rex/cvar.h>
 #include <rex/logging.h>
 #include <rex/ppc.h>
 #include <rex/runtime.h>
@@ -33,6 +33,8 @@ constexpr int32_t  kAlphabetTechnology    = 1;
 std::atomic<uint32_t> researchLogged{ 0 };
 std::atomic<uint32_t> researchSuppressed{ 0 };
 std::atomic<int64_t>  researchLastKey{ -1 };
+
+std::atomic<int64_t> dominationLastKey{ -1 };
 
 } // namespace
 
@@ -84,4 +86,31 @@ bool AdmitSpaceshipArrivalYear(PPCRegister& r31)
         admitted ? 1 : 0,
         result > 0 ? 1 : 0);
     return admitted;
+}
+
+// Before cmpwi cr6,r9,10 at 0x82D11264; r9 is the elapsed turn count and is
+// dead after the compare.
+void ApplyDominationMinimumTurns(PPCRegister& r9)
+{
+    const int32_t minimum = rerevved::gameplay_fixes::DominationMinimumTurns(
+        rex::cvar::Query<std::string>("domination_min_turns"), rerevved::gameplay_fixes::ShortenedMinimumAllowed());
+    const int32_t elapsed = r9.s32;
+    r9.s32                = rerevved::gameplay_fixes::RebaseDominationElapsed(elapsed, minimum);
+
+    const int32_t native        = rerevved::gameplay_fixes::kNativeDominationMinimumTurns;
+    const bool    nativeAllowed = elapsed >= native;
+    const bool    allowed       = r9.s32 >= native;
+    if (minimum != native || allowed != nativeAllowed)
+    {
+        const int64_t key = static_cast<int64_t>(elapsed) << 32 | static_cast<uint32_t>(minimum);
+        if (dominationLastKey.exchange(key, std::memory_order_relaxed) != key)
+        {
+            REXLOG_INFO(
+                "GameplayFix: domination elapsed={} minimum={} native_allowed={} allowed={}",
+                elapsed,
+                minimum,
+                nativeAllowed ? 1 : 0,
+                allowed ? 1 : 0);
+        }
+    }
 }

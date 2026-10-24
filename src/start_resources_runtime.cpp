@@ -1,6 +1,7 @@
 #include "start_resources_runtime.h"
 
 #include "ai_civilizations.h"
+#include "gameplay_fixes.h"
 #include "gotw_settings.h"
 #include "occ_settings.h"
 #include "raging_barbarians_settings.h"
@@ -323,6 +324,10 @@ void RunNativeNewGameSetup(PPCContext& context, uint8_t* base)
     const bool     standardRules = gotw::FreezeStandardRules(mode);
     raging_barbarians::FreezeForGame(standardRules);
     occ::FreezeForGame(standardRules);
+    gameplay_fixes::NoteNewGame(standardRules);
+    REXLOG_INFO("GameplayFix: new game domination minimum={}",
+                gameplay_fixes::DominationMinimumTurns(rex::cvar::Query<std::string>("domination_min_turns"),
+                                                       gameplay_fixes::ShortenedMinimumAllowed()));
     SetupScope scope(standardRules);
     if (mode == 2)
     {

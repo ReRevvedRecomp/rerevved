@@ -438,6 +438,11 @@ EXPECTED_HOOKS = [
         "jump_address_on_true": 0x82D2A08C,
     },
     {
+        "address": 0x82D11264,
+        "name": "ApplyDominationMinimumTurns",
+        "registers": ["r9"],
+    },
+    {
         "address": 0x82D17A9C,
         "name": "FixRushCostApply",
         "registers": [

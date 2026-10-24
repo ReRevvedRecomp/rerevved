@@ -3,6 +3,7 @@
 
 #include "ai_civilizations.h"
 
+#include "gameplay_fixes.h"
 #include "gotw_settings.h"
 #include "host_settings.h"
 #include "occ_hooks.h"
@@ -203,5 +204,6 @@ void ResetAiCivilizationsOnLoad()
     removedMask.store(0);
     FreezeRagingBarbariansForGame();
     FreezeOccForGame();
+    rerevved::gameplay_fixes::NoteGameLoad();
     rerevved::save_sidecar::RestoreAfterLoadReset();
 }
