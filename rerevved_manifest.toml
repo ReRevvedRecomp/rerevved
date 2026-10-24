@@ -1,6 +1,6 @@
 [project]
 name = "rerevved"
-sdk_version = "0.11.0"
+sdk_version = "0.12.0"
 game_root = "game"
 
 [entrypoint]
@@ -11,6 +11,7 @@ includes = [
     "config/gameplay_hooks.toml",
     "config/asset_hooks.toml",
     "config/graphics_compat_hooks.toml",
+    "config/display_aspect_hooks.toml",
     "config/unit_rules_hooks.toml",
     "config/civilization_rules_hooks.toml",
     "config/nation_select_text_hooks.toml",
