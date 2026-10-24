@@ -1,13 +1,11 @@
 ---
-name: Feature request
+name: Feature Request
 about: Suggest an improvement for ReRevved
-title: ''
+title: "<Replace this with Feature Summary>"
 labels: enhancement
-assignees: ''
+assignees:
 ---
 
-**Problem or task**
-Describe the task you cannot complete or the limitation you encounter.
+## Describe the feature
 
-**Proposed behavior**
-Describe the result you want and any alternatives you considered.
+<!-- Describe the feature. Include supporting links when relevant. -->
