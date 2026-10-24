@@ -4442,7 +4442,7 @@ class DeveloperBoundaryTests(unittest.TestCase):
             r"constexpr bool DeveloperRecorderActive\(\) noexcept\s*\{\s*return false;",
         )
 
-    def test_presets_and_ci_build_both_configurations(self) -> None:
+    def test_presets_define_developer_configurations(self) -> None:
         presets = json.loads((ROOT / "CMakePresets.json").read_text(encoding="utf-8"))
         configure = {p["name"]: p for p in presets["configurePresets"]}
         for base in ("windows-base", "linux-base"):
@@ -4465,13 +4465,9 @@ class DeveloperBoundaryTests(unittest.TestCase):
         for name in ("win-amd64-developer", "linux-amd64-developer"):
             self.assertIn(name, builds)
             self.assertIn(name, tests)
+        # CI builds and packages only the shipping configuration.
         workflow = (ROOT / ".github/workflows/build.yml").read_text(encoding="ascii")
-        for build_dir in ("win-amd64", "linux-amd64"):
-            release = workflow.index(f"out/build/{build_dir}-release")
-            developer = workflow.index(f"--preset {build_dir}-developer")
-            self.assertLess(release, developer)
-        # Only the shipping build directory is packaged.
-        self.assertNotRegex(workflow, r"package\.py[^\n]*developer")
+        self.assertNotIn("-developer", workflow)
 
 
 class RingAndVideoReplacementBoundaryTests(unittest.TestCase):

@@ -1,9 +1,8 @@
 name: CI
 
+# Builds only for pull requests; release.yml builds main when it publishes.
 on:
   pull_request:
-  push:
-    branches: [main, develop]
   workflow_dispatch:
 
 concurrency:

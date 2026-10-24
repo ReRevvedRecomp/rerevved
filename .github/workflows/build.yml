@@ -271,25 +271,6 @@ jobs:
           if-no-files-found: error
           retention-days: ${{ inputs.publish_mode == 'release' && 1 || 14 }}
 
-      # The developer configuration (REREVVED_DEVELOPER=ON) reuses the generated
-      # sources above, so it configures and builds after the shipping build, never
-      # beside it. Its build directory is never packaged.
-      - name: Build developer configuration
-        shell: pwsh
-        run: |
-          $sdkConfig = Join-Path $env:RUNNER_TEMP `
-            'rerevved-sdk\out\install\win-amd64\lib\cmake\rexglue'
-          cmake --preset win-amd64-developer "-Drexglue_DIR=$sdkConfig"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python scripts/audit_compile_launchers.py out/build/win-amd64-developer
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cmake --build --preset win-amd64-developer --parallel
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Run developer tests
-        shell: pwsh
-        run: ctest --test-dir out/build/win-amd64-developer -C Release -j 2 --output-on-failure
-
       - name: Show sccache statistics
         if: always()
         shell: pwsh
@@ -571,16 +552,3 @@ jobs:
           path: out/rerevved-v*-linux-x64.tar.gz
           if-no-files-found: error
           retention-days: ${{ inputs.publish_mode == 'release' && 1 || 14 }}
-
-      # The developer configuration reuses the generated sources above, so it
-      # builds after the shipping build, never beside it, and is never packaged.
-      - name: Build developer configuration
-        shell: bash
-        run: |
-          sdk_config="$RUNNER_TEMP/rerevved-sdk/out/install/linux-amd64/lib/cmake/rexglue"
-          cmake --preset linux-amd64-developer "-Drexglue_DIR=$sdk_config"
-          python scripts/audit_compile_launchers.py out/build/linux-amd64-developer
-          cmake --build --preset linux-amd64-developer --parallel
-
-      - name: Run developer tests
-        run: ctest --test-dir out/build/linux-amd64-developer -C Release -j 2 --output-on-failure

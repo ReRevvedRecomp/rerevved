@@ -418,7 +418,7 @@ class LocalFastTierContractTests(unittest.TestCase):
 
     def test_ci_runs_ctest_with_an_explicit_configuration_and_two_jobs(self) -> None:
         commands = re.findall(r"run: (ctest .*)", WORKFLOW)
-        self.assertEqual(len(commands), 4)
+        self.assertEqual(len(commands), 2)
         for command in commands:
             with self.subTest(command=command):
                 self.assertRegex(command, r"\s-C Release\b")

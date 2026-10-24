@@ -235,10 +235,11 @@ bounded run establishes.
 ## CI and packaging
 
 The Checks workflow runs on pull requests, pushes to `main` or `develop`, and
-manual dispatch. CI build jobs run for those events but skip pull requests
-from forks. Each platform job builds and tests the player configuration, then
-the developer configuration; only the player build is packaged. The separate
-release workflow publishes from `main`; it is not an acceptance check for pull requests.
+manual dispatch. CI build jobs run only for pull requests and manual dispatch,
+and skip pull requests from forks. Each platform job builds, tests and
+packages the player configuration only; build and test the developer
+configuration locally. The separate release workflow builds and publishes from
+`main`; it is not an acceptance check for pull requests.
 
 See [Releasing](releasing.md) for mod assembly, package contents, publication
 conditions, and the standalone archive acceptance checklist. Linux presets and
