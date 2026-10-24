@@ -953,6 +953,8 @@ bool App::SetupPresentation()
     else
     {
         rex::cvar::SetFlagAsApplicationDefault("render_target_path_d3d12", "rov");
+        // Auto picks the smallest scale that covers the fitted image height.
+        rex::cvar::SetFlagAsApplicationDefault("resolution_scale", "0");
     }
 
 #if REREVVED_DEVELOPER
