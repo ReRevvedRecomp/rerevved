@@ -21,6 +21,8 @@ driver never modifies that checkout.
   transport behavior; [Online play](online-play.md) covers hosting and joining.
 - [Runtime boundary](#runtime-boundary) and
   [presentation](#presentation-contract): renderer ownership and image delivery.
+- [Ultrawide display aspect](#ultrawide-display-aspect): the default-off
+  camera, interface and per-swap aspect hooks and their probe.
 - [Scene capture](#native-scene-resource-capture),
   [shader harvest](#shader-harvest) and [frame reference](#xenos-frame-reference):
   recording formats and diagnostic controls of the developer build.
@@ -178,6 +180,134 @@ and the relay address. The `renderer` cvar is for developers and defaults to
 takes effect after restart.
 Settings outside the curated layout can be set in the config file, on the
 command line or in the console, subject to their persistence policy.
+
+## Ultrawide display aspect
+
+`display_aspect` accepts `original` and `auto`, shown in F1 as **Aspect Ratio**
+choices **16:9** and **Ultrawide**. It defaults to `original`.
+`display_aspect_custom` is config-only and empty by default. It holds a
+`numerator:denominator` that `auto` uses instead of the window shape.
+`display_aspect_probe` defaults to `false`. Starting with `original` and the
+probe off leaves guest memory and the SDK presentation API untouched. After
+widening, hooks remain active while cached projections need restoration.
+The guest buffer stays 1280x720. With Xenos selected, the feature widens eligible
+camera frustums, compresses the Scaleform (GFx) interface into a centered 16:9
+region, and presents the frame at the target aspect. The native renderer is
+unaffected.
+
+Integer cross-products determine whether the requested aspect is wider than
+16:9. With no custom value, `auto` uses the current presentation surface size;
+a minimized or unknown surface selects original. `display_aspect_custom`
+accepts two unsigned decimal integers separated by one colon, with surrounding
+ASCII whitespace trimmed. Zero, overflow and invalid text select original.
+An aspect of 16:9 or narrower also selects original.
+With `k` as 16:9 divided by the target, 21:9 gives
+16/21, 3440:1440 gives 32/43 and 32:9 gives 1/2.
+`present_letterbox` on with both safe areas at 100 is the supported fit; the
+title sets those defaults when the setting is not `original` and keeps 16:9
+frames while explicit values conflict.
+
+### Frame policy
+
+The first of the outer `sub_82C71A00` entry, a GFx begin, a movie scope or the
+guest swap freezes the swap interval's decision. A GFx or movie hook that runs
+first freezes the interval as original (`early_ui`, `movie`); a later camera hook
+does not upgrade it. The decision is wide only when Xenos is selected, the
+request is valid, the presentation transport and fit are available, the state key
+`[[[0x82FFD624]+0x70]+4]` is 2 (5 is attract), and the incoming camera has an
+accepted vtable, frame caller and symmetric 16:9 perspective frustum. Movie
+state is inferred as inactive when no movie hook ran in the current or previous
+interval. An unreadable or non-gameplay state key leaves movie state unknown.
+A movie observed after a wide latch records `late_movie`, keeps the frozen
+decision and inhibits wide frames until `display_aspect` or
+`display_aspect_custom` changes. `ObserveRendererSwapSource` forwards to
+`display_aspect::OnGuestSwap`, which publishes the decision through the SDK
+immediately before the `VdSwap` call and starts the next interval.
+
+### Hooks
+
+| Hook | Contract |
+| --- | --- |
+| `sub_82C71A00` | Frame owner `r3`, incoming camera `r4`. Latches the interval at the outermost entry. |
+| `sub_823528D8`, `sub_823AF9C8` | Renderer-camera and owner-camera joins. The renderer-camera join clears the cached camera match (`+0xB0`) when the required scale differs from the last build. Untracked wide builds also require cache clearing during Original joins. |
+| `sub_8250BA00` | Renderer `r3`, frustum `r8`, viewport `r9`. For an eligible camera, writes the corrected left and right words, calls Original once and restores the saved words. |
+| `sub_82C71880` | Stage range `r4..r5`; labels the census only. |
+| `sub_82C5EC28` | Movie scope; GFx correction is suspended inside it. |
+| `sub_823035D0` | GFx display end. Pops the scope, sets the original viewport back when it was compressed, and reapplies the stored scissor with the correction off when this scope changed it. |
+| `0x82302F60` | `BeginDisplayAspectGfxScope(r3, lr)` opens the GFx scope; the route hooks own its raw hook. Correction requires the accepted interface caller inside the accepted world frame, at the outermost scope and outside a movie. The probe observes every scope, subject to its output limits. |
+| `0x823032B4`, `0x823032B8` | `CompressDisplayAspectGfxViewport(r1, r3, r31)` compresses the viewport record (`r1+144`: x, y, width, height) of the begin function's `sub_826903A0` call about guest `x = 640` for an admitted scope, rounded outward; `RestoreDisplayAspectGfxViewportRecord(r1)` puts the original words back, since the function reads width and height again. Scope end sets the original viewport back through `sub_82690138`. |
+| `0x82303920` | `CorrectDisplayAspectGfxAffine(r1, r10)` rewrites the composed matrix copy on the stack; an admitted scope whose viewport was compressed takes no affine correction. |
+| `0x8268FA7C` | `CorrectDisplayAspectGfxScissor(r1, r3..r7)` corrects the horizontal scissor after the viewport intersection; on a compressed viewport only the stored request is compressed and then clipped to that viewport. |
+| `8234EB00`, `8234CF18`, `8234DF90`, `8234D360`, `82C5DF60`, `8234D890`, `82C49D08` | Probe-only observation; never mutated. |
+
+For a wide frame, `r8 - 0xF0` identifies the camera to correct. Its vtable must
+be accepted (`0x8200AA28`, `0x82123738` or `0x8216A3F8`), and the calling thread
+must be inside the accepted world frame. The six frustum floats and viewport
+must be readable and finite, with a symmetric 16:9 perspective frustum and
+orthographic byte `+0x108` zero. Eligibility does not require the incoming
+camera, renderer `[0x82F8E270]` or a join scope; the join scope controls baseline
+observation. With `l`, `r` as the original words and `m`, `h` as their center
+and half-span, the call sees `m - h/k` and `m + h/k`. Top, bottom, near, far and
+the orthographic byte are unchanged. A nesting guard prevents repeated
+correction. After the call, saved words are restored only if the current words
+still match the correction; a mismatch is counted. CPU projection, picking and
+culling consumers keep the original frustum.
+
+For a viewport at guest pixel `v` of width `w`, the GFx row becomes
+`a' = k*a`, `b' = k*b`, `tx' = k*tx + 2*(1-k)*(640-v-w/2)/w`. The scissor becomes
+`floor(640+k*(left-640))` and `ceil(640+k*(right-640))`, clamped to the output;
+an empty rectangle is unchanged.
+
+### SDK presentation payload
+
+`rex::system::IGraphicsSystem` carries the aspect with the swap rather than as
+a latest value. `SetPresentationAspect(x, y)` (0, 0 clears) is taken by the next
+`VdSwap`, which appends an `ASPX` trailer with the aspect and a sequence that
+counts accepted calls from 1 to the swap command. The GPU thread applies the
+aspect only to new source content, a swap that repeats the previous content keeps
+its aspect, and a swap observer reports sequence, content identity, displayed
+aspect and refresh result. The title compares its own sequence with the report
+and counts a mismatch as `transport=mismatch`. The API uses GPU plugin
+ABI 5 and requires matching runtime, Xenos plugin, installed headers and title
+builds.
+
+### Probe
+
+`display_aspect_probe` observes without enabling correction; with the feature off
+it logs the hypothetical corrected frustum with `applied=0`, using the custom
+aspect when it is wide and 21:9 otherwise. Output is bounded: 64 camera families,
+detail for the first 120 swap intervals and 120 after a policy change or
+anomaly within 2048 frame lines (one in 60 otherwise), at most 4 camera lines and
+64 lines per second, with dropped records counted and never waited on. Camera
+counts are per interval; a missing line is not a zero-hit frame.
+
+```text
+DisplayAspectProbe: start version=1 title=<sha> sdk=<sha> mode=<mode> requested=<x>:<y> family_cap=64 frame_budget=2048
+DisplayAspectCamera: frame=<u64> family=<u32> hook=<hex> cam=<hex> vtable=<hex> owner=<hex> owner_vtable=<hex> return=<hex> frame_return=<hex> stage=<first>:<last>|none ortho=<0|1> viewport=[<x>,<y>,<w>,<h>] original=[<l>,<r>,<t>,<b>] corrected=[<l>,<r>,<t>,<b>] applied=<0|1> restored=<0|1|na> frames_seen=<u64> hits=<u64> reason=<token>
+DisplayAspectFrame: frame=<u64> policy=<wide|original> reason=<token> key=<u32|unknown> movie=<active|inactive|unknown> movie_owner=<hex> movie_handle=<hex> aspect=<x>:<y> k=<float> cam=<hex> camera_hits=<u32> camera_applied=<u32> gfx_hits=<u32> gfx_applied=<u32> scissor_hits=<u32> scissor_applied=<u32> movie_hits=<u32> early_gfx=<u32> late_movie=<u32> sequence=<u64>
+DisplayAspectSwap: frame=<u64> sequence=<u64> source=<hex> content=<u64|unknown> aspect=<x>:<y> repeated=<0|1|unknown> transport=<ok|unsupported|mismatch> refresh=<ok|failed|skipped>
+DisplayAspectProbe: summary frames=<u64> families=<u32> camera_hits=<u64> gfx_hits=<u64> refused=<u64> late_movie=<u64> restore_mismatch=<u64> transport_mismatch=<u64> dropped_records=<u64> family_overflow=<u64>
+```
+
+Addresses are uppercase eight-digit hex and floats carry nine significant
+digits. The camera `viewport` shows the four words at `camera+0x114` as read.
+The `reason` tokens are `disabled`, `native_route`, `invalid_aspect`,
+`narrow_aspect`, `surface_unknown`, `state_unknown`, `frontend`, `attract`,
+`movie`, `movie_unknown`, `unclassified`, `early_ui`, `camera_unknown`,
+`camera_ortho`, `camera_unreadable`, `viewport_invalid`,
+`offscreen_unconfirmed`, `fit_conflict`, `transport_unavailable`, `world`,
+`late_movie` and `late_scene`. A baseline change without a guest setter counts
+as `restore_mismatch`.
+
+### Acceptance boundary
+
+Source and unit tests cover the arithmetic and policy order. The frame policy
+above enables widening using accepted camera identities and movie-hook history.
+Runtime validation still needs to cover movie and loading transitions, culling
+in the extra width, camera-family coverage, GFx scope selection and partial
+viewport clipping, content-generation bumps for resolve-written and scaled
+frontbuffers, resize and fullscreen surface-size updates, Direct3D 12 and
+Vulkan parity, and label, cursor and picking alignment.
 
 ## Combat settings
 

@@ -52,6 +52,7 @@ add_executable(rerevved_tests
     src/building_wonder_effect_rules.cpp
     src/discord_invites_model.cpp
     src/discord_presence_model.cpp
+    src/display_aspect.cpp
     src/city_founding_unit_rules.cpp
     src/gotw_hooks.cpp
     src/gotw_settings.cpp
@@ -89,6 +90,7 @@ add_executable(rerevved_tests
     tests/building_wonder_effect_rules_test.cpp
     tests/discord_invites_model_test.cpp
     tests/discord_presence_model_test.cpp
+    tests/display_aspect_test.cpp
     tests/city_founding_unit_rules_test.cpp
     tests/gotw_settings_test.cpp
     tests/great_general_attachment_test.cpp

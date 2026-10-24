@@ -121,6 +121,10 @@ set(REREVVED_SOURCES
     src/great_general_attachment.h
     src/gameplay_state.cpp
     src/gameplay_state.h
+    src/display_aspect.cpp
+    src/display_aspect.h
+    src/display_aspect_hooks.cpp
+    src/display_aspect_hooks.h
     src/gpu/guest_gpu_service.cpp
     src/gpu/guest_gpu_service.h
     src/gpu/completion/completion_ledger.cpp
