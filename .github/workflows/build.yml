@@ -114,10 +114,13 @@ jobs:
         shell: pwsh
         run: |
           $sdkRoot = Join-Path $env:RUNNER_TEMP 'rerevved-sdk'
-          git clone --branch main --single-branch `
-            https://github.com/ReRevvedRecomp/rerevved-sdk $sdkRoot
-          if ($LASTEXITCODE -ne 0) { throw 'SDK clone failed' }
-          git -C $sdkRoot checkout --detach '${{ steps.sdk-lock.outputs.commit }}'
+          # Fetch the pinned commit itself, so a pin need not be on SDK main.
+          git init --quiet $sdkRoot
+          if ($LASTEXITCODE -ne 0) { throw 'SDK init failed' }
+          git -C $sdkRoot fetch --quiet --tags `
+            https://github.com/ReRevvedRecomp/rerevved-sdk '${{ steps.sdk-lock.outputs.commit }}'
+          if ($LASTEXITCODE -ne 0) { throw 'SDK fetch failed' }
+          git -C $sdkRoot checkout --quiet --detach FETCH_HEAD
           if ($LASTEXITCODE -ne 0) { throw 'SDK checkout failed' }
           git -C $sdkRoot submodule update --init --recursive --depth 1
           if ($LASTEXITCODE -ne 0) { throw 'SDK submodule init failed' }
@@ -380,9 +383,11 @@ jobs:
         shell: bash
         run: |
           sdk_root="$RUNNER_TEMP/rerevved-sdk"
-          git clone --branch main --single-branch \
-            https://github.com/ReRevvedRecomp/rerevved-sdk "$sdk_root"
-          git -C "$sdk_root" checkout --detach '${{ steps.sdk-lock-linux.outputs.commit }}'
+          # Fetch the pinned commit itself, so a pin need not be on SDK main.
+          git init --quiet "$sdk_root"
+          git -C "$sdk_root" fetch --quiet --tags \
+            https://github.com/ReRevvedRecomp/rerevved-sdk '${{ steps.sdk-lock-linux.outputs.commit }}'
+          git -C "$sdk_root" checkout --quiet --detach FETCH_HEAD
           git -C "$sdk_root" submodule update --init --recursive --depth 1
 
       - name: Fetch upstream SDK release tags
