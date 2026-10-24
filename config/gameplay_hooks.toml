@@ -39,3 +39,27 @@ registers = ["r31", "r15"]
 address = 0x82CDFCC4
 name = "FixGreatGeneralPostCombat"
 registers = ["r31", "r26"]
+
+# The research loop scores ordinals 0..N-1; ordinal N holds the -1 sentinel.
+# The loop base moves from ordinal 1 to 0 and the trip count stays N.
+# See rerevved-research manifests/science-completion.json and manifests/technology-prompt-callers.json.
+[[midasm_hook]]
+address = 0x82CED34C
+name = "FixAiResearchScanStart"
+registers = ["r10", "r11", "r18", "r26"]
+
+# Admit every signed arrival year except -1, so BC and year-zero arrivals launch.
+# Jumps past the native cmpwi/ble pair to the admitted arm at 0x82D2A08C; -1 still skips.
+# See rerevved-research manifests/spaceship-launch-arrival-year-boundary.json.
+[[midasm_hook]]
+address = 0x82D2A084
+name = "AdmitSpaceshipArrivalYear"
+registers = ["r31"]
+jump_address_on_true = 0x82D2A08C
+
+# Domination palace-count arm: rebase the elapsed turns for the native compare
+# against 10 so domination_min_turns sets the minimum.
+[[midasm_hook]]
+address = 0x82D11264
+name = "ApplyDominationMinimumTurns"
+registers = ["r9"]

@@ -7,7 +7,8 @@ Close ReRevved before editing the file directly.
 ## Settings
 
 - **Gameplay**: combat speed, AI civilizations, resources, Raging Barbarians,
-  One City Challenge, Game of the Week, and the Support section.
+  One City Challenge, Earliest Domination, Game of the Week, and the Support
+  section.
 - **Notifications**: research prompts, advisor pop-ups, and Barbarian messages.
   **Disable Save Reminder** suppresses a prompt; it does not save the game.
 - **Online**: connection status, player name, relay invite, and Discord options.
@@ -20,12 +21,44 @@ Close ReRevved before editing the file directly.
 Gameplay options that initialize a new game do not rewrite an existing save.
 The [runtime contracts](rexglue-runtime.md) document individual option behavior.
 
+**Earliest Domination** sets how many turns must pass before a Domination
+victory can be declared: 10 turns (3000 BC, the default), 5 turns (3500 BC) or
+1 turn (3900 BC). It applies to games started in the current launch. Loaded
+saves and Game of the Week with Standard Rules keep the default.
+
 ## Display and audio
 
-ReRevved renders with Xenos. **Render Resolution** selects 1280x720,
-2560x1440, or 3840x2160. **Window Size** changes the host window, not the render
-resolution. **Monitor** selects a display. **Fullscreen** fills that monitor
+ReRevved renders with Xenos. **Render Resolution** defaults to **Auto (Match
+Display)**, which chooses the render resolution at startup to cover the image
+height in your window or fullscreen monitor. It uses multiples of 1280x720,
+for example 2560x1440 on a 1440p or 3440x1440 display. You can also choose
+1280x720, 2560x1440 or 3840x2160. **Window Size** sets the window dimensions
+used by Auto at startup.
+**Monitor** selects a display. **Fullscreen** fills that monitor
 and applies immediately.
+
+**Aspect Ratio** defaults to **16:9**. **Ultrawide** widens supported gameplay
+views to match the window or monitor shape and keeps the interface centered
+in a 16:9 region. The game's base resolution remains 1280x720.
+**Render Resolution** controls the rendered detail.
+
+With **Ultrawide** selected, you can set `display_aspect_custom` in
+`rerevved.toml` to a fixed shape, such as `"21:9"` or `"3440:1440"`. This
+option is config-only. An invalid value or a shape no wider than 16:9 keeps
+16:9. With no custom value, an unknown window size also keeps 16:9.
+
+Ultrawide defaults `present_letterbox` to on and both safe areas to 100 to
+preserve the shape of 16:9 frames. Conflicting explicit values keep gameplay
+at 16:9. It also defaults `present_bar_fill` to `blur`, filling the bars around
+16:9 menus, movies and loading screens with a dimmed, blurred copy of the
+image. Set it to `black` for plain bars. Aspect Ratio changes apply at the
+next frame boundary.
+
+Labels, the cursor and picking still use the original 16:9 coordinates, and
+objects in the extra width may be hidden by the game's visibility checks.
+Only recognized gameplay views widen. A movie detected after a wide frame
+begins can keep subsequent frames at 16:9 until Aspect Ratio or the custom
+value changes.
 
 Monitor, Window Size, Render Resolution, Upscaling, and Anti-Aliasing require
 a restart. Select **Save**, exit, and launch again after changing them.

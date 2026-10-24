@@ -51,6 +51,7 @@ HOOK_SOURCES = [
     ROOT / "src" / "wonder_effect_rules_hooks.cpp",
     ROOT / "src" / "main_menu_logo_hooks.cpp",
     ROOT / "src" / "system_link_trace_hooks.cpp",
+    ROOT / "src" / "gameplay_fixes_hooks.cpp",
 ]
 GENERAL_SOURCE = ROOT / "src" / "great_general_attachment.cpp"
 NATION_SELECT_TEXT_SOURCE = ROOT / "src" / "nation_select_text_hooks.cpp"
@@ -424,6 +425,22 @@ EXPECTED_HOOKS = [
         "address": 0x82CE2938,
         "name": "FixRushCostDisplay",
         "registers": ["r27", "r30", "r31", "r6", "r7", "r11"],
+    },
+    {
+        "address": 0x82CED34C,
+        "name": "FixAiResearchScanStart",
+        "registers": ["r10", "r11", "r18", "r26"],
+    },
+    {
+        "address": 0x82D2A084,
+        "name": "AdmitSpaceshipArrivalYear",
+        "registers": ["r31"],
+        "jump_address_on_true": 0x82D2A08C,
+    },
+    {
+        "address": 0x82D11264,
+        "name": "ApplyDominationMinimumTurns",
+        "registers": ["r9"],
     },
     {
         "address": 0x82D17A9C,
@@ -1312,6 +1329,10 @@ class HookContractTests(unittest.TestCase):
         source = "\n".join(path.read_text(encoding="utf-8") for path in HOOK_SOURCES)
         source_names = set(
             re.findall(r"^void ([A-Z]\w*)[ \t]*\(", source, re.MULTILINE)
+        )
+        # Hooks with jump_address_on_true return bool and take guest registers.
+        source_names.update(
+            re.findall(r"^bool ([A-Z]\w*)[ \t]*\(PPCRegister", source, re.MULTILINE)
         )
         draw_hook_source = (ROOT / "src/gpu/guest_d3d/draw_hooks.cpp").read_text(
             encoding="utf-8"
@@ -2530,7 +2551,7 @@ class HookContractTests(unittest.TestCase):
         )
         self.assertIn('{ "", { "combat_speed", "ai_civilizations" } }', settings)
         self.assertIn('{ "ai_civilizations", Audience::kPlayer }', settings)
-        self.assertEqual(settings.count('"ai_civilizations"'), 4)
+        self.assertEqual(settings.count('"ai_civilizations"'), 5)
 
         source = AI_CIV_SOURCE.read_text(encoding="utf-8")
         override = source.split("REX_HOOK_RAW(sub_82D11AD8)", 1)[1]

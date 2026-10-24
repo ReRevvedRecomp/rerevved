@@ -44,6 +44,7 @@
 
 #include "build_info.h"
 #include "discord_presence.h"
+#include "display_aspect.h"
 #include "game_content.h"
 #include "gpu/d3d12/native_renderer_d3d12.h"
 #include "gpu/guest_d3d/clear_consume.h"
@@ -953,6 +954,9 @@ bool App::SetupPresentation()
     else
     {
         rex::cvar::SetFlagAsApplicationDefault("render_target_path_d3d12", "rov");
+        // Auto picks the smallest scale that covers the fitted image height.
+        rex::cvar::SetFlagAsApplicationDefault("resolution_scale", "0");
+        rerevved::display_aspect::Initialize(REREVVED_GIT_COMMIT " " REREVVED_GIT_DIRTY, REXGLUE_GIT_REVISION " " REXGLUE_GIT_DIRTY);
     }
 
 #if REREVVED_DEVELOPER
@@ -1082,6 +1086,7 @@ void App::OnGuestThreadExit(rex::system::XThread* thread)
 {
     (void)thread;
     rerevved::xenos_frames::Finalize();
+    rerevved::display_aspect::Shutdown();
 }
 
 void App::OnShutdown()
@@ -1158,6 +1163,7 @@ void App::OnShutdown()
     if (!guestVideoStopped)
         hardExitAfterMissedVblankJoin();
     rerevved::xenos_frames::Finalize();
+    rerevved::display_aspect::Shutdown();
     gameplayUiAlive->store(false);
     SetGuestFrameStats({});
 #if REREVVED_DEVELOPER
@@ -1217,6 +1223,7 @@ bool App::OnWindowCloseRequested()
     }
 #endif
     rerevved::xenos_frames::Finalize();
+    rerevved::display_aspect::Shutdown();
     gameplayUiAlive->store(false);
     SetGuestFrameStats({});
 #if REREVVED_DEVELOPER

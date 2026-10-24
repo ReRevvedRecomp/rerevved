@@ -38,7 +38,7 @@ std::string titleCase(std::string_view text)
             for (size_t i = start; i < end; ++i)
             {
                 unsigned char c = static_cast<unsigned char>(result[i]);
-                if (next && std::isalpha(c))
+                if (next && std::isalpha(c) && (i == start || !std::isdigit(static_cast<unsigned char>(result[i - 1]))))
                 {
                     result[i] = static_cast<char>(std::toupper(c));
                     next      = false;
@@ -63,6 +63,7 @@ void rerevved::App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
               { "", { "resources" } },
               { "", { "raging_barbarians" } },
               { "", { "one_city_challenge" } },
+              { "", { "domination_min_turns" } },
               { "Game of the Week", { "gotw_custom_week", "gotw_week", "gotw_standard_rules" } },
               { "Support", { "open_log_folder" } },
           } },
@@ -85,7 +86,7 @@ void rerevved::App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
           } },
         { "Display",
           {
-              { "", { "fullscreen", "monitor", "window_size", "resolution_scale", "vsync", "present_effect", "swap_post_effect", "show_fps_counter" } },
+              { "", { "fullscreen", "monitor", "window_size", "display_aspect", "resolution_scale", "vsync", "present_effect", "swap_post_effect", "show_fps_counter" } },
           } },
         { "Audio", { { "", { "audio_volume", "audio_mute", "audio_play_in_background" } } } },
         { "Developer",
@@ -104,6 +105,7 @@ void rerevved::App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
         { "fullscreen", Audience::kPlayer },
         { "monitor", Audience::kPlayer },
         { "window_size", Audience::kPlayer },
+        { "display_aspect", Audience::kPlayer },
         { "resolution_scale", Audience::kPlayer },
         { "vsync", Audience::kPlayer },
         { "present_effect", Audience::kPlayer },
@@ -123,6 +125,7 @@ void rerevved::App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
         { "resources", Audience::kPlayer },
         { "raging_barbarians", Audience::kPlayer },
         { "one_city_challenge", Audience::kPlayer },
+        { "domination_min_turns", Audience::kPlayer },
         { "gotw_custom_week", Audience::kPlayer },
         { "gotw_week", Audience::kPlayer },
         { "gotw_standard_rules", Audience::kPlayer },
@@ -153,15 +156,78 @@ void rerevved::App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
     layout.show_descriptions = false;
     layout.float_decimals    = { { "mnk_sensitivity", 2 } };
     layout.inline_toggles    = { { "gotw_custom_week", "gotw_week", true } };
-    layout.tooltips          = { { "renderer", "Native is experimental. Applies after restart." },
-                                 { "gotw_custom_week", "Enable to play a different week's game instead of this week's." },
-                                 { "gotw_standard_rules", "Enable to play Game of the Week without gameplay changes." } };
-    layout.choice_labels     = {
+    // Restart and startup-only notices are appended by the SDK.
+    layout.tooltips = {
+        // Gameplay.
+        { "combat_speed", "Choose how quickly battle animations play." },
+        { "ai_civilizations", "Limit computer opponents in new games. Single-player always keeps at least one." },
+        { "resources", "Choose how resources are placed around each starting location in new games." },
+        { "raging_barbarians", "Enable for more Barbarian units that leave their camps sooner." },
+        { "one_city_challenge", "Enable to block Settler production. Settler rewards become population." },
+        { "domination_min_turns", "Set the minimum turns before a Domination victory in new games. Loaded saves and Game of the Week Standard Rules keep 10." },
+        { "gotw_custom_week", "Enable to play a different week's game instead of this week's." },
+        { "gotw_standard_rules", "Enable to play Game of the Week without gameplay changes." },
+        { "open_log_folder", "Open the folder containing this session's log file." },
+        // Notifications.
+        { "hide_research_prompt", "Enable to choose research yourself instead of receiving automatic prompts." },
+        { "hide_popup_rival_war_peace", "Enable to skip notices when other civilizations declare war or make peace." },
+        { "hide_popup_rival_government", "Enable to skip notices when other civilizations change government." },
+        { "hide_popup_city_captures", "Enable to skip notices when cities are taken or recaptured." },
+        { "hide_popup_victory_warnings", "Enable to skip warnings about rivals nearing victory." },
+        { "hide_popup_rival_great_people", "Enable to skip notices about rival Great People and Wonders." },
+        { "hide_popup_rankings", "Enable to skip rankings, greatest city notices and culture flips." },
+        { "hide_popup_artifacts", "Enable to skip artifact rumors and ancient site discoveries." },
+        { "hide_popup_combat_reports", "Enable to skip notices about Great Generals, captures and promotions." },
+        { "hide_popup_spy_reports", "Enable to skip notices about stolen gold and kidnapped Great People." },
+        { "hide_popup_city_status", "Enable to skip notices about disorder, celebrations, culture and blockades." },
+        { "hide_popup_discoveries", "Enable to skip notices about technologies, eras, milestones, trade and roads." },
+        { "hide_popup_villages", "Enable to skip advisor notices after entering villages." },
+        { "hide_popup_save_reminder", "Enable to dismiss save reminders without saving your game." },
+        { "hide_popup_trophy_room", "Enable to dismiss invitations to visit the Trophy Room." },
+        { "hide_popup_government_available", "Enable to keep your current government when another becomes available." },
+        { "hide_barbarian_messages", "Enable to skip the Barbarian leader's greeting when you first meet a tribe." },
+        { "hide_village_barbarian_messages", "Enable to skip Barbarian reward messages while still receiving the reward." },
+        // Online.
+        { "system_link_status", "Your current connection to the local network or relay." },
+        { "system_link_profile_name", "The name other players see." },
+        { "system_link_invite", "Paste your host's invite code to join their relay room." },
+        { "system_link_lan_enabled", "Enable to play over your local network without a relay invite." },
+        { "system_link_direct", "Enable to connect directly to relay players when possible." },
+        { "live_sessions", "Enable to host and find Player Match games in your relay room." },
+        { "discord_activity", "Enable to show what you're doing in ReRevved on Discord." },
+        { "discord_invites", "Enable to let Discord friends join your hosted Player Match." },
+        // Controls.
+        { "input_gamepad_in_background", "Enable to keep using your controller while another window is active." },
+        { "input_vibration", "Enable controller rumble." },
+        { "mnk_mode", "Enable to play with keyboard and mouse." },
+        { "mnk_mouse", "Enable to move the right stick with your mouse." },
+        { "mnk_sensitivity", "How strongly mouse movement moves the right stick." },
+        // Display.
+        { "fullscreen", "Enable to fill your selected monitor with the game." },
+        { "monitor", "Choose which monitor the game opens on." },
+        { "window_size", "Choose the window size outside fullscreen." },
+        { "display_aspect", "Ultrawide shows more of the world on wide screens and keeps the interface centered." },
+        { "resolution_scale", "Choose how much detail the game renders; Auto matches your display." },
+        { "vsync", "Enable to keep the game at its normal frame pacing." },
+        { "present_effect", "Choose how the image is scaled and sharpened for your display." },
+        { "swap_post_effect", "Choose how jagged edges are smoothed." },
+        { "show_fps_counter", "Enable to show frames per second in the corner." },
+        // Audio.
+        { "audio_volume", "Adjust how loudly the game plays." },
+        { "audio_mute", "Enable to silence all game audio." },
+        { "audio_play_in_background", "Enable to keep hearing the game while another window is active." },
+        // Developer.
+        { "renderer", "Native is experimental." },
+        { "system_link_relay_address", "Your relay server's address and port." },
+    };
+    layout.choice_labels = {
         // The guest renders 1280x720; the scale multiplies both axes.
-        { "resolution_scale", { { "1", "1280x720" }, { "2", "2560x1440" }, { "3", "3840x2160" } } },
+        { "resolution_scale", { { "0", "Auto (Match Display)" }, { "1", "1280x720" }, { "2", "2560x1440" }, { "3", "3840x2160" } } },
         { "renderer", { { "xenos", "Xenos" }, { "native", "Native (Experimental)" } } },
         { "window_size", { { "", "Default (1280x720)" }, { "maximized", "Maximized" } } },
+        { "display_aspect", { { "original", "16:9" }, { "auto", "Ultrawide" } } },
         { "ai_civilizations", { { "0", "None (Multiplayer)" }, { "1", "1" }, { "2", "2" }, { "3", "3" }, { "4", "4 (Default)" } } },
+        { "domination_min_turns", { { "10", "10 Turns (3000 BC, Default)" }, { "5", "5 Turns (3500 BC)" }, { "1", "1 Turn (3900 BC)" } } },
         { "resources", { { "0", "Normal" }, { "1", "Balanced" }, { "3", "Legendary" } } },
         { "swap_post_effect", { { "none", "Off" }, { "fxaa", "FXAA" }, { "fxaa_extreme", "FXAA (Extreme)" } } },
         { "present_effect", { { "cas", "CAS" }, { "fsr", "FSR" }, { "fsr2", "FSR 2" }, { "fsr3", "FSR 3" } } },
@@ -174,6 +240,7 @@ void rerevved::App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
         { "swap_post_effect", "Anti-Aliasing" },
         { "show_fps_counter", "FPS Counter" },
         { "window_size", "Window Size" },
+        { "display_aspect", "Aspect Ratio" },
         { "audio_volume", "Volume" },
         { "audio_mute", "Mute" },
         { "audio_play_in_background", "Play Sound in Background" },
@@ -203,6 +270,7 @@ void rerevved::App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
         { "resources", "Resources" },
         { "raging_barbarians", "Raging Barbarians" },
         { "one_city_challenge", "One City Challenge" },
+        { "domination_min_turns", "Earliest Domination" },
         { "gotw_custom_week", "Week" },
         { "gotw_week", "Week" },
         { "gotw_standard_rules", "Standard Rules" },

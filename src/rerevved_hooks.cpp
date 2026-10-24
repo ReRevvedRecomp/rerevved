@@ -13,6 +13,7 @@
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
 
+#include "display_aspect_hooks.h"
 #include "gameplay_state.h"
 #include "gpu/completion/guest_progress_hooks.h"
 #include "gpu/diagnostics/native_renderer_guest_state.h"
@@ -879,6 +880,8 @@ void ObserveRendererSwapSource(PPCRegister&, PPCRegister&, PPCRegister&, PPCRegi
                                     : rerevved::xenos_frames::kUnknownInterval;
         rerevved::xenos_frames::RecordAttempt();
     }
+    // Publishes the frozen frame policy ahead of the VdSwap that follows.
+    rerevved::display_aspect::OnGuestSwap();
 #if REREVVED_DEVELOPER
     rerevved::gpu::diagnostics::NotifyXenosFrameReferenceBoundary();
 #endif
