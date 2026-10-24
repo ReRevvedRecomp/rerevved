@@ -4,6 +4,7 @@
 // kept free of guest memory so it can be tested on the host.
 
 #include <cstdint>
+#include <string_view>
 
 namespace rerevved::gameplay_fixes
 {
@@ -29,5 +30,23 @@ constexpr bool AdmitsSpaceshipArrivalYear(int32_t dialogResult) noexcept
 {
     return dialogResult != -1;
 }
+
+// Domination needs currentTurn - startTurn >= 10 in the native palace-count arm.
+constexpr int32_t kNativeDominationMinimumTurns = 10;
+
+// Accepts the offered choices "10", "5" and "1".
+bool ParseDominationMinimumTurns(std::string_view text, int32_t& turns) noexcept;
+
+// Applies only to a game started in this process and not a Game of the Week with
+// Standard Rules; loaded saves keep the native minimum as they do not record it.
+void NoteNewGame(bool standardRules) noexcept;
+void NoteGameLoad() noexcept;
+bool ShortenedMinimumAllowed() noexcept;
+
+int32_t DominationMinimumTurns(std::string_view setting, bool shortenedAllowed) noexcept;
+
+// Rebase the elapsed turns so the native compare against 10 tests the chosen
+// minimum. The native value is unchanged at 10.
+int32_t RebaseDominationElapsed(int32_t elapsed, int32_t minimumTurns) noexcept;
 
 } // namespace rerevved::gameplay_fixes

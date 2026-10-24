@@ -57,6 +57,7 @@ add_executable(rerevved_tests
     src/gotw_hooks.cpp
     src/gotw_settings.cpp
     src/great_general_attachment.cpp
+    src/gameplay_fixes.cpp
     src/host_settings.cpp
     src/main_menu_logo_asset.cpp
     src/nation_select_text.cpp

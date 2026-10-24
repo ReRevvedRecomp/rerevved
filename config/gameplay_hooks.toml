@@ -56,3 +56,10 @@ address = 0x82D2A084
 name = "AdmitSpaceshipArrivalYear"
 registers = ["r31"]
 jump_address_on_true = 0x82D2A08C
+
+# Domination palace-count arm: rebase the elapsed turns for the native compare
+# against 10 so domination_min_turns sets the minimum.
+[[midasm_hook]]
+address = 0x82D11264
+name = "ApplyDominationMinimumTurns"
+registers = ["r9"]

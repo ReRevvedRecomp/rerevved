@@ -754,28 +754,52 @@ locations in [gotw_hooks.toml](../config/gotw_hooks.toml).
 
 ## Gameplay fixes
 
-Two always-on midasm hooks in `config/gameplay_hooks.toml` repair native
-behavior; `src/gameplay_fixes.h` holds their arithmetic. Static evidence is in
-rerevved-research manifests `science-completion.json`,
+Three midasm hooks in `config/gameplay_hooks.toml` repair native behavior.
+Two always apply; the third is controlled by a setting. `src/gameplay_fixes.h`
+holds their arithmetic. Static evidence is in rerevved-research manifests `science-completion.json`,
 `technology-prompt-callers.json` and `spaceship-launch-arrival-year-boundary.json`.
 
 - **AI research choice.** The computer-player branch of the technology prompt
   `sub_82CECCD8` lists the eligible technologies ascending at ordinals
-  `0..N-1`, stores -1 at ordinal `N` and retains `N+1`. Its scoring loop ran
-  `N` iterations from ordinal 1, so it skipped the first eligible technology
-  and scored the sentinel. The hook at `0x82CED34C` sets the loop base to
-  ordinal 0; the trip count and the no-candidate branch are unchanged.
+  `0..N-1`, stores -1 at ordinal `N` and retains `N+1`. The native loop's
+  `N` iterations from ordinal 1 skip the first eligible technology and score
+  the sentinel. The hook at `0x82CED34C` starts at ordinal 0 to score every
+  candidate and exclude the sentinel. The trip count and no-candidate branch
+  are unchanged.
 - **Technology victory in BC.** The launch dialog result in `sub_82D259E8` is
   a signed arrival year, or -1 when cancelled. The native check at `0x82D2A084`
-  admitted only results above zero, which rejected BC and year-zero arrivals.
+  accepts only results above zero, rejecting BC and year-zero arrivals.
   The hook at `0x82D2A084` admits every result except -1 and leaves the
   payload and every other gate unchanged.
+- **Domination minimum turns.** See below.
 
 Each hook logs at INFO with the prefix `GameplayFix:` so a play session shows
 that it ran: `research scan base=<hex> count=<N> first=<tech> alphabet=<0|1>`
 (on a change of count or first technology; the first 64 lines, then
 `research scan suppressed=<n>` every 256th suppressed change),
-and `spaceship launch year=<signed> admitted=<0|1> old=<0|1>` (every call).
+`spaceship launch year=<signed> admitted=<0|1> old=<0|1>` (every call), and
+`domination elapsed=<turns> minimum=<n> native_allowed=<0|1> allowed=<0|1>`
+(only when the minimum is not 10 or the decision differs from native, once per
+change of elapsed and minimum). The domination hook runs only once a player's
+capital count meets the domination requirement, so a new game also logs
+`new game domination minimum=<n>`, the minimum in effect for that game.
+
+## Gameplay Domination minimum turns
+
+The palace-count arm of `sub_82D10FD8` requires `currentTurn - startTurn >= 10`
+at `0x82D11264`. `domination_min_turns` is a string setting with the choices
+`10` (default, native), `5` and `1`; F1 **Gameplay > Earliest Domination**
+labels them with the turn-zero 4000 BC calendar dates 3000 BC, 3500 BC and
+3900 BC. The hook rebases the elapsed turn count in `r9` so the native compare
+against 10 tests the chosen minimum. Palace counts, enabled-victory checks and
+the relative start turn are unchanged. The value is read at each check, so a
+change applies at the next evaluation.
+
+The setting is read through the registry's synchronized getter. It applies only
+to a game started in the current launch. A Game of the Week with Standard Rules
+keeps the native 10, and so does every loaded save, because saves do not record
+whether Standard Rules applied. The setting is not synchronized between
+players in an online session.
 
 ## Research prompt
 
