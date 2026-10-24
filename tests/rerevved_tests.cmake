@@ -92,6 +92,7 @@ add_executable(rerevved_tests
     tests/discord_presence_model_test.cpp
     tests/display_aspect_test.cpp
     tests/city_founding_unit_rules_test.cpp
+    tests/gameplay_fixes_test.cpp
     tests/gotw_settings_test.cpp
     tests/great_general_attachment_test.cpp
     tests/host_settings_test.cpp

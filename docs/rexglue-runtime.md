@@ -15,7 +15,8 @@ driver never modifies that checkout.
   and [storage profiles](#storage-profiles): accepted inputs and state ownership.
 - [Gameplay resources](#gameplay-resources), [save sidecar](#save-sidecar),
   [Raging Barbarians](#gameplay-raging-barbarians),
-  [One City Challenge](#gameplay-one-city-challenge) and
+  [One City Challenge](#gameplay-one-city-challenge),
+  [gameplay fixes](#gameplay-fixes) and
   [Game of the Week](#gameplay-game-of-the-week): gameplay integration limits.
 - [System Link transports](#system-link-transports): online settings and
   transport behavior; [Online play](online-play.md) covers hosting and joining.
@@ -750,6 +751,31 @@ corroboration.
 The public implementation is in [gotw_hooks.cpp](../src/gotw_hooks.cpp),
 with settings in [gotw_settings.cpp](../src/gotw_settings.cpp) and hook
 locations in [gotw_hooks.toml](../config/gotw_hooks.toml).
+
+## Gameplay fixes
+
+Two always-on midasm hooks in `config/gameplay_hooks.toml` repair native
+behavior; `src/gameplay_fixes.h` holds their arithmetic. Static evidence is in
+rerevved-research manifests `science-completion.json`,
+`technology-prompt-callers.json` and `spaceship-launch-arrival-year-boundary.json`.
+
+- **AI research choice.** The computer-player branch of the technology prompt
+  `sub_82CECCD8` lists the eligible technologies ascending at ordinals
+  `0..N-1`, stores -1 at ordinal `N` and retains `N+1`. Its scoring loop ran
+  `N` iterations from ordinal 1, so it skipped the first eligible technology
+  and scored the sentinel. The hook at `0x82CED34C` sets the loop base to
+  ordinal 0; the trip count and the no-candidate branch are unchanged.
+- **Technology victory in BC.** The launch dialog result in `sub_82D259E8` is
+  a signed arrival year, or -1 when cancelled. The native check at `0x82D2A084`
+  admitted only results above zero, which rejected BC and year-zero arrivals.
+  The hook at `0x82D2A084` admits every result except -1 and leaves the
+  payload and every other gate unchanged.
+
+Each hook logs at INFO with the prefix `GameplayFix:` so a play session shows
+that it ran: `research scan base=<hex> count=<N> first=<tech> alphabet=<0|1>`
+(on a change of count or first technology; the first 64 lines, then
+`research scan suppressed=<n>` every 256th suppressed change),
+and `spaceship launch year=<signed> admitted=<0|1> old=<0|1>` (every call).
 
 ## Research prompt
 
