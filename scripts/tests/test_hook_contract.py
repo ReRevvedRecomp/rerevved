@@ -8,11 +8,14 @@ import unittest
 from pathlib import Path
 
 from generated_scan import (
+    WindowCollector,
+    chunk_lines,
     chunk_paths,
     chunk_texts,
     count_per_chunk,
     generated_chunks,
     generated_text,
+    scan_once,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -432,10 +435,51 @@ EXPECTED_HOOKS = [
         "registers": ["r10", "r11", "r18", "r26"],
     },
     {
+        "address": 0x82D0A158,
+        "name": "AdmitFirstDiscoveryTempleCity",
+        "registers": ["r18"],
+        "jump_address_on_true": 0x82D0A160,
+    },
+    {
+        "address": 0x82D09588,
+        "name": "PreserveEgyptianIrrigationReward",
+        "registers": ["r14", "r16", "r25", "r22"],
+        "jump_address_on_true": 0x82D09594,
+    },
+    {
+        "address": 0x82D09BD0,
+        "name": "SuppressLiteracyCourthouseReward",
+        "registers": ["r9", "r18"],
+        "jump_address_on_true": 0x82D0A2E4,
+    },
+    {
+        "address": 0x82D0A254,
+        "name": "SuppressStaleFirstDiscoveryCaption",
+        "registers": ["r15", "r16", "r29"],
+        "jump_address_on_true": 0x82D0A280,
+    },
+    {
         "address": 0x82D2A084,
         "name": "AdmitSpaceshipArrivalYear",
         "registers": ["r31"],
         "jump_address_on_true": 0x82D2A08C,
+    },
+    {
+        "address": 0x82CF7090,
+        "name": "SkipFailedSpyUnitCreation",
+        "registers": ["r3"],
+        "jump_address_on_true": 0x82CF7360,
+    },
+    {
+        "address": 0x82CF7274,
+        "name": "SkipFailedSpyUnitCreation",
+        "registers": ["r3"],
+        "jump_address_on_true": 0x82CF7354,
+    },
+    {
+        "address": 0x82D11250,
+        "name": "LogDominationCapitals",
+        "registers": ["r27", "r9", "r10", "r11"],
     },
     {
         "address": 0x82D11264,
@@ -1332,7 +1376,7 @@ class HookContractTests(unittest.TestCase):
         )
         # Hooks with jump_address_on_true return bool and take guest registers.
         source_names.update(
-            re.findall(r"^bool ([A-Z]\w*)[ \t]*\(PPCRegister", source, re.MULTILINE)
+            re.findall(r"^bool ([A-Z]\w*)[ \t]*\(\s*PPCRegister", source, re.MULTILINE)
         )
         draw_hook_source = (ROOT / "src/gpu/guest_d3d/draw_hooks.cpp").read_text(
             encoding="utf-8"
@@ -1799,6 +1843,94 @@ class HookContractTests(unittest.TestCase):
         )
         self.assertEqual(override.count("writeGuestU32Safely("), 1)
         self.assertNotIn("REXLOG_", override)
+
+    def test_generated_spy_kidnapping_failure_guard_when_available(self) -> None:
+        def scan(paths: list[Path]) -> dict[str, str]:
+            windows = WindowCollector()
+            for lines in chunk_lines(paths):
+                for index, line in enumerate(lines):
+                    windows.advance(line)
+                    if line.strip() == "loc_82CF7090:":
+                        windows.start("creation", lines[index - 6 : index + 1], 110)
+                    elif line.strip() == "loc_82CF7360:":
+                        windows.start("tail", [line], 12)
+                windows.end_chunk()
+            return windows.windows
+
+        paths, windows = scan_once("spy_kidnapping_failure_guard", scan)
+        if not paths:
+            self.skipTest("generated sources are not available")
+        self.assertEqual(set(windows), {"creation", "tail"})
+        creation = windows["creation"]
+        self.assertRegex(
+            creation,
+            r"ctx\.lr = 0x82CF7090;\s+sub_82D11750\(ctx, base\);\s+"
+            r"loc_82CF7090:\s+// addi r11,r31,3\s+"
+            r"if \(SkipFailedSpyUnitCreation\(ctx\.r3\)\) \{\s+"
+            r"goto loc_82CF7360;\s+\}\s+else \{\s+\}\s+"
+            r"ctx\.r11\.s64 = ctx\.r31\.s64 \+ 3;",
+        )
+        order = [
+            "SkipFailedSpyUnitCreation(ctx.r3)",
+            "ctx.r10.u64 = ctx.r18.u64 + ctx.r3.u64;",
+            "REX_STORE_U8(ctx.r29.u32 + ctx.r31.u32, ctx.r23.u8);",
+            "REX_STORE_U16(ctx.r30.u32 + ctx.r11.u32, ctx.r8.u16);",
+            "sub_82D02390(ctx, base);",
+        ]
+        positions = [creation.index(token) for token in order]
+        self.assertEqual(positions, sorted(positions))
+        self.assertRegex(
+            windows["tail"],
+            r"loc_82CF7360:\s+// lis r11,-32000\s+"
+            r"ctx\.r11\.s64 = -2097152000;\s+// lbz r11,-10304\(r11\)\s+"
+            r"ctx\.r11\.u64 = REX_LOAD_U8\(ctx\.r11\.u32 \+ -10304\);\s+"
+            r"// cmplwi cr6,r11,0\s+"
+            r"ctx\.cr6\.compare<uint32_t>\(ctx\.r11\.u32, 0, ctx\.xer\);\s+"
+            r"// beq cr6,0x82cf741c\s+if \(ctx\.cr6\.eq\) goto loc_82CF741C;",
+        )
+
+    def test_generated_spy_bribery_failure_guard_when_available(self) -> None:
+        def scan(paths: list[Path]) -> dict[str, str]:
+            windows = WindowCollector()
+            for lines in chunk_lines(paths):
+                for index, line in enumerate(lines):
+                    windows.advance(line)
+                    if line.strip() == "loc_82CF7274:":
+                        windows.start("creation", lines[index - 6 : index + 1], 42)
+                    elif line.strip() == "loc_82CF7354:":
+                        windows.start("recount", [line], 12)
+                windows.end_chunk()
+            return windows.windows
+
+        paths, windows = scan_once("spy_bribery_failure_guard", scan)
+        if not paths:
+            self.skipTest("generated sources are not available")
+        self.assertEqual(set(windows), {"creation", "recount"})
+        creation = windows["creation"]
+        self.assertRegex(
+            creation,
+            r"ctx\.lr = 0x82CF7274;\s+sub_82D11750\(ctx, base\);\s+"
+            r"loc_82CF7274:\s+// addi r9,r31,3\s+"
+            r"if \(SkipFailedSpyUnitCreation\(ctx\.r3\)\) \{\s+"
+            r"goto loc_82CF7354;\s+\}\s+else \{\s+\}\s+"
+            r"ctx\.r9\.s64 = ctx\.r31\.s64 \+ 3;",
+        )
+        order = [
+            "SkipFailedSpyUnitCreation(ctx.r3)",
+            "ctx.r7.u64 = ctx.r18.u64 + ctx.r3.u64;",
+            "ctx.r11.s64 = static_cast<int64_t>(ctx.r7.u64 * static_cast<uint64_t>(84));",
+            "REX_STORE_U8(ctx.r11.u32 + ctx.r31.u32, ctx.r8.u8);",
+            "REX_STORE_U8(ctx.r11.u32 + ctx.r10.u32, ctx.r6.u8);",
+        ]
+        positions = [creation.index(token) for token in order]
+        self.assertEqual(positions, sorted(positions))
+        self.assertRegex(
+            windows["recount"],
+            r"loc_82CF7354:\s+// li r4,1\s+ctx\.r4\.s64 = 1;\s+"
+            r"// li r3,1\s+ctx\.r3\.s64 = 1;\s+"
+            r"// bl 0x82d11ad8\s+ctx\.lr = 0x82CF7360;\s+"
+            r"sub_82D11AD8\(ctx, base\);\s+loc_82CF7360:",
+        )
 
     def test_generated_combat_speed_hook_when_available(self) -> None:
         paths, generated = generated_text()

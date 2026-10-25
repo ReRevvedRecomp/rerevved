@@ -9,6 +9,7 @@ out_directory_path = "generated/default"
 includes = [
     "config/rerevved_functions.toml",
     "config/gameplay_hooks.toml",
+    "config/unit_sale_hooks.toml",
     "config/asset_hooks.toml",
     "config/graphics_compat_hooks.toml",
     "config/display_aspect_hooks.toml",

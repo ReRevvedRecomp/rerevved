@@ -287,6 +287,9 @@ set(REREVVED_SOURCES
     src/discord_presence_model.h
     src/rush_cost.cpp
     src/rush_cost.h
+    src/unit_sale_value.cpp
+    src/unit_sale_value.h
+    src/unit_sale_hooks.cpp
     src/gameplay_fixes.cpp
     src/gameplay_fixes.h
     src/gameplay_fixes_hooks.cpp

@@ -28,6 +28,7 @@
 //     and 826AC218 (the ring stub and tiling Originals),
 //   - the guest helper functions sub_8269B508, 8269B550, 8269B818, 8269C170
 //     and 8269C270, which the ring stub route test scripts.
+//   - __imp__sub_82CF0CB0 (the civilization bonus lookup).
 namespace rerevved::tests::guest_imports
 {
 

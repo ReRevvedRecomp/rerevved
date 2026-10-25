@@ -58,6 +58,7 @@ add_executable(rerevved_tests
     src/gotw_settings.cpp
     src/great_general_attachment.cpp
     src/gameplay_fixes.cpp
+    src/gameplay_fixes_hooks.cpp
     src/host_settings.cpp
     src/main_menu_logo_asset.cpp
     src/nation_select_text.cpp
@@ -70,6 +71,8 @@ add_executable(rerevved_tests
     src/resource_settings.cpp
     src/retail_ui_art.cpp
     src/rush_cost.cpp
+    src/unit_sale_value.cpp
+    src/unit_sale_hooks.cpp
     src/save_sidecar.cpp
     src/start_resources.cpp
     src/system_link_trace.cpp
@@ -83,6 +86,7 @@ add_executable(rerevved_tests
     src/unit_effect_rules.cpp
     src/unit_movement_rules.cpp
     src/unit_production_cost_rules.cpp
+    src/unit_production_cost_rules_hooks.cpp
     src/xenos_frame_counter.cpp
 
     tests/advisor_popups_test.cpp
@@ -110,6 +114,7 @@ add_executable(rerevved_tests
     tests/retail_ui_art_test.cpp
     tests/rules_bundle_test.cpp
     tests/rush_cost_test.cpp
+    tests/unit_sale_value_test.cpp
     tests/save_sidecar_test.cpp
     tests/start_resources_test.cpp
     tests/system_link_trace_test.cpp
@@ -136,6 +141,7 @@ target_link_libraries(rerevved_tests PRIVATE
     Threads::Threads
 )
 rexglue_apply_target_settings(rerevved_tests)
+target_compile_definitions(rerevved_tests PRIVATE UNIT_SALE_TESTING)
 # The test sources that see a variant source's test seam compile with it too.
 set_source_files_properties(
     tests/support/rules_fixtures.cpp

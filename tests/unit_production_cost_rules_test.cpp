@@ -5,10 +5,21 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <limits>
 #include <string_view>
 
+#include <rex/kernel/init.h>
+#include <rex/memory/utils.h>
+#include <rex/ppc.h>
+#include <rex/runtime.h>
+#include <rex/system/xmemory.h>
+
 extern "C" int rerevved_unit_production_cost_rules_c_header_check(void);
+
+void ApplyUnitProductionCostPercent(PPCRegister& cityOffset,
+                                    PPCRegister& unitType,
+                                    PPCRegister& costScalar);
 
 namespace
 {
@@ -188,4 +199,54 @@ TEST_CASE("unit_production_cost_rules_c_header", "[ctest][unit-production-cost-r
     const int status = rerevved_unit_production_cost_rules_c_header_check();
     UNSCOPED_INFO("C header check exit status " << status);
     REQUIRE(status == 0);
+}
+
+TEST_CASE("unit_production_cost_hook_city_owner", "[ctest][unit-production-cost-rules]")
+{
+    const rerevved::tests::ScopedRegistryReset registryScope;
+    const auto                                 rule = makeRule("test.provider", "city-owner", -50);
+    REQUIRE(RegisterUnitProductionCostRule(&rule) == UNIT_PRODUCTION_COST_RULES_OK);
+
+    rex::Runtime runtime(std::filesystem::path{});
+    REQUIRE(runtime.Setup(rex::RuntimeConfig{
+                .kernel_init = rex::kernel::InitializeKernel,
+                .tool_mode   = true,
+            }) == 0);
+    auto*              memory      = runtime.memory();
+    constexpr uint32_t kAllocation = rex::memory::kMemoryAllocationReserve | rex::memory::kMemoryAllocationCommit;
+    constexpr uint32_t kWritable   = rex::memory::kMemoryProtectRead | rex::memory::kMemoryProtectWrite;
+    for (const uint32_t page : { 0x830E0000u, 0x83140000u, 0x83150000u })
+    {
+        auto* heap = memory->LookupHeap(page);
+        REQUIRE((heap && heap->AllocFixed(page, 0x10000, 0x10000, kAllocation, kWritable)));
+    }
+
+    // 0x82CF1154..0x82CF1164 reads owner at 0x8314FE28 + cityOrdinal * 0xBC.
+    constexpr uint32_t kCityOwner                        = 0x8314FE28 + 0xBC;
+    constexpr uint32_t kOtherPageOwner                   = 0x8315FE28 + 0xBC;
+    *memory->TranslateVirtual<uint8_t*>(kCityOwner)      = 2;
+    *memory->TranslateVirtual<uint8_t*>(kOtherPageOwner) = 3;
+    rex::memory::store_and_swap<uint32_t>(memory->TranslateVirtual(0x830ECD28 + 2 * 4), CIVILIZATION_AZTEC);
+    rex::memory::store_and_swap<uint32_t>(memory->TranslateVirtual(0x830ECD28 + 3 * 4), CIVILIZATION_GREEK);
+
+    PPCRegister cityOffset{};
+    PPCRegister unitType{};
+    PPCRegister costScalar{};
+    cityOffset.u64 = 0x12345678000000BCull;
+    unitType.u64   = 0x8765432100000000ull | UNIT_TYPE_WARRIOR;
+    costScalar.u64 = 0xABCDEF000000000Aull;
+    ApplyUnitProductionCostPercent(cityOffset, unitType, costScalar);
+    UNSCOPED_INFO("the native city owner selects the Jaguar cost rule");
+    REQUIRE(costScalar.s64 == 5);
+    REQUIRE(cityOffset.u64 == 0x12345678000000BCull);
+    REQUIRE(unitType.u64 == (0x8765432100000000ull | UNIT_TYPE_WARRIOR));
+
+    *memory->TranslateVirtual<uint8_t*>(kCityOwner)      = 3;
+    *memory->TranslateVirtual<uint8_t*>(kOtherPageOwner) = 2;
+    costScalar.u64                                       = 0xABCDEF000000000Aull;
+    ApplyUnitProductionCostPercent(cityOffset, unitType, costScalar);
+    UNSCOPED_INFO("an unrelated page cannot select the Jaguar rule for a Greek city");
+    REQUIRE(costScalar.u64 == 0xABCDEF000000000Aull);
+    REQUIRE(cityOffset.u64 == 0x12345678000000BCull);
+    REQUIRE(unitType.u64 == (0x8765432100000000ull | UNIT_TYPE_WARRIOR));
 }
