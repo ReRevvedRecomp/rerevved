@@ -279,7 +279,11 @@ class ResourceSettingsContractTests(unittest.TestCase):
     def test_frozen_setup_precedes_india_and_has_one_completion(self) -> None:
         runtime = (ROOT / "src/start_resources_runtime.cpp").read_text(encoding="utf-8")
         hooks = (ROOT / "src/ai_civilizations_hooks.cpp").read_text(encoding="utf-8")
-        self.assertEqual(runtime.count("REXCVAR_GET(resources)"), 2)
+        self.assertEqual(runtime.count("REXCVAR_GET(resources)"), 1)
+        session = (ROOT / "src/gameplay_session_settings.cpp").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('Query<int32_t>("resources")', session)
         self.assertIn("REXCVAR_DEFINE_INT32(resources, 0,", runtime)
         scope = runtime.split("class SetupScope", 1)[1].split("uint16_t loadU16", 1)[0]
         self.assertIn("resource_identity_overrides::Clear();", scope)
@@ -287,17 +291,15 @@ class ResourceSettingsContractTests(unittest.TestCase):
         self.assertIn("pendingSetup = std::move(previous_)", scope)
         wrapper = runtime.split("void RunNativeNewGameSetup(", 1)[1]
         self.assertLess(
-            wrapper.index("SetupScope scope(standardRules);"),
-            wrapper.index("__imp__sub_82D25170(context, base)"),
+            wrapper.index("SetupScope scope(standardRules, settings.resources);"),
+            wrapper.rindex("__imp__sub_82D25170(context, base)"),
         )
-        for freeze in (
-            "raging_barbarians::FreezeForGame(standardRules);",
-            "occ::FreezeForGame(standardRules);",
-        ):
-            self.assertEqual(wrapper.count(freeze), 1)
-            self.assertLess(
-                wrapper.index(freeze), wrapper.index("SetupScope scope(standardRules);")
-            )
+        freeze = "gameplay_session::ApplyNewGame(snapshot, network, mode)"
+        self.assertEqual(wrapper.count(freeze), 1)
+        self.assertLess(
+            wrapper.index(freeze),
+            wrapper.index("SetupScope scope(standardRules, settings.resources);"),
+        )
         self.assertIn("REX_HOOK_RAW(sub_82D25170)", runtime)
         self.assertNotIn("REX_HOOK_RAW(sub_82D11AD8)", runtime)
         completion = hooks.split("REX_HOOK_RAW(sub_82D11AD8)", 1)[1]
@@ -333,7 +335,7 @@ class ResourceSettingsContractTests(unittest.TestCase):
         )
         self.assertIn(
             {"address": 0x82D86674, "name": "ResetAiCivilizationsOnLoad"},
-            config["midasm_hook"][:2],
+            config["midasm_hook"],
         )
 
     def test_standard_rules_forces_normal_before_selection(self) -> None:
@@ -341,12 +343,17 @@ class ResourceSettingsContractTests(unittest.TestCase):
         scope = runtime.split("class SetupScope", 1)[1].split("uint16_t loadU16", 1)[0]
         self.assertRegex(
             scope,
-            r"const int32_t value = standardRules \? 0 : REXCVAR_GET\(resources\)",
+            r"const int32_t value = standardRules \? 0 : requested",
         )
         self.assertLess(
             scope.index("standardRules ? 0"), scope.index("pendingSetup.emplace(value)")
         )
-        self.assertIn("gotw::FreezeStandardRules(mode)", runtime)
+        session = (ROOT / "src/gameplay_session_settings.cpp").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            "gotw::FreezeStandardRules(mode, settings.gotwStandardRules)", session
+        )
 
     def test_identity_rows_and_legendary_diagnostics(self) -> None:
         header = (ROOT / "src/resource_identity_overrides.h").read_text(

@@ -308,8 +308,15 @@ set(REREVVED_SOURCES
     src/barbarian_message_hooks.cpp
     src/ai_civilizations.h
     src/ai_civilizations_hooks.cpp
+    src/ai_civilization_setup.h
+    src/ai_civilization_setup.cpp
+    src/ai_economy_settings.h
+    src/ai_economy_settings.cpp
+    src/ai_economy_hooks.cpp
     src/host_settings.cpp
     src/host_settings.h
+    src/gameplay_session_settings.cpp
+    src/gameplay_session_settings.h
     src/unit_catalog_api.cpp
     src/unit_catalog_api.h
 )

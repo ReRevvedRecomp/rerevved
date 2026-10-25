@@ -209,8 +209,8 @@ REXCVAR_DEFINE_BOOL(hide_popup_trophy_room, false, "ReRevved", "Do not offer to 
 REXCVAR_DEFINE_BOOL(hide_popup_government_available, false, "ReRevved", "Do not ask to change government when a new one becomes available; keep the current one");
 REXCVAR_DEFINE_BOOL(hide_barbarian_messages, false, "ReRevved", "Do not show the Barbarian leader message on first contact with a Barbarian tribe");
 REXCVAR_DEFINE_BOOL(hide_village_barbarian_messages, false, "ReRevved", "Do not show the Barbarian leader message that names the reward for capturing a Barbarian village; the reward is still granted");
-REXCVAR_DEFINE_INT32(ai_civilizations, 4, "ReRevved", "Maximum AI civilizations in a new game. A game with one human keeps at least one AI civilization. Multiplayer uses the host's value for all players")
-    .range(0, 4);
+REXCVAR_DEFINE_INT32(ai_civilizations, 4, "ReRevved", "Maximum AI civilizations in a new game. A game with one human keeps at least one AI civilization. Five or six AI apply to single-player. Multiplayer uses the host's value up to four for all players")
+    .range(0, 6);
 REXCVAR_DEFINE_COMMAND(open_log_folder, openLogFolder, "ReRevved", "Open the folder that holds the log file and crash dumps");
 REXCVAR_DEFINE_BOOL(xenos_frame_counter, false, "ReRevved", "Log one-second VdSwap return counts and decoded swap intervals")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
@@ -612,21 +612,47 @@ rex::ui::VirtualKey SettingsOverlayKey()
 
 } // namespace
 
-namespace rerevved::host_settings
-{
-
-HostSettings LocalSettings()
-{
-    HostSettings settings;
-    settings.aiCivilizations = REXCVAR_GET(ai_civilizations);
-    settings.mods            = LocalMods();
-    return settings;
-}
-
-} // namespace rerevved::host_settings
-
 namespace rerevved
 {
+
+namespace
+{
+
+void PublishModSnapshot(rex::Runtime& activeRuntime)
+{
+    host_settings::InvalidateLocalModSnapshot();
+    host_settings::LocalModSnapshot snapshot;
+    bool                            luaOnly = true;
+    for (const auto& active : activeRuntime.active_mod_states())
+    {
+        const auto& packages = activeRuntime.active_mods_info();
+        const auto  package  = std::ranges::find(packages, active.id, &rex::system::ModPackage::id);
+        luaOnly              = luaOnly && package != packages.end() && package->payload_kind == rex::system::ModPayloadKind::kLua;
+        snapshot.mods.push_back({ active.id, package != packages.end() ? package->version : std::string{}, package != packages.end() ? package->display_name : std::string{} });
+    }
+    const auto& digest          = activeRuntime.active_mod_script_digest();
+    snapshot.rulesDigestPresent = luaOnly && digest.size() == 64;
+    for (size_t index = 0; snapshot.rulesDigestPresent && index < snapshot.rulesDigest.size(); ++index)
+    {
+        const auto digit = [](char value) -> int
+        {
+            if (value >= '0' && value <= '9')
+                return value - '0';
+            if (value >= 'a' && value <= 'f')
+                return value - 'a' + 10;
+            if (value >= 'A' && value <= 'F')
+                return value - 'A' + 10;
+            return -1;
+        };
+        const int high = digit(digest[2 * index]), low = digit(digest[2 * index + 1]);
+        snapshot.rulesDigestPresent = high >= 0 && low >= 0;
+        if (snapshot.rulesDigestPresent)
+            snapshot.rulesDigest[index] = static_cast<uint8_t>(16 * high + low);
+    }
+    host_settings::PublishLocalModSnapshot(std::move(snapshot));
+}
+
+} // namespace
 
 void App::OnPreSetup(rex::RuntimeConfig& config)
 {
@@ -1082,6 +1108,10 @@ void App::OnPreSystemLinkInit()
 void App::OnPostSetup()
 {
     rex::ReXApp::OnPostSetup();
+    runtime()->SetModLoadoutChangedCallback([this]
+                                            {
+                                                PublishModSnapshot(*runtime());
+                                            });
 
     // Resolve selected package assets after the SDK has built the loadout and
     // before the guest main thread is resumed.
@@ -1096,22 +1126,11 @@ void App::OnPostSetup()
                            : "ReRevved");
 }
 
-// Snapshot builds follow plugin and script activation before the guest thread;
-// F2 rescans replace the catalog only.
+// Publish the accepted loadout after startup and every live Lua replacement.
 void App::OnPostLaunchModule(rex::system::XThread* thread)
 {
     rex::ReXApp::OnPostLaunchModule(thread);
-
-    std::vector<host_settings::ModRef> mods;
-    for (const auto& active : runtime()->active_mod_states())
-    {
-        const auto& packages = runtime()->active_mods_info();
-        const auto  package  = std::ranges::find(packages, active.id, &rex::system::ModPackage::id);
-        mods.push_back({ active.id,
-                         package != packages.end() ? package->version : std::string{},
-                         package != packages.end() ? package->display_name : std::string{} });
-    }
-    host_settings::PublishLocalMods(std::move(mods));
+    PublishModSnapshot(*runtime());
 }
 
 void App::OnGuestThreadExit(rex::system::XThread* thread)

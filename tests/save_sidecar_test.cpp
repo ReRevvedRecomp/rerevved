@@ -62,7 +62,17 @@ void testPayload()
     invalid[4] = sidecar::kSchemaVersion + 1;
     UNSCOPED_INFO("unknown schema is rejected");
     CHECK(!sidecar::Deserialize(invalid, kIdentity));
+    invalid[4] = 0;
+    CHECK(!sidecar::Deserialize(invalid, kIdentity));
     const size_t stateOffset = 6 + kIdentity.slot.size() + 4 + 64;
+    invalid                  = bytes;
+    invalid.insert(invalid.begin() + stateOffset + 6, size_t{ 2 }, uint8_t{ 0 });
+    UNSCOPED_INFO("a longer schema 2 state is rejected");
+    CHECK(!sidecar::Deserialize(invalid, kIdentity));
+    invalid = bytes;
+    invalid.erase(invalid.begin() + stateOffset + 4, invalid.begin() + stateOffset + 6);
+    UNSCOPED_INFO("a shorter schema 2 state is rejected");
+    CHECK(!sidecar::Deserialize(invalid, kIdentity));
     for (size_t field : { size_t{ 0 }, size_t{ 1 } })
     {
         invalid                      = bytes;
@@ -88,8 +98,8 @@ void testPayload()
     state.overrides = { { 0, 0 }, { 0, 9 } };
     UNSCOPED_INFO("duplicate tiles are rejected by the existing serializer");
     CHECK(sidecar::Serialize(state, kIdentity).empty());
-    invalid                  = bytes;
-    invalid[stateOffset + 9] = 22;
+    invalid                   = bytes;
+    invalid[stateOffset + 11] = 22;
     UNSCOPED_INFO("unsupported override ordinals are rejected by the existing deserializer");
     CHECK(!sidecar::Deserialize(invalid, kIdentity));
 }
@@ -107,7 +117,7 @@ void testLegendaryPayload()
     }
     const auto bytes   = sidecar::Serialize(saved, kIdentity);
     const auto decoded = sidecar::Deserialize(bytes, kIdentity);
-    UNSCOPED_INFO("Legendary mode and forty records round trip through the sidecar without a schema change");
+    UNSCOPED_INFO("Legendary mode and forty records round trip through the sidecar");
     CHECK(decoded == saved);
     sidecar::PendingLoad pending;
     pending.Stage(decoded);
@@ -299,4 +309,58 @@ TEST_CASE("save_sidecar", "[ctest][save-sidecar][local-fast]")
     testStandardRulesPayload();
     testLegendaryPayload();
     testFiles();
+}
+
+TEST_CASE("save_sidecar_ai_economy", "[ctest][save-sidecar]")
+{
+    auto saved               = kSaved;
+    saved.aiEconomy          = { 33, 50 };
+    const auto   bytes       = sidecar::Serialize(saved, kIdentity);
+    const size_t stateOffset = 6 + kIdentity.slot.size() + 4 + 64;
+    REQUIRE(bytes.size() > stateOffset + 6);
+    CHECK(bytes[4] == 2);
+    CHECK(bytes[stateOffset + 4] == 33);
+    CHECK(bytes[stateOffset + 5] == 50);
+    CHECK(sidecar::Deserialize(bytes, kIdentity) == saved);
+
+    // Version 1 stores its override header immediately after four policy bytes.
+    std::vector<uint8_t> legacy{ 'R', 'R', 'G', 'S', 1, 9, 's', 'a', 'v', 'e', '0', '.', 's', 'v', 'e', 0, 0, 0, 7 };
+    legacy.insert(legacy.end(), 64, 'a');
+    legacy.insert(legacy.end(), { 1, 1, 33, 1, 1, 0, 3, 0, 0, 0, 1, 146, 9, 4, 247, 18 });
+    CHECK(sidecar::Deserialize(legacy, kIdentity) == kSaved);
+    legacy[4] = 2;
+    legacy.insert(legacy.begin() + stateOffset + 4, { 33, 50 });
+    CHECK(sidecar::Deserialize(legacy, kIdentity) == saved);
+    for (const size_t field : { size_t{ 4 }, size_t{ 5 } })
+    {
+        for (const uint8_t invalidPercent : { uint8_t{ 0 }, uint8_t{ 101 } })
+        {
+            auto invalid                 = bytes;
+            invalid[stateOffset + field] = invalidPercent;
+            CHECK(!sidecar::Deserialize(invalid, kIdentity));
+        }
+    }
+    saved.aiEconomy = { 0, 50 };
+    CHECK(sidecar::Serialize(saved, kIdentity).empty());
+    saved.aiEconomy = { 33, 101 };
+    CHECK(sidecar::Serialize(saved, kIdentity).empty());
+}
+
+TEST_CASE("save_sidecar_maximum_payload", "[ctest][save-sidecar]")
+{
+    auto saved = kSaved;
+    saved.overrides.clear();
+    for (uint16_t row = 0; row < 32; ++row)
+    {
+        for (uint16_t column = 0; column < 32; ++column)
+        {
+            saved.overrides.push_back({ static_cast<uint16_t>(row * 40 + column), 0 });
+        }
+    }
+    const sidecar::Identity longestSlot{ std::string(42, 's'), 7, std::string(64, 'a') };
+    auto                    maximum = sidecar::Serialize(saved, longestSlot);
+    REQUIRE(maximum.size() == 3197);
+    CHECK(sidecar::Deserialize(maximum, longestSlot) == saved);
+    maximum.push_back(0);
+    CHECK_FALSE(sidecar::Deserialize(maximum, longestSlot));
 }

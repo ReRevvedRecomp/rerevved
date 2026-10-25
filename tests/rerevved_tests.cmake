@@ -50,6 +50,9 @@ add_executable(rerevved_tests
     tests/support/guest_import_doubles.cpp
 
     src/building_wonder_effect_rules.cpp
+    src/ai_economy_settings.cpp
+    src/ai_civilization_setup.cpp
+    src/ai_economy_hooks.cpp
     src/discord_invites_model.cpp
     src/discord_presence_model.cpp
     src/display_aspect.cpp
@@ -60,6 +63,7 @@ add_executable(rerevved_tests
     src/gameplay_fixes.cpp
     src/gameplay_fixes_hooks.cpp
     src/host_settings.cpp
+    src/gameplay_session_settings.cpp
     src/main_menu_logo_asset.cpp
     src/nation_select_text.cpp
     src/nation_select_text_hooks.cpp
@@ -91,6 +95,9 @@ add_executable(rerevved_tests
 
     tests/advisor_popups_test.cpp
     tests/ai_civilizations_test.cpp
+    tests/ai_civilization_setup_test.cpp
+    tests/ai_economy_settings_test.cpp
+    tests/ai_economy_hooks_test.cpp
     tests/barbarian_messages_test.cpp
     tests/building_wonder_effect_rules_test.cpp
     tests/discord_invites_model_test.cpp
@@ -101,6 +108,7 @@ add_executable(rerevved_tests
     tests/gotw_settings_test.cpp
     tests/great_general_attachment_test.cpp
     tests/host_settings_test.cpp
+    tests/gameplay_session_settings_test.cpp
     tests/helper_commands_test.cpp
     tests/main_menu_logo_asset_test.cpp
     tests/mod_script_rules_test.cpp

@@ -25,7 +25,9 @@ std::unique_lock<std::shared_mutex> AcquirePublicationLock();
 int32_t BuildCandidate(std::span<const BuildingEffectRuleV2> requests,
                        std::vector<BuildingEffectRuleV2>&    candidate,
                        size_t&                               failingOffset,
-                       void (*checkpoint)() = nullptr);
+                       void (*checkpoint)()                            = nullptr,
+                       std::span<const BuildingEffectRuleV2> removed   = {},
+                       bool                                  exclusive = false);
 void    CommitCandidate(std::vector<BuildingEffectRuleV2>& candidate) noexcept;
 
 // False when no rule is retained. Otherwise the checked sum of all retained amounts.

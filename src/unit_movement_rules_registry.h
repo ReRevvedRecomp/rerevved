@@ -26,7 +26,9 @@ std::unique_lock<std::shared_mutex> AcquirePublicationLock();
 int32_t BuildCandidate(std::span<const UnitMovementRule> requests,
                        std::vector<UnitMovementRule>&    candidate,
                        size_t&                           failingOffset,
-                       void (*checkpoint)() = nullptr);
+                       void (*checkpoint)()                        = nullptr,
+                       std::span<const UnitMovementRule> removed   = {},
+                       bool                              exclusive = false);
 void    CommitCandidate(std::vector<UnitMovementRule>& candidate) noexcept;
 
 void ResetForTests();

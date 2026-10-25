@@ -1,0 +1,18 @@
+# Apply the research percentage after the native final multiplier.
+[[midasm_hook]]
+address = 0x82CF1058
+name = "ApplyAiResearchCostPercent"
+registers = ["r25", "r26", "r3"]
+
+# The identity rule at 0x82CF1268 precedes native mr r3,r28.
+# Scale that completed scalar before the stack is restored.
+[[midasm_hook]]
+address = 0x82CF126C
+name = "ApplyAiUnitProductionCostPercent"
+registers = ["r30", "r29", "r3"]
+
+# Invalid items bypass this normal-result assignment to 0x82CF1550.
+[[midasm_hook]]
+address = 0x82CF154C
+name = "ApplyAiNonUnitProductionCostPercent"
+registers = ["r29", "r27", "r31"]

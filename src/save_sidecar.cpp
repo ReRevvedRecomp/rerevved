@@ -24,7 +24,7 @@ namespace
 {
 
 constexpr std::array<uint8_t, 4> kMagic{ 'R', 'R', 'G', 'S' };
-constexpr size_t                 kMaximumPayload = 4 + 1 + 1 + 42 + 4 + 64 + 4 + 3 + 32 * 32 * 3;
+constexpr size_t                 kMaximumPayload = 4 + 1 + 1 + 42 + 4 + 64 + 6 + 3 + 32 * 32 * 3;
 
 bool validIdentity(const Identity& identity)
 {
@@ -42,7 +42,7 @@ bool validIdentity(const Identity& identity)
 bool validState(const State& state)
 {
     return state.occPopulation > 31 && state.occPopulation <= 127 && state.resources >= 0 && state.resources <= 3 &&
-           (state.resources == 1 || state.resources == 3 || state.overrides.empty());
+           (state.resources == 1 || state.resources == 3 || state.overrides.empty()) && ai_economy::IsValid(state.aiEconomy);
 }
 
 } // namespace
@@ -67,6 +67,8 @@ std::vector<uint8_t> Serialize(const State& state, const Identity& identity)
     bytes.push_back(state.occEnabled);
     bytes.push_back(static_cast<uint8_t>(state.occPopulation));
     bytes.push_back(static_cast<uint8_t>(state.resources));
+    bytes.push_back(static_cast<uint8_t>(state.aiEconomy.researchCostPercent));
+    bytes.push_back(static_cast<uint8_t>(state.aiEconomy.productionCostPercent));
     bytes.insert(bytes.end(), records.begin(), records.end());
     return bytes;
 }
@@ -74,12 +76,14 @@ std::vector<uint8_t> Serialize(const State& state, const Identity& identity)
 std::optional<State> Deserialize(std::span<const uint8_t> bytes, const Identity& identity)
 {
     if (!validIdentity(identity) || bytes.size() > kMaximumPayload || bytes.size() < 6 ||
-        !std::equal(kMagic.begin(), kMagic.end(), bytes.begin()) || bytes[4] != kSchemaVersion)
+        !std::equal(kMagic.begin(), kMagic.end(), bytes.begin()) || (bytes[4] < 1 || bytes[4] > kSchemaVersion))
     {
         return std::nullopt;
     }
-    const size_t slotSize = bytes[5];
-    if (slotSize != identity.slot.size() || bytes.size() < 6 + slotSize + 4 + 64 + 4 + 3 ||
+    const size_t slotSize  = bytes[5];
+    // Schema 1 has only the four setting bytes. Schema 2 adds the two AI cost percents.
+    const size_t stateSize = bytes[4] == 1 ? 4 : 6;
+    if (slotSize != identity.slot.size() || bytes.size() < 6 + slotSize + 4 + 64 + stateSize + 3 ||
         !std::equal(identity.slot.begin(), identity.slot.end(), bytes.begin() + 6))
     {
         return std::nullopt;
@@ -99,8 +103,12 @@ std::optional<State> Deserialize(std::span<const uint8_t> bytes, const Identity&
     {
         return std::nullopt;
     }
-    State      state{ bytes[offset] != 0, bytes[offset + 1] != 0, bytes[offset + 2], bytes[offset + 3], {} };
-    const auto records = resource_identity_overrides::Deserialize(bytes.subspan(offset + 4));
+    State state{ bytes[offset] != 0, bytes[offset + 1] != 0, bytes[offset + 2], bytes[offset + 3], {} };
+    if (bytes[4] >= 2)
+    {
+        state.aiEconomy = { bytes[offset + 4], bytes[offset + 5] };
+    }
+    const auto records = resource_identity_overrides::Deserialize(bytes.subspan(offset + stateSize));
     if (!records)
     {
         return std::nullopt;

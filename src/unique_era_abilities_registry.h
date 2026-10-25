@@ -23,7 +23,9 @@ std::unique_lock<std::shared_mutex> AcquirePublicationLock();
 int32_t BuildCandidate(std::span<const EraAbilityReplacement> requests,
                        std::vector<EraAbilityReplacement>&    candidate,
                        size_t&                                failingOffset,
-                       void (*checkpoint)() = nullptr);
+                       void (*checkpoint)()                             = nullptr,
+                       std::span<const EraAbilityReplacement> removed   = {},
+                       bool                                   exclusive = false);
 void    CommitCandidate(std::vector<EraAbilityReplacement>& candidate) noexcept;
 
 void ResetForTests();

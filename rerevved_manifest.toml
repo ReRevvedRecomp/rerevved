@@ -1,6 +1,6 @@
 [project]
 name = "rerevved"
-sdk_version = "0.12.1"
+sdk_version = "0.13.0"
 game_root = "game"
 
 [entrypoint]
@@ -20,6 +20,7 @@ includes = [
     "config/terrain_hooks.toml",
     "config/advisor_hooks.toml",
     "config/ai_civilizations_hooks.toml",
+    "config/ai_economy_hooks.toml",
     "config/occ_hooks.toml",
     "config/raging_barbarians_hooks.toml",
     "config/gotw_hooks.toml",

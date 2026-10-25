@@ -914,3 +914,100 @@ TEST_CASE("mod_script_rules", "[ctest][mod-script-rules]")
     TestHostAllocation();
     TestAtomicity();
 }
+
+TEST_CASE("mod_script_loadout_replaces_all_owned_domains", "[ctest][mod-script-rules]")
+{
+    const tests::ScopedRegistryReset registryScope;
+    auto                             replacementHost = CreateModScriptRulesHost();
+    auto                             native          = packageFixture(0);
+    auto&                            nativeRule      = std::get<TerrainYieldRule>(native.rules.front().request);
+    std::memset(nativeRule.providerId, 0, sizeof(nativeRule.providerId));
+    std::memcpy(nativeRule.providerId, "native.provider", sizeof("native.provider"));
+    REQUIRE(PublishRulesBundle(native).published);
+    const auto                  nativeSnapshot = snapshot();
+    std::vector<ModScriptValue> values;
+    values.reserve(9);
+    for (const auto source : scripts)
+        values.push_back(decode(source));
+    values.push_back(decode("return {provider_id='test.founding', rules={{id='militia', kind='city_founding_unit', unit='militia', upgrades={'loyalty'}}}}"));
+    std::vector<rex::system::ModScriptPublishRequest> requests;
+    for (size_t i = 0; i < scripts.size(); ++i)
+        requests.push_back({ "package", "main.lua", "rerevved.rules", 1, domains[i], values[i] });
+    const std::vector<std::string> foundingDomain{ "city_founding_unit" };
+    requests.push_back({ "founding", "main.lua", "rerevved.rules", 1, foundingDomain, values.back() });
+    ModScriptPublishResult result;
+    auto                   prepared = replacementHost->PrepareReplacement(requests, result);
+    REQUIRE(prepared);
+    prepared->Commit();
+    const auto accepted = snapshot();
+    REQUIRE(accepted != nativeSnapshot);
+    REQUIRE(city_founding_unit::IsEnabled());
+    prepared = replacementHost->PrepareReplacement(requests, result);
+    REQUIRE(prepared);
+    prepared->Commit();
+    REQUIRE(snapshot() == accepted);
+    values[1] = decode(mutate(1, "bundle.rules[1].percentage_delta=25; bundle.rules[2].percentage_delta=25"));
+    prepared  = replacementHost->PrepareReplacement(requests, result);
+    REQUIRE(prepared);
+    prepared->Commit();
+    REQUIRE(snapshot() != accepted);
+    prepared = replacementHost->PrepareReplacement({}, result);
+    REQUIRE(prepared);
+    prepared->Commit();
+    REQUIRE(snapshot() == nativeSnapshot);
+    REQUIRE_FALSE(city_founding_unit::IsEnabled());
+    REQUIRE(building_effect_rules::RuleCount() == 0);
+    REQUIRE(wonder_effect_rules::RuleCount() == 0);
+    prepared = replacementHost->PrepareReplacement({}, result);
+    REQUIRE(prepared);
+    prepared->Commit();
+    REQUIRE(snapshot() == nativeSnapshot);
+}
+
+TEST_CASE("mod_script_replacement_cancels_and_rejects_across_domains", "[ctest][mod-script-rules]")
+{
+    const tests::ScopedRegistryReset registryScope;
+    auto                             replacementHost = CreateModScriptRulesHost();
+    // A real native registration owns this exact terrain identity.
+    REQUIRE(PublishRulesBundle(packageFixture(0)).published);
+    const auto                                 nativeSnapshot = snapshot();
+    const auto                                 initial        = decode(scripts[1]); // Combat and nation-select text.
+    const rex::system::ModScriptPublishRequest initialRequest{ "combat", "main.lua", "rerevved.rules", 1, domains[1], initial };
+    ModScriptPublishResult                     result;
+    auto                                       prepared = replacementHost->PrepareReplacement(std::span(&initialRequest, 1), result);
+    REQUIRE(prepared);
+    prepared->Commit();
+    const auto accepted = snapshot();
+    // Cancelling a prepared unload must retain ownership as well as values.
+    prepared = replacementHost->PrepareReplacement({}, result);
+    REQUIRE(prepared);
+    prepared.reset();
+    REQUIRE(snapshot() == accepted);
+    const auto                                 collision = decode(scripts[0]);
+    const rex::system::ModScriptPublishRequest conflicting{ "terrain", "main.lua", "rerevved.rules", 1, domains[0], collision };
+    REQUIRE_FALSE(replacementHost->PrepareReplacement(std::span(&conflicting, 1), result));
+    REQUIRE(snapshot() == accepted);
+    const auto                                                invalid = decode(mutate(1, "bundle.rules[3].text = 1"));
+    const std::array<rex::system::ModScriptPublishRequest, 2> invalidLoadout{ initialRequest,
+                                                                              rex::system::ModScriptPublishRequest{ "invalid", "main.lua", "rerevved.rules", 1, domains[1], invalid } };
+    REQUIRE_FALSE(replacementHost->PrepareReplacement(invalidLoadout, result));
+    REQUIRE(result.stage == ModScriptStage::kSchema);
+    REQUIRE(snapshot() == accepted);
+    bool succeeded = false;
+    for (int64_t step = 0; step < 100; ++step)
+    {
+        {
+            const tests::ScopedPreparationFailure failAt(step);
+            prepared = replacementHost->PrepareReplacement({}, result);
+        }
+        if (prepared)
+        {
+            succeeded = true;
+            break;
+        }
+        REQUIRE(snapshot() == accepted);
+    }
+    REQUIRE(succeeded);
+    prepared->Commit();
+    REQUIRE(snapshot() == nativeSnapshot);
+}

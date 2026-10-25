@@ -25,7 +25,9 @@ std::unique_lock<std::shared_mutex> AcquirePublicationLock();
 int32_t BuildCandidate(std::span<const UnitProductionCostRule> requests,
                        std::vector<UnitProductionCostRule>&    candidate,
                        size_t&                                 failingOffset,
-                       void (*checkpoint)() = nullptr);
+                       void (*checkpoint)()                              = nullptr,
+                       std::span<const UnitProductionCostRule> removed   = {},
+                       bool                                    exclusive = false);
 void    CommitCandidate(std::vector<UnitProductionCostRule>& candidate) noexcept;
 
 void ResetForTests();

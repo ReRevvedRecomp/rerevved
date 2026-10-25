@@ -14,7 +14,7 @@
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
 
-REXCVAR_DEFINE_BOOL(save_sidecar, true, "ReRevved", "Persist per-save Resources, Raging Barbarians and One City Challenge in a host sidecar");
+REXCVAR_DEFINE_BOOL(save_sidecar, true, "ReRevved", "Persist per-save Resources, Raging Barbarians, One City Challenge and AI policies in a host sidecar");
 
 REX_EXTERN(__imp__sub_82D82510);
 REX_EXTERN(__imp__sub_82D84238);
@@ -52,7 +52,7 @@ struct Transaction
                 }
                 else
                 {
-                    REXLOG_INFO("Save sidecar: {}; using live settings, no overrides", nativeFile.empty() ? "no native file captured" : fallbackReason);
+                    REXLOG_INFO("Save sidecar: {}; no saved gameplay settings restored", nativeFile.empty() ? "no native file captured" : fallbackReason);
                 }
             }
         }
@@ -119,7 +119,8 @@ sidecar::State captureState()
              occ->enabled,
              occ->minimumPopulation,
              rerevved::start_resources::ForGame(),
-             *rerevved::resource_identity_overrides::Current() };
+             *rerevved::resource_identity_overrides::Current(),
+             rerevved::ai_economy::ForSave(rerevved::ai_economy::NativeCostsRequired()) };
 }
 
 } // namespace
@@ -128,8 +129,10 @@ sidecar::State captureState()
 // The wrapper bounds the pending restore to this native load, including failures.
 REX_HOOK_RAW(sub_82D84238)
 {
-    Transaction transaction(ctx.r4.u32, true);
+    Transaction                     transaction(ctx.r4.u32, true);
+    rerevved::ai_economy::LoadScope economyLoad;
     __imp__sub_82D84238(ctx, base);
+    economyLoad.Finish(rerevved::ai_economy::NativeCostsRequired());
 }
 
 REX_HOOK_RAW(sub_82D82510)
@@ -258,6 +261,7 @@ void RestoreAfterLoadReset() noexcept
             raging_barbarians::RestoreForGame(state->ragingBarbarians);
             occ::RestoreForGame({ state->occEnabled, state->occPopulation });
             start_resources::RestoreForGame(state->resources);
+            ai_economy::RestoreForGame(state->aiEconomy);
             if (!active->restoreLogged)
             {
                 active->restoreLogged = true;

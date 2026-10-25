@@ -884,3 +884,36 @@ TEST_CASE("rules_bundle_city_founding_unit", "[ctest][rules-bundle]")
     const rerevved::tests::ScopedRegistryReset registryScope;
     TestCityFoundingUnit();
 }
+
+TEST_CASE("rules_bundle_replacement_rejects_late_native_collision", "[ctest][rules-bundle]")
+{
+    const tests::ScopedRegistryReset registryScope;
+    const auto                       fixture = fixtures();
+    const auto                       text    = std::find_if(fixture.rules.begin(), fixture.rules.end(), [](const auto& item)
+                                                            {
+                                       return std::holds_alternative<NationSelectTextRule>(item.request);
+                                                            });
+    REQUIRE(text != fixture.rules.end());
+    const RulesBundle native{ { *text } };
+    REQUIRE(PublishRulesBundle(native).published);
+    const auto  nativeSnapshot = snapshot();
+    RulesBundle old;
+    old.rules.push_back(fixture.rules.front());
+    PublishResult result;
+    auto          prepared = PrepareRulesBundle(old, {}, result);
+    REQUIRE(prepared);
+    prepared->Commit();
+    const auto accepted                                          = snapshot();
+    auto       next                                              = old;
+    std::get<TerrainYieldRule>(next.rules.front().request).value = 2;
+    next.rules.push_back(*text);
+    // Terrain prepared successfully before the text domain rejects native ownership.
+    REQUIRE_FALSE(PrepareRulesBundle(next, old, result));
+    REQUIRE(result.domain == Domain::NationSelectTextRule);
+    REQUIRE(snapshot() == accepted);
+    prepared = PrepareRulesBundle({}, old, result);
+    REQUIRE(prepared);
+    prepared->Commit();
+    prepared->Commit();
+    REQUIRE(snapshot() == nativeSnapshot);
+}

@@ -202,8 +202,12 @@ class GotwContractTests(unittest.TestCase):
 
     def test_argument_only_writes_and_unconditional_info(self):
         hooks = (ROOT / "src/gotw_hooks.cpp").read_text(encoding="utf-8")
-        apply = function_body(hooks, "ApplyGotwSeed")
-        self.assertIn("LatchForGame(week.u32, setup.u32)", apply)
+        wrapper = function_body(hooks, "ApplyGotwSeed")
+        self.assertIn("detail::ApplySeed(setup, week, seed, readWord)", wrapper)
+        apply = function_body(hooks, "ApplySeed")
+        self.assertLess(apply.index("PrepareWeekly("), apply.index("LatchForGame("))
+        self.assertIn("if (!prepared)", apply)
+        self.assertIn("LatchForGame(week.u32, setup.u32, *prepared)", apply)
         self.assert_cpp("if (policy.customWeek) { week.u64 = policy.week; }", apply)
         self.assert_cpp("if (policy.IsCustom())", apply)
         self.assert_cpp("seed.u64 = policy.seed;", apply)
@@ -237,11 +241,17 @@ class GotwContractTests(unittest.TestCase):
         self.assert_cpp("result.ptr != text.data() + text.size()", source)
         latch = function_body(source, "LatchForGame")
         self.assert_cpp(
-            "next.customWeek = ParseWeek(REXCVAR_GET(gotw_week), next.week);", latch
+            "settings.gotwCustomWeek = ParseWeek(REXCVAR_GET(gotw_week), settings.gotwWeek);",
+            latch,
+        )
+        captured = function_body(
+            source[source.index(latch) + len(latch) :], "LatchForGame"
         )
         self.assert_cpp(
-            "if (next.customWeek) { next.seed = SeedForWeek(next.week); }", latch
+            "if (next.customWeek) { next.seed = SeedForWeek(next.week); }", captured
         )
+        self.assertNotIn("REXCVAR_GET", captured)
+        self.assertIn("settings.gotwWeek", captured)
         self.assertIn('logRejected("week",', latch)
         self.assertNotIn("REXCVAR_GET", function_body(source, "ForGame"))
         self.assert_cpp("mode == 2 && ForGame().IsCustom()", source)
@@ -290,9 +300,13 @@ class GotwContractTests(unittest.TestCase):
     def test_standard_rules_freeze_and_consumers(self):
         settings = (ROOT / "src/gotw_settings.cpp").read_text(encoding="utf-8")
         freeze = function_body(settings, "FreezeStandardRules")
-        self.assert_cpp("mode == 2 && REXCVAR_GET(gotw_standard_rules)", freeze)
+        self.assertIn("host->gotwStandardRules", freeze)
+        selected = settings.split(
+            "FreezeStandardRules(int32_t mode, bool selected)", 1
+        )[1]
+        self.assert_cpp("mode == 2 && selected", selected)
         self.assert_cpp(
-            "standardRules.store(enabled, std::memory_order_relaxed);", freeze
+            "standardRules.store(enabled, std::memory_order_relaxed);", selected
         )
         self.assertNotIn("REXCVAR", function_body(settings, "StandardRulesForGame"))
         runtime = (ROOT / "src/start_resources_runtime.cpp").read_text(encoding="utf-8")
@@ -300,18 +314,21 @@ class GotwContractTests(unittest.TestCase):
         for read in ("loadU32(base, kSetupObject)", "loadU32(base, setup + 4)"):
             self.assertIn(read, wrapper)
         self.assert_cpp("constexpr uint32_t kSetupObject = 0x8314EFC8;", runtime)
-        gate = wrapper.index("gotw::FreezeStandardRules(mode)")
-        native = wrapper.index("__imp__sub_82D25170(context, base)")
-        for consumer in (
-            "raging_barbarians::FreezeForGame(standardRules)",
-            "occ::FreezeForGame(standardRules)",
-            "SetupScope scope(standardRules)",
-        ):
-            self.assertLess(gate, wrapper.index(consumer))
-            self.assertLess(wrapper.index(consumer), native)
-        self.assert_cpp(
-            "const int32_t value = standardRules ? 0 : REXCVAR_GET(resources);", runtime
+        gate = wrapper.index("gameplay_session::ApplyNewGame(snapshot, network, mode)")
+        resources = wrapper.index("SetupScope scope(standardRules, settings.resources)")
+        native = wrapper.rindex("__imp__sub_82D25170(context, base)")
+        self.assertLess(gate, resources)
+        self.assertLess(resources, native)
+        session = (ROOT / "src/gameplay_session_settings.cpp").read_text(
+            encoding="utf-8"
         )
+        policy = function_body(session, "ApplyNewGame")
+        self.assertIn(
+            "gotw::FreezeStandardRules(mode, settings.gotwStandardRules)", policy
+        )
+        self.assertIn("!standardRules && settings.ragingBarbarians", policy)
+        self.assertIn("!standardRules && settings.oneCityChallenge", policy)
+        self.assert_cpp("const int32_t value = standardRules ? 0 : requested;", runtime)
         for name, config in (
             ("raging_barbarians", "raging_barbarians"),
             ("occ", "one_city_challenge"),
@@ -326,7 +343,7 @@ class GotwContractTests(unittest.TestCase):
             "const bool standardRules = rerevved::gotw::StandardRulesForGame();", ai
         )
         self.assert_cpp(
-            "standardRules ? ai_civs::kAllAiCivilizations : resolveLimit(network, source)",
+            "standardRules ? ai_civs::kAllAiCivilizations : expanded != 0 ? expanded : settings ? settings->aiCivilizations : REXCVAR_GET(ai_civilizations)",
             ai,
         )
         load = function_body(ai, "ResetAiCivilizationsOnLoad")

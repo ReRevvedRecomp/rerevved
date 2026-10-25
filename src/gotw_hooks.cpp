@@ -130,8 +130,20 @@ bool isolateCurrentWeeklyResult()
 
 void ApplyGotwSeed(PPCRegister& setup, PPCRegister& week, PPCRegister& seed) noexcept
 {
+    rerevved::gotw::detail::ApplySeed(setup, week, seed, readWord);
+}
+
+void rerevved::gotw::detail::ApplySeed(PPCRegister& setup, PPCRegister& week, PPCRegister& seed, WordReader read, gameplay_session::detail::SnapshotProvider capture) noexcept
+{
+    uint32_t   rawMode  = 0;
+    const auto mode     = read && read(uint64_t{ setup.u32 } + 4, rawMode) ? std::optional{ static_cast<int32_t>(rawMode) } : std::nullopt;
+    const auto prepared = capture ? gameplay_session::detail::PrepareWeekly(setup.u32, mode, capture) : gameplay_session::PrepareWeekly(setup.u32, mode);
+    if (!prepared)
+    {
+        return;
+    }
     // Accepted launch at 0x82E76ED4; the native writer publishes all three fields.
-    const auto policy = rerevved::gotw::LatchForGame(week.u32, setup.u32);
+    const auto policy = rerevved::gotw::LatchForGame(week.u32, setup.u32, *prepared);
     rerevved::gotw::RecordAutomaticWeek(policy.nativeWeek);
     if (policy.customWeek)
     {

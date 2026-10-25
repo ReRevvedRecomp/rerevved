@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ai_economy_settings.h"
 #include "resource_identity_overrides.h"
 
 #include <filesystem>
@@ -13,7 +14,7 @@
 namespace rerevved::save_sidecar
 {
 
-constexpr uint8_t kSchemaVersion = 1;
+constexpr uint8_t kSchemaVersion = 2;
 
 struct State
 {
@@ -22,6 +23,7 @@ struct State
     int32_t                               occPopulation    = 33;
     int32_t                               resources        = 0;
     resource_identity_overrides::Snapshot overrides;
+    ai_economy::Policy                    aiEconomy;
     bool                                  operator==(const State&) const = default;
 };
 

@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <initializer_list>
+#include <memory>
 #include <nation_select_text.h>
 #include <string>
 #include <string_view>
@@ -58,6 +59,17 @@ struct PublishResult
     int32_t nativeResult = 0;
     char    ruleId[TERRAIN_YIELD_RULE_ID_CAPACITY + 1]{};
 };
+
+class PreparedRulesBundle
+{
+public:
+    virtual ~PreparedRulesBundle() = default;
+    virtual void Commit() noexcept = 0;
+};
+
+// Holds every affected domain lock until commit or destruction. An empty next
+// bundle removes all preceding owned records. Unrelated registrations survive.
+std::unique_ptr<PreparedRulesBundle> PrepareRulesBundle(const RulesBundle& next, const RulesBundle& previous, PublishResult& result) noexcept;
 
 PublishResult PublishRulesBundle(const RulesBundle& bundle) noexcept;
 

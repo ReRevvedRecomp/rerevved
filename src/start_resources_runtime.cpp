@@ -1,7 +1,10 @@
 #include "start_resources_runtime.h"
 
+#include "ai_civilization_setup.h"
 #include "ai_civilizations.h"
+#include "ai_economy_settings.h"
 #include "gameplay_fixes.h"
+#include "gameplay_session_settings.h"
 #include "gotw_settings.h"
 #include "occ_settings.h"
 #include "raging_barbarians_settings.h"
@@ -14,14 +17,17 @@
 
 #include <rex/cvar.h>
 #include <rex/logging.h>
+#include <rex/ui/notifications.h>
 
 // Preserve serialized enum values; Abundant remains reserved.
 REXCVAR_DEFINE_INT32(resources, 0, "ReRevved", "Resources for the next new game: 0 Normal, 1 Balanced, 2 Abundant (reserved), 3 Legendary")
     .range(0, 3);
 REXCVAR_DEFINE_BOOL(resource_settings_diagnostics, false, "ReRevved", "Log new-game resource anchors, ring terrain mix, choices, overrides and final readback");
+REXCVAR_DECLARE(int32_t, ai_civilizations);
 
 REX_EXTERN(__imp__sub_82D7D950);
 REX_EXTERN(__imp__sub_82D25170);
+REX_EXTERN(__imp__sub_82D217C8);
 
 namespace rerevved::start_resources
 {
@@ -46,11 +52,11 @@ std::atomic<int32_t>                                           frozenResources{ 
 class SetupScope
 {
 public:
-    explicit SetupScope(bool standardRules)
+    explicit SetupScope(bool standardRules, int32_t requested)
     : previous_(std::exchange(pendingSetup, std::nullopt))
     {
         resource_identity_overrides::Clear();
-        const int32_t value = standardRules ? 0 : REXCVAR_GET(resources);
+        const int32_t value = standardRules ? 0 : requested;
         frozenResources.store(static_cast<int32_t>(resource_settings::FromConfig(value)));
         pendingSetup.emplace(value);
     }
@@ -86,10 +92,11 @@ public:
 
     bool Capture(Snapshot& snapshot) override
     {
-        namespace ai    = ai_civilizations;
-        snapshot.bounds = { static_cast<int>(loadU32(base_, kBoundsA)), static_cast<int>(loadU32(base_, kBoundsB)) };
-        if (!snapshot.bounds.Valid() || loadU32(base_, ai::kPlayerCountGlobal) != 6 ||
-            loadU32(base_, ai::kBarbarianPlayerGlobal) != 5 || !refreshBound())
+        namespace ai             = ai_civilizations;
+        const uint32_t civilized = ai::CivilizationMask(static_cast<int32_t>(loadU32(base_, ai::kPlayerCountGlobal)),
+                                                        static_cast<int32_t>(loadU32(base_, ai::kBarbarianPlayerGlobal)));
+        snapshot.bounds          = { static_cast<int>(loadU32(base_, kBoundsA)), static_cast<int>(loadU32(base_, kBoundsB)) };
+        if (!snapshot.bounds.Valid() || civilized == 0 || !refreshBound())
         {
             return false;
         }
@@ -100,8 +107,10 @@ public:
         {
             return false;
         }
-        snapshot.seed = loadU32(base_, setup + 0x138);
-        for (size_t player = 0; player < kPlayers; ++player)
+        snapshot.seed              = loadU32(base_, setup + 0x138);
+        snapshot.civilizationCount = static_cast<size_t>(std::popcount(civilized));
+        snapshot.players           = {};
+        for (size_t player = 0; player < snapshot.civilizationCount; ++player)
         {
             auto& entry        = snapshot.players[player];
             entry.anchor       = { static_cast<int>(loadU32(base_, kAnchorA + 4 * static_cast<uint32_t>(player))),
@@ -222,6 +231,10 @@ void OnNewGameSetup(PPCContext& context, uint8_t* base)
     for (size_t player = 0; player < kPlayers; ++player)
     {
         const auto& report = result.players[player];
+        if (report.status == Status::NotRun)
+        {
+            continue;
+        }
         if (result.mode == resource_settings::Mode::Legendary)
         {
             if (report.status != Status::Verified || REXCVAR_GET(resource_settings_diagnostics))
@@ -319,21 +332,39 @@ void RunNativeNewGameSetup(PPCContext& context, uint8_t* base)
 {
     // sub_82D25170 setup at 0x82D25254 bypasses recount at 0x82D25260 on -1;
     // mode 0x82E77030 precedes seed 0x82E76ED4 and init 0x82E610A0.
-    const uint32_t setup         = loadU32(base, kSetupObject);
-    const int32_t  mode          = setup != 0 && setup <= UINT32_MAX - 4 ? static_cast<int32_t>(loadU32(base, setup + 4)) : 0;
-    const bool     standardRules = gotw::FreezeStandardRules(mode);
-    raging_barbarians::FreezeForGame(standardRules);
-    occ::FreezeForGame(standardRules);
-    gameplay_fixes::NoteNewGame(standardRules);
+    const uint32_t setup = loadU32(base, kSetupObject);
+    const int32_t  mode  = setup != 0 && setup <= UINT32_MAX - 4 ? static_cast<int32_t>(loadU32(base, setup + 4)) : 0;
+    const auto     kind  = gameplay_session::ClassifySetupMode(mode);
+    if (kind == gameplay_session::SetupKind::Load)
+    {
+        gameplay_session::SetupGate gate(true, false);
+        __imp__sub_82D25170(context, base);
+        return;
+    }
+    const auto                  boundary = gameplay_session::LockRuleBoundary();
+    const bool                  network  = kind == gameplay_session::SetupKind::Network;
+    const auto                  snapshot = gameplay_session::Prepare(network, setup, mode);
+    gameplay_session::SetupGate gate(snapshot.settings.has_value());
+    if (!snapshot.settings)
+    {
+        REXLOG_ERROR("Gameplay settings: setup rejected: {}", snapshot.diagnostic);
+        rex::ui::PostNotification("Cannot start this game", snapshot.diagnostic);
+        __imp__sub_82D25170(context, base);
+        return;
+    }
+    const auto& settings      = *snapshot.settings;
+    const bool  standardRules = gameplay_session::ApplyNewGame(snapshot, network, mode);
     REXLOG_INFO("GameplayFix: new game domination minimum={}",
-                gameplay_fixes::DominationMinimumTurns(rex::cvar::Query<std::string>("domination_min_turns"),
-                                                       gameplay_fixes::ShortenedMinimumAllowed()));
-    SetupScope scope(standardRules);
+                standardRules ? gameplay_fixes::kNativeDominationMinimumTurns : settings.dominationMinimumTurns);
+    SetupScope scope(standardRules, settings.resources);
+
+    ai_civilizations::SetupScope civilizations(settings.aiCivilizations, standardRules, base, mode);
     if (mode == 2)
     {
         REXLOG_INFO("Game of the Week: standard_rules={}", standardRules);
     }
     __imp__sub_82D25170(context, base);
+    ai_civilizations::CommitNewGame();
 }
 
 } // namespace rerevved::start_resources
@@ -341,4 +372,14 @@ void RunNativeNewGameSetup(PPCContext& context, uint8_t* base)
 REX_HOOK_RAW(sub_82D25170)
 {
     rerevved::start_resources::RunNativeNewGameSetup(ctx, base);
+}
+
+REX_HOOK_RAW(sub_82D217C8)
+{
+    if (rerevved::gameplay_session::SetupBlocked())
+    {
+        ctx.r3.s64 = -1;
+        return;
+    }
+    __imp__sub_82D217C8(ctx, base);
 }

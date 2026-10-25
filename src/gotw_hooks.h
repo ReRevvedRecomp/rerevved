@@ -1,5 +1,7 @@
 #pragma once
 
+#include "gameplay_session_settings.h"
+
 #include <cstdint>
 
 #include <rex/ppc.h>
@@ -9,6 +11,7 @@ namespace rerevved::gotw::detail
 
 using WordReader = bool (*)(uint64_t address, uint32_t& value) noexcept;
 // The hook supplies the checked guest reader; tests can supply setup snapshots.
+void ApplySeed(PPCRegister& setup, PPCRegister& week, PPCRegister& seed, WordReader read, gameplay_session::detail::SnapshotProvider capture = nullptr) noexcept;
 void ReapplySeed(PPCRegister& setup, PPCRegister& week, PPCRegister& seed, WordReader read) noexcept;
 
 } // namespace rerevved::gotw::detail

@@ -179,10 +179,17 @@ class OccContractTests(unittest.TestCase):
         setup = runtime.split("void RunNativeNewGameSetup(", 1)[1].split(
             "} // namespace", 1
         )[0]
-        self.assertEqual(setup.count("occ::FreezeForGame(standardRules);"), 1)
+        freeze = "gameplay_session::ApplyNewGame(snapshot, network, mode)"
+        self.assertEqual(setup.count(freeze), 1)
         self.assertLess(
-            setup.index("occ::FreezeForGame(standardRules);"),
-            setup.index("__imp__sub_82D25170(context, base)"),
+            setup.index(freeze),
+            setup.rindex("__imp__sub_82D25170(context, base)"),
+        )
+        session = (ROOT / "src/gameplay_session_settings.cpp").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            "occ::RestoreForGame({ !standardRules && settings.oneCityChallenge", session
         )
         load = (ROOT / "src/ai_civilizations_hooks.cpp").read_text(encoding="utf-8")
         load = load.split("void ResetAiCivilizationsOnLoad()", 1)[1].split("}", 1)[0]

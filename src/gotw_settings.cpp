@@ -1,4 +1,5 @@
 #include "gotw_settings.h"
+#include "gameplay_session_settings.h"
 
 #include <array>
 #include <charconv>
@@ -126,17 +127,38 @@ bool ParseWeek(std::string_view text, uint32_t& week) noexcept
 Selection LatchForGame(uint32_t nativeWeek, uint32_t setup) noexcept
 try
 {
+    const auto host = gameplay_session::ForNetworkGame();
+    if (host)
+    {
+        return LatchForGame(nativeWeek, setup, *host);
+    }
+    host_settings::HostSettings settings;
+    if (REXCVAR_GET(gotw_custom_week))
+    {
+        settings.gotwCustomWeek = ParseWeek(REXCVAR_GET(gotw_week), settings.gotwWeek);
+        if (!settings.gotwCustomWeek)
+        {
+            logRejected("week", REXCVAR_GET(gotw_week));
+        }
+    }
+    return LatchForGame(nativeWeek, setup, settings);
+}
+catch (...)
+{
+    return {};
+}
+
+Selection LatchForGame(uint32_t nativeWeek, uint32_t setup, const host_settings::HostSettings& settings) noexcept
+try
+{
     Selection next;
     next.nativeWeek = nativeWeek;
     next.week       = nativeWeek;
     next.setup      = setup;
-    if (REXCVAR_GET(gotw_custom_week))
+    if (settings.gotwCustomWeek && IsValidWeek(settings.gotwWeek))
     {
-        next.customWeek = ParseWeek(REXCVAR_GET(gotw_week), next.week);
-        if (!next.customWeek)
-        {
-            logRejected("week", REXCVAR_GET(gotw_week));
-        }
+        next.customWeek = true;
+        next.week       = settings.gotwWeek;
     }
     if (next.customWeek)
     {
@@ -195,7 +217,13 @@ void RecordAutomaticWeek(uint32_t week) noexcept
 
 bool FreezeStandardRules(int32_t mode) noexcept
 {
-    const bool enabled = mode == 2 && REXCVAR_GET(gotw_standard_rules);
+    const auto host = gameplay_session::ForNetworkGame();
+    return FreezeStandardRules(mode, host ? host->gotwStandardRules : REXCVAR_GET(gotw_standard_rules));
+}
+
+bool FreezeStandardRules(int32_t mode, bool selected) noexcept
+{
+    const bool enabled = mode == 2 && selected;
     standardRules.store(enabled, std::memory_order_relaxed);
     return enabled;
 }

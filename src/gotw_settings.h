@@ -6,6 +6,13 @@
 #include <memory>
 #include <string_view>
 
+namespace rerevved::host_settings
+{
+
+struct HostSettings;
+
+}
+
 namespace rerevved::gotw
 {
 
@@ -31,10 +38,12 @@ bool ParseWeek(std::string_view text, uint32_t& week) noexcept;
 
 // Snapshot once at new-game ingress; later consumers use the same decision.
 bool FreezeStandardRules(int32_t mode) noexcept;
+bool FreezeStandardRules(int32_t mode, bool selected) noexcept;
 bool StandardRulesForGame() noexcept;
 
 // Only the accepted GOTW setup call snapshots the pending settings.
 Selection LatchForGame(uint32_t nativeWeek, uint32_t setup) noexcept;
+Selection LatchForGame(uint32_t nativeWeek, uint32_t setup, const host_settings::HostSettings& settings) noexcept;
 Selection ForGame() noexcept;
 using UiDispatcher = std::function<void(std::function<void()>)>;
 // Install before guest execution; clear before the app context is destroyed.

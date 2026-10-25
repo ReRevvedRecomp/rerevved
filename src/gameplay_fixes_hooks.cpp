@@ -1,4 +1,5 @@
 #include "gameplay_fixes.h"
+#include "gameplay_session_settings.h"
 
 #include <array>
 #include <atomic>
@@ -68,8 +69,8 @@ bool AdmitFirstDiscoveryTempleCity(PPCRegister& buildingIndex)
 }
 
 // Before the join branch at 0x82D09BD0 (bne to the next building at 0x82D0A2E4).
-// r9 is the acquiring technology and r18 the normalized building index; the
-// native loop then skips the building before scoring, delivery or recipient save.
+// r9 is the acquiring technology and r18 the normalized building index. The
+// native loop skips the building before scoring, delivery or recipient save.
 bool SuppressLiteracyCourthouseReward(PPCRegister& technology, PPCRegister& buildingIndex)
 {
     return rerevved::gameplay_fixes::SuppressLiteracyCourthouseReward(technology.s32, buildingIndex.s32);
@@ -96,7 +97,7 @@ bool SuppressStaleFirstDiscoveryCaption(PPCRegister& savedCity, PPCRegister& cit
 }
 
 // At 0x82D09588 the native first-ownership/phase flag is already established.
-// Skip only its source-6 clear; never manufacture a discovery flag.
+// Skip only its source-6 clear. Never manufacture a discovery flag.
 bool PreserveEgyptianIrrigationReward(
     PPCRegister& player, PPCRegister& technology, PPCRegister& source, PPCRegister& phase)
 {
@@ -119,7 +120,7 @@ bool PreserveEgyptianIrrigationReward(
         technology.s32, source.s32, phase.s32, static_cast<int32_t>(civilization));
 }
 
-// Before destination indexing at 0x82CF7090 and 0x82CF7274; -1 has no
+// Before destination indexing at 0x82CF7090 and 0x82CF7274. -1 has no
 // destination slot. Configured failure tails preserve native bookkeeping.
 bool SkipFailedSpyUnitCreation(PPCRegister& returnedSlot)
 {
@@ -180,8 +181,11 @@ bool AdmitSpaceshipArrivalYear(PPCRegister& r31)
 // dead after the compare.
 void ApplyDominationMinimumTurns(PPCRegister& r9)
 {
-    const int32_t minimum = rerevved::gameplay_fixes::DominationMinimumTurns(
-        rex::cvar::Query<std::string>("domination_min_turns"), rerevved::gameplay_fixes::ShortenedMinimumAllowed());
+    const auto    host    = rerevved::gameplay_session::ForNetworkGame();
+    const int32_t minimum = host && rerevved::gameplay_fixes::ShortenedMinimumAllowed()
+                                ? host->dominationMinimumTurns
+                                : rerevved::gameplay_fixes::DominationMinimumTurns(
+                                      rex::cvar::Query<std::string>("domination_min_turns"), rerevved::gameplay_fixes::ShortenedMinimumAllowed());
     const int32_t elapsed = r9.s32;
     r9.s32                = rerevved::gameplay_fixes::RebaseDominationElapsed(elapsed, minimum);
 
@@ -203,9 +207,9 @@ void ApplyDominationMinimumTurns(PPCRegister& r9)
     }
 }
 
-// Before cmpw cr6,r9,r11 at 0x82D11250; r27 is the player, r9 the owned original
+// Before cmpw cr6,r9,r11 at 0x82D11250. r27 is the player, r9 the owned original
 // capitals, r10 the scenario QUICKWIN value and r11 the required count (total minus
-// r10). Logging only; no register changes.
+// r10). Logs without changing registers.
 void LogDominationCapitals(PPCRegister& r27, PPCRegister& r9, PPCRegister& r10, PPCRegister& r11)
 {
     const int32_t player = r27.s32;
@@ -227,7 +231,7 @@ void LogDominationCapitals(PPCRegister& r27, PPCRegister& r9, PPCRegister& r10, 
 
 REX_EXTERN(__imp__sub_82CF0CB0);
 
-// ActiveCivilizationBonusLookup: r3 bonus ID, r4 player, r5 cumulative mode; it
+// ActiveCivilizationBonusLookup: r3 bonus ID, r4 player, r5 cumulative mode. It
 // returns the active flag in r3. The native lookup runs once and only r3 may
 // change after it, so its table and the Unique Era Ability cell hook stay in force.
 REX_HOOK_RAW(sub_82CF0CB0)

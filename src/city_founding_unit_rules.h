@@ -27,7 +27,7 @@ bool                                IsEnabled();
 size_t                              RuleCount();
 int32_t                             NormalizeRequest(const Rule* rule, Rule& normalized) noexcept;
 std::unique_lock<std::shared_mutex> AcquirePublicationLock();
-int32_t                             BuildCandidate(std::span<const Rule> requests, std::vector<Rule>& candidate, size_t& failingOffset, void (*checkpoint)() = nullptr);
+int32_t                             BuildCandidate(std::span<const Rule> requests, std::vector<Rule>& candidate, size_t& failingOffset, void (*checkpoint)() = nullptr, std::span<const Rule> removed = {}, bool exclusive = false);
 void                                CommitCandidate(std::vector<Rule>& candidate) noexcept;
 void                                ResetForTests();
 

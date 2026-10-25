@@ -55,6 +55,7 @@ HOOK_SOURCES = [
     ROOT / "src" / "main_menu_logo_hooks.cpp",
     ROOT / "src" / "system_link_trace_hooks.cpp",
     ROOT / "src" / "gameplay_fixes_hooks.cpp",
+    ROOT / "src" / "ai_economy_hooks.cpp",
 ]
 GENERAL_SOURCE = ROOT / "src" / "great_general_attachment.cpp"
 NATION_SELECT_TEXT_SOURCE = ROOT / "src" / "nation_select_text_hooks.cpp"
@@ -90,6 +91,7 @@ def compat_hooks() -> list[dict]:
         "terrain_hooks.toml",
         "city_effect_hooks.toml",
         "system_link_trace_hooks.toml",
+        "ai_economy_hooks.toml",
     )
     hooks = []
     for path in paths:
@@ -114,6 +116,21 @@ SCENE_ALLOCATION_HOOKS = [
 ]
 
 EXPECTED_HOOKS = [
+    {
+        "address": 0x82CF1058,
+        "name": "ApplyAiResearchCostPercent",
+        "registers": ["r25", "r26", "r3"],
+    },
+    {
+        "address": 0x82CF126C,
+        "name": "ApplyAiUnitProductionCostPercent",
+        "registers": ["r30", "r29", "r3"],
+    },
+    {
+        "address": 0x82CF154C,
+        "name": "ApplyAiNonUnitProductionCostPercent",
+        "registers": ["r29", "r27", "r31"],
+    },
     {
         "address": 0x8230575C,
         "name": "ObserveSceneRegionLocked",
@@ -2357,6 +2374,63 @@ class HookContractTests(unittest.TestCase):
         self.assertIn("ctx.r29.u64 = ctx.r10.u64;", function)
         self.assertIn("ctx.r3.u64 = ctx.r28.u64;", function)
 
+    def test_ai_economy_hooks_follow_native_cost_composition(self) -> None:
+        self.assertEqual(
+            read_hooks(ROOT / "config" / "ai_economy_hooks.toml"),
+            [
+                {
+                    "address": 0x82CF1058,
+                    "name": "ApplyAiResearchCostPercent",
+                    "registers": ["r25", "r26", "r3"],
+                },
+                {
+                    "address": 0x82CF126C,
+                    "name": "ApplyAiUnitProductionCostPercent",
+                    "registers": ["r30", "r29", "r3"],
+                },
+                {
+                    "address": 0x82CF154C,
+                    "name": "ApplyAiNonUnitProductionCostPercent",
+                    "registers": ["r29", "r27", "r31"],
+                },
+            ],
+        )
+        paths, generated = generated_text()
+        if not paths:
+            self.skipTest("generated sources are not available")
+        for owner, hook, before, after in (
+            (
+                "82CF0EE8",
+                "ApplyAiResearchCostPercent(ctx.r25, ctx.r26, ctx.r3);",
+                "// mullw r3,r11,r30",
+                "ctx.r1.s64 = ctx.r1.s64 + 160;",
+            ),
+            (
+                "82CF1148",
+                "ApplyAiUnitProductionCostPercent(ctx.r30, ctx.r29, ctx.r3);",
+                "ctx.r3.u64 = ctx.r28.u64;",
+                "ctx.r1.s64 = ctx.r1.s64 + 128;",
+            ),
+            (
+                "82CF1278",
+                "ApplyAiNonUnitProductionCostPercent(ctx.r29, ctx.r27, ctx.r31);",
+                "loc_82CF154C:",
+                "ctx.r3.u64 = ctx.r31.u64;",
+            ),
+        ):
+            function = generated.split(f"DEFINE_REX_FUNC(sub_{owner})", 1)[1]
+            function = function.split("DEFINE_REX_FUNC", 1)[0]
+            self.assertEqual(function.count(hook), 1)
+            self.assertLess(function.index(before), function.index(hook))
+            self.assertIn(hook + "\n\t" + after, function)
+            if owner == "82CF1148":
+                self.assertLess(
+                    function.index("ApplyUnitProductionCostPercent("),
+                    function.index(before),
+                )
+            if owner == "82CF1278":
+                self.assertIn("goto loc_82CF1550;", function)
+
     def test_generated_unit_effect_hook_preserves_native_creation_gate_when_available(
         self,
     ) -> None:
@@ -2665,7 +2739,15 @@ class HookContractTests(unittest.TestCase):
             hooks = tomllib.load(stream)["midasm_hook"]
         self.assertEqual(
             hooks,
-            [{"address": 0x82D86674, "name": "ResetAiCivilizationsOnLoad"}],
+            [
+                {"address": 0x82D21FF8, "name": "ConfigureExpandedAiSetup"},
+                {
+                    "address": 0x82D22918,
+                    "name": "PreserveExpandedAiSetup",
+                    "registers": ["r11", "r10"],
+                },
+                {"address": 0x82D86674, "name": "ResetAiCivilizationsOnLoad"},
+            ],
         )
         others = compat_hooks()
         self.assertNotIn(0x82D86674, {hook["address"] for hook in others})
@@ -2688,11 +2770,15 @@ class HookContractTests(unittest.TestCase):
         source = AI_CIV_SOURCE.read_text(encoding="utf-8")
         override = source.split("REX_HOOK_RAW(sub_82D11AD8)", 1)[1]
         self.assertIn("ctx.lr == ai_civs::kNewGameRecountReturn", override)
-        # The limit comes from the local cvar or, in a network game, the host.
-        self.assertIn("resolveLimit(network, source)", override)
-        resolver = source.split("int32_t resolveLimit(", 1)[1].split("\n}\n", 1)[0]
-        self.assertIn("REXCVAR_GET(ai_civilizations)", resolver)
-        self.assertIn("maxAi < ai_civs::kAllAiCivilizations", override)
+        self.assertIn("gameplay_session::SetupActive()", override)
+        # The host snapshot is resolved before setup, never at the late recount.
+        self.assertIn("gameplay_session::ForNetworkGame()", override)
+        self.assertIn("settings->aiCivilizations", override)
+        self.assertIn("REXCVAR_GET(ai_civilizations)", override)
+        self.assertNotIn("WaitForHostData", source)
+        self.assertIn("ai_civs::CivilizationMask(count, barbarian) != 0", override)
+        self.assertIn("maxAi < barbarian - 1", override)
+        self.assertIn("ai_civs::ExpandedAiLimit()", override)
         self.assertLess(
             override.index("removeAiCivilizations(ctx, base, maxAi, source)"),
             override.index("__imp__sub_82D11AD8(ctx, base);"),
@@ -2701,6 +2787,53 @@ class HookContractTests(unittest.TestCase):
             "callGuest(ctx, base, __imp__sub_82D02390, player, unit, 0)", source
         )
         self.assertIn("ResetAiCivilizationsOnLoad(", source)
+
+        setup = (ROOT / "src/start_resources_runtime.cpp").read_text(encoding="ascii")
+        setup = setup.split("void RunNativeNewGameSetup(", 1)[1]
+        native_setup = setup.rindex("__imp__sub_82D25170(context, base);")
+        load = setup.split("kind == gameplay_session::SetupKind::Load", 1)[1].split(
+            "gameplay_session::LockRuleBoundary()", 1
+        )[0]
+        self.assertIn("gameplay_session::SetupGate gate(true, false)", load)
+        self.assertLess(load.index("__imp__sub_82D25170"), load.index("return;"))
+        self.assertNotIn("ApplyNewGame", load)
+        self.assertLess(
+            setup.index("gameplay_session::LockRuleBoundary()"),
+            setup.index("gameplay_session::Prepare(network, setup, mode)"),
+        )
+        self.assertLess(
+            setup.index("gameplay_session::Prepare(network, setup, mode)"), native_setup
+        )
+        self.assertLess(setup.index("gameplay_session::SetupGate gate("), native_setup)
+        self.assertLess(
+            setup.index("gameplay_session::ApplyNewGame(snapshot, network, mode)"),
+            setup.index("SetupScope scope(standardRules, settings.resources)"),
+        )
+        self.assertLess(
+            setup.index(
+                "civilizations(settings.aiCivilizations, standardRules, base, mode)"
+            ),
+            native_setup,
+        )
+        self.assertLess(
+            native_setup,
+            setup.index("ai_civilizations::CommitNewGame();"),
+        )
+        self.assertIn("ai_civs::NoteNewGameRecount();", override)
+        self.assertLess(
+            override.index("start_resources::OnNewGameSetup(ctx, base);"),
+            override.index("__imp__sub_82D11AD8(ctx, base);"),
+        )
+        reset = source.split("void ResetAiCivilizationsOnLoad()", 1)[1]
+        self.assertTrue(
+            reset.lstrip().startswith(
+                "{\n    rerevved::gameplay_session::ResetOnLoad();"
+            )
+        )
+        gate = setup.split("REX_HOOK_RAW(sub_82D217C8)", 1)[1]
+        self.assertIn("gameplay_session::SetupBlocked()", gate)
+        self.assertIn("ctx.r3.s64 = -1;", gate)
+        self.assertIn("__imp__sub_82D217C8(ctx, base);", gate)
 
         table = AI_CIV_TABLE.read_text(encoding="utf-8")
         for constant in (
@@ -2745,6 +2878,22 @@ class HookContractTests(unittest.TestCase):
             "\tctx.lr = 0x82D86678;\n\tsub_82CC4040(ctx, base);\n"
         )
         self.assertEqual(function(0x82D86400).count(reset), 1)
+
+    def test_generated_expanded_ai_setup_placement_when_available(self) -> None:
+        paths = chunk_paths()
+        if not paths:
+            self.skipTest("generated sources are not available")
+        # Exact hook windows only: native-only setup research does not consume
+        # a generated setup body as evidence for its control flow.
+        for placement in (
+            "\tctx.lr = 0x82D21FF8;\n\tsub_82CD59A8(ctx, base);\n"
+            "\t// lwz r9,0(r18)\n\tConfigureExpandedAiSetup();\n",
+            "\t// stw r11,0(r18)\n"
+            "\tPreserveExpandedAiSetup(ctx.r11, ctx.r10);\n"
+            "\tREX_STORE_U32(ctx.r18.u32 + 0, ctx.r11.u32);\n"
+            "\t// stw r10,176(r9)\n",
+        ):
+            self.assertEqual(count_per_chunk(placement), 1)
 
 
 VIDEO_SCALER_HOOK_CONFIG = ROOT / "config" / "native_video_hooks.toml"

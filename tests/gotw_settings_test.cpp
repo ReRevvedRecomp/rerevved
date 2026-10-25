@@ -15,6 +15,7 @@
 #include <cstdlib>
 #include <functional>
 #include <memory>
+#include <new>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -32,6 +33,55 @@ REXCVAR_DECLARE(bool, gotw_trace);
 
 namespace
 {
+
+namespace session = rerevved::gameplay_session;
+namespace host    = rerevved::host_settings;
+
+struct RestoreNetwork
+{
+    std::shared_ptr<const host::HostSettings> previous = session::ForNetworkGame();
+
+    RestoreNetwork()
+    {
+        session::ResetOnLoad();
+    }
+
+    ~RestoreNetwork()
+    {
+        session::ResetOnLoad();
+        if (previous)
+        {
+            session::Publish({ host::SnapshotState::Received, *previous, {} }, true);
+        }
+    }
+};
+
+host::GameSnapshot suppliedSnapshot;
+uint32_t           captureCalls    = 0;
+bool               captureThrows   = false;
+bool               capturedNetwork = false;
+
+host::GameSnapshot captureWeekly(bool network)
+{
+    ++captureCalls;
+    capturedNetwork = network;
+    if (captureThrows)
+    {
+        throw std::bad_alloc{};
+    }
+    return suppliedSnapshot;
+}
+
+host::GameSnapshot authenticatedWeekly(uint32_t week, uint8_t digest)
+{
+    host::HostSettings settings;
+    settings.gotwCustomWeek     = true;
+    settings.gotwWeek           = week;
+    settings.gotwSeed           = rerevved::gotw::SeedForWeek(week);
+    settings.rulesDigestPresent = true;
+    settings.rulesDigest.fill(digest);
+    return host::ResolveForGame(true, { rex::session_data::State::kReceived, host::Encode(settings), true }, settings);
+}
 
 // Attaches a log sink for one test and detaches it however the test ends, so
 // a failed assertion cannot leave the logger pointing at a destroyed stream.
@@ -173,7 +223,7 @@ void testWeekSelection()
         PPCRegister receiver{}, week{}, seed{};
         receiver.u64 = kSetup;
         week.u64     = 1085;
-        ApplyGotwSeed(receiver, week, seed);
+        rerevved::gotw::detail::ApplySeed(receiver, week, seed, readSetup);
         const auto policy       = rerevved::gotw::ForGame();
         const auto expectedWeek = customWeek ? 1084u : 1085u;
         const auto expectedSeed = customWeek ? 276u : 0u;
@@ -210,7 +260,7 @@ void testWeekSelection()
     receiver.u64 = kSetup;
     week.u64     = 0xFFFFFFFF0000043Dull;
     seed.u64     = 0x1234567800000000ull;
-    ApplyGotwSeed(receiver, week, seed);
+    rerevved::gotw::detail::ApplySeed(receiver, week, seed, readSetup);
     rerevved::gotw::detail::ReapplySeed(receiver, week, seed, readSetup);
     UNSCOPED_INFO("unchecked Week preserves all incoming register bits");
     REQUIRE((receiver.u64 == kSetup && week.u64 == 0xFFFFFFFF0000043Dull && seed.u64 == 0x1234567800000000ull));
@@ -248,7 +298,7 @@ void testLaunchFallback()
         PPCRegister receiver{}, week{}, seed{};
         receiver.u64 = kSetup;
         week.u64     = 1085;
-        ApplyGotwSeed(receiver, week, seed);
+        rerevved::gotw::detail::ApplySeed(receiver, week, seed, readSetup);
         UNSCOPED_INFO("invalid checked Week falls back to native launch");
         REQUIRE((week.u64 == 1085 && seed.u64 == 0 && !rerevved::gotw::ForGame().IsCustom()));
         UNSCOPED_INFO("native fallback clears custom isolation");
@@ -270,12 +320,12 @@ void testFallbackLogging()
     PPCRegister receiver{}, week{}, seed{};
     receiver.u64 = kSetup;
     week.u64     = 1085;
-    ApplyGotwSeed(receiver, week, seed);
+    rerevved::gotw::LatchForGame(week.u32, receiver.u32);
     rerevved::gotw::detail::ReapplySeed(receiver, week, seed, readSetup);
     rex::FlushLogging();
     std::istringstream lines(output.str());
     std::string        line;
-    UNSCOPED_INFO("invalid checked week is logged at launch");
+    UNSCOPED_INFO("direct preference selection logs an invalid checked week");
     REQUIRE((static_cast<bool>(std::getline(lines, line)) && line.find("invalid custom week '0'") != std::string::npos));
     UNSCOPED_INFO("late reapplication does not repeat fallback logs");
     REQUIRE(!std::getline(lines, line));
@@ -287,7 +337,7 @@ void testLateLaunchIdentity()
     PPCRegister receiver{}, week{}, seed{};
     receiver.u64 = kSetup;
     week.u64     = 1085;
-    ApplyGotwSeed(receiver, week, seed);
+    rerevved::gotw::detail::ApplySeed(receiver, week, seed, readSetup);
     for (const uint32_t mode : { 0u, 1u, 2u, 3u })
     {
         liveMode = mode;
@@ -464,6 +514,7 @@ void testTraceCap()
 
 TEST_CASE("gotw_settings", "[ctest][gotw-settings][local-fast]")
 {
+    const RestoreNetwork restoreNetwork;
     REREVVED_RESTORE_CVAR(gotw_custom_week);
     REREVVED_RESTORE_CVAR(gotw_week);
     REREVVED_RESTORE_CVAR(gotw_standard_rules);
@@ -480,4 +531,135 @@ TEST_CASE("gotw_settings", "[ctest][gotw-settings][local-fast]")
     testDeferredStoreBack();
     testTraceObservers();
     testTraceCap();
+}
+
+TEST_CASE("local weekly seed clears previous host policy", "[ctest][gotw-settings]")
+{
+    const RestoreNetwork restore;
+    REREVVED_RESTORE_CVAR(gotw_custom_week);
+    REREVVED_RESTORE_CVAR(gotw_week);
+    const auto previous = authenticatedWeekly(1085, 0xA5);
+    session::Publish(previous, true);
+    REQUIRE(session::ForNetworkGame());
+    controls(true);
+    PPCRegister setup{}, week{}, seed{};
+    setup.u32 = kSetup;
+    week.u32  = 99;
+    rerevved::gotw::detail::ApplySeed(setup, week, seed, readSetup);
+    CHECK(week.u32 == 1084);
+    CHECK(seed.u32 == 276);
+    CHECK_FALSE(session::ForNetworkGame());
+    const auto outer = session::Prepare(false, kSetup, 2);
+    REQUIRE(outer.settings);
+    CHECK(outer.state == host::SnapshotState::Local);
+    CHECK(outer.settings->gotwWeek == 1084);
+    CHECK(outer.settings->rulesDigest == host::LocalSettings().rulesDigest);
+}
+
+TEST_CASE("local weekly seed and outer setup share one snapshot", "[ctest][gotw-settings]")
+{
+    const RestoreNetwork restore;
+    REREVVED_RESTORE_CVAR(gotw_custom_week);
+    REREVVED_RESTORE_CVAR(gotw_week);
+    REREVVED_RESTORE_CVAR(gotw_standard_rules);
+    REXCVAR_SET(gotw_standard_rules, true);
+    controls(true);
+    suppliedSnapshot = host::ResolveForGame(false, {}, host::LocalSettings());
+    suppliedSnapshot.settings->rulesDigest.fill(0xA5);
+    REXCVAR_SET(gotw_week, "1085");
+    captureCalls  = 0;
+    captureThrows = false;
+    PPCRegister setup{}, week{}, seed{};
+    setup.u32 = kSetup;
+    week.u32  = 99;
+    rerevved::gotw::detail::ApplySeed(setup, week, seed, readSetup, captureWeekly);
+    CHECK(week.u32 == 1084);
+    CHECK(seed.u32 == 276);
+    CHECK(REXCVAR_GET(gotw_week) == "1085");
+    CHECK_FALSE(capturedNetwork);
+    CHECK_FALSE(session::ForNetworkGame());
+    suppliedSnapshot                             = host::ResolveForGame(false, {}, host::LocalSettings());
+    suppliedSnapshot.settings->gotwStandardRules = false;
+    const auto outer                             = session::detail::Prepare(false, kSetup, 2, captureWeekly);
+    REQUIRE(outer.settings);
+    CHECK(captureCalls == 1);
+    CHECK(outer.state == host::SnapshotState::Local);
+    CHECK(outer.settings->gotwWeek == 1084);
+    CHECK(outer.settings->gotwSeed == 276);
+    CHECK(outer.settings->gotwStandardRules);
+    CHECK(outer.settings->rulesDigest[0] == 0xA5);
+    seed.u32 = 0;
+    rerevved::gotw::detail::ReapplySeed(setup, week, seed, readSetup);
+    CHECK(seed.u32 == 276);
+}
+
+TEST_CASE("failed weekly capture cannot admit later preferences", "[ctest][gotw-settings]")
+{
+    const RestoreNetwork restore;
+    REREVVED_RESTORE_CVAR(gotw_custom_week);
+    REREVVED_RESTORE_CVAR(gotw_week);
+    controls(false);
+    const auto before = rerevved::gotw::LatchForGame(99, kSetup);
+    session::Publish(authenticatedWeekly(1085, 0xA5), true);
+    captureCalls  = 0;
+    captureThrows = true;
+    PPCRegister setup{}, week{}, seed{};
+    setup.u32 = kSetup;
+    week.u32  = 99;
+    seed.u32  = 777;
+    rerevved::gotw::detail::ApplySeed(setup, week, seed, readSetup, captureWeekly);
+    captureThrows = false;
+    CHECK(week.u32 == 99);
+    CHECK(seed.u32 == 777);
+    CHECK(rerevved::gotw::ForGame().launch == before.launch);
+    CHECK_FALSE(session::ForNetworkGame());
+    controls(true);
+    suppliedSnapshot = host::ResolveForGame(false, {}, host::LocalSettings());
+    const auto outer = session::detail::Prepare(false, kSetup, 2, captureWeekly);
+    CHECK_FALSE(outer.settings);
+    CHECK_FALSE(outer.diagnostic.empty());
+    CHECK(captureCalls == 1);
+    rerevved::gotw::detail::ApplySeed(setup, week, seed, readSetup, captureWeekly);
+    CHECK(week.u32 == 1084);
+    CHECK(seed.u32 == 276);
+    CHECK(captureCalls == 2);
+}
+
+TEST_CASE("unreadable weekly mode stays rejected", "[ctest][gotw-settings]")
+{
+    const RestoreNetwork restore;
+    REREVVED_RESTORE_CVAR(gotw_custom_week);
+    REREVVED_RESTORE_CVAR(gotw_week);
+    controls(true);
+    const auto  before = rerevved::gotw::ForGame();
+    PPCRegister setup{}, week{}, seed{};
+    setup.u32 = kSetup;
+    week.u32  = 99;
+    seed.u32  = 777;
+    // There is no Runtime in this fixture, so the public checked reader fails.
+    ApplyGotwSeed(setup, week, seed);
+    CHECK(week.u32 == 99);
+    CHECK(seed.u32 == 777);
+    CHECK(rerevved::gotw::ForGame().launch == before.launch);
+    suppliedSnapshot = host::ResolveForGame(false, {}, host::LocalSettings());
+    captureCalls     = 0;
+    CHECK_FALSE(session::detail::Prepare(false, kSetup, 2, captureWeekly).settings);
+    CHECK(captureCalls == 0);
+}
+
+TEST_CASE("weekly seed rejects a current nonweekly mode", "[ctest][gotw-settings]")
+{
+    const RestoreNetwork restore;
+    const auto           before = rerevved::gotw::ForGame();
+    PPCRegister          setup{}, week{}, seed{};
+    setup.u32 = kSetup;
+    week.u32  = 99;
+    seed.u32  = 777;
+    liveMode  = 6;
+    rerevved::gotw::detail::ApplySeed(setup, week, seed, readSetup, captureWeekly);
+    liveMode = 2;
+    CHECK(week.u32 == 99);
+    CHECK(seed.u32 == 777);
+    CHECK(rerevved::gotw::ForGame().launch == before.launch);
+    CHECK_FALSE(session::detail::Prepare(true, kSetup, 6, captureWeekly).settings);
 }

@@ -14,6 +14,7 @@
 #include <rex/system/xmemory.h>
 
 #include "display_aspect_hooks.h"
+#include "gameplay_session_settings.h"
 #include "gameplay_state.h"
 #include "gpu/completion/guest_progress_hooks.h"
 #include "gpu/diagnostics/native_renderer_guest_state.h"
@@ -191,7 +192,8 @@ void PublishGameplayState()
 
 void ApplyCombatPaceOverride()
 {
-    if (REXCVAR_GET(combat_speed) != "fast")
+    const auto host = rerevved::gameplay_session::ForNetworkGame();
+    if (host ? host->combatSpeed != 1 : REXCVAR_GET(combat_speed) != "fast")
     {
         return;
     }
