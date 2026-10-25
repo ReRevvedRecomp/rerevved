@@ -15,7 +15,8 @@ from package import expected_entries  # noqa: E402
 
 
 def archive_name(platform):
-    return f"rerevved-v1.0.0-{platform}-x64" + (
+    arch = "arm64" if platform == "macos" else "x64"
+    return f"rerevved-v1.0.0-{platform}-{arch}" + (
         ".zip" if platform == "windows" else ".tar.gz"
     )
 
@@ -58,6 +59,7 @@ class InventoryTests(unittest.TestCase):
     def test_exact_inventory_passes(self) -> None:
         self.assertEqual(self.run_case("windows"), [])
         self.assertEqual(self.run_case("linux"), [])
+        self.assertEqual(self.run_case("macos"), [])
 
     def test_windows_only_files_are_not_expected_on_linux(self) -> None:
         self.assertEqual(
@@ -77,7 +79,7 @@ class InventoryTests(unittest.TestCase):
         self.assertIn("unexpected file: game/default.xex", problems)
 
     def test_missing_game_directory_is_reported(self) -> None:
-        for platform in ("windows", "linux"):
+        for platform in ("windows", "linux", "macos"):
             self.assertEqual(
                 self.run_case(platform, without_directories=["game"]),
                 ["missing directory: game"],
@@ -87,6 +89,31 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(
             self.run_case("linux", mode=0o644), ["rerevved has no executable mode bit"]
         )
+
+    def test_macos_runtime_files_and_executable_mode_are_required(self) -> None:
+        for filename in (
+            "librexgpu-xenos.dylib",
+            "libTracyClient.dylib",
+            "vulkan/lib/libvulkan.1.dylib",
+            "vulkan/lib/libMoltenVK.dylib",
+            "vulkan/share/vulkan/icd.d/MoltenVK_icd.json",
+            "licenses/MOLTENVK-LICENSE.txt",
+        ):
+            with self.subTest(filename=filename):
+                self.assertEqual(
+                    self.run_case("macos", drop=[filename]),
+                    [f"missing file: {filename}"],
+                )
+        self.assertEqual(
+            self.run_case("macos", mode=0o644), ["rerevved has no executable mode bit"]
+        )
+
+    def test_macos_archive_rejects_x64_name(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "rerevved-v1.0.0-macos-x64.tar.gz"
+            directories, files = expected_entries("macos")
+            write_tar(path, files, (), directories)
+            self.assertIn(f"unexpected archive name: {path.name}", check(path, "macos"))
 
     def test_tar_link_entries_are_reported(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

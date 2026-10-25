@@ -552,3 +552,259 @@ jobs:
           path: out/rerevved-v*-linux-x64.tar.gz
           if-no-files-found: error
           retention-days: ${{ inputs.publish_mode == 'release' && 1 || 14 }}
+
+  build-macos:
+    name: macOS arm64
+    runs-on: macos-15
+    timeout-minutes: 180
+
+    steps:
+      - name: Check out ReRevved
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          # Bundled mods must target a title commit in this history.
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+
+      - name: Read mods lock
+        id: mods-lock
+        shell: pwsh
+        run: |
+          $lock = Get-Content -LiteralPath rerevved-mods.lock.json -Raw | ConvertFrom-Json
+          $match = [regex]::Match($lock.repository, '^https://github\.com/(?<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)$')
+          if (-not $match.Success) { throw 'Invalid rerevved-mods lock repository' }
+          if ($lock.commit -notmatch '^[0-9a-f]{40}$') { throw 'Invalid rerevved-mods lock commit' }
+          "repository=$($match.Groups['repo'].Value)" >> $env:GITHUB_OUTPUT
+          "commit=$($lock.commit)" >> $env:GITHUB_OUTPUT
+
+      - name: Check out pinned mods
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ steps.mods-lock.outputs.repository }}
+          ref: ${{ steps.mods-lock.outputs.commit }}
+          path: rerevved-mods-src
+
+      - name: Assemble bundled mods
+        shell: pwsh
+        run: |
+          python scripts/assemble_mods.py --mods-checkout rerevved-mods-src
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Select Xcode and install macOS dependencies
+        shell: bash
+        run: |
+          sudo xcode-select --switch /Applications/Xcode_16.4.app/Contents/Developer
+          xcodebuild -version
+          test "$(uname -m)" = arm64
+          brew install cmake ninja vulkan-loader molten-vk autoconf pkgconf
+
+      - name: Read SDK lock
+        id: sdk-lock-macos
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+          import re
+
+          lock = json.loads(pathlib.Path("rexglue-sdk.lock.json").read_text(encoding="ascii"))
+          if lock.get("repository") != "https://github.com/ReRevvedRecomp/rerevved-sdk":
+              raise SystemExit("Unexpected SDK repository in rexglue-sdk.lock.json")
+          commit = lock.get("commit", "")
+          if re.fullmatch(r"[0-9a-f]{40}", commit) is None:
+              raise SystemExit("Invalid SDK commit in rexglue-sdk.lock.json")
+          with pathlib.Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="ascii") as output:
+              output.write(f"commit={commit}\n")
+          PY
+
+      - name: Clone pinned SDK
+        shell: bash
+        run: |
+          sdk_root="$RUNNER_TEMP/rerevved-sdk"
+          # The pinned commit may be outside SDK main.
+          git init --quiet "$sdk_root"
+          git -C "$sdk_root" fetch --quiet --tags \
+            https://github.com/ReRevvedRecomp/rerevved-sdk '${{ steps.sdk-lock-macos.outputs.commit }}'
+          git -C "$sdk_root" checkout --quiet --detach FETCH_HEAD
+          git -C "$sdk_root" submodule update --init --recursive --depth 1
+
+      - name: Fetch upstream SDK release tags
+        working-directory: ${{ runner.temp }}/rerevved-sdk
+        shell: bash
+        run: >-
+          git fetch --force --no-tags
+          https://github.com/rexglue/rexglue-sdk.git
+          'refs/tags/v*:refs/tags/v*'
+
+      - name: Build and install SDK
+        working-directory: ${{ runner.temp }}/rerevved-sdk
+        shell: bash
+        env:
+          CC: /usr/bin/clang
+          CXX: /usr/bin/clang++
+        run: |
+          cmake --preset mac-arm64 -DREXGLUE_BUILD_TESTS=OFF \
+            -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.3 \
+            -DCMAKE_SHARED_LINKER_FLAGS=-Wl,-headerpad_max_install_names
+          cmake --build out/build/mac-arm64 --config Release \
+            --target install --parallel 2
+
+      # Owner-supplied inputs live only in the private assets repository.
+      # Never echo their contents or a command that exposes them.
+      - name: Fetch codegen input
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.ASSETS_TOKEN }}
+          GIT_CONFIG_COUNT: '1'
+          GIT_CONFIG_KEY_0: credential.helper
+          GIT_CONFIG_VALUE_0: '!gh auth git-credential'
+          GIT_LFS_SKIP_SMUDGE: '1'
+        run: |
+          if (-not $env:GH_TOKEN) {
+            throw 'ASSETS_TOKEN secret is empty or missing'
+          }
+          if ($env:ASSETS_REPO -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') {
+            throw 'Set ASSETS_REPO to owner/repository'
+          }
+          git lfs version
+          if ($LASTEXITCODE -ne 0) { throw 'Git LFS is unavailable' }
+          $assetsRoot = Join-Path $env:RUNNER_TEMP 'rerevved-private-assets'
+          git clone --quiet --depth 1 --branch main --single-branch `
+            "https://github.com/$env:ASSETS_REPO" $assetsRoot
+          if ($LASTEXITCODE -ne 0) { throw 'Private asset clone failed' }
+          git -C $assetsRoot lfs pull `
+            --include='game/default.xex,game/default.xexp' --exclude=''
+          if ($LASTEXITCODE -ne 0) { throw 'Private asset LFS pull failed' }
+          $gameRoot = Join-Path $PWD 'game'
+          New-Item -ItemType Directory -Force -Path $gameRoot | Out-Null
+          Copy-Item -LiteralPath (Join-Path $assetsRoot 'game/default.xex') `
+            -Destination (Join-Path $gameRoot 'default.xex')
+          Copy-Item -LiteralPath (Join-Path $assetsRoot 'game/default.xexp') `
+            -Destination (Join-Path $gameRoot 'default.xexp')
+
+      - name: Clean up private asset checkout
+        if: always()
+        shell: pwsh
+        run: |
+          $tempRoot = [System.IO.Path]::GetFullPath($env:RUNNER_TEMP)
+          $assetsRoot = [System.IO.Path]::GetFullPath(
+            (Join-Path $tempRoot 'rerevved-private-assets'))
+          if ([System.IO.Path]::GetDirectoryName($assetsRoot) -ne
+              $tempRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar)) {
+            throw 'Refusing unsafe private asset cleanup'
+          }
+          if (Test-Path -LiteralPath $assetsRoot) {
+            Remove-Item -LiteralPath $assetsRoot -Recurse -Force
+          }
+
+      - name: Validate codegen input
+        shell: pwsh
+        run: |
+          $checks = @(
+            @{ File = 'game/default.xex';  Size = $env:EXPECTED_XEX_SIZE },
+            @{ File = 'game/default.xexp'; Size = $env:EXPECTED_XEXP_SIZE }
+          )
+          foreach ($check in $checks) {
+            $asset = Get-Item -LiteralPath $check.File
+            if ($asset.Length -ne [int64]$check.Size) {
+              throw "Codegen input has the wrong size: $($check.File)"
+            }
+          }
+
+      - name: Configure for codegen
+        shell: bash
+        run: |
+          sdk_config="$RUNNER_TEMP/rerevved-sdk/out/install/mac-arm64/lib/cmake/rexglue"
+          cmake --preset mac-arm64-release "-Drexglue_DIR=$sdk_config"
+          python scripts/audit_compile_launchers.py --before-codegen out/build/mac-arm64-release
+
+      - name: Generate recompiled sources
+        shell: bash
+        run: cmake --build --preset mac-arm64-release --target rerevved_codegen
+
+      - name: Build ReRevved
+        shell: bash
+        run: |
+          sdk_config="$RUNNER_TEMP/rerevved-sdk/out/install/mac-arm64/lib/cmake/rexglue"
+          cmake --preset mac-arm64-release "-Drexglue_DIR=$sdk_config"
+          python scripts/audit_compile_launchers.py out/build/mac-arm64-release
+          cmake --build --preset mac-arm64-release --parallel 2
+
+      - name: Run tests
+        run: ctest --test-dir out/build/mac-arm64-release -C Release -j 2 --output-on-failure
+
+      - name: Collect pinned dependency licenses
+        shell: bash
+        run: |
+          sdk_root="$RUNNER_TEMP/rerevved-sdk"
+          notices="$RUNNER_TEMP/macos-licenses"
+          mkdir -p "$notices"
+          cp "$sdk_root/thirdparty/moltenvk/LICENSE" "$notices/MOLTENVK-LICENSE.txt"
+          cat "$sdk_root/thirdparty/vulkan-loader/LICENSE.txt" \
+            "$sdk_root/thirdparty/vulkan-loader/LICENSES/"*.txt \
+            > "$notices/VULKAN-LOADER-LICENSE.txt"
+          cp "$sdk_root/thirdparty/tracy/LICENSE" "$notices/TRACY-LICENSE.txt"
+          for dependency in SPIRV-Cross cereal; do
+            revision="$(tr -d '[:space:]' < "$sdk_root/thirdparty/moltenvk/ExternalRevisions/${dependency}_repo_revision")"
+            if [[ ! "$revision" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "Invalid $dependency license revision" >&2
+              exit 1
+            fi
+            if [[ "$dependency" == SPIRV-Cross ]]; then
+              repository=KhronosGroup/SPIRV-Cross
+              license=LICENSE
+              destination=SPIRV-CROSS-LICENSE.txt
+            else
+              repository=USCiLab/cereal
+              license=LICENSE
+              destination=CEREAL-LICENSE.txt
+            fi
+            curl --fail --silent --show-error --location \
+              "https://raw.githubusercontent.com/$repository/$revision/$license" \
+              --output "$notices/$destination"
+          done
+
+      - name: Package archive
+        shell: bash
+        run: |
+          python scripts/package.py --platform macos --arch arm64 \
+            --mods-dir out/bundled-mods --macos-licenses "$RUNNER_TEMP/macos-licenses"
+
+      - name: Validate archive contents, dependencies and signatures
+        shell: bash
+        run: |
+          archives=(out/rerevved-v*-macos-arm64.tar.gz)
+          if [[ ${#archives[@]} -ne 1 || ! -f "${archives[0]}" ]]; then
+            echo 'Expected exactly one macOS arm64 archive' >&2
+            exit 1
+          fi
+          python scripts/check_package_inventory.py --platform macos "${archives[0]}"
+          extract_root="$(mktemp -d "$RUNNER_TEMP/rerevved-package.XXXXXX")"
+          cleanup_extract() {
+            if [[ "$extract_root" == "$RUNNER_TEMP"/rerevved-package.* ]]; then
+              rm -rf -- "$extract_root"
+            else
+              echo 'Refusing unsafe package cleanup' >&2
+              return 1
+            fi
+          }
+          trap cleanup_extract EXIT
+          archive_name="$(basename "${archives[0]}" .tar.gz)"
+          tar -xzf "${archives[0]}" -C "$extract_root"
+          python scripts/check_package_inventory.py --platform macos "${archives[0]}" \
+            --macos-root "$extract_root/$archive_name"
+
+      - name: Upload archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: rerevved-macos-arm64
+          path: out/rerevved-v*-macos-arm64.tar.gz
+          if-no-files-found: error
+          retention-days: ${{ inputs.publish_mode == 'release' && 1 || 14 }}

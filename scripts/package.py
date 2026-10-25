@@ -1,9 +1,12 @@
 """Build a ReRevved release archive from an explicit file allowlist."""
 
 import argparse
+import json
+import os
 import pathlib
 import re
 import shutil
+import subprocess
 import sys
 import tarfile
 import tomllib
@@ -11,9 +14,26 @@ import zipfile
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 
+MACOS_LIBRARIES = {
+    "librexruntime.dylib": "librexruntime.dylib",
+    "librexgpu-xenos.dylib": "librexgpu-xenos.dylib",
+    "libTracyClient.dylib": "libTracyClient.dylib",
+    "libvulkan.1.dylib": "vulkan/lib/libvulkan.1.dylib",
+    "libMoltenVK.dylib": "vulkan/lib/libMoltenVK.dylib",
+}
+MACOS_ICD = "vulkan/share/vulkan/icd.d/MoltenVK_icd.json"
+MACOS_LICENSES = (
+    "MOLTENVK-LICENSE.txt",
+    "VULKAN-LOADER-LICENSE.txt",
+    "TRACY-LICENSE.txt",
+    "SPIRV-CROSS-LICENSE.txt",
+    "CEREAL-LICENSE.txt",
+)
+
 BINARIES = {
     "windows": ["rerevved.exe", "rexruntime.dll", "rexgpu-xenos.dll"],
     "linux": ["rerevved", "librexruntime.so", "librexgpu-xenos.so"],
+    "macos": ["rerevved", *MACOS_LIBRARIES.values()],
 }
 
 FORBIDDEN_SUFFIXES = {".xex", ".xexp", ".iso", ".sve", ".log", ".trace"}
@@ -52,6 +72,8 @@ def expected_entries(platform):
             "host-online.ps1",
             "host-manual.cmd",
         }
+    if platform == "macos":
+        files |= {MACOS_ICD, *(f"licenses/{name}" for name in MACOS_LICENSES)}
     files |= {f"asset-overrides/{name}" for name in BUNDLED_ASSET_FILES}
     for package_id in BUNDLED_MODS:
         files |= {f"mods/{package_id}/{name}" for name in MOD_FILES}
@@ -72,15 +94,22 @@ def read_version():
 
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
-    default_platform = "windows" if sys.platform == "win32" else "linux"
+    default_platform = {
+        "win32": "windows",
+        "darwin": "macos",
+    }.get(sys.platform, "linux")
     default_build = {
         "windows": "out/build/win-amd64-release",
         "linux": "out/build/linux-amd64-release",
+        "macos": "out/build/mac-arm64-release",
     }
     parser.add_argument(
-        "--platform", choices=("windows", "linux"), default=default_platform
+        "--platform", choices=("windows", "linux", "macos"), default=default_platform
     )
-    parser.add_argument("--arch", default="x64")
+    parser.add_argument("--arch", default=None)
+    parser.add_argument(
+        "--macos-licenses", type=pathlib.Path, help="pinned macOS dependency notices"
+    )
     parser.add_argument("--build-dir", type=pathlib.Path, default=None)
     parser.add_argument("--out-dir", type=pathlib.Path, default=REPO / "out")
     parser.add_argument(
@@ -93,6 +122,11 @@ def parse_args():
         help="assembled bundled mods from scripts/assemble_mods.py",
     )
     args = parser.parse_args()
+    args.arch = args.arch or ("arm64" if args.platform == "macos" else "x64")
+    if args.platform == "macos" and args.arch != "arm64":
+        parser.error("macOS packages support arm64 only")
+    if args.platform == "macos" and args.macos_licenses is None:
+        parser.error("macOS packages require --macos-licenses")
     if args.build_dir is None:
         args.build_dir = REPO / default_build[args.platform]
     return args
@@ -195,6 +229,109 @@ def check_mods(mods_dir):
         check_mod(mods_dir / package_id, package_id)
 
 
+def macos_tool(*command):
+    try:
+        return subprocess.check_output(command, text=True, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as error:
+        raise SystemExit(f"error: {command[0]} failed:\n{error.output}") from error
+
+
+def macos_dependencies(path):
+    # A dylib's first entry is its own LC_ID_DYLIB, not a dependency.
+    lines = macos_tool("otool", "-L", str(path)).splitlines()
+    return [
+        line.strip().split(" (", 1)[0]
+        for line in lines[2 if path.suffix == ".dylib" else 1 :]
+    ]
+
+
+def macos_rpaths(path):
+    commands = macos_tool("otool", "-l", str(path))
+    return re.findall(
+        r"cmd LC_RPATH\s+cmdsize \d+\s+path (.*?) \(offset \d+\)", commands
+    )
+
+
+def macos_system_library(name):
+    return name.startswith(("/usr/lib/", "/System/Library/"))
+
+
+def check_macos_linkage(root):
+    """Check every packaged Mach-O, including the runtime-loaded Vulkan stack."""
+    root = root.resolve()
+    allowed = {root / name for name in MACOS_LIBRARIES.values()}
+    for relative in BINARIES["macos"]:
+        path = root / relative
+        if macos_tool("lipo", "-archs", str(path)).strip() != "arm64":
+            raise SystemExit(f"error: expected arm64 Mach-O: {relative}")
+        commands = macos_tool("otool", "-l", str(path))
+        minimums = re.findall(r"^\s*minos (\d+(?:\.\d+)+)", commands, re.M)
+        minimums += re.findall(
+            r"cmd LC_VERSION_MIN_MACOSX\s+cmdsize \d+\s+version (\d+(?:\.\d+)+)",
+            commands,
+        )
+        if not minimums or any(
+            tuple(map(int, version.split("."))) > (13, 3, 0) for version in minimums
+        ):
+            raise SystemExit(f"error: macOS deployment target exceeds 13.3: {relative}")
+        if macos_rpaths(path) != ["@loader_path"]:
+            raise SystemExit(f"error: nonportable RPATH in {relative}")
+        for dependency in macos_dependencies(path):
+            if macos_system_library(dependency):
+                continue
+            if not dependency.startswith("@loader_path/"):
+                raise SystemExit(
+                    f"error: external dependency in {relative}: {dependency}"
+                )
+            resolved = (
+                path.parent / dependency.removeprefix("@loader_path/")
+            ).resolve()
+            if resolved not in allowed or not resolved.is_file():
+                raise SystemExit(f"error: missing package dependency: {dependency}")
+        macos_tool("codesign", "--verify", "--strict", str(path))
+    icd = json.loads((root / MACOS_ICD).read_text(encoding="utf-8"))
+    if icd.get("ICD", {}).get("library_path") != "../../../lib/libMoltenVK.dylib":
+        raise SystemExit("error: MoltenVK ICD must use the packaged relative library")
+
+
+def prepare_macos_runtime(stage):
+    """Relocate before signing so signatures cover the final bytes."""
+    for relative in BINARIES["macos"]:
+        path = stage / relative
+        path.chmod(0o755)
+        for dependency in macos_dependencies(path):
+            if macos_system_library(dependency):
+                continue
+            target = MACOS_LIBRARIES.get(pathlib.PurePosixPath(dependency).name)
+            if target is None:
+                raise SystemExit(f"error: unbundled macOS dependency: {dependency}")
+            loader_relative = pathlib.Path(
+                os.path.relpath(stage / target, path.parent)
+            ).as_posix()
+            macos_tool(
+                "install_name_tool",
+                "-change",
+                dependency,
+                f"@loader_path/{loader_relative}",
+                str(path),
+            )
+        if path.suffix == ".dylib":
+            macos_tool("install_name_tool", "-id", f"@rpath/{path.name}", str(path))
+        for rpath in dict.fromkeys(macos_rpaths(path)):
+            macos_tool("install_name_tool", "-delete_rpath", rpath, str(path))
+        macos_tool("install_name_tool", "-add_rpath", "@loader_path", str(path))
+    for relative in [*MACOS_LIBRARIES.values(), "rerevved"]:
+        macos_tool(
+            "codesign",
+            "--force",
+            "--sign",
+            "-",
+            "--timestamp=none",
+            str(stage / relative),
+        )
+    check_macos_linkage(stage)
+
+
 def main():
     args = parse_args()
     version = read_version()
@@ -217,11 +354,14 @@ def main():
         if not source.is_file():
             missing.append(str(source))
             continue
+        if args.platform == "macos":
+            (stage / binary).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, stage / binary)
     if missing:
         raise SystemExit("error: missing release binaries:\n  " + "\n  ".join(missing))
 
-    shutil.copy2(REPO / "scripts" / "packaging" / "README.txt", stage / "README.txt")
+    readme = "README-macos.txt" if args.platform == "macos" else "README.txt"
+    shutil.copy2(REPO / "scripts" / "packaging" / readme, stage / "README.txt")
     if online:
         shutil.copy2(rexglue, stage / "rexglue.exe")
         for filename in (
@@ -236,6 +376,18 @@ def main():
     licenses = stage / "licenses"
     licenses.mkdir()
     shutil.copy2(REPO / "REXGLUE-LICENSE.txt", licenses / "REXGLUE-LICENSE.txt")
+
+    if args.platform == "macos":
+        for filename in MACOS_LICENSES:
+            source = args.macos_licenses / filename
+            if not source.is_file():
+                raise SystemExit(f"error: missing macOS license: {source}")
+            shutil.copy2(source, licenses / filename)
+        source = args.build_dir / MACOS_ICD
+        destination = stage / MACOS_ICD
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+        prepare_macos_runtime(stage)
 
     # Preserve the selector's target without staging retail content.
     (stage / "game").mkdir()

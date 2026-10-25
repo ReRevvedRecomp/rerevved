@@ -1,7 +1,7 @@
 # Getting started
 
-This guide covers the Windows release. Check the
-[system requirements](../README.md#system-requirements) before installing.
+This guide covers Windows and the [macOS arm64 build](#macos).
+Check the [system requirements](../README.md#system-requirements) before installing.
 ReRevved contains no retail content; supply your own legally obtained files.
 
 ## Install and select content
@@ -26,6 +26,22 @@ profile's `rerevved.toml`. Later launches normally reuse that location. See
 [Configuration](configuration.md#file-locations) for the configuration folder,
 or [Troubleshooting](troubleshooting.md#content-is-missing-or-rejected) if
 content is rejected.
+
+## macOS
+
+The macOS arm64 build needs an Apple Silicon Mac, a
+Vulkan-capable GPU and macOS 13.3 or newer.
+
+1. Download `rerevved-v<version>-macos-arm64.tar.gz` from
+   [Releases](https://github.com/ReRevvedRecomp/rerevved/releases). Extract all
+   files into a folder you can write to and keep them together.
+2. Right-click `rerevved` and choose **Open**. The build is not notarized.
+   If macOS blocks it, run
+   `xattr -dr com.apple.quarantine <extracted-folder>` in Terminal for a
+   download you trust, then open `rerevved`.
+3. Select your game ISO or extracted content folder, then the version 1.3
+   title update, as described above. ISOs are extracted into `game/` beside
+   `rerevved`; selected folders are used directly.
 
 ## Find the controls
 

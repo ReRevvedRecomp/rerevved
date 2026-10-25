@@ -1,12 +1,12 @@
 # Release process
 
-Windows x64 is the supported player platform; the workflow also produces an experimental Linux archive. This runbook describes building and accepting a standalone candidate.
+Windows x64 is the primary player platform. This runbook covers standalone release candidates.
 Complete the manual acceptance checklist before landing a release version on
 `main`; the workflow does not perform that player acceptance test.
 
 A push to `main`, or a manual `workflow_dispatch` run on `main`, publishes
 the CMake project version when no `v<version>` tag exists. The release
-workflow builds the Windows and Linux archives, creates the tag at the
+workflow builds the Windows, Linux and macOS archives, creates the tag at the
 selected commit, and publishes the GitHub release. An already tagged version
 publishes nothing. Releases publish as full releases, never as prereleases.
 
@@ -51,8 +51,26 @@ renderer work uses `native-rendering` with pull requests into `develop`.
    play.
 
 Linux packaging produces a `.tar.gz` archive from a Linux Release binary. The
-release workflow publishes it beside the Windows `.zip`. Linux support is
-experimental, so record the build environment.
+release workflow publishes it beside the Windows `.zip`. Record the build
+environment.
+
+macOS packaging produces `rerevved-v<version>-macos-arm64.tar.gz`, an archive
+for Apple Silicon with a Vulkan-capable GPU and macOS 13.3 or newer.
+It uses Xenos over Vulkan/MoltenVK and preserves executable permissions.
+CI includes the runtime libraries, Xenos plugin, Vulkan loader, MoltenVK and
+dependency licenses. The ICD JSON uses a relative library path. Packaging
+rewrites library paths before ad hoc signing. CI checks architecture, minimum
+OS, library paths and signatures after extraction. The archive is not notarized.
+
+For local packaging, supply `--platform macos --arch arm64 --macos-licenses <dir>`
+and `--mods-dir <assembled-mods>`. The license directory holds the pinned
+dependency notices assembled by the macOS job in
+[`build.yml`](../.github/workflows/build.yml). Validate the archive with
+`scripts/check_package_inventory.py --platform macos <archive> --macos-root <extracted-bundle>`.
+
+On first launch, right-click `rerevved` and choose Open. If blocked, remove
+quarantine from the trusted extracted folder with
+`xattr -dr com.apple.quarantine <extracted-bundle>`, then open it.
 
 The Windows relay CLI comes from the build directory or the SDK install
 recorded by `rexglue_DIR` in its `CMakeCache.txt`. Use
@@ -65,7 +83,8 @@ The package includes `LICENSE.txt` and `licenses/REXGLUE-LICENSE.txt`.
 
 Use a new extraction directory and isolated test user data. These are manual
 acceptance checks, not claims made by archive assembly or CI. Complete every
-item before publication:
+item for Windows before publication. For Linux and macOS builds, record
+untested items and ask testers to report results:
 
 - [ ] First run accepts a legally owned ISO and starts with the extracted
   content.
@@ -82,5 +101,5 @@ item before publication:
   caches, or paths specific to one machine.
 
 Record the version, archive checksum, build environment, and acceptance result
-in the release notes. Publish only a candidate that completes the standalone
-archive acceptance list.
+in the release notes. State which Linux and macOS arm64 player checks remain
+untested.

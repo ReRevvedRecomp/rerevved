@@ -4,7 +4,9 @@
 
 #if defined(_WIN32)
 #include <Windows.h>
+#include <dxgi1_6.h>
 #include <rex/ui/d3d12/d3d12_presenter.h>
+#include <wrl/client.h>
 #endif
 
 #include <algorithm>
@@ -112,6 +114,29 @@ void openLogFolder()
     }
     rex::LaunchFileExplorer(logFile.parent_path());
 }
+
+#if defined(_WIN32)
+// Match the SDK D3D12 provider's default adapter: first non-software adapter in
+// DXGI high-performance order. Return its PCI vendor ID, or 0 on failure.
+UINT preferredAdapterVendor()
+{
+    Microsoft::WRL::ComPtr<IDXGIFactory6> factory;
+    if (FAILED(CreateDXGIFactory2(0, IID_PPV_ARGS(&factory))))
+    {
+        return 0;
+    }
+    Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter;
+    for (UINT index = 0; SUCCEEDED(factory->EnumAdapterByGpuPreference(index, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&adapter))); ++index)
+    {
+        DXGI_ADAPTER_DESC1 desc;
+        if (SUCCEEDED(adapter->GetDesc1(&desc)) && !(desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE))
+        {
+            return desc.VendorId;
+        }
+    }
+    return 0;
+}
+#endif
 
 #if REREVVED_DEVELOPER
 // Tracks the current thread's draw-family build for native_frame_timing:
@@ -953,7 +978,14 @@ bool App::SetupPresentation()
     // presentation setup loads the plugin.
     else
     {
-        rex::cvar::SetFlagAsApplicationDefault("render_target_path_d3d12", "rov");
+#if defined(_WIN32)
+        // ROV is slow on AMD (0x1002), so keep the SDK's automatic host render target (RTV) path.
+        // Application defaults still allow user overrides.
+        if (preferredAdapterVendor() != 0x1002)
+#endif
+        {
+            rex::cvar::SetFlagAsApplicationDefault("render_target_path_d3d12", "rov");
+        }
         // Auto picks the smallest scale that covers the fitted image height.
         rex::cvar::SetFlagAsApplicationDefault("resolution_scale", "0");
         rerevved::display_aspect::Initialize(REREVVED_GIT_COMMIT " " REREVVED_GIT_DIRTY, REXGLUE_GIT_REVISION " " REXGLUE_GIT_DIRTY);

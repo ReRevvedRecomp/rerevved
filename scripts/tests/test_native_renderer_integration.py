@@ -92,6 +92,9 @@ class NativeRendererIntegrationTests(unittest.TestCase):
         self.assertLess(selection, gpu_default)
         self.assertLess(gpu_default, presentation)
         self.assertLess(base_presentation, rov_default)
+        # Preserve the SDK's automatic RTV path on AMD to avoid slow ROV.
+        amd_guard = APP_CPP.index("preferredAdapterVendor() != 0x1002", presentation)
+        self.assertLess(amd_guard, rov_default)
 
     def test_renderer_is_restart_scoped_opt_in(self) -> None:
         self.assertIn('REXCVAR_DEFINE_STRING(renderer, "xenos"', APP_CPP)

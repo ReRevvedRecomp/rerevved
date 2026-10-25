@@ -1,7 +1,7 @@
 #include "occ_settings.h"
 
 #include <algorithm>
-#include <atomic>
+#include <mutex>
 
 #include <rex/cvar.h>
 
@@ -12,23 +12,30 @@ namespace rerevved::occ
 namespace
 {
 
-std::atomic<std::shared_ptr<const Policy>> frozenPolicy{ std::make_shared<const Policy>(false, kMinimumPopulation) };
+// Apple libc++ has no std::atomic<std::shared_ptr>.
+std::mutex                    policyMutex;
+std::shared_ptr<const Policy> frozenPolicy = std::make_shared<const Policy>(false, kMinimumPopulation);
 
 } // namespace
 
 void FreezeForGame(bool standardRules)
 {
-    frozenPolicy.store(std::make_shared<const Policy>(!standardRules && REXCVAR_GET(one_city_challenge), kMinimumPopulation), std::memory_order_release);
+    auto            next = std::make_shared<const Policy>(!standardRules && REXCVAR_GET(one_city_challenge), kMinimumPopulation);
+    std::lock_guard lock(policyMutex);
+    frozenPolicy = std::move(next);
 }
 
 std::shared_ptr<const Policy> ForGame() noexcept
 {
-    return frozenPolicy.load(std::memory_order_acquire);
+    std::lock_guard lock(policyMutex);
+    return frozenPolicy;
 }
 
 void RestoreForGame(Policy policy)
 {
-    frozenPolicy.store(std::make_shared<const Policy>(policy), std::memory_order_release);
+    auto            next = std::make_shared<const Policy>(policy);
+    std::lock_guard lock(policyMutex);
+    frozenPolicy = std::move(next);
 }
 
 EraAbilityId EffectiveEraAbility(const Policy& policy, CivilizationId civilization, UnlockEra era, EraAbilityId publishedAbility) noexcept

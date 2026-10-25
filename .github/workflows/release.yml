@@ -103,7 +103,7 @@ jobs:
       - name: Download archives
         uses: actions/download-artifact@v8
         with:
-          pattern: rerevved-*-x64
+          pattern: rerevved-*
           path: artifacts
           merge-multiple: true
 

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <mutex>
 #include <utility>
 
 namespace rerevved::resource_identity_overrides
@@ -9,9 +10,11 @@ namespace rerevved::resource_identity_overrides
 namespace
 {
 
-const auto                                   emptySnapshot = std::make_shared<const Snapshot>();
-std::atomic<std::shared_ptr<const Snapshot>> current{ emptySnapshot };
-std::atomic<Observer>                        observer{ nullptr };
+const auto emptySnapshot = std::make_shared<const Snapshot>();
+// Apple libc++ has no std::atomic<std::shared_ptr>.
+std::mutex                      currentMutex;
+std::shared_ptr<const Snapshot> current = emptySnapshot;
+std::atomic<Observer>           observer{ nullptr };
 
 bool validRecord(Record record)
 {
@@ -44,8 +47,12 @@ bool Publish(std::span<const Record> records, std::source_location caller)
     {
         return false;
     }
-    const auto next     = sorted.empty() ? emptySnapshot : std::make_shared<const Snapshot>(std::move(sorted));
-    const auto previous = current.exchange(next);
+    const auto                      next = sorted.empty() ? emptySnapshot : std::make_shared<const Snapshot>(std::move(sorted));
+    std::shared_ptr<const Snapshot> previous;
+    {
+        std::lock_guard lock(currentMutex);
+        previous = std::exchange(current, next);
+    }
     if (const auto notify = observer.load())
     {
         notify(true, *previous, *next, caller);
@@ -55,12 +62,17 @@ bool Publish(std::span<const Record> records, std::source_location caller)
 
 std::shared_ptr<const Snapshot> Current()
 {
-    return current.load();
+    std::lock_guard lock(currentMutex);
+    return current;
 }
 
 void Clear(std::source_location caller)
 {
-    const auto previous = current.exchange(emptySnapshot);
+    std::shared_ptr<const Snapshot> previous;
+    {
+        std::lock_guard lock(currentMutex);
+        previous = std::exchange(current, emptySnapshot);
+    }
     if (const auto notify = observer.load())
     {
         notify(false, *previous, *emptySnapshot, caller);

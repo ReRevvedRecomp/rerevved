@@ -4,8 +4,8 @@ ReRevved is a static recompilation of Civilization Revolution (Xbox 360).
 
 REQUIREMENTS
 
-Windows 10 or 11 x64 and a Direct3D 12 capable GPU. The Linux download is
-experimental. You need legally owned game files from the supported release
+Windows 10 or 11 x64 and a Direct3D 12 capable GPU. A Linux x64
+download is also available. You need legally owned game files from the supported release
 and its version 1.3 title update. No game data is included.
 
 FIRST RUN

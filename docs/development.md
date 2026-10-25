@@ -1,6 +1,6 @@
 # Development
 
-This guide covers the Windows x64 title build, checks, and
+This guide covers Windows x64 and macOS arm64 builds, checks, and
 [pull requests](#pull-requests). No retail inputs or generated guest code
 belong in the repository.
 
@@ -60,6 +60,35 @@ the LLVM directory; its default is `C:\Program Files\LLVM\bin`.
 Do not omit `-Stage` when you only want a build: the driver's default is
 `All`, which also launches the game.
 
+## macOS build
+
+Use an Apple Silicon Mac with a Vulkan-capable
+GPU and macOS 13.3 or newer. It uses Xenos over Vulkan/MoltenVK.
+Native rendering and Plume require Windows.
+
+Install and select Xcode 16.4, then install the build dependencies:
+
+```sh
+sudo xcode-select --switch /Applications/Xcode_16.4.app/Contents/Developer
+brew install cmake ninja vulkan-loader molten-vk autoconf pkgconf
+```
+
+Build the SDK commit in `rexglue-sdk.lock.json` with its `mac-arm64` preset,
+deployment target 13.3 and `CMAKE_OSX_ARCHITECTURES=arm64`, then install
+Release. Use CMake directly on macOS. From the title root:
+
+```sh
+cmake --preset mac-arm64-release -Drexglue_DIR=../rerevved-sdk/out/install/mac-arm64/lib/cmake/rexglue
+cmake --build --preset mac-arm64-release --target rerevved_codegen
+cmake --preset mac-arm64-release -Drexglue_DIR=../rerevved-sdk/out/install/mac-arm64/lib/cmake/rexglue
+cmake --build --preset mac-arm64-release --parallel 2
+ctest --preset mac-arm64-release
+```
+
+The executable is `out/build/mac-arm64-release/rerevved`.
+`mac-arm64-developer` adds recorders in a separate build directory.
+See [Releasing](releasing.md) to package the archive.
+
 ## Developer build
 
 The player build carries no recorders or offline tools. `REREVVED_DEVELOPER`
@@ -94,7 +123,8 @@ cmake --build --preset win-amd64-developer --parallel 4
 ctest --preset win-amd64-developer
 ```
 
-`linux-amd64-developer` is the Linux preset. Both build directories share
+`linux-amd64-developer` and `mac-arm64-developer` are the Linux and macOS
+presets. All build directories share
 `generated/default/`, so configure and build them one after the other, never
 together. `scripts/package.py` rejects a build directory configured with
 `REREVVED_DEVELOPER=ON`. The Python analyzers
@@ -242,12 +272,12 @@ configuration locally. The separate release workflow builds and publishes from
 `main`; it is not an acceptance check for pull requests.
 
 See [Releasing](releasing.md) for mod assembly, package contents, publication
-conditions, and the standalone archive acceptance checklist. Linux presets and
-archives are experimental; their existence does not establish player support.
+conditions, and the standalone archive acceptance checklist. CI does not
+verify gameplay on Linux x64 or macOS arm64.
 
 ## Pull requests
 
-Open pull requests against `main`. Do not submit retail game files, extracted
+Open pull requests against `develop`. Do not submit retail game files, extracted
 assets, generated guest code, build output, credentials, or private working
 material.
 

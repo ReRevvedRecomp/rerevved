@@ -75,7 +75,7 @@ The default player data folder is separate from the application folder:
 | Platform | Default data folder |
 | --- | --- |
 | Windows | `Documents\My Games\ReRevved` |
-| Linux, experimental | `$XDG_DATA_HOME/rerevved`, or `~/.local/share/rerevved` if unset |
+| Linux x64 and macOS arm64 | `$XDG_DATA_HOME/rerevved`, or `~/.local/share/rerevved` if unset |
 
 Windows uses your actual Documents location, including a redirected folder.
 The data folder holds `rerevved.toml`, `logs/`, `cache/`, saves, achievements,

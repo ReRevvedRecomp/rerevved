@@ -2,8 +2,6 @@
 <img width="640" src="res/rerevved_banner.png" alt="ReRevved banner">
 </p>
 
-<h1 align="center">ReRevved</h1>
-
 <p align="center">
 Static recompilation of Civilization Revolution for Xbox 360.
 </p>
@@ -27,7 +25,9 @@ the first-run controls.
 - **Windows 10 or 11 x64** with a Direct3D 12 capable GPU.
 - **Game files:** your own legally obtained Xbox 360 copy of Civilization
   Revolution and its version 1.3 title update.
-- **Linux x64:** an experimental build is available.
+- **Linux x64:** a build is available.
+- **macOS arm64:** requires Apple Silicon, a Vulkan-capable GPU and macOS
+  13.3 or newer. See [first launch](docs/getting-started.md#macos).
 
 ## Documentation
 
