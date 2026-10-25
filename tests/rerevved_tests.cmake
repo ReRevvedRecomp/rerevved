@@ -110,6 +110,7 @@ add_executable(rerevved_tests
     tests/great_general_attachment_test.cpp
     tests/host_settings_test.cpp
     tests/gameplay_session_settings_test.cpp
+    tests/occ_hooks_test.cpp
     tests/helper_commands_test.cpp
     tests/network_pause_test.cpp
     tests/main_menu_logo_asset_test.cpp

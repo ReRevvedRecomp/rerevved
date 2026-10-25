@@ -36,6 +36,18 @@ EXPECTED_HOOKS = [
         "registers": ["r22", "r15"],
         "jump_address_on_true": 0x82CF57E8,
     },
+    {
+        "address": 0x82D0EEB8,
+        "name": "GuardOccVillageSettlers",
+        "registers": ["r27"],
+        "jump_address_on_true": 0x82D0EF30,
+    },
+    {
+        "address": 0x82CBBE58,
+        "name": "GuardOccAiExpansion",
+        "registers": ["r1", "r24", "r29"],
+        "jump_address_on_true": 0x82CBC3D4,
+    },
 ]
 
 
@@ -114,7 +126,7 @@ class OccContractTests(unittest.TestCase):
         hooks = HOOKS.read_text(encoding="utf-8")
         self.assertNotIn("REXCVAR_GET(one_city_challenge)", hooks)
         self.assertEqual(
-            len(re.findall(r"const auto\s+policy\s*= occ::ForGame\(\);", hooks)), 4
+            len(re.findall(r"const auto\s+policy\s*= occ::ForGame\(\);", hooks)), 6
         )
 
     def test_mongol_horseback_uses_consumers_without_publication(self):
@@ -269,6 +281,30 @@ class OccContractTests(unittest.TestCase):
         self.assertLess(
             reward.index("ApplyOccGoldReward(ctx.r22, ctx.r15)"),
             reward.index("ctx.cr6.compare<int32_t>(ctx.r15.s32, 0, ctx.xer);"),
+        )
+        village = windows[names[4]]
+        self.assertIn("goto loc_82D0EF30;", village)
+        self.assertLess(
+            village.index("loc_82D0EEB8:"),
+            village.index("GuardOccVillageSettlers(ctx.r27)"),
+        )
+        self.assertLess(
+            village.index("GuardOccVillageSettlers(ctx.r27)"),
+            village.index("REX_LOAD_U8(ctx.r11.u32 + -3829)"),
+        )
+        expansion = windows[names[5]]
+        self.assertIn("goto loc_82CBC3D4;", expansion)
+        self.assertLess(
+            expansion.index("if (!ctx.cr6.eq) goto loc_82CBC07C;"),
+            expansion.index("GuardOccAiExpansion(ctx.r1, ctx.r24, ctx.r29)"),
+        )
+        self.assertLess(
+            expansion.index("GuardOccAiExpansion(ctx.r1, ctx.r24, ctx.r29)"),
+            expansion.index("ctx.r11.s64 = -2095906816;"),
+        )
+        self.assertLess(
+            expansion.index("ctx.r11.s64 = -2095906816;"),
+            expansion.index("REX_LOAD_U32(ctx.r11.u32 + -18212)"),
         )
 
 

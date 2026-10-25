@@ -22,3 +22,17 @@ address = 0x82CF5760
 name = "ApplyOccGoldReward"
 registers = ["r22", "r15"]
 jump_address_on_true = 0x82CF57E8
+
+# Village category one: take the native 25 Gold rejection path instead of Settlers.
+[[midasm_hook]]
+address = 0x82D0EEB8
+name = "GuardOccVillageSettlers"
+registers = ["r27"]
+jump_address_on_true = 0x82D0EF30
+
+# Skip AI expansion during the tile scan, which spends one population to found a city.
+[[midasm_hook]]
+address = 0x82CBBE58
+name = "GuardOccAiExpansion"
+registers = ["r1", "r24", "r29"]
+jump_address_on_true = 0x82CBC3D4

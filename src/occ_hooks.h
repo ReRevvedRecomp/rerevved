@@ -7,3 +7,5 @@ void ApplyOccCandidateThreshold(PPCRegister& threshold, PPCRegister& type, PPCRe
 void ApplyOccCompletionThreshold(PPCRegister& threshold, PPCRegister& type, PPCRegister& population);
 bool GuardOccAiChoice(PPCRegister& stack, PPCRegister& ordinal);
 bool ApplyOccGoldReward(PPCRegister& owner, PPCRegister& applying);
+bool GuardOccVillageSettlers(PPCRegister& player);
+bool GuardOccAiExpansion(PPCRegister& stack, PPCRegister& x, PPCRegister& y);
