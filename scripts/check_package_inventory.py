@@ -9,10 +9,17 @@ import tarfile
 import zipfile
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from package import BINARIES, FORBIDDEN_SUFFIXES, expected_entries  # noqa: E402
+from package import (  # noqa: E402
+    BINARIES,
+    FORBIDDEN_SUFFIXES,
+    check_macos_linkage,
+    expected_entries,
+)
 
-NAME = re.compile(r"rerevved-v\d+\.\d+\.\d+-(windows|linux)-x64\.(zip|tar\.gz)")
-SUFFIX = {"windows": ".zip", "linux": ".tar.gz"}
+NAME = re.compile(
+    r"rerevved-v\d+\.\d+\.\d+-(?:(windows|linux)-x64|(macos)-arm64)\.(zip|tar\.gz)"
+)
+SUFFIX = {"windows": ".zip", "linux": ".tar.gz", "macos": ".tar.gz"}
 
 
 def archive_entries(path):
@@ -48,7 +55,7 @@ def check(path, platform):
     match = NAME.fullmatch(path.name)
     if (
         not match
-        or match.group(1) != platform
+        or (match.group(1) or match.group(2)) != platform
         or path.name[-len(SUFFIX[platform]) :] != SUFFIX[platform]
     ):
         problems.append(f"unexpected archive name: {path.name}")
@@ -103,7 +110,7 @@ def check(path, platform):
     required = directories if is_tar else {"game"}
     problems += [f"missing directory: {n}" for n in sorted(required - seen_directories)]
     executable = BINARIES[platform][0]
-    if platform == "linux" and f"{root}/{executable}" not in executables:
+    if platform in ("linux", "macos") and f"{root}/{executable}" not in executables:
         problems.append(f"{executable} has no executable mode bit")
     return problems
 
@@ -111,13 +118,23 @@ def check(path, platform):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("archive", type=pathlib.Path)
-    parser.add_argument("--platform", choices=("windows", "linux"), required=True)
+    parser.add_argument(
+        "--platform", choices=("windows", "linux", "macos"), required=True
+    )
+    parser.add_argument(
+        "--macos-root", type=pathlib.Path, help="extracted macOS bundle"
+    )
     args = parser.parse_args(argv)
+    if args.macos_root is not None and args.platform != "macos":
+        parser.error("--macos-root requires --platform macos")
     problems = check(args.archive, args.platform)
     for problem in problems:
         print(f"error: {problem}", file=sys.stderr)
     if problems:
         return 1
+    if args.macos_root is not None:
+        check_macos_linkage(args.macos_root)
+        print("macOS archive linkage and signatures: PASS")
     print(f"inventory: ok {args.archive.name}")
     return 0
 

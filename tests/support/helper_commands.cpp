@@ -10,7 +10,7 @@
 #include <windows.h>
 #else
 #include <cstdlib>
-#include <filesystem>
+#include <rex/filesystem.h>
 #include <sys/wait.h>
 #endif
 
@@ -148,7 +148,7 @@ int RunHelperChild(const char* name)
     const std::wstring helper(name, name + std::char_traits<char>::length(name));
     return static_cast<int>(_wspawnl(_P_WAIT, executable.c_str(), executable.c_str(), L"--helper", helper.c_str(), nullptr));
 #else
-    const auto        executable = std::filesystem::read_symlink("/proc/self/exe").string();
+    const auto        executable = rex::filesystem::GetExecutablePath().string();
     const std::string command    = std::string("\"") + executable + "\" --helper " + name;
     const int         status     = std::system(command.c_str());
     return status == -1 || !WIFEXITED(status) ? -1 : WEXITSTATUS(status);

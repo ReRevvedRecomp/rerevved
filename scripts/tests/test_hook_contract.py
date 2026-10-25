@@ -4445,13 +4445,13 @@ class DeveloperBoundaryTests(unittest.TestCase):
     def test_presets_define_developer_configurations(self) -> None:
         presets = json.loads((ROOT / "CMakePresets.json").read_text(encoding="utf-8"))
         configure = {p["name"]: p for p in presets["configurePresets"]}
-        for base in ("windows-base", "linux-base"):
+        for base in ("windows-base", "linux-base", "mac-arm64-base"):
             self.assertEqual(
                 configure[base]["cacheVariables"]["REREVVED_DEVELOPER"], "OFF"
             )
-        for platform in ("win", "linux"):
-            developer = configure[f"{platform}-amd64-developer"]
-            self.assertEqual(developer["inherits"], f"{platform}-amd64-release")
+        for platform in ("win-amd64", "linux-amd64", "mac-arm64"):
+            developer = configure[f"{platform}-developer"]
+            self.assertEqual(developer["inherits"], f"{platform}-release")
             self.assertEqual(developer["cacheVariables"]["REREVVED_DEVELOPER"], "ON")
             self.assertEqual(developer["cacheVariables"]["BUILD_TESTING"], "ON")
         self.assertEqual(
@@ -4462,7 +4462,11 @@ class DeveloperBoundaryTests(unittest.TestCase):
         )
         builds = {p["name"] for p in presets["buildPresets"]}
         tests = {p["name"] for p in presets["testPresets"]}
-        for name in ("win-amd64-developer", "linux-amd64-developer"):
+        for name in (
+            "win-amd64-developer",
+            "linux-amd64-developer",
+            "mac-arm64-developer",
+        ):
             self.assertIn(name, builds)
             self.assertIn(name, tests)
         # CI builds and packages only the shipping configuration.

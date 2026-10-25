@@ -1,5 +1,6 @@
 """Release archive inventory checks."""
 
+import json
 import shutil
 import subprocess
 import sys
@@ -8,9 +9,11 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest import mock
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
+import package  # noqa: E402
 from check_package_inventory import check  # noqa: E402
 from package import BUNDLED_MODS, reject_developer_build  # noqa: E402
 
@@ -325,6 +328,174 @@ class PackageTests(unittest.TestCase):
             mods = write_mods(root / "mods", kind="native")
             result = self.run_package(build, root / "output", mods=mods)
             self.assertIn("is not a Lua rules package", result.stderr)
+
+
+class MacOSPackageTests(unittest.TestCase):
+    def make_runtime(self, root):
+        for name in package.BINARIES["macos"]:
+            path = root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"Mach-O fixture")
+        icd = root / package.MACOS_ICD
+        icd.parent.mkdir(parents=True, exist_ok=True)
+        icd.write_text(
+            '{"ICD":{"library_path":"../../../lib/libMoltenVK.dylib"}}',
+            encoding="ascii",
+        )
+
+    def test_macos_package_keeps_only_allowlisted_runtime_and_content(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            build = root / "build"
+            output = root / "output"
+            notices = root / "notices"
+            self.make_runtime(build)
+            (build / "private.log").write_text("excluded", encoding="ascii")
+            notices.mkdir()
+            for filename in package.MACOS_LICENSES:
+                (notices / filename).write_text(filename, encoding="ascii")
+            argv = [
+                "package.py",
+                "--platform",
+                "macos",
+                "--build-dir",
+                str(build),
+                "--out-dir",
+                str(output),
+                "--mods-dir",
+                str(write_mods(root / "mods")),
+                "--macos-licenses",
+                str(notices),
+            ]
+            with (
+                mock.patch.object(sys, "argv", argv),
+                mock.patch.object(package, "prepare_macos_runtime") as prepare,
+            ):
+                package.main()
+            archive_path = next(output.glob("rerevved-v*-macos-arm64.tar.gz"))
+            stage = output / "pkg" / archive_path.name.removesuffix(".tar.gz")
+            prepare.assert_called_once_with(stage)
+            with tarfile.open(archive_path) as archive:
+                prefix = archive_path.name.removesuffix(".tar.gz") + "/"
+                files = {
+                    member.name.removeprefix(prefix)
+                    for member in archive.getmembers()
+                    if member.isfile()
+                }
+                self.assertEqual(files, package.expected_entries("macos")[1])
+                self.assertIn(
+                    b"not notarized", archive.extractfile(prefix + "README.txt").read()
+                )
+                for filename in package.MACOS_LICENSES:
+                    self.assertEqual(
+                        archive.extractfile(prefix + "licenses/" + filename).read(),
+                        filename.encode("ascii"),
+                    )
+
+    def test_relocation_precedes_signing_and_executable_is_signed_last(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.make_runtime(root)
+            with (
+                mock.patch.object(
+                    package,
+                    "macos_dependencies",
+                    return_value=["/sdk/lib/librexruntime.dylib"],
+                ),
+                mock.patch.object(
+                    package, "macos_rpaths", return_value=["/opt/homebrew/lib"]
+                ),
+                mock.patch.object(package, "macos_tool") as tool,
+                mock.patch.object(package, "check_macos_linkage") as validate,
+            ):
+                package.prepare_macos_runtime(root)
+            calls = [call.args for call in tool.call_args_list]
+            signatures = [i for i, call in enumerate(calls) if call[0] == "codesign"]
+            edits = [
+                i for i, call in enumerate(calls) if call[0] == "install_name_tool"
+            ]
+            self.assertLess(max(edits), min(signatures))
+            self.assertEqual(len(signatures), len(package.BINARIES["macos"]))
+            self.assertEqual(calls[-1][-1], str(root / "rerevved"))
+            self.assertEqual(
+                calls[-1][1:-1], ("--force", "--sign", "-", "--timestamp=none")
+            )
+            relative = "@loader_path/../../librexruntime.dylib"
+            self.assertTrue(any(relative in call for call in calls))
+            validate.assert_called_once_with(root)
+
+    def test_macos_linkage_rejects_external_paths_wrong_arch_and_newer_os(self):
+        cases = (
+            (
+                "valid",
+                "@loader_path/librexruntime.dylib",
+                "arm64",
+                "13.3",
+                "@loader_path",
+            ),
+            (
+                "external",
+                "/opt/homebrew/lib/librexruntime.dylib",
+                "arm64",
+                "13.3",
+                "@loader_path",
+            ),
+            (
+                "arch",
+                "@loader_path/librexruntime.dylib",
+                "x86_64",
+                "13.3",
+                "@loader_path",
+            ),
+            ("os", "@loader_path/librexruntime.dylib", "arm64", "14.0", "@loader_path"),
+            ("rpath", "@loader_path/librexruntime.dylib", "arm64", "13.3", "/sdk/lib"),
+        )
+        for label, dependency, arch, minimum, rpath in cases:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self.make_runtime(root)
+
+                def tool(*command):
+                    if command[0] == "lipo":
+                        return arch + "\n"
+                    if command[:2] == ("otool", "-l"):
+                        return (
+                            "cmd LC_BUILD_VERSION\n"
+                            f"    minos {minimum}\n"
+                            "cmd LC_RPATH\n    cmdsize 32\n"
+                            f"    path {rpath} (offset 12)\n"
+                        )
+                    if command[:2] == ("otool", "-L"):
+                        path = Path(command[-1])
+                        identity = (
+                            f"\t@rpath/{path.name} (compatibility version 1.0.0)\n"
+                            if path.suffix == ".dylib"
+                            else ""
+                        )
+                        linked = (
+                            dependency
+                            if path.name == "rerevved"
+                            else "/usr/lib/libSystem.B.dylib"
+                        )
+                        return (
+                            f"{path}:\n{identity}\t{linked} "
+                            "(compatibility version 1.0.0)\n"
+                        )
+                    return ""
+
+                with mock.patch.object(package, "macos_tool", side_effect=tool):
+                    if label == "valid":
+                        package.check_macos_linkage(root)
+                        icd = root / package.MACOS_ICD
+                        icd.write_text(
+                            json.dumps({"ICD": {"library_path": "/external/MoltenVK"}}),
+                            encoding="ascii",
+                        )
+                        with self.assertRaisesRegex(SystemExit, "ICD"):
+                            package.check_macos_linkage(root)
+                    else:
+                        with self.assertRaises(SystemExit):
+                            package.check_macos_linkage(root)
 
 
 class AssembleModsTests(unittest.TestCase):

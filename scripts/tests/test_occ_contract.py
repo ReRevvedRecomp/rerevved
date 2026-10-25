@@ -109,9 +109,8 @@ class OccContractTests(unittest.TestCase):
         )[0]
         self.assertEqual(freeze.count("REXCVAR_GET(one_city_challenge)"), 1)
         self.assertEqual(source.count("REXCVAR_GET(one_city_challenge)"), 2)
-        self.assertIn("std::atomic<std::shared_ptr<const Policy>> frozenPolicy", source)
-        self.assertIn("std::memory_order_release", source)
-        self.assertIn("std::memory_order_acquire", source)
+        self.assertIn("std::shared_ptr<const Policy> frozenPolicy", source)
+        self.assertEqual(source.count("std::lock_guard lock(policyMutex);"), 3)
         hooks = HOOKS.read_text(encoding="utf-8")
         self.assertNotIn("REXCVAR_GET(one_city_challenge)", hooks)
         self.assertEqual(

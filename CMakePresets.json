@@ -35,6 +35,42 @@
             }
         },
         {
+            "name": "mac-arm64-base",
+            "hidden": true,
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "/usr/bin/clang",
+                "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
+                "CMAKE_C_FLAGS": "-march=armv8-a",
+                "CMAKE_CXX_FLAGS": "-march=armv8-a",
+                "CMAKE_OSX_ARCHITECTURES": "arm64",
+                "CMAKE_OSX_DEPLOYMENT_TARGET": "13.3",
+                "REREVVED_DEVELOPER": "OFF"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            }
+        },
+        {
+            "name": "mac-arm64-release",
+            "displayName": "macOS ARM64 Release",
+            "inherits": "mac-arm64-base",
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+        },
+        {
+            "name": "mac-arm64-developer",
+            "displayName": "macOS ARM64 Developer",
+            "description": "Release build with the developer recorders; never packaged",
+            "inherits": "mac-arm64-release",
+            "cacheVariables": {
+                "REREVVED_DEVELOPER": "ON",
+                "BUILD_TESTING": "ON"
+            }
+        },
+        {
             "name": "windows-arm64-base",
             "hidden": true,
             "inherits": "windows-base",
@@ -147,6 +183,8 @@
         }
     ],
     "buildPresets": [
+        { "name": "mac-arm64-release", "configurePreset": "mac-arm64-release" },
+        { "name": "mac-arm64-developer", "configurePreset": "mac-arm64-developer" },
         { "name": "win-amd64-debug", "configurePreset": "win-amd64-debug" },
         { "name": "win-amd64-release", "configurePreset": "win-amd64-release" },
         { "name": "win-amd64-developer", "configurePreset": "win-amd64-developer" },
@@ -169,6 +207,20 @@
         }
     ],
     "testPresets": [
+        {
+            "name": "mac-arm64-release",
+            "configurePreset": "mac-arm64-release",
+            "configuration": "Release",
+            "execution": { "jobs": 2 },
+            "output": { "outputOnFailure": true }
+        },
+        {
+            "name": "mac-arm64-developer",
+            "configurePreset": "mac-arm64-developer",
+            "configuration": "Release",
+            "execution": { "jobs": 2 },
+            "output": { "outputOnFailure": true }
+        },
         {
             "name": "win-amd64-developer",
             "displayName": "Windows AMD64 Developer tests",
