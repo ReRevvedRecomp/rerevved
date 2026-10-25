@@ -15,18 +15,18 @@ Static recompilation of Civilization Revolution for Xbox 360.
 ## Install
 
 [Download the latest release](https://github.com/ReRevvedRecomp/rerevved/releases),
-unzip all of it, and run `rerevved.exe`. Select your game ISO or
-extracted content folder, then supply the version 1.3 title update when
+unzip it, and run `rerevved.exe`. Select your game ISO or
+extracted content folder, then supply the version 1.3 update when
 prompted. [Getting started](docs/getting-started.md) covers content setup and
-the first-run controls.
+controls.
 
 ## System requirements
 
 - **Windows 10 or 11 x64** with a Direct3D 12 capable GPU.
 - **Game files:** your own legally obtained Xbox 360 copy of Civilization
-  Revolution and its version 1.3 title update.
-- **Linux x64:** a build is available.
-- **macOS arm64:** requires Apple Silicon, a Vulkan-capable GPU and macOS
+  Revolution and its version 1.3 update.
+- **Linux x64:** requires a Vulkan capable GPU.
+- **macOS arm64:** requires Apple Silicon, a Vulkan capable GPU and macOS
   13.3 or newer. See [first launch](docs/getting-started.md#macos).
 
 ## Documentation
@@ -34,7 +34,7 @@ the first-run controls.
 - [Getting started](docs/getting-started.md): install and first run
 - [Configuration](docs/configuration.md): settings, file locations, and backups
 - [Troubleshooting](docs/troubleshooting.md): content, display, and startup help
-- [Online play](docs/online-play.md): host or join through a self-hosted relay
+- [Online play](docs/online-play.md): host or join through a self hosted relay
 - [Mods](docs/mods.md): enable the bundled Lua mods or install a custom package
 - [Development](docs/development.md): prerequisites, builds, checks, and tests
 - [Documentation index](docs/README.md): player guides and developer reference
