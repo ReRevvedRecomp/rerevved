@@ -100,6 +100,7 @@ add_executable(rerevved_tests
     tests/ai_economy_hooks_test.cpp
     tests/barbarian_messages_test.cpp
     tests/building_wonder_effect_rules_test.cpp
+    tests/bundled_mods_test.cpp
     tests/discord_invites_model_test.cpp
     tests/discord_presence_model_test.cpp
     tests/display_aspect_test.cpp
@@ -157,6 +158,12 @@ set_source_files_properties(
     tests/rules_bundle_test.cpp
     tests/mod_script_rules_test.cpp
     PROPERTIES COMPILE_DEFINITIONS RULES_BUNDLE_TESTING)
+
+# The bundled_mods case loads the mods that scripts/assemble_mods.py writes to
+# its default output, with the same version the title reports to the SDK.
+target_compile_definitions(rerevved_tests PRIVATE
+    REREVVED_BUNDLED_MODS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/out/bundled-mods"
+    REREVVED_TEST_GAME_VERSION="${PROJECT_VERSION}")
 
 # One case per former CTest registration, named exactly as it was. Cases tagged
 # [ctest] are the automatic ones; manual proofs and helper commands stay out of
