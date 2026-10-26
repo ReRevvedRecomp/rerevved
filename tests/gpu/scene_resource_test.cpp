@@ -1,3 +1,4 @@
+#include "directory_removal.hpp"
 #include "gpu/diagnostics/route_effect_trace.h"
 #include "gpu/diagnostics/scene_resource_capture.h"
 #include "manual_cases.hpp"
@@ -36,6 +37,28 @@ std::span<const std::uint8_t> guestMemory(std::uint64_t address, std::uint64_t s
         return std::span(guestZero).first(size);
     throw std::runtime_error("scene_test_shader_read");
 }
+
+// Ends the capture before removing its directory, so no writer still holds a
+// file there when an assertion throws.
+class SceneDirectoryCleanup
+{
+public:
+    explicit SceneDirectoryCleanup(std::filesystem::path directory)
+    : removal_(std::move(directory))
+    {
+    }
+
+    ~SceneDirectoryCleanup()
+    {
+        StopAndResetSceneResourceCaptureForTests();
+    }
+
+    SceneDirectoryCleanup(const SceneDirectoryCleanup&)            = delete;
+    SceneDirectoryCleanup& operator=(const SceneDirectoryCleanup&) = delete;
+
+private:
+    rerevved::tests::ScopedDirectoryRemoval removal_;
+};
 
 template <class Predicate>
 void await(Predicate predicate)
@@ -77,6 +100,7 @@ int writerTest()
     SetSceneTestMemoryReader(writerMemory);
     const auto  directory = std::filesystem::temp_directory_path() /
                             ("rerevved-scene-writers-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    const auto  cleanup   = SceneDirectoryCleanup(directory);
     std::string error;
     UNSCOPED_INFO("start writer fixture");
     REQUIRE(StartSceneResourceCapture(directory, 2, "fixture", "fixture", error));
@@ -408,6 +432,7 @@ int writerReadFailureTest()
     const auto completeDirectory = (std::filesystem::temp_directory_path() /
                                     ("rerevved-scene-writer-read-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())))
                                        .string();
+    const auto cleanup           = SceneDirectoryCleanup(completeDirectory);
     UNSCOPED_INFO("start optional writer-read fixture");
     REQUIRE(StartSceneResourceCapture(completeDirectory, 2, "fixture", "fixture", error));
     auto* opaque                = sceneCaptureSession.load();
@@ -575,6 +600,7 @@ int payloadTest(std::string_view mode, const std::filesystem::path& requested)
     const auto  directory = requested.empty() ? std::filesystem::temp_directory_path() /
                                                     ("rerevved-scene-payload-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()))
                                               : requested;
+    const auto  cleanup   = SceneDirectoryCleanup(requested.empty() ? directory : std::filesystem::path{});
     std::string error;
     UNSCOPED_INFO("start payload fixture");
     REQUIRE(StartSceneResourceCapture(directory, 2, "fixture", "fixture", error, enabled, 16 * 1024 * 1024, enabled, mode == "payload-targets"));
@@ -1072,6 +1098,7 @@ int payloadWindowsTest(const std::filesystem::path& requested)
     const auto  directory = requested.empty() ? std::filesystem::temp_directory_path() /
                                                     ("rerevved-scene-payload-windows-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()))
                                               : requested;
+    const auto  cleanup   = SceneDirectoryCleanup(requested.empty() ? directory : std::filesystem::path{});
     std::string error;
     UNSCOPED_INFO("start payload windows fixture");
     REQUIRE(StartSceneResourceCapture(directory, 1, "fixture", "fixture", error, true, 16 * 1024 * 1024, false, false, 0, 1, { "", 0, 2 }));
@@ -1172,6 +1199,7 @@ int recorderTest(bool shutdown)
     SetSceneTestMemoryReader(guestMemory);
     const auto  directory = std::filesystem::temp_directory_path() /
                             ("rerevved-scene-test-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    const auto  cleanup   = SceneDirectoryCleanup(directory);
     std::string error;
     UNSCOPED_INFO("start recorder fixture");
     REQUIRE(StartSceneResourceCapture(directory, 2, "fixture", "fixture", error));
@@ -1272,6 +1300,7 @@ int armTest(std::string_view mode)
                                                                                : 3;
     const auto          directory = std::filesystem::temp_directory_path() /
                                     ("rerevved-scene-arm-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    const auto          cleanup   = SceneDirectoryCleanup(directory);
     std::string         error;
     UNSCOPED_INFO("start arm fixture");
     REQUIRE(StartSceneResourceCapture(directory, 2, "fixture", "fixture", error, false, 0, false, false, 0, armFrame));
@@ -1407,6 +1436,7 @@ int digestArmTest(std::string_view mode)
     }
     const auto  directory = std::filesystem::temp_directory_path() /
                             ("rerevved-scene-digest-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    const auto  cleanup   = SceneDirectoryCleanup(directory);
     std::string error;
     UNSCOPED_INFO("start digest fixture");
     REQUIRE(StartSceneResourceCapture(directory, 2, "fixture", "fixture", error, false, 0, false, false, 0, 0, { shown, delay, 1 }));
@@ -1473,6 +1503,7 @@ int digestRaceTest()
     SetSceneTestMemoryReader(raceMemory);
     const auto  directory = std::filesystem::temp_directory_path() /
                             ("rerevved-scene-digest-race-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    const auto  cleanup   = SceneDirectoryCleanup(directory);
     std::string error;
     UNSCOPED_INFO("start digest race fixture");
     REQUIRE(StartSceneResourceCapture(directory, 2, "fixture", "fixture", error, false, 0, false, false, 0, 0, { triggerDigest(triggerShaderA).substr(0, 12), 0, 1 }));
@@ -1517,6 +1548,7 @@ int windowsTest()
 {
     const auto  directory = std::filesystem::temp_directory_path() /
                             ("rerevved-scene-windows-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    const auto  cleanup   = SceneDirectoryCleanup(directory);
     std::string error;
     UNSCOPED_INFO("start windows fixture");
     REQUIRE(StartSceneResourceCapture(directory, 2, "fixture", "fixture", error, true, 16 * 1024 * 1024, false, false, 0, 2, { "", 0, 3 }));
@@ -1602,8 +1634,9 @@ int windowsTest()
 // Bad trigger values never start a session, so the same process can try again.
 int digestRefusedTest()
 {
-    const auto  root = std::filesystem::temp_directory_path() /
-                       ("rerevved-scene-refused-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    const auto  root    = std::filesystem::temp_directory_path() /
+                          ("rerevved-scene-refused-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    const auto  cleanup = SceneDirectoryCleanup(root);
     std::string error;
     int         attempt = 0;
     const auto  start   = [&](const SceneCaptureTriggers& triggers, bool effects)
@@ -1719,6 +1752,7 @@ int literalTest(std::string_view mode)
 
     const auto  directory = std::filesystem::temp_directory_path() /
                             ("rerevved-scene-literal-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    const auto  cleanup   = SceneDirectoryCleanup(directory);
     std::string error;
     UNSCOPED_INFO("start literal fixture");
     REQUIRE(StartSceneResourceCapture(directory, 2, "fixture", "fixture", error, true, 16 * 1024 * 1024));
