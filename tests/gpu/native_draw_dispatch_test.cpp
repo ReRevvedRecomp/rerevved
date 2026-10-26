@@ -8,6 +8,7 @@
 #include "guest_import_doubles.hpp"
 
 #if REREVVED_DEVELOPER
+#include "directory_removal.hpp"
 #include "gpu/diagnostics/label_draw_capture.h"
 #include "gpu/diagnostics/route_trace.h"
 #include "gpu/diagnostics/scene_resource_capture.h"
@@ -3456,9 +3457,25 @@ void testConsumeIndexedBuffer()
     {
         return std::filesystem::temp_directory_path() / (std::string(name) + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
     };
+    const auto                                    routeDirectory = scratch("rerevved-consume-route-");
+    const auto                                    sceneDirectory = scratch("rerevved-consume-scene-");
+    const rerevved::tests::ScopedDirectoryRemoval routeRemoval(routeDirectory);
+    const rerevved::tests::ScopedDirectoryRemoval sceneRemoval(sceneDirectory);
+
+    // Declared after the removals, so both sessions close their files before
+    // the directories go.
+    struct SessionEnd
+    {
+        ~SessionEnd()
+        {
+            rerevved::gpu::diagnostics::StopAndResetSceneResourceCaptureForTests();
+            rerevved::gpu::diagnostics::StopAndResetRouteTraceForTests();
+        }
+    } sessionEnd;
+
     std::string error;
     UNSCOPED_INFO("start the route trace fixture");
-    REQUIRE(rerevved::gpu::diagnostics::StartRouteTrace(scratch("rerevved-consume-route-"), "fixture", "fixture", error));
+    REQUIRE(rerevved::gpu::diagnostics::StartRouteTrace(routeDirectory, "fixture", "fixture", error));
     run = draw(none);
     requireUserPointerKeepsOriginal("a route trace runs a wrapper's Original");
     rerevved::gpu::diagnostics::StopRouteTrace();
@@ -3466,16 +3483,7 @@ void testConsumeIndexedBuffer()
 
     // Before its window the session gives the draw an empty token; Original must still run.
     UNSCOPED_INFO("start the scene session fixture");
-
-    struct SceneSessionEnd
-    {
-        ~SceneSessionEnd()
-        {
-            rerevved::gpu::diagnostics::StopAndResetSceneResourceCaptureForTests();
-        }
-    } sceneSessionEnd;
-
-    REQUIRE(rerevved::gpu::diagnostics::StartSceneResourceCapture(scratch("rerevved-consume-scene-"), 2, "fixture", "fixture", error, false, 256 * 1024 * 1024, false, false, 64 * 1024 * 1024, 1000));
+    REQUIRE(rerevved::gpu::diagnostics::StartSceneResourceCapture(sceneDirectory, 2, "fixture", "fixture", error, false, 256 * 1024 * 1024, false, false, 64 * 1024 * 1024, 1000));
     run = draw(none);
     requireUserPointerKeepsOriginal("a scene session runs a wrapper's Original");
     rerevved::gpu::diagnostics::StopAndResetSceneResourceCaptureForTests();

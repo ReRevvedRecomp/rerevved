@@ -1,3 +1,4 @@
+#include "directory_removal.hpp"
 #include "gpu/diagnostics/scene_payload_store.h"
 #include "gpu/diagnostics/scene_target_readback.h"
 
@@ -113,16 +114,7 @@ TEST_CASE("scene_payload_store", "[ctest][scene-payload-store]")
     UNSCOPED_INFO("test directory");
     REQUIRE(std::filesystem::create_directory(directory));
 
-    struct RemoveDirectory
-    {
-        const std::filesystem::path& path;
-
-        ~RemoveDirectory()
-        {
-            std::error_code ignored;
-            std::filesystem::remove_all(path, ignored);
-        }
-    } removeDirectory{ directory };
+    const rerevved::tests::ScopedDirectoryRemoval removeDirectory(directory);
 
     SceneTargetRecord target;
     target.kind           = "seed";

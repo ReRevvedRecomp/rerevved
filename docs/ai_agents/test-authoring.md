@@ -61,7 +61,9 @@ a matrix, state the lost coverage and retain its data checks in the same change.
 Reuse `tests/support` helpers instead of copying fakes or process launchers.
 Use [ScopedRegistryReset](../../tests/support/registry_scope.hpp) for registries,
 [REREVVED_RESTORE_CVAR](../../tests/support/cvar_scope.hpp) for changed settings,
-and [ScopedImport](../../tests/support/guest_import_doubles.hpp) for guest imports.
+[ScopedImport](../../tests/support/guest_import_doubles.hpp) for guest imports,
+and [ScopedDirectoryRemoval](../../tests/support/directory_removal.hpp) for a
+temporary directory a case creates.
 An unconfigured import double does nothing. Assert calls that matter.
 
 [Allocation scopes](../../tests/support/allocation_harness.hpp) restore failure
