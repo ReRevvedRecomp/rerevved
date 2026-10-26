@@ -110,6 +110,7 @@ add_executable(rerevved_tests
     tests/host_settings_test.cpp
     tests/gameplay_session_settings_test.cpp
     tests/helper_commands_test.cpp
+    tests/network_pause_test.cpp
     tests/main_menu_logo_asset_test.cpp
     tests/mod_script_rules_test.cpp
     tests/nation_select_text_test.cpp

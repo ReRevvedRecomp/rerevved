@@ -313,6 +313,8 @@ set(REREVVED_SOURCES
     src/ai_economy_settings.h
     src/ai_economy_settings.cpp
     src/ai_economy_hooks.cpp
+    src/network_pause.h
+    src/network_pause_hooks.cpp
     src/host_settings.cpp
     src/host_settings.h
     src/gameplay_session_settings.cpp
