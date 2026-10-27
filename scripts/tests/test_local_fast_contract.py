@@ -91,6 +91,7 @@ PYTHON_CONTRACTS = (
     "save_sidecar_contract",
     "resource_settings_contract",
     "raging_barbarians_contract",
+    "capital_grace_contract",
     "occ_contract",
     "gotw_contract",
     "city_founding_unit_contract",
@@ -387,7 +388,7 @@ class LocalFastTierContractTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn(message, result.stderr)
 
-    def test_python_contract_label_covers_the_six_verify_discovered_tests(
+    def test_python_contract_label_covers_the_verify_discovered_tests(
         self,
     ) -> None:
         match = re.search(

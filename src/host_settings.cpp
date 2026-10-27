@@ -16,12 +16,13 @@ namespace
 {
 
 // Gate built-in gameplay semantics as well as the serialized field layout.
-constexpr uint8_t kFormatVersion   = 2;
-constexpr uint8_t kTruncatedFlag   = 0x01;
-constexpr size_t  kHeaderSize      = 21;
-constexpr size_t  kMaxFieldLength  = 255;
-constexpr size_t  kMaxModCount     = 255;
-constexpr size_t  kMaxListedIssues = 4;
+constexpr uint8_t kFormatVersion    = 2;
+constexpr uint8_t kTruncatedFlag    = 0x01;
+constexpr uint8_t kCapitalGraceFlag = 0x20;
+constexpr size_t  kHeaderSize       = 21;
+constexpr size_t  kMaxFieldLength   = 255;
+constexpr size_t  kMaxModCount      = 255;
+constexpr size_t  kMaxListedIssues  = 4;
 
 std::mutex                              localModsMutex;
 std::shared_ptr<const LocalModSnapshot> localModSnapshot;
@@ -198,7 +199,8 @@ std::vector<uint8_t> Encode(const HostSettings& settings)
                                        (normalized.oneCityChallenge ? 2 : 0) |
                                        (normalized.gotwCustomWeek ? 4 : 0) |
                                        (normalized.gotwStandardRules ? 8 : 0) |
-                                       (normalized.rulesDigestPresent ? 16 : 0)));
+                                       (normalized.rulesDigestPresent ? 16 : 0) |
+                                       (normalized.ragingBarbarians ? kCapitalGraceFlag : 0)));
     out.push_back(static_cast<uint8_t>(normalized.resources));
     out.push_back(static_cast<uint8_t>(normalized.aiResearchBonusPercent));
     out.push_back(static_cast<uint8_t>(normalized.aiProductionBonusPercent));
@@ -230,7 +232,8 @@ std::vector<uint8_t> Encode(const HostSettings& settings)
 std::optional<HostSettings> Decode(std::span<const uint8_t> bytes)
 {
     if (bytes.size() < kHeaderSize || bytes.size() > rex::session_data::kMaxBytes || bytes[0] != kFormatVersion ||
-        bytes[1] > kMaxAiCivilizations || (bytes[2] & ~kTruncatedFlag) != 0 || (bytes[4] & ~0x1Fu) != 0 ||
+        bytes[1] > kMaxAiCivilizations || (bytes[2] & ~kTruncatedFlag) != 0 || (bytes[4] & ~0x3Fu) != 0 ||
+        ((bytes[4] & kCapitalGraceFlag) != 0) != ((bytes[4] & 1) != 0) ||
         (bytes[5] != 0 && bytes[5] != 1 && bytes[5] != 3) || bytes[6] > ai_economy::kMaxBonusPercent || bytes[7] > ai_economy::kMaxBonusPercent ||
         bytes[8] > ai_economy::kMaxBonusPercent || bytes[9] > ai_economy::kMaxBonusPercent || bytes[10] > ai_economy::kMaxBonusPercent ||
         (bytes[11] != 1 && bytes[11] != 5 && bytes[11] != 10) || bytes[12] > 1)

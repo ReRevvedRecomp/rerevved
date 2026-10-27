@@ -393,6 +393,14 @@ list(APPEND REREVVED_SOURCES
     src/raging_barbarians_settings.h
     src/raging_barbarians_hooks.cpp
     src/raging_barbarians_hooks.h
+    src/capital_grace.cpp
+    src/capital_grace.h
+    src/capital_grace_hooks.cpp
+    src/capital_grace_hooks.h
+    src/capital_grace_special.cpp
+    src/capital_grace_nuclear.cpp
+    src/capital_grace_special.h
+    src/capital_grace_nuclear.h
     src/occ_settings.cpp
     src/occ_settings.h
     src/occ_hooks.cpp

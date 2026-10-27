@@ -23,6 +23,7 @@ includes = [
     "config/ai_economy_hooks.toml",
     "config/occ_hooks.toml",
     "config/raging_barbarians_hooks.toml",
+    "config/capital_grace_hooks.toml",
     "config/gotw_hooks.toml",
     "config/save_sidecar_hooks.toml",
     "config/native_progress_hooks.toml",

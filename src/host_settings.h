@@ -65,6 +65,7 @@ struct HostSettings
 // by sorted mods with length-prefixed id, version and display name fields.
 // Normalize local selections before publication; decode rejects noncanonical values.
 // The local-only Game of the Week civilization is never serialized.
+// Gameplay bit 0x20 must equal Raging bit 0x01: peers must support capital grace.
 std::vector<uint8_t> Encode(const HostSettings& settings);
 
 HostSettings Normalize(HostSettings settings, bool networkGame = true);

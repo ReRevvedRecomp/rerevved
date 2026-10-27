@@ -175,7 +175,7 @@ void rerevved::App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
         { "ai_food_bonus_percent", "Raise the food growth each AI city contributes in new games by this percentage. Only positive growth is boosted; starvation stays native. The host controls new multiplayer games. 0 keeps native food. Local saves restore their saved value; network loads and Game of the Week Standard Rules use 0." },
         { "ai_culture_bonus_percent", "Raise the culture each AI city contributes in new games by this percentage. The host controls new multiplayer games. 0 keeps native culture. Local saves restore their saved value; network loads and Game of the Week Standard Rules use 0." },
         { "resources", "Choose how resources are placed around each starting location in new games. The host controls new multiplayer games." },
-        { "raging_barbarians", "Enable for more Barbarian units that leave their camps sooner. Saved gameplay settings apply on load. The host controls new multiplayer games." },
+        { "raging_barbarians", "Enable for more Barbarian units that leave their camps sooner. Barbarians cannot attack or capture a civilization's current capital before 3000 BC. Saved gameplay settings apply on load. The host controls new multiplayer games." },
         { "one_city_challenge", "Enable to block Settler production. Settler rewards become population. Saved gameplay settings apply on load. The host controls new multiplayer games." },
         { "domination_min_turns", "Set the minimum turns before a Domination victory in new games. The host controls new multiplayer games. Loaded saves and Game of the Week Standard Rules keep 10." },
         { "gotw_custom_week", "Enable to play a different week's game instead of this week's." },

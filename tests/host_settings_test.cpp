@@ -8,6 +8,30 @@
 #include <utility>
 #include <vector>
 
+TEST_CASE("host_settings_raging_requires_capital_grace", "[ctest][host-settings]")
+{
+    using namespace rerevved::host_settings;
+    HostSettings settings;
+    auto         bytes = Encode(settings);
+    CHECK((bytes[4] & 0x21) == 0);
+    REQUIRE(Decode(bytes));
+    settings.ragingBarbarians = true;
+    bytes                     = Encode(settings);
+    CHECK((bytes[4] & 0x21) == 0x21);
+    REQUIRE(Decode(bytes));
+    CHECK(Decode(bytes)->ragingBarbarians);
+    bytes[4] &= ~uint8_t{ 0x20 };
+    CHECK_FALSE(Decode(bytes)); // Raging without capital grace.
+    bytes[4] ^= 0x21;
+    CHECK_FALSE(Decode(bytes)); // Capital grace without Raging.
+    for (const uint8_t undefined : { 0x40, 0x80 })
+    {
+        bytes = Encode(settings);
+        bytes[4] |= undefined;
+        CHECK_FALSE(Decode(bytes));
+    }
+}
+
 namespace
 {
 
@@ -395,12 +419,18 @@ TEST_CASE("host_settings gameplay snapshot validates complete policy", "[ctest][
     CHECK(Encode(*decoded) == bytes);
 
     for (const auto [offset, value] : std::vector<std::pair<size_t, uint8_t>>{
-             { 1, 5 }, { 4, 0x40 }, { 5, 2 }, { 6, 201 }, { 7, 201 }, { 8, 201 }, { 9, 201 }, { 10, 201 }, { 11, 2 }, { 12, 2 } })
+             { 1, 5 }, { 5, 2 }, { 6, 201 }, { 7, 201 }, { 8, 201 }, { 9, 201 }, { 10, 201 }, { 11, 2 }, { 12, 2 } })
     {
         auto invalid    = bytes;
         invalid[offset] = value;
         CHECK(!Decode(invalid));
     }
+    // Peers must use no undefined flag bit.
+    auto unsupported = bytes;
+    unsupported[4] |= 0x40;
+    CHECK(!Decode(unsupported));
+    unsupported[4] = bytes[4] | 0x80;
+    CHECK(!Decode(unsupported));
     auto invalid = bytes;
     invalid[17] ^= 1;
     CHECK(!Decode(invalid)); // Seed must be derived from the selected week.

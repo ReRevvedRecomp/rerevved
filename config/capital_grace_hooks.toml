@@ -1,0 +1,182 @@
+# The dispatcher frame and depth increment exist. True consumes through result 1.
+[[midasm_hook]]
+address = 0x82CDDF34
+name = "GuardCapitalGraceAdmission"
+registers = ["r3", "r30", "r31", "r15", "r29"]
+jump_address_on_true = 0x82CE16AC
+
+# Capture has saved its arguments/frame but has not changed the owner.
+[[midasm_hook]]
+address = 0x82D1B43C
+name = "GuardCapitalGraceCapture"
+registers = ["r3", "r4"]
+jump_address_on_true = 0x82D1D1B4
+
+# Queue invocation, full append serial, completed copy and pre-callback drain.
+[[midasm_hook]]
+address = 0x82CE16E8
+name = "BeginCapitalGraceSubmit"
+registers = ["r1", "r31", "r30"]
+
+[[midasm_hook]]
+address = 0x82CE16F4
+name = "AppendCapitalGraceToken"
+registers = ["r1", "r31", "r9"]
+
+[[midasm_hook]]
+address = 0x82CE1730
+name = "CompleteCapitalGraceAppend"
+registers = ["r1"]
+
+[[midasm_hook]]
+address = 0x82CE1748
+name = "ObserveCapitalGraceDrainSerial"
+registers = ["r1", "r31", "r11"]
+
+[[midasm_hook]]
+address = 0x82CE1784
+name = "BindCapitalGraceDrain"
+registers = ["r1"]
+
+# Both native queue exits pop before restoring r1.
+[[midasm_hook]]
+address = 0x82CE17EC
+name = "EndCapitalGraceSubmit"
+registers = ["r1"]
+
+[[midasm_hook]]
+address = 0x82CE1828
+name = "EndCapitalGraceSubmit"
+registers = ["r1"]
+
+[[midasm_hook]]
+address = 0x82D2C9BC
+name = "BeginCapitalGraceBlitz"
+registers = ["r1", "r3", "r4", "r5", "r6", "r7"]
+
+# Before the continuation that can revive Blitz movement.
+[[midasm_hook]]
+address = 0x82D2C9C0
+name = "EndCapitalGraceBlitz"
+registers = ["r1"]
+jump_address_on_true = 0x82D2D2E0
+
+[[midasm_hook]]
+address = 0x82D2CE00
+name = "BeginCapitalGraceOrdinary"
+registers = ["r1", "r3", "r4", "r5", "r6", "r7"]
+
+[[midasm_hook]]
+address = 0x82D2CE04
+name = "EndCapitalGraceOrdinary"
+registers = ["r1"]
+jump_address_on_true = 0x82D2D2E0
+
+# C16C prepares r6. C170 is the BL.
+[[midasm_hook]]
+address = 0x82D2C170
+name = "BeginCapitalGracePacked"
+registers = ["r1", "r3", "r4", "r5", "r6", "r7"]
+
+[[midasm_hook]]
+address = 0x82D2C174
+name = "EndCapitalGracePacked"
+registers = ["r1"]
+jump_address_on_true = 0x82D2D2E0
+
+# Observe the old parent flags immediately before native ori/store busy bit 1.
+[[midasm_hook]]
+address = 0x82D2BBA0
+name = "PrepareCapitalGraceParent"
+registers = ["r1", "r15", "r23", "r25", "r31", "r9"]
+
+[[midasm_hook]]
+address = 0x82D2BD84
+name = "BeginCapitalGraceLinked"
+registers = ["r1", "r3", "r4", "r5", "r6", "r7"]
+
+# A linked refusal must clear the parent's native busy bit before its epilogue.
+[[midasm_hook]]
+address = 0x82D2BD88
+name = "EndCapitalGraceLinked"
+registers = ["r1", "r15", "r23", "r25", "r31"]
+jump_address_on_true = 0x82D2BDE0
+
+[[midasm_hook]]
+address = 0x82D2BE00
+name = "FinishCapitalGraceParent"
+registers = ["r1"]
+jump_address_on_true = 0x82D2D2E0
+
+# Capture the admitted invocation after native saves, before either helper pumps.
+[[midasm_hook]]
+address = 0x82CF7498
+name = "BeginCapitalGraceNuclearZero"
+registers = ["r1", "r22", "r4"]
+jump_address_on_true = 0x82CF78CC
+
+[[midasm_hook]]
+address = 0x82CF7938
+name = "BeginCapitalGraceNuclearAlternate"
+registers = ["r1", "r16", "r4"]
+jump_address_on_true = 0x82CF7D34
+
+# Use selected population destinations, including polar aliases, without decoding the tile again.
+[[midasm_hook]]
+address = 0x82CF76A4
+name = "GuardCapitalGraceNuclearZeroPopulation"
+registers = ["r1", "r31", "r10", "r27", "r26"]
+jump_address_on_true = 0x82CF78CC
+
+[[midasm_hook]]
+address = 0x82CF7BF0
+name = "GuardCapitalGraceNuclearAlternatePopulation"
+registers = ["r1", "r31", "r11", "r28", "r27"]
+jump_address_on_true = 0x82CF7D34
+
+# Victim preparation precedes all zero writes. The alternate path has no call before D14.
+[[midasm_hook]]
+address = 0x82CF77F0
+name = "GuardCapitalGraceNuclearZeroVictim"
+registers = ["r1", "r28", "r30", "r31", "r27", "r26"]
+jump_address_on_true = 0x82CF78CC
+
+[[midasm_hook]]
+address = 0x82CF7D08
+name = "GuardCapitalGraceNuclearAlternateVictim"
+registers = ["r1", "r29", "r30", "r31", "r28", "r27"]
+jump_address_on_true = 0x82CF7D34
+
+# CC unwinds normally. The caller still clears flags and kills the projectile.
+[[midasm_hook]]
+address = 0x82CF78CC
+name = "EndCapitalGraceNuclearZero"
+registers = ["r1"]
+
+[[midasm_hook]]
+address = 0x82CF75D0
+name = "EndCapitalGraceNuclearEarly"
+registers = ["r1"]
+
+[[midasm_hook]]
+address = 0x82CF7B7C
+name = "EndCapitalGraceNuclearEarly"
+registers = ["r1"]
+
+# Alternate reaches this only after its native consumption tail at D34.
+[[midasm_hook]]
+address = 0x82CF7D68
+name = "EndCapitalGraceNuclearEarly"
+registers = ["r1"]
+
+[[midasm_hook]]
+address = 0x82CDF1C8
+name = "FinishCapitalGraceNuclearZero"
+registers = ["r1", "r31", "r15"]
+jump_address_on_true = 0x82CDF26C
+
+# Release admission-only SDI paths and any unused same-frame continuation.
+[[midasm_hook]]
+address = 0x82CE16AC
+name = "EndCapitalGraceNuclearDispatch"
+registers = ["r1"]

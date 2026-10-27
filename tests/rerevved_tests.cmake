@@ -72,6 +72,10 @@ add_executable(rerevved_tests
     src/portable_mode.cpp
     src/raging_barbarians_hooks.cpp
     src/raging_barbarians_settings.cpp
+    src/capital_grace.cpp
+    src/capital_grace_hooks.cpp
+    src/capital_grace_special.cpp
+    src/capital_grace_nuclear.cpp
     src/resource_identity_overrides.cpp
     src/resource_settings.cpp
     src/retail_ui_art.cpp
@@ -120,6 +124,10 @@ add_executable(rerevved_tests
     tests/occ_settings_test.cpp
     tests/portable_mode_test.cpp
     tests/raging_barbarians_settings_test.cpp
+    tests/capital_grace_test.cpp
+    tests/capital_grace_hooks_test.cpp
+    tests/capital_grace_nuclear_test.cpp
+    tests/capital_grace_type24_test.cpp
     tests/research_prompt_test.cpp
     tests/resource_identity_overrides_test.cpp
     tests/resource_identity_trace_test.cpp
@@ -223,6 +231,8 @@ add_test(NAME resource_settings_contract COMMAND ${Python3_EXECUTABLE} -B
     ${CMAKE_CURRENT_SOURCE_DIR}/scripts/tests/test_resource_settings_contract.py)
 add_test(NAME raging_barbarians_contract COMMAND ${Python3_EXECUTABLE} -B
     ${CMAKE_CURRENT_SOURCE_DIR}/scripts/tests/test_raging_barbarians_contract.py)
+add_test(NAME capital_grace_contract COMMAND ${Python3_EXECUTABLE} -B
+    ${CMAKE_CURRENT_SOURCE_DIR}/scripts/tests/test_capital_grace_contract.py)
 add_test(NAME occ_contract COMMAND ${Python3_EXECUTABLE} -B
     ${CMAKE_CURRENT_SOURCE_DIR}/scripts/tests/test_occ_contract.py)
 add_test(NAME gotw_contract COMMAND ${Python3_EXECUTABLE} -B
@@ -230,7 +240,7 @@ add_test(NAME gotw_contract COMMAND ${Python3_EXECUTABLE} -B
 add_test(NAME city_founding_unit_contract COMMAND ${Python3_EXECUTABLE} -B
     ${CMAKE_CURRENT_SOURCE_DIR}/scripts/tests/test_city_founding_unit_contract.py)
 foreach(_python_contract IN ITEMS
-    save_sidecar_contract resource_settings_contract raging_barbarians_contract
+    save_sidecar_contract resource_settings_contract raging_barbarians_contract capital_grace_contract
     occ_contract gotw_contract city_founding_unit_contract)
     set_property(TEST ${_python_contract} APPEND PROPERTY LABELS python-contract)
 endforeach()
