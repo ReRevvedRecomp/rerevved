@@ -51,6 +51,7 @@ add_executable(rerevved_tests
 
     src/building_wonder_effect_rules.cpp
     src/ai_economy_settings.cpp
+    src/custom_achievements.cpp
     src/ai_civilization_setup.cpp
     src/ai_economy_hooks.cpp
     src/discord_invites_model.cpp
@@ -102,6 +103,7 @@ add_executable(rerevved_tests
     tests/ai_civilizations_test.cpp
     tests/ai_civilization_setup_test.cpp
     tests/ai_economy_settings_test.cpp
+    tests/custom_achievements_test.cpp
     tests/ai_economy_hooks_test.cpp
     tests/barbarian_messages_test.cpp
     tests/building_wonder_effect_rules_test.cpp

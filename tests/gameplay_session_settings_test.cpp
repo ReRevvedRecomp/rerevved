@@ -298,3 +298,63 @@ TEST_CASE("local settings read the AI bonus preferences", "[ctest][host-settings
     CHECK(local.aiFoodBonusPercent == 40);
     CHECK(local.aiCultureBonusPercent == 200);
 }
+
+TEST_CASE("weekly week binds to the latch that follows its own preparation", "[ctest][host-settings]")
+{
+    RestorePolicies restore;
+    session::ResetOnLoad();
+    constexpr uint32_t setup = 0x83000000;
+    preparedSnapshot         = { host::SnapshotState::Local, host::HostSettings{}, {} };
+    host::HostSettings latch;
+
+    SECTION("the native week of the latch that followed the attempt")
+    {
+        REQUIRE(session::detail::PrepareWeekly(setup, 2, capturePrepared));
+        rerevved::gotw::LatchForGame(111, setup, latch);
+        REQUIRE(session::detail::Prepare(false, setup, 2, capturePrepared).settings);
+        CHECK(session::AcceptedWeeklyWeek() == 111);
+    }
+
+    SECTION("a custom week replaces the native week")
+    {
+        latch.gotwCustomWeek = true;
+        latch.gotwWeek       = 36428;
+        REQUIRE(session::detail::PrepareWeekly(setup, 2, capturePrepared));
+        rerevved::gotw::LatchForGame(111, setup, latch);
+        REQUIRE(session::detail::Prepare(false, setup, 2, capturePrepared).settings);
+        CHECK(session::AcceptedWeeklyWeek() == 36428);
+    }
+
+    SECTION("a latch from an earlier launch with the same setup address is stale")
+    {
+        rerevved::gotw::LatchForGame(222, setup, latch);
+        REQUIRE(session::detail::PrepareWeekly(setup, 2, capturePrepared));
+        REQUIRE(session::detail::Prepare(false, setup, 2, capturePrepared).settings);
+        CHECK(session::AcceptedWeeklyWeek() == 0);
+    }
+
+    SECTION("a latch for another setup object is ignored")
+    {
+        REQUIRE(session::detail::PrepareWeekly(setup, 2, capturePrepared));
+        rerevved::gotw::LatchForGame(333, setup + 0x1000, latch);
+        REQUIRE(session::detail::Prepare(false, setup, 2, capturePrepared).settings);
+        CHECK(session::AcceptedWeeklyWeek() == 0);
+    }
+
+    SECTION("the week does not outlive its setup")
+    {
+        REQUIRE(session::detail::PrepareWeekly(setup, 2, capturePrepared));
+        rerevved::gotw::LatchForGame(111, setup, latch);
+        REQUIRE(session::detail::Prepare(false, setup, 2, capturePrepared).settings);
+        REQUIRE(session::AcceptedWeeklyWeek() == 111);
+        REQUIRE(session::detail::Prepare(false, setup, 1, capturePrepared).settings);
+        CHECK(session::AcceptedWeeklyWeek() == 0);
+
+        REQUIRE(session::detail::PrepareWeekly(setup, 2, capturePrepared));
+        rerevved::gotw::LatchForGame(111, setup, latch);
+        REQUIRE(session::detail::Prepare(false, setup, 2, capturePrepared).settings);
+        REQUIRE(session::AcceptedWeeklyWeek() == 111);
+        session::ResetOnLoad();
+        CHECK(session::AcceptedWeeklyWeek() == 0);
+    }
+}

@@ -27,6 +27,15 @@ namespace overrides = rerevved::resource_identity_overrides;
 const sidecar::State    kSaved{ true, true, 33, 1, { { 0, 0 }, { 402, 9 }, { 1271, 18 } } };
 const sidecar::Identity kIdentity{ "save0.sve", 7, std::string(64, 'a') };
 
+// Schema 1 is schema 2 with only its four policy bytes of state.
+std::vector<uint8_t> schema1(std::vector<uint8_t> bytes)
+{
+    const size_t stateOffset = 6 + kIdentity.slot.size() + 4 + 64;
+    bytes[4]                 = 1;
+    bytes.erase(bytes.begin() + stateOffset + 4, bytes.begin() + stateOffset + 18);
+    return bytes;
+}
+
 void testPayload()
 {
     const auto bytes   = sidecar::Serialize(kSaved, kIdentity);
@@ -68,11 +77,11 @@ void testPayload()
     CHECK(!sidecar::Deserialize(invalid, kIdentity));
     const size_t stateOffset = 6 + kIdentity.slot.size() + 4 + 64;
     invalid                  = bytes;
-    invalid.insert(invalid.begin() + stateOffset + 9, size_t{ 2 }, uint8_t{ 0 });
+    invalid.insert(invalid.begin() + stateOffset + 18, size_t{ 2 }, uint8_t{ 0 });
     UNSCOPED_INFO("a longer schema 2 state is rejected");
     CHECK(!sidecar::Deserialize(invalid, kIdentity));
     invalid = bytes;
-    invalid.erase(invalid.begin() + stateOffset + 7, invalid.begin() + stateOffset + 9);
+    invalid.erase(invalid.begin() + stateOffset + 16, invalid.begin() + stateOffset + 18);
     UNSCOPED_INFO("a shorter schema 2 state is rejected");
     CHECK(!sidecar::Deserialize(invalid, kIdentity));
     for (size_t field : { size_t{ 0 }, size_t{ 1 } })
@@ -101,7 +110,7 @@ void testPayload()
     UNSCOPED_INFO("duplicate tiles are rejected by the existing serializer");
     CHECK(sidecar::Serialize(state, kIdentity).empty());
     invalid                   = bytes;
-    invalid[stateOffset + 14] = 22;
+    invalid[stateOffset + 23] = 22;
     UNSCOPED_INFO("unsupported override ordinals are rejected by the existing deserializer");
     CHECK(!sidecar::Deserialize(invalid, kIdentity));
 }
@@ -359,8 +368,135 @@ TEST_CASE("save_sidecar_maximum_payload", "[ctest][save-sidecar]")
     }
     const sidecar::Identity longestSlot{ std::string(42, 's'), 7, std::string(64, 'a') };
     auto                    maximum = sidecar::Serialize(saved, longestSlot);
-    REQUIRE(maximum.size() == 3200);
+    REQUIRE(maximum.size() == 3209);
     CHECK(sidecar::Deserialize(maximum, longestSlot) == saved);
     maximum.push_back(0);
     CHECK_FALSE(sidecar::Deserialize(maximum, longestSlot));
+}
+
+TEST_CASE("save_sidecar_progress", "[ctest][save-sidecar]")
+{
+    const size_t stateOffset = 6 + kIdentity.slot.size() + 4 + 64;
+    auto         saved       = kSaved;
+    saved.occFromSetup       = true;
+    saved.barbarianDefeats   = 37;
+    const auto bytes         = sidecar::Serialize(saved, kIdentity);
+    REQUIRE(bytes.size() > stateOffset + 11);
+    CHECK(bytes[4] == 2);
+    CHECK(bytes[stateOffset + 9] == 1);
+    CHECK(bytes[stateOffset + 10] == 37);
+    CHECK(sidecar::Deserialize(bytes, kIdentity) == saved);
+
+    auto invalid              = bytes;
+    invalid[stateOffset + 10] = 51;
+    CHECK_FALSE(sidecar::Deserialize(invalid, kIdentity));
+    invalid                  = bytes;
+    invalid[stateOffset + 9] = 2;
+    CHECK_FALSE(sidecar::Deserialize(invalid, kIdentity));
+    invalid                  = bytes;
+    invalid[stateOffset + 1] = 0;
+    CHECK_FALSE(sidecar::Deserialize(invalid, kIdentity));
+
+    saved.barbarianDefeats = 51;
+    CHECK(sidecar::Serialize(saved, kIdentity).empty());
+    saved.barbarianDefeats = 50;
+    saved.occEnabled       = false;
+    CHECK(sidecar::Serialize(saved, kIdentity).empty());
+    saved.occFromSetup = false;
+    CHECK(sidecar::Deserialize(sidecar::Serialize(saved, kIdentity), kIdentity) == saved);
+}
+
+TEST_CASE("save_sidecar_history", "[ctest][save-sidecar]")
+{
+    const size_t stateOffset = 6 + kIdentity.slot.size() + 4 + 64;
+    auto         saved       = kSaved;
+    saved.occFromSetup       = true;
+    saved.barbarianDefeats   = 9;
+    saved.historyKnown       = true;
+    saved.unitBuilt          = true;
+    saved.battleFought       = false;
+    saved.deepOceanEntered   = true;
+    saved.firstFoundingTurn  = 0x1234;
+    saved.initialAiOpponents = 6;
+    const auto bytes         = sidecar::Serialize(saved, kIdentity);
+    REQUIRE(bytes.size() > stateOffset + 18);
+    CHECK(bytes[4] == 2);
+    const std::array<uint8_t, 7> expectedBytes{ 1, 1, 0, 1, 0x12, 0x34, 6 };
+    CHECK(std::equal(expectedBytes.begin(), expectedBytes.end(), bytes.begin() + stateOffset + 11));
+    CHECK(sidecar::Deserialize(bytes, kIdentity) == saved);
+
+    // Untracked history stores -1 as 0xFFFF and 0xFF.
+    auto untracked         = saved;
+    untracked.historyKnown = untracked.unitBuilt = untracked.deepOceanEntered = false;
+    untracked.firstFoundingTurn                                               = -1;
+    untracked.initialAiOpponents                                              = -1;
+    const auto untrackedBytes                                                 = sidecar::Serialize(untracked, kIdentity);
+    REQUIRE(untrackedBytes.size() > stateOffset + 18);
+    const std::array<uint8_t, 7> unknownBytes{ 0, 0, 0, 0, 0xFF, 0xFF, 0xFF };
+    CHECK(std::equal(unknownBytes.begin(), unknownBytes.end(), untrackedBytes.begin() + stateOffset + 11));
+    CHECK(sidecar::Deserialize(untrackedBytes, kIdentity) == untracked);
+
+    // The range limits round trip; one past them is rejected on write.
+    auto limit               = saved;
+    limit.firstFoundingTurn  = 0xFFFE;
+    limit.initialAiOpponents = 0;
+    CHECK(sidecar::Deserialize(sidecar::Serialize(limit, kIdentity), kIdentity) == limit);
+    for (const int32_t turn : { 0xFFFF, 0x10000, -2 })
+    {
+        CAPTURE(turn);
+        auto invalid              = saved;
+        invalid.firstFoundingTurn = turn;
+        CHECK(sidecar::Serialize(invalid, kIdentity).empty());
+    }
+    for (const int32_t opponents : { 7, 255, -2 })
+    {
+        CAPTURE(opponents);
+        auto invalid               = saved;
+        invalid.initialAiOpponents = opponents;
+        CHECK(sidecar::Serialize(invalid, kIdentity).empty());
+    }
+
+    // Each stored byte is validated on read.
+    for (const size_t field : { size_t{ 11 }, size_t{ 12 }, size_t{ 13 }, size_t{ 14 } })
+    {
+        auto invalid                 = bytes;
+        invalid[stateOffset + field] = 2;
+        CHECK_FALSE(sidecar::Deserialize(invalid, kIdentity));
+    }
+    for (const uint8_t opponents : { uint8_t{ 7 }, uint8_t{ 0xFE } })
+    {
+        auto invalid              = bytes;
+        invalid[stateOffset + 17] = opponents;
+        CHECK_FALSE(sidecar::Deserialize(invalid, kIdentity));
+    }
+    auto invalid              = bytes;
+    invalid[stateOffset + 15] = 0xFF;
+    invalid[stateOffset + 16] = 0xFF;
+    CHECK(sidecar::Deserialize(invalid, kIdentity)->firstFoundingTurn == -1);
+    invalid[stateOffset + 16] = 0xFE;
+    CHECK(sidecar::Deserialize(invalid, kIdentity)->firstFoundingTurn == 0xFFFE);
+}
+
+TEST_CASE("save_sidecar_schema1_has_no_progress", "[ctest][save-sidecar]")
+{
+    auto saved               = kSaved;
+    saved.aiEconomy          = { 0, 100, 25, 150, 200 };
+    saved.occFromSetup       = true;
+    saved.barbarianDefeats   = 37;
+    saved.historyKnown       = true;
+    saved.unitBuilt          = true;
+    saved.battleFought       = true;
+    saved.deepOceanEntered   = true;
+    saved.firstFoundingTurn  = 120;
+    saved.initialAiOpponents = 6;
+    const auto old           = schema1(sidecar::Serialize(saved, kIdentity));
+    REQUIRE(old[4] == 1);
+
+    // Schema 1 keeps the policy bytes and the records only.
+    const auto restored = sidecar::Deserialize(old, kIdentity);
+    REQUIRE(restored);
+    CHECK(*restored == kSaved);
+    CHECK_FALSE(restored->historyKnown);
+    CHECK(restored->initialAiOpponents == -1);
+    CHECK(restored->firstFoundingTurn == -1);
 }

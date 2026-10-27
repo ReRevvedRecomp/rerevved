@@ -1,0 +1,53 @@
+# I Have No Enemies and Last Stand observers in src/custom_achievement_combat_hooks.cpp
+# precede the named instructions and verify their native words there.
+# REX_HOOK_RAW wraps sub_82CD9970 for mode 0 invocation scope.
+
+# Queue addresses 0x82CE16E8..0x82CE1828 in capital_grace_hooks.toml reach
+# this observer through capital_grace::QueueObserver.
+
+# Mode 0 final operative pair. Precedes lis r11,-32008. Current frame+156 is
+# the attack weight and frame+160 the defense weight.
+[[midasm_hook]]
+address = 0x82CDC424
+name = "ArmCustomAchievementCombat"
+registers = ["r1"]
+
+# First selection decision of the round loop. Precedes lwz r11,156(r1).
+[[midasm_hook]]
+address = 0x82CDC674
+name = "ObserveCustomAchievementCombatDecision"
+registers = ["r1"]
+
+# Generator state published (stw r11,0(r28) at 0x82CDC894 has run). Precedes
+# beq cr6,0x82CDC8B0. r28 is the generator block 0x82F7AD00.
+[[midasm_hook]]
+address = 0x82CDC898
+name = "ObserveCustomAchievementCombatRng"
+registers = ["r1", "r28", "r13", "fpscr"]
+
+# Resolver result emitter. Precedes bl 0x82CE1950 with r3 type, r4 actor
+# player, r5 composite, r6 and r7 the remaining record words.
+[[midasm_hook]]
+address = 0x82CDDEE8
+name = "BeginCustomAchievementCombatEmit"
+registers = ["r1", "r3", "r4", "r5", "r6", "r7"]
+
+# After the emitter's submit returned (also the target of the skip branch).
+# Precedes lis r10,-31986.
+[[midasm_hook]]
+address = 0x82CDDEEC
+name = "EndCustomAchievementCombatEmit"
+registers = ["r1"]
+
+# Shared command 1/42 handler call in sub_82CDDF08. Precedes bl 0x82CD7A60
+# with r3 actor player, r4 composite, r5 third record word.
+[[midasm_hook]]
+address = 0x82CDFAE8
+name = "BeginCustomAchievementCombatResult"
+registers = ["r1", "r3", "r4", "r5"]
+
+# The result handler returned. Precedes cmpwi cr6,r3,0.
+[[midasm_hook]]
+address = 0x82CDFAEC
+name = "EndCustomAchievementCombatResult"
+registers = ["r1", "r3"]

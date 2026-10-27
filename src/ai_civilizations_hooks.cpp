@@ -4,6 +4,8 @@
 
 #include "ai_civilization_setup.h"
 #include "ai_economy_settings.h"
+#include "custom_achievement_combat_hooks.h"
+#include "custom_achievements.h"
 #include "gameplay_fixes.h"
 #include "gameplay_session_settings.h"
 #include "gotw_settings.h"
@@ -215,5 +217,7 @@ void ResetAiCivilizationsOnLoad()
     FreezeRagingBarbariansForGame();
     FreezeOccForGame();
     rerevved::gameplay_fixes::NoteGameLoad();
+    rerevved::custom_achievements::ResetProgress();
+    rerevved::custom_achievement_combat::ResetCombatObservers();
     rerevved::save_sidecar::RestoreAfterLoadReset();
 }

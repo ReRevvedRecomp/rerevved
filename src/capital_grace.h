@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -80,7 +81,7 @@ struct Submission
 
 // Full serials, exact wrapper/frame pointers and queue identity bind an escape.
 // No slot lifetime or persistent actor fence is inferred from a token.
-// Excess scopes stay untracked; their exits never discard existing scopes.
+// Excess scopes stay untracked. Their exits never discard existing scopes.
 class Tokens
 {
 public:
@@ -153,5 +154,23 @@ private:
     uint64_t                        imbalances_       = 0;
     uint64_t                        capacityFailures_ = 0;
 };
+
+// Capital grace owns every hook address in sub_82CE16C8. Registered observers
+// receive the same native submit queue facts as Tokens.
+struct QueueObserver
+{
+    void (*beginSubmit)(uint32_t frame, uint32_t queue) noexcept;
+    void (*append)(uint32_t frame, uint32_t queue, uint32_t record, const Words& words, uint32_t write, uint32_t read) noexcept;
+    void (*completeAppend)(uint32_t frame) noexcept;
+    void (*drainSerial)(uint32_t frame, uint32_t queue, uint32_t read, uint32_t write) noexcept;
+    void (*drainRecord)(uint32_t frame, uint32_t record, const Words& words) noexcept;
+    void (*endSubmit)(uint32_t frame) noexcept;
+};
+
+inline std::atomic<const QueueObserver*>& QueueObserverSlot() noexcept
+{
+    static std::atomic<const QueueObserver*> slot{ nullptr };
+    return slot;
+}
 
 } // namespace rerevved::capital_grace

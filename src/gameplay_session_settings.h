@@ -35,12 +35,14 @@ constexpr SetupKind ClassifySetupMode(int32_t mode) noexcept
     }
 }
 
-// Prepare before native new-game initialization and every gameplay freezer.
+// Prepare before native new-game initialization and before freezing gameplay settings.
 host_settings::GameSnapshot Prepare(bool networkGame, uint32_t setup, int32_t mode);
-// The seed writer precedes outer setup. Keep even a failed attempt until that
-// setup consumes it, so later preference edits cannot authorize a different seed.
-// Return the captured settings for the first seed latch as well.
+// The seed writer precedes outer setup. Retain even failed attempts until setup
+// consumes them, so later preference edits cannot authorize a different seed.
+// Return captured settings for the first seed latch. AcceptedWeeklyWeek is its
+// effective week after an accepted Game of the Week Prepare consumes the attempt, else 0.
 std::optional<host_settings::HostSettings>         PrepareWeekly(uint32_t setup, std::optional<int32_t> mode) noexcept;
+uint32_t                                           AcceptedWeeklyWeek() noexcept;
 void                                               Publish(const host_settings::GameSnapshot& snapshot, bool networkGame);
 bool                                               ApplyNewGame(const host_settings::GameSnapshot& snapshot, bool networkGame, int32_t mode);
 std::shared_ptr<const host_settings::HostSettings> ForNetworkGame() noexcept;

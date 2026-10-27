@@ -24,6 +24,14 @@ struct State
     int32_t                               resources        = 0;
     resource_identity_overrides::Snapshot overrides;
     ai_economy::Policy                    aiEconomy;
+    bool                                  occFromSetup                   = false;
+    int32_t                               barbarianDefeats               = 0;
+    bool                                  historyKnown                   = false; // Schema 2 whole-game history; schema 1 loads untracked.
+    bool                                  unitBuilt                      = false;
+    bool                                  battleFought                   = false;
+    bool                                  deepOceanEntered               = false;
+    int32_t                               firstFoundingTurn              = -1;
+    int32_t                               initialAiOpponents             = -1;
     bool                                  operator==(const State&) const = default;
 };
 

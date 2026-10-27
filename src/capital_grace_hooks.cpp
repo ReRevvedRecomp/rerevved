@@ -88,6 +88,11 @@ struct ThreadTokens
 
 thread_local ThreadTokens threadTokens;
 
+const grace::QueueObserver* queueObserver() noexcept
+{
+    return grace::QueueObserverSlot().load(std::memory_order_acquire);
+}
+
 grace::Tokens& tokens() noexcept
 {
     auto* current = rex::runtime::ThreadState::Get();
@@ -287,13 +292,13 @@ bool refuseActor(const grace::Words& words, uint32_t record, uint32_t address, c
     uint8_t*          pending   = nullptr;
     uint8_t*          selection = nullptr;
     uint8_t*          cache     = nullptr;
-    // Producers set 0x8000 before submitting; a consumed native no-action exit clears it
-    // (0x82CDFA68). Left set, 0x82D26CA4 waits on the unit forever.
+    // Producers set 0x8000 before submitting. A consumed native no-action exit
+    // clears it (0x82CDFA68). Left set, 0x82D26CA4 waits on the unit forever.
     uint8_t* const flags = checkedBytes(address + 0xC, 4, true);
     if ((actor.flags & 1) == 0)
     {
         plan = grace::PlanRetirement(actor.flags, player, slot, signedWord(kCurrentPlayer), signedWord(kSelected), signedWord(kCache + 4 * player));
-        // Resolve every write before changing any byte; no guest call may intervene.
+        // Resolve every write before changing any byte. No guest call may intervene.
         budget  = checkedBytes(address + 2, 1, true);
         pending = checkedBytes(address + 0x22, 2, true);
         if (plan.selection)
@@ -464,6 +469,10 @@ void BeginCapitalGraceSubmit(PPCRegister& frame, PPCRegister& queue, PPCRegister
     if (queue.u32 == kQueue && ring.u32 == kRing)
     {
         tokens().BeginSubmit(frame.u32, queue.u32);
+        if (const auto* observer = queueObserver())
+        {
+            observer->beginSubmit(frame.u32, queue.u32);
+        }
     }
     else
     {
@@ -484,7 +493,12 @@ void AppendCapitalGraceToken(PPCRegister& frame, PPCRegister& queue, PPCRegister
             {
                 diagnostic("queue append occupancy");
             }
-            tokens().Append(frame.u32, record.u32, readWords(record.u32), write, read);
+            const auto words = readWords(record.u32);
+            tokens().Append(frame.u32, record.u32, words, write, read);
+            if (const auto* observer = queueObserver())
+            {
+                observer->append(frame.u32, queue.u32, record.u32, words, write, read);
+            }
         }
     }
     catch (...)
@@ -497,6 +511,10 @@ void AppendCapitalGraceToken(PPCRegister& frame, PPCRegister& queue, PPCRegister
 void CompleteCapitalGraceAppend(PPCRegister& frame)
 {
     tokens().CompleteAppend(frame.u32);
+    if (const auto* observer = queueObserver())
+    {
+        observer->completeAppend(frame.u32);
+    }
 }
 
 void ObserveCapitalGraceDrainSerial(PPCRegister& frame, PPCRegister& queue, PPCRegister& serial)
@@ -511,6 +529,10 @@ void ObserveCapitalGraceDrainSerial(PPCRegister& frame, PPCRegister& queue, PPCR
                 diagnostic("queue drain occupancy");
             }
             tokens().DrainSerial(frame.u32, serial.u32, write);
+            if (const auto* observer = queueObserver())
+            {
+                observer->drainSerial(frame.u32, queue.u32, serial.u32, write);
+            }
         }
     }
     catch (...)
@@ -524,7 +546,12 @@ void BindCapitalGraceDrain(PPCRegister& frame)
 {
     try
     {
-        tokens().DrainRecord(frame.u32, frame.u32 + 80, readWords(uint64_t{ frame.u32 } + 80));
+        const auto words = readWords(uint64_t{ frame.u32 } + 80);
+        tokens().DrainRecord(frame.u32, frame.u32 + 80, words);
+        if (const auto* observer = queueObserver())
+        {
+            observer->drainRecord(frame.u32, frame.u32 + 80, words);
+        }
     }
     catch (...)
     {
@@ -536,6 +563,10 @@ void BindCapitalGraceDrain(PPCRegister& frame)
 void EndCapitalGraceSubmit(PPCRegister& frame)
 {
     tokens().EndSubmit(frame.u32);
+    if (const auto* observer = queueObserver())
+    {
+        observer->endSubmit(frame.u32);
+    }
 }
 
 void BeginCapitalGraceBlitz(PPCRegister& frame, PPCRegister& command, PPCRegister& player, PPCRegister& slot, PPCRegister& direction, PPCRegister& extra)

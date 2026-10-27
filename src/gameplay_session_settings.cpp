@@ -1,5 +1,6 @@
 #include "gameplay_session_settings.h"
 #include "ai_economy_settings.h"
+#include "custom_achievements.h"
 #include "gameplay_fixes.h"
 #include "gotw_settings.h"
 #include "mod_script_rules.h"
@@ -82,9 +83,13 @@ struct WeeklyAttempt
     uint32_t                    setup  = 0;
     std::optional<int32_t>      mode;
     host_settings::GameSnapshot snapshot;
+    // gotw::ForGame().launch before the seed latch that follows this attempt.
+    uint64_t launchBefore = 0;
 };
 
 WeeklyAttempt weeklyAttempt;
+// Week latched by the weekly attempt the last accepted Game of the Week Prepare consumed; 0 otherwise.
+uint32_t acceptedWeeklyWeek = 0;
 
 host_settings::GameSnapshot captureSettings(bool networkGame)
 {
@@ -109,6 +114,7 @@ host_settings::GameSnapshot detail::Prepare(bool networkGame, uint32_t setup, in
 {
     const auto boundary = LockRuleBoundary();
     const auto kind     = ClassifySetupMode(mode);
+    acceptedWeeklyWeek  = 0;
     if (kind == SetupKind::Load)
     {
         return { host_settings::SnapshotState::Missing, {}, "Loaded games use their saved gameplay settings" };
@@ -117,7 +123,14 @@ host_settings::GameSnapshot detail::Prepare(bool networkGame, uint32_t setup, in
     {
         const bool matches  = weeklyAttempt.setup == setup && weeklyAttempt.mode == std::optional{ 2 } && mode == 2 && !networkGame;
         auto       snapshot = matches ? std::move(weeklyAttempt.snapshot) : host_settings::GameSnapshot{};
-        weeklyAttempt       = {};
+        // The seed latch runs between PrepareWeekly and this call and advances the launch counter by
+        // one for its setup, so only that latch belongs to this attempt; an older one never does.
+        const auto latched = gotw::ForGame();
+        if (matches && snapshot.settings && latched.launch == weeklyAttempt.launchBefore + 1 && latched.setup == setup)
+        {
+            acceptedWeeklyWeek = latched.week;
+        }
+        weeklyAttempt = {};
         if (!matches)
         {
             StoreNetworkSettings(nullptr);
@@ -147,10 +160,11 @@ try
 {
     const auto boundary = LockRuleBoundary();
     StoreNetworkSettings(nullptr);
-    weeklyAttempt        = {};
-    weeklyAttempt.active = true;
-    weeklyAttempt.setup  = setup;
-    weeklyAttempt.mode   = mode;
+    weeklyAttempt              = {};
+    weeklyAttempt.active       = true;
+    weeklyAttempt.setup        = setup;
+    weeklyAttempt.mode         = mode;
+    weeklyAttempt.launchBefore = gotw::ForGame().launch;
     if (mode != std::optional{ 2 } || !capture)
     {
         return std::nullopt;
@@ -172,6 +186,12 @@ try
 catch (...)
 {
     return std::nullopt;
+}
+
+uint32_t AcceptedWeeklyWeek() noexcept
+{
+    const auto boundary = LockRuleBoundary();
+    return acceptedWeeklyWeek;
 }
 
 std::unique_lock<std::recursive_mutex> LockRuleBoundary()
@@ -218,6 +238,8 @@ bool ApplyNewGame(const host_settings::GameSnapshot& snapshot, bool networkGame,
     ai_economy::RestoreForGame(standardRules ? ai_economy::Policy{} : ai_economy::Policy{ settings.aiResearchBonusPercent, settings.aiProductionBonusPercent, settings.aiGoldBonusPercent, settings.aiFoodBonusPercent, settings.aiCultureBonusPercent });
     raging_barbarians::RestoreForGame(!standardRules && settings.ragingBarbarians);
     occ::RestoreForGame({ !standardRules && settings.oneCityChallenge, occ::kMinimumPopulation });
+    // The effective AI count and the latched weekly week follow the native setup (RunNativeNewGameSetup).
+    custom_achievements::BeginNewGame(!standardRules && settings.oneCityChallenge, mode == 2);
     gameplay_fixes::NoteNewGame(standardRules);
     SuspendModRulesForGame(standardRules);
     return standardRules;
@@ -236,7 +258,8 @@ try
     // authenticate its own snapshot rather than reuse the previous session.
     const auto boundary = LockRuleBoundary();
     StoreNetworkSettings(nullptr);
-    weeklyAttempt = {};
+    weeklyAttempt      = {};
+    acceptedWeeklyWeek = 0;
     SuspendModRulesForGame(false);
 }
 catch (...)

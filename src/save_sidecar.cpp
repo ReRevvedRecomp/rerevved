@@ -1,5 +1,7 @@
 #include "save_sidecar.h"
 
+#include "custom_achievements.h"
+
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -24,7 +26,7 @@ namespace
 {
 
 constexpr std::array<uint8_t, 4> kMagic{ 'R', 'R', 'G', 'S' };
-constexpr size_t                 kMaximumPayload = 4 + 1 + 1 + 42 + 4 + 64 + 9 + 3 + 32 * 32 * 3;
+constexpr size_t                 kMaximumPayload = 4 + 1 + 1 + 42 + 4 + 64 + 18 + 3 + 32 * 32 * 3;
 
 bool validIdentity(const Identity& identity)
 {
@@ -42,7 +44,10 @@ bool validIdentity(const Identity& identity)
 bool validState(const State& state)
 {
     return state.occPopulation > 31 && state.occPopulation <= 127 && state.resources >= 0 && state.resources <= 3 &&
-           (state.resources == 1 || state.resources == 3 || state.overrides.empty()) && ai_economy::IsValid(state.aiEconomy);
+           (state.resources == 1 || state.resources == 3 || state.overrides.empty()) && ai_economy::IsValid(state.aiEconomy) &&
+           state.barbarianDefeats >= 0 && state.barbarianDefeats <= 50 && (!state.occFromSetup || state.occEnabled) &&
+           state.firstFoundingTurn >= -1 && state.firstFoundingTurn <= custom_achievements::kMaximumRecordedTurn &&
+           state.initialAiOpponents >= -1 && state.initialAiOpponents <= custom_achievements::kMaximumAiOpponents;
 }
 
 } // namespace
@@ -71,6 +76,17 @@ std::vector<uint8_t> Serialize(const State& state, const Identity& identity)
     {
         bytes.push_back(static_cast<uint8_t>(bonus));
     }
+    bytes.push_back(state.occFromSetup);
+    bytes.push_back(static_cast<uint8_t>(state.barbarianDefeats));
+    bytes.push_back(state.historyKnown);
+    bytes.push_back(state.unitBuilt);
+    bytes.push_back(state.battleFought);
+    bytes.push_back(state.deepOceanEntered);
+    // Founding turn is a big-endian halfword and the AI count a byte, 0xFFFF and 0xFF for -1.
+    const auto turn = static_cast<uint16_t>(state.firstFoundingTurn);
+    bytes.push_back(static_cast<uint8_t>(turn >> 8));
+    bytes.push_back(static_cast<uint8_t>(turn));
+    bytes.push_back(static_cast<uint8_t>(state.initialAiOpponents));
     bytes.insert(bytes.end(), records.begin(), records.end());
     return bytes;
 }
@@ -82,9 +98,11 @@ std::optional<State> Deserialize(std::span<const uint8_t> bytes, const Identity&
     {
         return std::nullopt;
     }
-    const size_t slotSize  = bytes[5];
-    // Schema 1 has only the four setting bytes. Schema 2 adds the five AI bonuses.
-    const size_t stateSize = bytes[4] == 1 ? 4 : 9;
+    const size_t slotSize = bytes[5];
+    // Schema 1 has only the four setting bytes. Schema 2 adds five AI bonuses, the
+    // occ-from-setup flag, Barbarian defeat count, whole-game history flags, first
+    // founding turn and initial AI count.
+    const size_t stateSize = bytes[4] == 1 ? 4 : 18;
     if (slotSize != identity.slot.size() || bytes.size() < 6 + slotSize + 4 + 64 + stateSize + 3 ||
         !std::equal(identity.slot.begin(), identity.slot.end(), bytes.begin() + 6))
     {
@@ -108,7 +126,21 @@ std::optional<State> Deserialize(std::span<const uint8_t> bytes, const Identity&
     State state{ bytes[offset] != 0, bytes[offset + 1] != 0, bytes[offset + 2], bytes[offset + 3], {} };
     if (bytes[4] >= 2)
     {
-        state.aiEconomy = { bytes[offset + 4], bytes[offset + 5], bytes[offset + 6], bytes[offset + 7], bytes[offset + 8] };
+        const uint16_t turn = static_cast<uint16_t>(uint16_t{ bytes[offset + 15] } << 8 | bytes[offset + 16]);
+        if (bytes[offset + 9] > 1 || bytes[offset + 10] > 50 || bytes[offset + 11] > 1 || bytes[offset + 12] > 1 || bytes[offset + 13] > 1 ||
+            bytes[offset + 14] > 1)
+        {
+            return std::nullopt;
+        }
+        state.aiEconomy          = { bytes[offset + 4], bytes[offset + 5], bytes[offset + 6], bytes[offset + 7], bytes[offset + 8] };
+        state.occFromSetup       = bytes[offset + 9] != 0;
+        state.barbarianDefeats   = bytes[offset + 10];
+        state.historyKnown       = bytes[offset + 11] != 0;
+        state.unitBuilt          = bytes[offset + 12] != 0;
+        state.battleFought       = bytes[offset + 13] != 0;
+        state.deepOceanEntered   = bytes[offset + 14] != 0;
+        state.firstFoundingTurn  = turn == 0xFFFF ? -1 : turn;
+        state.initialAiOpponents = bytes[offset + 17] == 0xFF ? -1 : bytes[offset + 17];
     }
     const auto records = resource_identity_overrides::Deserialize(bytes.subspan(offset + stateSize));
     if (!records)

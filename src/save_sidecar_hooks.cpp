@@ -1,5 +1,6 @@
 #include "save_sidecar.h"
 
+#include "custom_achievements.h"
 #include "occ_settings.h"
 #include "raging_barbarians_settings.h"
 #include "start_resources_runtime.h"
@@ -114,13 +115,22 @@ std::string readString(uint64_t address, size_t limit)
 
 sidecar::State captureState()
 {
-    const auto occ = rerevved::occ::ForGame();
+    const auto occ      = rerevved::occ::ForGame();
+    const auto progress = rerevved::custom_achievements::CurrentProgress();
     return { rerevved::raging_barbarians::Evaluate(0).enabled,
              occ->enabled,
              occ->minimumPopulation,
              rerevved::start_resources::ForGame(),
              *rerevved::resource_identity_overrides::Current(),
-             rerevved::ai_economy::ForSave(rerevved::ai_economy::NativeCostsRequired()) };
+             rerevved::ai_economy::ForSave(rerevved::ai_economy::NativeCostsRequired()),
+             progress.occFromSetup,
+             progress.barbarianDefeats,
+             progress.historyKnown,
+             progress.unitBuilt,
+             progress.battleFought,
+             progress.deepOceanEntered,
+             progress.firstFoundingTurn,
+             progress.initialAiOpponents };
 }
 
 } // namespace
@@ -262,6 +272,14 @@ void RestoreAfterLoadReset() noexcept
             occ::RestoreForGame({ state->occEnabled, state->occPopulation });
             start_resources::RestoreForGame(state->resources);
             ai_economy::RestoreForGame(state->aiEconomy);
+            custom_achievements::RestoreProgress({ .occFromSetup       = state->occFromSetup,
+                                                   .barbarianDefeats   = state->barbarianDefeats,
+                                                   .historyKnown       = state->historyKnown,
+                                                   .unitBuilt          = state->unitBuilt,
+                                                   .battleFought       = state->battleFought,
+                                                   .deepOceanEntered   = state->deepOceanEntered,
+                                                   .firstFoundingTurn  = state->firstFoundingTurn,
+                                                   .initialAiOpponents = state->initialAiOpponents });
             if (!active->restoreLogged)
             {
                 active->restoreLogged = true;

@@ -1,4 +1,5 @@
 #include "app.h"
+#include "custom_achievements.h"
 #include "gotw_settings.h"
 #include "gpu/completion/guest_progress_hooks.h"
 
@@ -1138,6 +1139,16 @@ void App::OnPreSystemLinkInit()
     }
     const bool applied = rex::cvar::SetFlagByName("live_invite", secret);
     REXLOG_INFO("Discord join launch: invite {}", applied ? "applied" : "rejected");
+}
+
+// Runs after the XEX achievement catalog is loaded and before guest launch.
+void App::OnPostLoadXexImage()
+{
+    rex::ReXApp::OnPostLoadXexImage();
+    if (!rerevved::custom_achievements::Register())
+    {
+        REXLOG_WARN("Custom achievements: registration failed");
+    }
 }
 
 void App::OnPostSetup()
