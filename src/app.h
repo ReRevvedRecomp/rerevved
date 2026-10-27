@@ -9,6 +9,7 @@
 #include <string>
 
 #include <rex/rex_app.h>
+#include <rex/system.h>
 #include <rex/system/interfaces/video_delegate.h>
 #include <rex/ui/frame_stats.h>
 
@@ -44,6 +45,8 @@ public:
     static std::unique_ptr<rex::ui::WindowedApp> Create(
         rex::ui::WindowedAppContext& ctx)
     {
+        // Before any SDK startup code can show a message box.
+        rex::SetMessageBoxTitle("ReRevved");
         return std::unique_ptr<App>(new App(ctx, "rerevved", PPCImageConfig));
     }
 

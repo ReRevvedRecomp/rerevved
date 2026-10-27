@@ -82,6 +82,7 @@
 #include "host_settings.h"
 #include "main_menu_logo_asset.h"
 #include "mod_script_rules.h"
+#include "portable_mode.h"
 #include "xenos_frame_counter.h"
 #if REREVVED_DEVELOPER
 #include "gpu/diagnostics/label_draw_capture.h"
@@ -684,6 +685,11 @@ void App::OnPreSetup(rex::RuntimeConfig& config)
 
 std::filesystem::path App::GetDefaultUserDataRoot() const
 {
+    // Opt-in Portable Mode keeps player data beside the executable.
+    if (const auto portable = portable_mode::PortableRoot(rex::filesystem::GetExecutableFolder()))
+    {
+        return *portable;
+    }
     const auto userFolder = rex::filesystem::GetUserFolder();
 #if defined(_WIN32)
     return userFolder / "My Games" / "ReRevved";
@@ -711,9 +717,38 @@ std::optional<rex::system::ProfileCopySpecification> App::GetProfileCopySpecific
 
 bool App::SetupEnvironment()
 {
+    // Portable Mode must prove its folder is writable before player data is
+    // touched. An explicit user_data_root overrides the marker.
+    std::optional<std::filesystem::path> portableRoot;
+    if (std::string(REXCVAR_GET(user_data_root)).empty())
+    {
+        portableRoot = portable_mode::PortableRoot(rex::filesystem::GetExecutableFolder());
+    }
+    if (portableRoot)
+    {
+        const std::string reason = portable_mode::PrepareRoot(*portableRoot);
+        if (!reason.empty())
+        {
+            const std::string message = fmt::format(
+                "Portable Mode is on (portable.txt is beside rerevved.exe), but ReRevved cannot use its data "
+                "folder:\n\n{}\n\n{}\n\nMove the game to a folder you can write to, or delete portable.txt "
+                "to use the normal Documents data folder.",
+                portableRoot->string(),
+                reason);
+            REXLOG_ERROR("{}", message);
+            rex::ShowSimpleMessageBox(rex::SimpleMessageBoxType::Error, message);
+            return false;
+        }
+    }
+
     if (!rex::ReXApp::SetupEnvironment())
     {
         return false;
+    }
+
+    if (portableRoot)
+    {
+        REXLOG_INFO("Portable Mode is active; player data is stored in {}", portableRoot->string());
     }
 
     // Game of the Week and Leaderboards require a Live sign-in. The SDK

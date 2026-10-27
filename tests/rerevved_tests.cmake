@@ -69,6 +69,7 @@ add_executable(rerevved_tests
     src/nation_select_text_hooks.cpp
     src/occ_hooks.cpp
     src/occ_settings.cpp
+    src/portable_mode.cpp
     src/raging_barbarians_hooks.cpp
     src/raging_barbarians_settings.cpp
     src/resource_identity_overrides.cpp
@@ -117,6 +118,7 @@ add_executable(rerevved_tests
     tests/mod_script_rules_test.cpp
     tests/nation_select_text_test.cpp
     tests/occ_settings_test.cpp
+    tests/portable_mode_test.cpp
     tests/raging_barbarians_settings_test.cpp
     tests/research_prompt_test.cpp
     tests/resource_identity_overrides_test.cpp
