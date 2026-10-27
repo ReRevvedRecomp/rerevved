@@ -40,25 +40,31 @@ struct HostSettings
     int32_t             aiCivilizations = kMaxAiCivilizations;
     std::vector<ModRef> mods;
     // The channel could not hold the full mod list; only a prefix was sent.
-    bool                    modsTruncated           = false;
-    bool                    ragingBarbarians        = false;
-    bool                    oneCityChallenge        = false;
-    int32_t                 resources               = 0; // resource_settings::Mode
-    int32_t                 aiResearchCostPercent   = 100;
-    int32_t                 aiProductionCostPercent = 100;
-    int32_t                 dominationMinimumTurns  = 10;
-    int32_t                 combatSpeed             = 0; // 0 normal, 1 fast; presentation only.
-    bool                    gotwCustomWeek          = false;
-    uint32_t                gotwWeek                = 0; // Zero when the native week applies.
-    uint32_t                gotwSeed                = 0; // Zero when the native seed applies.
-    bool                    gotwStandardRules       = true;
-    bool                    rulesDigestPresent      = false;
+    bool                    modsTruncated            = false;
+    bool                    ragingBarbarians         = false;
+    bool                    oneCityChallenge         = false;
+    int32_t                 resources                = 0; // resource_settings::Mode
+    int32_t                 aiResearchBonusPercent   = 0;
+    int32_t                 aiProductionBonusPercent = 0;
+    int32_t                 aiGoldBonusPercent       = 0;
+    int32_t                 aiFoodBonusPercent       = 0;
+    int32_t                 aiCultureBonusPercent    = 0;
+    int32_t                 dominationMinimumTurns   = 10;
+    int32_t                 combatSpeed              = 0; // 0 normal, 1 fast; presentation only.
+    bool                    gotwCustomWeek           = false;
+    uint32_t                gotwWeek                 = 0; // Zero when the native week applies.
+    uint32_t                gotwSeed                 = 0; // Zero when the native seed applies.
+    bool                    gotwCustomCivilization   = false;
+    uint32_t                gotwCivilization         = 0; // Zero when the native civilization applies.
+    bool                    gotwStandardRules        = true;
+    bool                    rulesDigestPresent       = false;
     std::array<uint8_t, 32> rulesDigest{}; // SHA-256 of accepted normalized rule content.
 };
 
 // Format 2 has a fixed gameplay header and optional content digest, followed
 // by sorted mods with length-prefixed id, version and display name fields.
 // Normalize local selections before publication; decode rejects noncanonical values.
+// The local-only Game of the Week civilization is never serialized.
 std::vector<uint8_t> Encode(const HostSettings& settings);
 
 HostSettings Normalize(HostSettings settings, bool networkGame = true);

@@ -18,20 +18,23 @@ namespace rerevved::gotw
 
 struct Selection
 {
-    bool     customWeek = false;
-    uint32_t nativeWeek = 0;
-    uint32_t week       = 0;
-    uint32_t seed       = 0;
-    uint32_t setup      = 0;
-    uint64_t launch     = 0;
+    bool     customWeek         = false;
+    bool     customCivilization = false;
+    uint32_t nativeWeek         = 0;
+    uint32_t week               = 0;
+    uint32_t seed               = 0;
+    uint32_t civilization       = 0; // Valid only with customCivilization.
+    uint32_t setup              = 0;
+    uint64_t launch             = 0;
 
     bool IsCustom() const noexcept
     {
-        return customWeek;
+        return customWeek || customCivilization;
     }
 };
 
 bool     IsValidWeek(uint32_t week) noexcept;
+bool     IsValidCivilization(uint32_t civilization) noexcept; // Roman 0..English 15, excluding Barbarian.
 uint32_t SeedForWeek(uint32_t week) noexcept;
 // Reject invalid decimal input without changing the caller's previous value.
 bool ParseWeek(std::string_view text, uint32_t& week) noexcept;

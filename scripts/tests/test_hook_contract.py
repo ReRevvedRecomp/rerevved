@@ -132,6 +132,21 @@ EXPECTED_HOOKS = [
         "registers": ["r29", "r27", "r31"],
     },
     {
+        "address": 0x82D14ECC,
+        "name": "ApplyAiGoldBonus",
+        "registers": ["r1", "r17", "r8"],
+    },
+    {
+        "address": 0x82D14280,
+        "name": "ApplyAiFoodBonus",
+        "registers": ["r1", "r10"],
+    },
+    {
+        "address": 0x82D152E8,
+        "name": "ApplyAiCultureBonus",
+        "registers": ["r1", "r17", "r18"],
+    },
+    {
         "address": 0x8230575C,
         "name": "ObserveSceneRegionLocked",
         "registers": ["r1", "r29", "r22", "r31", "r20"],
@@ -2393,6 +2408,21 @@ class HookContractTests(unittest.TestCase):
                     "name": "ApplyAiNonUnitProductionCostPercent",
                     "registers": ["r29", "r27", "r31"],
                 },
+                {
+                    "address": 0x82D14ECC,
+                    "name": "ApplyAiGoldBonus",
+                    "registers": ["r1", "r17", "r8"],
+                },
+                {
+                    "address": 0x82D14280,
+                    "name": "ApplyAiFoodBonus",
+                    "registers": ["r1", "r10"],
+                },
+                {
+                    "address": 0x82D152E8,
+                    "name": "ApplyAiCultureBonus",
+                    "registers": ["r1", "r17", "r18"],
+                },
             ],
         )
         paths, generated = generated_text()
@@ -2430,6 +2460,45 @@ class HookContractTests(unittest.TestCase):
                 )
             if owner == "82CF1278":
                 self.assertIn("goto loc_82CF1550;", function)
+
+    def test_ai_yield_hooks_follow_native_city_contributions(self) -> None:
+        paths, generated = generated_text()
+        if not paths:
+            self.skipTest("generated sources are not available")
+        function = generated.split("DEFINE_REX_FUNC(sub_82D13978)", 1)[1]
+        function = function.split("DEFINE_REX_FUNC", 1)[0]
+        # Each call follows the hook address's instruction comment and runs
+        # before that instruction's body, after the native load it reads.
+        for hook, after, next_line, before in (
+            (
+                "ApplyAiGoldBonus(ctx.r1, ctx.r17, ctx.r8);",
+                "// lwz r8,124(r1)",
+                "ctx.cr6.compare<int32_t>(ctx.r15.s32, 0, ctx.xer);",
+                "REX_STORE_U16(ctx.r31.u32 + ctx.r27.u32, ctx.r8.u16);",
+            ),
+            (
+                "ApplyAiFoodBonus(ctx.r1, ctx.r10);",
+                "// lwz r10,144(r1)",
+                "ctx.r9.s64 = ctx.r21.s64 + 76;",
+                "// extsh r27,r10",
+            ),
+            (
+                "ApplyAiCultureBonus(ctx.r1, ctx.r17, ctx.r18);",
+                "loc_82D152E8:",
+                "ctx.r11.s64 = ctx.r30.s64 + 72;",
+                "REX_STORE_U16(ctx.r31.u32 + ctx.r11.u32, ctx.r18.u16);",
+            ),
+        ):
+            self.assertEqual(function.count(hook), 1)
+            position = function.index(hook)
+            self.assertLess(function.index(after), position)
+            self.assertTrue(
+                function[position + len(hook) :].startswith("\n\t" + next_line)
+            )
+            self.assertLess(position, function.index(before, position))
+        # The culture hook follows its label, so the branch and fallthrough
+        # paths both scale once.
+        self.assertIn("goto loc_82D152E8;", function)
 
     def test_generated_unit_effect_hook_preserves_native_creation_gate_when_available(
         self,

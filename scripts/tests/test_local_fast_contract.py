@@ -33,6 +33,7 @@ LOCAL_FAST_CASES = frozenset(
         "host_settings",
         "host_settings network game rejects stale and unverified settings",
         "host_settings normalizes local selections before encoding",
+        "host_settings keeps the Game of the Week civilization local",
         "host_settings gameplay snapshot validates complete policy",
         "discord_presence_model",
         "discord_invites_model",

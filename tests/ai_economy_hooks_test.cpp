@@ -13,11 +13,21 @@
 void ApplyAiResearchCostPercent(PPCRegister& technology, PPCRegister& player, PPCRegister& cost);
 void ApplyAiUnitProductionCostPercent(PPCRegister& cityOffset, PPCRegister& unitType, PPCRegister& scalar);
 void ApplyAiNonUnitProductionCostPercent(PPCRegister& cityOffset, PPCRegister& itemOffset, PPCRegister& cost);
+void ApplyAiGoldBonus(PPCRegister& stack, PPCRegister& owner, PPCRegister& value);
+void ApplyAiFoodBonus(PPCRegister& stack, PPCRegister& value);
+void ApplyAiCultureBonus(PPCRegister& stack, PPCRegister& owner, PPCRegister& value);
 
 namespace
 {
 
 namespace economy = rerevved::ai_economy;
+
+// A research bonus of 200 reduces cost 101 to 33. A production bonus of 100 halves it.
+constexpr economy::Policy kPolicy{ 200, 100, 50, 100, 200 };
+constexpr uint32_t        kStackPage         = 0x83160000;
+constexpr uint32_t        kReadOnlyStackPage = 0x83170000;
+constexpr uint32_t        kStack             = kStackPage + 0x100;
+constexpr uint32_t        kReadOnlyStack     = kReadOnlyStackPage + 0x100;
 
 struct World
 {
@@ -30,7 +40,7 @@ struct World
         REQUIRE(runtime.Setup(rex::RuntimeConfig{ .kernel_init = rex::kernel::InitializeKernel, .tool_mode = true }) == 0);
         constexpr uint32_t allocation = rex::memory::kMemoryAllocationReserve | rex::memory::kMemoryAllocationCommit;
         constexpr uint32_t writable   = rex::memory::kMemoryProtectRead | rex::memory::kMemoryProtectWrite;
-        for (const uint32_t page : { 0x82F70000u, 0x83120000u, 0x83140000u })
+        for (const uint32_t page : { 0x82F70000u, 0x83120000u, 0x83140000u, kStackPage, kReadOnlyStackPage })
         {
             auto* heap = runtime.memory()->LookupHeap(page);
             REQUIRE((heap && heap->AllocFixed(page, 0x10000, 0x10000, allocation, writable)));
@@ -41,7 +51,7 @@ struct World
         Byte(0x8314F10B, 0);
         Byte(0x8314FE28 + 0xBC, 1);
         Byte(0x82F700D8 + 6 * 0x94 + 0x44, 2);
-        economy::RestoreForGame({ 33, 50 });
+        economy::RestoreForGame(kPolicy);
     }
 
     ~World()
@@ -58,6 +68,17 @@ struct World
     void Byte(uint32_t address, uint8_t value)
     {
         *runtime.memory()->TranslateVirtual<uint8_t*>(address) = value;
+    }
+
+    uint32_t ReadWord(uint32_t address)
+    {
+        return rex::memory::load_and_swap<uint32_t>(runtime.memory()->TranslateVirtual(address));
+    }
+
+    void ProtectReadOnly(uint32_t page)
+    {
+        auto* heap = runtime.memory()->LookupHeap(page);
+        REQUIRE((heap && heap->Protect(page, 0x1000, rex::memory::kMemoryProtectRead)));
     }
 };
 
@@ -113,7 +134,7 @@ TEST_CASE("ai_economy_research_hook", "[ctest][ai-economy]")
     cost.s64 = -1;
     ApplyAiResearchCostPercent(technology, player, cost);
     CHECK(cost.s64 == -1);
-    economy::RestoreForGame({ 1, 50 });
+    economy::RestoreForGame({ 200, 100 });
     cost.s64 = 1;
     ApplyAiResearchCostPercent(technology, player, cost);
     CHECK(cost.s64 == 1);
@@ -132,7 +153,7 @@ TEST_CASE("ai_economy_production_hooks", "[ctest][ai-economy]")
     CHECK(unit.u64 == 0x8765432100000006ull);
 
     world.Byte(0x82F700D8 + 6 * 0x94 + 0x44, 1);
-    economy::RestoreForGame({ 33, 1 });
+    economy::RestoreForGame({ 33, 200 });
     scalar.s64 = 3;
     ApplyAiUnitProductionCostPercent(city, unit, scalar);
     CHECK(scalar.s64 == 2);
@@ -155,7 +176,7 @@ TEST_CASE("ai_economy_production_hooks", "[ctest][ai-economy]")
 
     city.u64 = 0x12345678000000BCull;
     PPCRegister item{}, cost{};
-    economy::RestoreForGame({ 33, 50 });
+    economy::RestoreForGame(kPolicy);
     for (const int32_t offset : { 22, 100, 132 })
     {
         item.u64 = 0x8765432100000000ull | static_cast<uint32_t>(offset);
@@ -228,12 +249,13 @@ TEST_CASE("ai_economy_expanded_layout_hooks", "[ctest][ai-economy]")
 TEST_CASE("ai_economy_native_and_loading_hooks", "[ctest][ai-economy]")
 {
     World       world;
-    PPCRegister technology{}, player{}, city{}, unit{}, item{}, value{};
+    PPCRegister technology{}, player{}, city{}, unit{}, item{}, value{}, stack{};
     technology.s64          = 4;
     player.s64              = 1;
     city.s64                = 0xBC;
     unit.s64                = 6;
     item.s64                = 0;
+    stack.u64               = kStack;
     const auto expectNative = [&]
     {
         value.u64 = kOriginal;
@@ -243,6 +265,22 @@ TEST_CASE("ai_economy_native_and_loading_hooks", "[ctest][ai-economy]")
         CHECK(value.u64 == kOriginal);
         ApplyAiNonUnitProductionCostPercent(city, item, value);
         CHECK(value.u64 == kOriginal);
+        world.Word(kStack + 0x84, 1);
+        for (const uint32_t saved : { 0x7Cu, 0x90u, 0x78u })
+        {
+            world.Word(kStack + saved, 0x65);
+        }
+        value.u64 = kOriginal;
+        ApplyAiGoldBonus(stack, player, value);
+        CHECK(value.u64 == kOriginal);
+        ApplyAiFoodBonus(stack, value);
+        CHECK(value.u64 == kOriginal);
+        ApplyAiCultureBonus(stack, player, value);
+        CHECK(value.u64 == kOriginal);
+        for (const uint32_t saved : { 0x7Cu, 0x90u, 0x78u })
+        {
+            CHECK(world.ReadWord(kStack + saved) == 0x65);
+        }
     };
     world.Byte(0x8314F10B, 1);
     expectNative();
@@ -256,10 +294,200 @@ TEST_CASE("ai_economy_native_and_loading_hooks", "[ctest][ai-economy]")
     world.Word(0x8312E608, 1);
     economy::BeginLoad();
     economy::ResetForLoad();
-    economy::RestoreForGame({ 33, 50 });
+    economy::RestoreForGame(kPolicy);
     expectNative();
     economy::FinishLoad(true);
     expectNative();
-    economy::RestoreForGame({ 100, 100 });
+    economy::RestoreForGame({});
     expectNative();
+}
+
+namespace
+{
+
+enum class Yield
+{
+    Gold,
+    Food,
+    Culture,
+};
+
+struct YieldHook
+{
+    Yield    kind;
+    uint32_t savedOffset;
+    int32_t  bonus;
+};
+
+constexpr YieldHook kYieldHooks[] = {
+    { Yield::Gold, 0x7C, kPolicy.goldBonusPercent },
+    { Yield::Food, 0x90, kPolicy.foodBonusPercent },
+    { Yield::Culture, 0x78, kPolicy.cultureBonusPercent },
+};
+
+constexpr uint32_t kSentinel = 0x5A5A5A5A;
+constexpr uint64_t kHigh     = 0xAABBCCDD00000000ull;
+
+// Put the owner where the yield hook reads it and seed saved words with
+// the native value or a sentinel.
+struct YieldRun
+{
+    PPCRegister stack{}, owner{}, value{};
+    uint64_t    nativeValue = 0;
+
+    YieldRun(World& world, const YieldHook& hook, int32_t ownerId, int32_t native, uint32_t stackBase = kStack)
+    : nativeValue(kHigh | static_cast<uint32_t>(native))
+    {
+        stack.u64 = 0x1234567800000000ull | stackBase;
+        owner.s64 = ownerId;
+        value.u64 = nativeValue;
+        // Food reads its owner from the word at r1+0x84, never from r4.
+        world.Word(stackBase + 0x84, static_cast<uint32_t>(hook.kind == Yield::Food ? ownerId : 99));
+        for (const uint32_t saved : { 0x78u, 0x7Cu, 0x90u })
+        {
+            world.Word(stackBase + saved, kSentinel);
+        }
+        world.Word(stackBase + hook.savedOffset, static_cast<uint32_t>(native));
+        switch (hook.kind)
+        {
+            case Yield::Gold:
+                ApplyAiGoldBonus(stack, owner, value);
+                break;
+            case Yield::Food:
+                ApplyAiFoodBonus(stack, value);
+                break;
+            case Yield::Culture:
+                ApplyAiCultureBonus(stack, owner, value);
+                break;
+        }
+    }
+};
+
+} // namespace
+
+TEST_CASE("ai_economy_yield_hooks_scale_register_and_saved_word", "[ctest][ai-economy]")
+{
+    World world;
+    for (const auto& hook : kYieldHooks)
+    {
+        CAPTURE(static_cast<int>(hook.kind));
+        const int32_t scaled = economy::ScaleYield(10, hook.bonus);
+        REQUIRE(scaled > 10);
+        YieldRun run(world, hook, 1, 10);
+        CHECK(run.value.u64 == static_cast<uint32_t>(scaled));
+        CHECK(world.ReadWord(kStack + hook.savedOffset) == static_cast<uint32_t>(scaled));
+        CHECK(run.stack.u64 == (0x1234567800000000ull | kStack));
+        for (const uint32_t other : { 0x78u, 0x7Cu, 0x90u })
+        {
+            if (other != hook.savedOffset)
+            {
+                CHECK(world.ReadWord(kStack + other) == kSentinel);
+            }
+        }
+
+        // The scaled value is the cap, not a wrapped halfword.
+        YieldRun capped(world, hook, 1, 30000);
+        CHECK(capped.value.u64 == 32767);
+        CHECK(world.ReadWord(kStack + hook.savedOffset) == 32767);
+    }
+}
+
+TEST_CASE("ai_economy_yield_hooks_leave_native_values", "[ctest][ai-economy]")
+{
+    World world;
+    for (const auto& hook : kYieldHooks)
+    {
+        CAPTURE(static_cast<int>(hook.kind));
+        const auto expectNative = [&](int32_t owner, int32_t native)
+        {
+            YieldRun run(world, hook, owner, native);
+            CHECK(run.value.u64 == run.nativeValue);
+            CHECK(world.ReadWord(kStack + hook.savedOffset) == static_cast<uint32_t>(native));
+        };
+        expectNative(0, 10); // human
+        expectNative(5, 10); // Barbarian
+        expectNative(8, 10); // outside the player count
+        expectNative(1, 0);
+        expectNative(1, -7);
+        expectNative(1, 32768);
+        expectNative(1, std::numeric_limits<int32_t>::max());
+
+        world.Byte(0x8314F10B, 1);
+        expectNative(1, 10);
+        world.Byte(0x8314F10B, 0);
+
+        economy::RestoreForGame({});
+        expectNative(1, 10);
+        economy::RestoreForGame(kPolicy);
+
+        // The same inputs scale again once the policy is back.
+        YieldRun scaled(world, hook, 1, 10);
+        CHECK(scaled.value.u64 != scaled.nativeValue);
+    }
+}
+
+TEST_CASE("ai_economy_food_hook_owner_comes_from_stack", "[ctest][ai-economy]")
+{
+    World       world;
+    PPCRegister stack{}, value{};
+    stack.u64 = kStack;
+
+    // The word at r1+0x84 is the owner. Other words do not matter.
+    for (const uint32_t saved : { 0x78u, 0x7Cu, 0x90u })
+    {
+        world.Word(kStack + saved, 10);
+    }
+    value.s64 = 10;
+    world.Word(kStack + 0x84, 0);
+    ApplyAiFoodBonus(stack, value);
+    CHECK(value.s64 == 10);
+    CHECK(world.ReadWord(kStack + 0x90) == 10);
+    world.Word(kStack + 0x84, 1);
+    ApplyAiFoodBonus(stack, value);
+    CHECK(value.s64 == 20);
+    CHECK(world.ReadWord(kStack + 0x90) == 20);
+
+    // A negative owner word is not an ordinary AI owner.
+    value.s64 = 10;
+    world.Word(kStack + 0x84, 0xFFFFFFFFu);
+    ApplyAiFoodBonus(stack, value);
+    CHECK(value.s64 == 10);
+}
+
+TEST_CASE("ai_economy_yield_hooks_require_writable_saved_word", "[ctest][ai-economy]")
+{
+    World world;
+    // Fill the page while it is writable, then make it read only.
+    for (const uint32_t saved : { 0x78u, 0x7Cu, 0x90u })
+    {
+        world.Word(kReadOnlyStack + saved, 10);
+    }
+    world.Word(kReadOnlyStack + 0x84, 1);
+    world.ProtectReadOnly(kReadOnlyStackPage);
+
+    for (const auto& hook : kYieldHooks)
+    {
+        CAPTURE(static_cast<int>(hook.kind));
+        for (const uint32_t stackBase : { kReadOnlyStack, 0x10000u })
+        {
+            PPCRegister stack{}, owner{}, value{};
+            stack.u64 = stackBase;
+            owner.s64 = 1;
+            value.u64 = kHigh | 10;
+            switch (hook.kind)
+            {
+                case Yield::Gold:
+                    ApplyAiGoldBonus(stack, owner, value);
+                    break;
+                case Yield::Food:
+                    ApplyAiFoodBonus(stack, value);
+                    break;
+                case Yield::Culture:
+                    ApplyAiCultureBonus(stack, owner, value);
+                    break;
+            }
+            CHECK(value.u64 == (kHigh | 10));
+        }
+        CHECK(world.ReadWord(kReadOnlyStack + hook.savedOffset) == 10);
+    }
 }

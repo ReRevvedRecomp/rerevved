@@ -5,10 +5,16 @@
 namespace rerevved::ai_economy
 {
 
+// AI bonus percentages: 0 keeps native behavior, 200 is the maximum.
+constexpr int32_t kMaxBonusPercent = 200;
+
 struct Policy
 {
-    int32_t researchCostPercent             = 100;
-    int32_t productionCostPercent           = 100;
+    int32_t researchBonusPercent            = 0;
+    int32_t productionBonusPercent          = 0;
+    int32_t goldBonusPercent                = 0;
+    int32_t foodBonusPercent                = 0;
+    int32_t cultureBonusPercent             = 0;
     bool    operator==(const Policy&) const = default;
 };
 
@@ -38,8 +44,13 @@ private:
     bool finished = false;
 };
 
-int32_t ScaleCost(int32_t nativeCost, int32_t percent) noexcept;
-int32_t ScaleUnitScalar(int32_t nativeScalar, int32_t factor, int32_t percent) noexcept;
+// Research and production bonuses divide the native cost by (1 + bonus / 100).
+int32_t ScaleCost(int32_t nativeCost, int32_t bonusPercent) noexcept;
+int32_t ScaleUnitScalar(int32_t nativeScalar, int32_t factor, int32_t bonusPercent) noexcept;
+
+// Gold, food and culture bonuses multiply a positive completed city
+// contribution. Values above the native halfword cache range stay native.
+int32_t ScaleYield(int32_t nativeYield, int32_t bonusPercent) noexcept;
 
 // An unavailable guest network flag also requires native costs.
 bool NativeCostsRequired() noexcept;

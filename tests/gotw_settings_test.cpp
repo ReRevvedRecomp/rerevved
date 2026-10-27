@@ -18,6 +18,7 @@
 #include <new>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -28,6 +29,8 @@
 
 REXCVAR_DECLARE(bool, gotw_custom_week);
 REXCVAR_DECLARE(std::string, gotw_week);
+REXCVAR_DECLARE(bool, gotw_custom_civilization);
+REXCVAR_DECLARE(int32_t, gotw_civilization);
 REXCVAR_DECLARE(bool, gotw_standard_rules);
 REXCVAR_DECLARE(bool, gotw_trace);
 
@@ -165,6 +168,29 @@ void controls(bool week)
     REXCVAR_SET(gotw_week, "1084");
 }
 
+void civilizationControls(bool custom, int32_t civilization)
+{
+    REXCVAR_SET(gotw_custom_civilization, custom);
+    REXCVAR_SET(gotw_civilization, civilization);
+}
+
+constexpr uint64_t derivedBits(uint32_t derived)
+{
+    return 0xABCD000000000000ull | derived;
+}
+
+// Runs the hook before the writer's store with the derived civilization and returns r10.
+uint64_t runOverride(uint32_t derived, uint32_t writerSetup, uint32_t count)
+{
+    PPCRegister civilization{}, setup{}, liveCount{};
+    civilization.u64 = derivedBits(derived);
+    setup.u64        = writerSetup;
+    liveCount.u64    = count;
+    rerevved::gotw::detail::OverrideCivilization(civilization, setup, liveCount);
+    REQUIRE((setup.u64 == writerSetup && liveCount.u64 == count));
+    return civilization.u64;
+}
+
 void testValidation()
 {
     constexpr std::array<uint32_t, 23> excluded = { 5, 7, 13, 19, 28, 34, 54, 66, 82, 88, 94, 115, 124, 130, 137, 148, 160, 161, 212, 226, 255, 265, 296 };
@@ -264,6 +290,249 @@ void testWeekSelection()
     rerevved::gotw::detail::ReapplySeed(receiver, week, seed, readSetup);
     UNSCOPED_INFO("unchecked Week preserves all incoming register bits");
     REQUIRE((receiver.u64 == kSetup && week.u64 == 0xFFFFFFFF0000043Dull && seed.u64 == 0x1234567800000000ull));
+}
+
+void testCivilizationLatch()
+{
+    controls(false);
+    UNSCOPED_INFO("ordinary civilizations are 0 through 15");
+    REQUIRE((rerevved::gotw::IsValidCivilization(0) && rerevved::gotw::IsValidCivilization(15) &&
+             !rerevved::gotw::IsValidCivilization(16) && !rerevved::gotw::IsValidCivilization(0xFFFFFFFFu)));
+    UNSCOPED_INFO("custom Civilization defaults off");
+    REQUIRE((!REXCVAR_GET(gotw_custom_civilization) && REXCVAR_GET(gotw_civilization) == 0));
+
+    host::HostSettings settings;
+    settings.gotwCustomCivilization = true;
+    settings.gotwCivilization       = 7;
+    auto policy                     = rerevved::gotw::LatchForGame(1085, kSetup, settings);
+    UNSCOPED_INFO("Civilization alone keeps the native week and seed");
+    REQUIRE((policy.customCivilization && policy.civilization == 7 && !policy.customWeek && policy.week == 1085 && policy.seed == 0));
+    UNSCOPED_INFO("a custom civilization isolates like a custom week");
+    REQUIRE((policy.IsCustom() && rerevved::gotw::IsolateWeeklyResult(2) && !rerevved::gotw::IsolateWeeklyResult(1)));
+
+    settings.gotwCustomWeek = true;
+    settings.gotwWeek       = 1084;
+    policy                  = rerevved::gotw::LatchForGame(1085, kSetup, settings);
+    UNSCOPED_INFO("Week and Civilization combine");
+    REQUIRE((policy.customCivilization && policy.civilization == 7 && policy.customWeek && policy.week == 1084 && policy.seed == 276));
+
+    settings.gotwCustomWeek   = false;
+    settings.gotwWeek         = 0;
+    settings.gotwCivilization = 16;
+    policy                    = rerevved::gotw::LatchForGame(1085, kSetup, settings);
+    UNSCOPED_INFO("an invalid civilization falls back to native");
+    REQUIRE((!policy.customCivilization && policy.civilization == 0 && !policy.IsCustom() && !rerevved::gotw::IsolateWeeklyResult(2)));
+
+    settings.gotwCustomCivilization = false;
+    settings.gotwCivilization       = 7;
+    policy                          = rerevved::gotw::LatchForGame(1085, kSetup, settings);
+    UNSCOPED_INFO("an unchecked Civilization stays native");
+    REQUIRE((!policy.customCivilization && !policy.IsCustom()));
+
+    civilizationControls(true, 3);
+    policy = rerevved::gotw::LatchForGame(1085, kSetup);
+    UNSCOPED_INFO("direct preference selection latches the checked civilization");
+    REQUIRE((policy.customCivilization && policy.civilization == 3 && !policy.customWeek && policy.IsCustom()));
+    civilizationControls(false, 3);
+    policy = rerevved::gotw::LatchForGame(1085, kSetup);
+    UNSCOPED_INFO("direct preference selection ignores an unchecked civilization");
+    REQUIRE((!policy.customCivilization && !policy.IsCustom()));
+
+    civilizationControls(true, 11);
+    auto local = host::LocalSettings();
+    UNSCOPED_INFO("local settings sample the checked civilization");
+    REQUIRE((local.gotwCustomCivilization && local.gotwCivilization == 11));
+    civilizationControls(false, 11);
+    local = host::LocalSettings();
+    UNSCOPED_INFO("local settings drop an unchecked civilization");
+    REQUIRE((!local.gotwCustomCivilization && local.gotwCivilization == 0));
+    civilizationControls(false, 0);
+}
+
+void testCivilizationOverride()
+{
+    static_assert(noexcept(OverrideGotwCivilization(std::declval<PPCRegister&>(), std::declval<PPCRegister&>(), std::declval<PPCRegister&>())));
+    controls(false);
+    civilizationControls(true, 7);
+    PPCRegister receiver{}, week{}, seed{};
+    receiver.u64 = kSetup;
+    week.u64     = 0xFFFFFFFF0000043Dull;
+    seed.u64     = 0x1234567800000000ull;
+    rerevved::gotw::detail::ApplySeed(receiver, week, seed, readSetup);
+    UNSCOPED_INFO("Civilization alone leaves the writer's week and seed arguments untouched");
+    REQUIRE((receiver.u64 == kSetup && week.u64 == 0xFFFFFFFF0000043Dull && seed.u64 == 0x1234567800000000ull));
+    UNSCOPED_INFO("an armed launch replaces the derived civilization once");
+    REQUIRE(runOverride(3, kSetup, 16) == 7);
+    UNSCOPED_INFO("the override is one-shot");
+    REQUIRE(runOverride(3, kSetup, 16) == derivedBits(3));
+    UNSCOPED_INFO("the override does not disturb the latched selection");
+    REQUIRE((rerevved::gotw::ForGame().customCivilization && rerevved::gotw::ForGame().civilization == 7));
+
+    rerevved::gotw::detail::ApplySeed(receiver, week, seed, readSetup);
+    UNSCOPED_INFO("a different writer setup keeps the derived civilization");
+    REQUIRE(runOverride(3, kSetup + 0x1000, 16) == derivedBits(3));
+    UNSCOPED_INFO("a rejected call still consumes the arm");
+    REQUIRE(runOverride(3, kSetup, 16) == derivedBits(3));
+
+    civilizationControls(true, 12);
+    rerevved::gotw::detail::ApplySeed(receiver, week, seed, readSetup);
+    UNSCOPED_INFO("a civilization at or beyond the live count keeps the derived value");
+    REQUIRE(runOverride(3, kSetup, 12) == derivedBits(3));
+    rerevved::gotw::detail::ApplySeed(receiver, week, seed, readSetup);
+    UNSCOPED_INFO("the highest civilization below the live count applies");
+    REQUIRE(runOverride(3, kSetup, 13) == 12);
+
+    civilizationControls(true, 0);
+    rerevved::gotw::detail::ApplySeed(receiver, week, seed, readSetup);
+    UNSCOPED_INFO("Roman is a valid choice when another civilization was derived");
+    REQUIRE(runOverride(9, kSetup, 16) == 0);
+
+    UNSCOPED_INFO("an unarmed writer call keeps the derived civilization");
+    REQUIRE(runOverride(5, kSetup, 16) == derivedBits(5));
+
+    civilizationControls(true, 7);
+    rerevved::gotw::detail::ApplySeed(receiver, week, seed, readSetup);
+    civilizationControls(false, 7);
+    rerevved::gotw::detail::ApplySeed(receiver, week, seed, readSetup);
+    UNSCOPED_INFO("a later native launch clears a stale arm");
+    REQUIRE(runOverride(3, kSetup, 16) == derivedBits(3));
+
+    civilizationControls(true, 7);
+    rerevved::gotw::detail::ApplySeed(receiver, week, seed, readSetup);
+    rerevved::gotw::LatchForGame(1085, kSetup);
+    UNSCOPED_INFO("an arm from an older launch is rejected");
+    REQUIRE(runOverride(3, kSetup, 16) == derivedBits(3));
+
+    liveMode = 6;
+    civilizationControls(true, 7);
+    rerevved::gotw::detail::ApplySeed(receiver, week, seed, readSetup);
+    liveMode = 2;
+    UNSCOPED_INFO("a rejected nonweekly setup arms nothing");
+    REQUIRE(runOverride(3, kSetup, 16) == derivedBits(3));
+
+    controls(true);
+    civilizationControls(true, 5);
+    week.u64 = 1085;
+    seed.u64 = 0;
+    rerevved::gotw::detail::ApplySeed(receiver, week, seed, readSetup);
+    UNSCOPED_INFO("Week and Civilization both apply at the early call");
+    REQUIRE((week.u64 == 1084 && seed.u64 == 276 && runOverride(3, kSetup, 16) == 5));
+    controls(false);
+    civilizationControls(false, 0);
+}
+
+void testCivilizationThreadIsolation()
+{
+    controls(false);
+    civilizationControls(true, 7);
+    PPCRegister receiver{}, week{}, seed{};
+    receiver.u64 = kSetup;
+    week.u64     = 1085;
+    rerevved::gotw::detail::ApplySeed(receiver, week, seed, readSetup);
+    // Another guest thread's writer call, matching or not, cannot take this thread's arm.
+    uint64_t    unrelated = 0, matching = 0;
+    std::thread other([&]
+                      {
+                          PPCRegister civilization{}, setup{}, count{};
+                          civilization.u64 = derivedBits(3);
+                          setup.u64        = kSetup + 0x1000;
+                          count.u64        = 16;
+                          rerevved::gotw::detail::OverrideCivilization(civilization, setup, count);
+                          unrelated        = civilization.u64;
+                          civilization.u64 = derivedBits(3);
+                          setup.u64        = kSetup;
+                          rerevved::gotw::detail::OverrideCivilization(civilization, setup, count);
+                          matching = civilization.u64;
+                      });
+    other.join();
+    UNSCOPED_INFO("a writer call on another thread keeps its derived civilization");
+    REQUIRE((unrelated == derivedBits(3) && matching == derivedBits(3)));
+    UNSCOPED_INFO("the arming thread still receives its override");
+    REQUIRE(runOverride(3, kSetup, 16) == 7);
+    civilizationControls(false, 0);
+}
+
+void testCivilizationLateReapply()
+{
+    controls(false);
+    civilizationControls(true, 9);
+    PPCRegister receiver{}, week{}, seed{};
+    receiver.u64 = kSetup;
+    week.u64     = 1085;
+    seed.u64     = 0;
+    rerevved::gotw::detail::ApplySeed(receiver, week, seed, readSetup);
+    UNSCOPED_INFO("the early writer call consumes its arm");
+    REQUIRE(runOverride(2, kSetup, 16) == 9);
+    civilizationControls(false, 0);
+
+    rerevved::gotw::detail::ReapplySeed(receiver, week, seed, readSetup);
+    UNSCOPED_INFO("late Civilization leaves the native week and seed alone");
+    REQUIRE((week.u64 == 1085 && seed.u64 == 0));
+    UNSCOPED_INFO("the late writer call applies the accepted civilization despite pending edits");
+    REQUIRE(runOverride(2, kSetup, 16) == 9);
+    UNSCOPED_INFO("the late override is one-shot");
+    REQUIRE(runOverride(2, kSetup, 16) == derivedBits(2));
+
+    for (int failure = 0; failure != 6; ++failure)
+    {
+        readableGlobal = failure != 0;
+        readableMode   = failure != 1;
+        liveSetup      = failure == 2 ? kSetup + 0x1000 : kSetup;
+        receiver.u64   = failure == 3 ? kSetup + 0x1000 : kSetup;
+        week.u64       = failure == 4 ? 1084 : 1085;
+        rerevved::gotw::detail::ReapplySeed(receiver, week, seed, failure == 5 ? nullptr : readSetup);
+        UNSCOPED_INFO("an unreadable or unrelated late setup arms nothing");
+        REQUIRE(runOverride(2, kSetup, 16) == derivedBits(2));
+    }
+    readableGlobal = readableMode = true;
+    liveSetup                     = kSetup;
+    receiver.u64                  = kSetup;
+    week.u64                      = 1085;
+    liveMode                      = 1;
+    rerevved::gotw::detail::ReapplySeed(receiver, week, seed, readSetup);
+    liveMode = 2;
+    UNSCOPED_INFO("late Civilization requires setup mode 2");
+    REQUIRE(runOverride(2, kSetup, 16) == derivedBits(2));
+
+    controls(true);
+    civilizationControls(true, 4);
+    week.u64 = 1085;
+    rerevved::gotw::detail::ApplySeed(receiver, week, seed, readSetup);
+    REQUIRE(runOverride(2, kSetup, 16) == 4);
+    controls(false);
+    civilizationControls(false, 0);
+    seed.u64 = 0;
+    rerevved::gotw::detail::ReapplySeed(receiver, week, seed, readSetup);
+    UNSCOPED_INFO("late Week and Civilization both reapply");
+    REQUIRE((week.u64 == 1084 && seed.u64 == 276 && runOverride(2, kSetup, 16) == 4));
+}
+
+void testCivilizationLogging()
+{
+    std::ostringstream output;
+    auto               sink = std::make_shared<spdlog::sinks::ostream_sink_mt>(output);
+    sink->set_pattern("%v");
+    const SinkScope sinkScope(sink);
+    controls(false);
+    civilizationControls(true, 7);
+    PPCRegister receiver{}, week{}, seed{};
+    receiver.u64 = kSetup;
+    week.u64     = 1085;
+    rerevved::gotw::detail::ApplySeed(receiver, week, seed, readSetup);
+    REQUIRE(runOverride(3, kSetup, 16) == 7);
+    REQUIRE(runOverride(3, kSetup, 16) == derivedBits(3));
+    rerevved::gotw::detail::ApplySeed(receiver, week, seed, readSetup);
+    REQUIRE(runOverride(3, kSetup, 5) == derivedBits(3));
+    rex::FlushLogging();
+    std::istringstream lines(output.str());
+    std::string        line;
+    UNSCOPED_INFO("an applied override logs the derived and chosen civilizations once");
+    REQUIRE((static_cast<bool>(std::getline(lines, line)) && line.find("civilization site=early derived=3 chosen=7") != std::string::npos));
+    UNSCOPED_INFO("a rejected override logs a warning and nothing else");
+    REQUIRE((static_cast<bool>(std::getline(lines, line)) && line.find("chosen=7 rejected") != std::string::npos));
+    UNSCOPED_INFO("unarmed calls log nothing");
+    REQUIRE(!std::getline(lines, line));
+    civilizationControls(false, 0);
 }
 
 void testStandardRules()
@@ -518,6 +787,8 @@ TEST_CASE("gotw_settings", "[ctest][gotw-settings][local-fast]")
     REREVVED_RESTORE_CVAR(gotw_custom_week);
     REREVVED_RESTORE_CVAR(gotw_week);
     REREVVED_RESTORE_CVAR(gotw_standard_rules);
+    REREVVED_RESTORE_CVAR(gotw_custom_civilization);
+    REREVVED_RESTORE_CVAR(gotw_civilization);
     REREVVED_RESTORE_CVAR(gotw_trace);
     // Category IDs survive shutdown, while the SDK's category registry does not.
     // Keep one logging lifetime and attach each test's sink only while it runs.
@@ -528,6 +799,11 @@ TEST_CASE("gotw_settings", "[ctest][gotw-settings][local-fast]")
     testLaunchFallback();
     testFallbackLogging();
     testLateLaunchIdentity();
+    testCivilizationLatch();
+    testCivilizationOverride();
+    testCivilizationThreadIsolation();
+    testCivilizationLateReapply();
+    testCivilizationLogging();
     testDeferredStoreBack();
     testTraceObservers();
     testTraceCap();

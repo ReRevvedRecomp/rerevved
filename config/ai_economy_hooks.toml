@@ -1,4 +1,4 @@
-# Apply the research percentage after the native final multiplier.
+# Apply the research bonus after the native final multiplier.
 [[midasm_hook]]
 address = 0x82CF1058
 name = "ApplyAiResearchCostPercent"
@@ -11,8 +11,30 @@ address = 0x82CF126C
 name = "ApplyAiUnitProductionCostPercent"
 registers = ["r30", "r29", "r3"]
 
-# Invalid items bypass this normal-result assignment to 0x82CF1550.
+# Invalid items skip this result assignment and branch to 0x82CF1550.
 [[midasm_hook]]
 address = 0x82CF154C
 name = "ApplyAiNonUnitProductionCostPercent"
 registers = ["r29", "r27", "r31"]
+
+# Evidence: https://github.com/ReRevvedRecomp/rerevved-research/blob/main/manifests/ai-options-boundaries.json
+# The three yield hooks run in sub_82D13978 between the completed contribution
+# load and the city halfword cache store.
+# Gold: r8 after lwz r8,124(r1), owner r17, saved word r1+0x7C.
+[[midasm_hook]]
+address = 0x82D14ECC
+name = "ApplyAiGoldBonus"
+registers = ["r1", "r17", "r8"]
+
+# Food: r10 after lwz r10,144(r1), owner is the word at r1+0x84, saved word r1+0x90.
+[[midasm_hook]]
+address = 0x82D14280
+name = "ApplyAiFoodBonus"
+registers = ["r1", "r10"]
+
+# Culture: r18 at loc_82D152E8, reached by fallthrough and by branch 0x82D151A0.
+# Owner r17, saved word r1+0x78.
+[[midasm_hook]]
+address = 0x82D152E8
+name = "ApplyAiCultureBonus"
+registers = ["r1", "r17", "r18"]

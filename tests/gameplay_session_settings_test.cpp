@@ -4,18 +4,27 @@
 #include "cvar_scope.hpp"
 #include "gameplay_fixes.h"
 #include "gotw_settings.h"
+#include "mod_script_rules.h"
 #include "occ_settings.h"
 #include "raging_barbarians_settings.h"
+#include "registry_scope.hpp"
+#include "rules_fixtures.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <rex/cvar.h>
+#include <span>
+#include <string>
+#include <vector>
 
 REXCVAR_DECLARE(bool, one_city_challenge);
 REXCVAR_DECLARE(bool, raging_barbarians);
 REXCVAR_DECLARE(bool, gotw_custom_week);
 REXCVAR_DECLARE(bool, gotw_standard_rules);
-REXCVAR_DECLARE(int32_t, ai_research_cost_percent);
-REXCVAR_DECLARE(int32_t, ai_production_cost_percent);
+REXCVAR_DECLARE(int32_t, ai_research_bonus_percent);
+REXCVAR_DECLARE(int32_t, ai_production_bonus_percent);
+REXCVAR_DECLARE(int32_t, ai_gold_bonus_percent);
+REXCVAR_DECLARE(int32_t, ai_food_bonus_percent);
+REXCVAR_DECLARE(int32_t, ai_culture_bonus_percent);
 
 namespace
 {
@@ -62,38 +71,50 @@ TEST_CASE("host gameplay policy precedes title freezes", "[ctest][host-settings]
     REREVVED_RESTORE_CVAR(raging_barbarians);
     REREVVED_RESTORE_CVAR(gotw_custom_week);
     REREVVED_RESTORE_CVAR(gotw_standard_rules);
-    REREVVED_RESTORE_CVAR(ai_research_cost_percent);
-    REREVVED_RESTORE_CVAR(ai_production_cost_percent);
+    REREVVED_RESTORE_CVAR(ai_research_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_production_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_gold_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_food_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_culture_bonus_percent);
     REXCVAR_SET(one_city_challenge, false);
     REXCVAR_SET(raging_barbarians, false);
     REXCVAR_SET(gotw_custom_week, false);
     REXCVAR_SET(gotw_standard_rules, false);
-    REXCVAR_SET(ai_research_cost_percent, 100);
-    REXCVAR_SET(ai_production_cost_percent, 100);
+    REXCVAR_SET(ai_research_bonus_percent, 0);
+    REXCVAR_SET(ai_production_bonus_percent, 0);
+    REXCVAR_SET(ai_gold_bonus_percent, 0);
+    REXCVAR_SET(ai_food_bonus_percent, 0);
+    REXCVAR_SET(ai_culture_bonus_percent, 0);
 
     host::HostSettings settings;
-    settings.aiCivilizations         = 2;
-    settings.oneCityChallenge        = true;
-    settings.ragingBarbarians        = true;
-    settings.resources               = 3;
-    settings.aiResearchCostPercent   = 50;
-    settings.aiProductionCostPercent = 40;
-    settings.dominationMinimumTurns  = 5;
-    settings.gotwStandardRules       = true;
-    const auto snapshot              = host::ResolveForGame(true, { rex::session_data::State::kReceived, host::Encode(settings), true }, {});
+    settings.aiCivilizations          = 2;
+    settings.oneCityChallenge         = true;
+    settings.ragingBarbarians         = true;
+    settings.resources                = 3;
+    settings.aiResearchBonusPercent   = 50;
+    settings.aiProductionBonusPercent = 40;
+    settings.aiGoldBonusPercent       = 25;
+    settings.aiFoodBonusPercent       = 75;
+    settings.aiCultureBonusPercent    = 200;
+    settings.dominationMinimumTurns   = 5;
+    settings.gotwStandardRules        = true;
+    const auto snapshot               = host::ResolveForGame(true, { rex::session_data::State::kReceived, host::Encode(settings), true }, {});
     REQUIRE(snapshot.settings);
     CHECK_FALSE(session::ApplyNewGame(snapshot, true, 6));
     REQUIRE(session::ForNetworkGame());
     CHECK(session::ForNetworkGame()->aiCivilizations == 2);
     CHECK(session::ForNetworkGame()->resources == 3);
     CHECK(session::ForNetworkGame()->dominationMinimumTurns == 5);
-    CHECK((rerevved::ai_economy::ForGame() == rerevved::ai_economy::Policy{ 50, 40 }));
+    CHECK((rerevved::ai_economy::ForGame() == rerevved::ai_economy::Policy{ 50, 40, 25, 75, 200 }));
     CHECK(rerevved::occ::ForGame()->enabled);
     CHECK(rerevved::raging_barbarians::Evaluate(0).enabled);
     CHECK_FALSE(REXCVAR_GET(one_city_challenge));
     CHECK_FALSE(REXCVAR_GET(raging_barbarians));
-    CHECK(REXCVAR_GET(ai_research_cost_percent) == 100);
-    CHECK(REXCVAR_GET(ai_production_cost_percent) == 100);
+    CHECK(REXCVAR_GET(ai_research_bonus_percent) == 0);
+    CHECK(REXCVAR_GET(ai_production_bonus_percent) == 0);
+    CHECK(REXCVAR_GET(ai_gold_bonus_percent) == 0);
+    CHECK(REXCVAR_GET(ai_food_bonus_percent) == 0);
+    CHECK(REXCVAR_GET(ai_culture_bonus_percent) == 0);
 
     const auto weekly = host::ResolveForGame(false, {}, settings);
     CHECK(session::ApplyNewGame(weekly, false, 2));
@@ -178,7 +199,7 @@ TEST_CASE("load setup is inactive and retains policy until load succeeds", "[cte
 {
     RestorePolicies    restore;
     host::HostSettings settings;
-    settings.aiResearchCostPercent = 60;
+    settings.aiResearchBonusPercent = 60;
     const host::GameSnapshot previous{ host::SnapshotState::Received, settings, {} };
     session::ApplyNewGame(previous, true, 6);
     const auto network = session::ForNetworkGame();
@@ -194,7 +215,7 @@ TEST_CASE("load setup is inactive and retains policy until load succeeds", "[cte
             CHECK_FALSE(session::detail::Prepare(false, 0x83000000, 3, capturePrepared).settings);
             CHECK(preparationCalls == 0);
             CHECK(session::ForNetworkGame() == network);
-            CHECK(rerevved::ai_economy::ForGame().researchCostPercent == 60);
+            CHECK(rerevved::ai_economy::ForGame().researchBonusPercent == 60);
         }
         CHECK(session::SetupActive());
     }
@@ -203,4 +224,77 @@ TEST_CASE("load setup is inactive and retains policy until load succeeds", "[cte
     CHECK(session::ForNetworkGame() == network);
     session::ResetOnLoad();
     CHECK_FALSE(session::ForNetworkGame());
+}
+
+TEST_CASE("Standard Rules game suspends Lua mod rules until another game or a load", "[ctest][host-settings]")
+{
+    RestorePolicies                            restore;
+    const rerevved::tests::ScopedRegistryReset registryScope;
+    namespace fixtures = rerevved::tests::rules_fixtures;
+    const auto modHost = rerevved::CreateModScriptRulesHost();
+    const auto empty   = fixtures::snapshot();
+    const auto script  = rex::system::RunModScript("main.lua", R"lua(return {
+    provider_id = "test.hills",
+    rules = { { id = "hills-production", kind = "terrain_yield", terrain = "hill", component = "production", operation = "add", value = 1 } },
+})lua");
+    REQUIRE(script.ok);
+    const std::vector<std::string>             domains{ "terrain_yield" };
+    const rex::system::ModScriptPublishRequest request{ "package", "main.lua", "rerevved.rules", 1, domains, script.value };
+    rex::system::ModScriptPublishResult        result;
+    auto                                       prepared = modHost->PrepareReplacement(std::span(&request, 1), result);
+    REQUIRE(prepared);
+    prepared->Commit();
+    prepared.reset();
+    const auto modded = fixtures::snapshot();
+    REQUIRE(modded != empty);
+
+    host::HostSettings settings;
+    settings.gotwStandardRules = true;
+    const auto standard        = host::ResolveForGame(false, {}, settings);
+    REQUIRE(standard.settings);
+
+    CHECK(session::ApplyNewGame(standard, false, 2));
+    CHECK(fixtures::snapshot() == empty);
+    SECTION("a following new game that is not Standard Rules restores them")
+    {
+        CHECK_FALSE(session::ApplyNewGame(standard, false, 1));
+        CHECK(fixtures::snapshot() == modded);
+    }
+    SECTION("a following Game of the Week without Standard Rules restores them")
+    {
+        settings.gotwStandardRules = false;
+        CHECK_FALSE(session::ApplyNewGame(host::ResolveForGame(false, {}, settings), false, 2));
+        CHECK(fixtures::snapshot() == modded);
+    }
+    SECTION("a following Standard Rules game keeps them suspended")
+    {
+        CHECK(session::ApplyNewGame(standard, false, 2));
+        CHECK(fixtures::snapshot() == empty);
+    }
+    SECTION("a saved-game load restores them")
+    {
+        session::ResetOnLoad();
+        CHECK(fixtures::snapshot() == modded);
+    }
+    session::ResetOnLoad();
+}
+
+TEST_CASE("local settings read the AI bonus preferences", "[ctest][host-settings]")
+{
+    REREVVED_RESTORE_CVAR(ai_research_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_production_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_gold_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_food_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_culture_bonus_percent);
+    REXCVAR_SET(ai_research_bonus_percent, 10);
+    REXCVAR_SET(ai_production_bonus_percent, 20);
+    REXCVAR_SET(ai_gold_bonus_percent, 30);
+    REXCVAR_SET(ai_food_bonus_percent, 40);
+    REXCVAR_SET(ai_culture_bonus_percent, 200);
+    const auto local = host::LocalSettings();
+    CHECK(local.aiResearchBonusPercent == 10);
+    CHECK(local.aiProductionBonusPercent == 20);
+    CHECK(local.aiGoldBonusPercent == 30);
+    CHECK(local.aiFoodBonusPercent == 40);
+    CHECK(local.aiCultureBonusPercent == 200);
 }

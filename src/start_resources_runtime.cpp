@@ -6,6 +6,7 @@
 #include "gameplay_fixes.h"
 #include "gameplay_session_settings.h"
 #include "gotw_settings.h"
+#include "mod_script_rules.h"
 #include "occ_settings.h"
 #include "raging_barbarians_settings.h"
 #include "resource_identity_overrides.h"
@@ -341,7 +342,9 @@ void RunNativeNewGameSetup(PPCContext& context, uint8_t* base)
         __imp__sub_82D25170(context, base);
         return;
     }
-    const auto                  boundary = gameplay_session::LockRuleBoundary();
+    const auto boundary = gameplay_session::LockRuleBoundary();
+    // Restore first so a failed restore rejects the snapshot in Prepare.
+    SuspendModRulesForGame(false);
     const bool                  network  = kind == gameplay_session::SetupKind::Network;
     const auto                  snapshot = gameplay_session::Prepare(network, setup, mode);
     gameplay_session::SetupGate gate(snapshot.settings.has_value());

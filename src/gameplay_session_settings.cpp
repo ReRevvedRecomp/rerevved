@@ -2,6 +2,7 @@
 #include "ai_economy_settings.h"
 #include "gameplay_fixes.h"
 #include "gotw_settings.h"
+#include "mod_script_rules.h"
 #include "occ_settings.h"
 #include "raging_barbarians_settings.h"
 
@@ -22,12 +23,15 @@ HostSettings LocalSettings()
 {
     const auto   boundary = gameplay_session::LockRuleBoundary();
     HostSettings settings;
-    settings.aiCivilizations         = rex::cvar::Query<int32_t>("ai_civilizations");
-    settings.ragingBarbarians        = rex::cvar::Query<bool>("raging_barbarians");
-    settings.oneCityChallenge        = rex::cvar::Query<bool>("one_city_challenge");
-    settings.resources               = rex::cvar::Query<int32_t>("resources");
-    settings.aiResearchCostPercent   = rex::cvar::Query<int32_t>("ai_research_cost_percent");
-    settings.aiProductionCostPercent = rex::cvar::Query<int32_t>("ai_production_cost_percent");
+    settings.aiCivilizations          = rex::cvar::Query<int32_t>("ai_civilizations");
+    settings.ragingBarbarians         = rex::cvar::Query<bool>("raging_barbarians");
+    settings.oneCityChallenge         = rex::cvar::Query<bool>("one_city_challenge");
+    settings.resources                = rex::cvar::Query<int32_t>("resources");
+    settings.aiResearchBonusPercent   = rex::cvar::Query<int32_t>("ai_research_bonus_percent");
+    settings.aiProductionBonusPercent = rex::cvar::Query<int32_t>("ai_production_bonus_percent");
+    settings.aiGoldBonusPercent       = rex::cvar::Query<int32_t>("ai_gold_bonus_percent");
+    settings.aiFoodBonusPercent       = rex::cvar::Query<int32_t>("ai_food_bonus_percent");
+    settings.aiCultureBonusPercent    = rex::cvar::Query<int32_t>("ai_culture_bonus_percent");
     gameplay_fixes::ParseDominationMinimumTurns(rex::cvar::Query<std::string>("domination_min_turns"), settings.dominationMinimumTurns);
     settings.combatSpeed       = rex::cvar::Query<std::string>("combat_speed") == "fast";
     settings.gotwCustomWeek    = rex::cvar::Query<bool>("gotw_custom_week");
@@ -36,6 +40,13 @@ HostSettings LocalSettings()
     {
         settings.gotwCustomWeek = gotw::ParseWeek(rex::cvar::Query<std::string>("gotw_week"), settings.gotwWeek);
         settings.gotwSeed       = settings.gotwCustomWeek ? gotw::SeedForWeek(settings.gotwWeek) : 0;
+    }
+    settings.gotwCustomCivilization = rex::cvar::Query<bool>("gotw_custom_civilization");
+    if (settings.gotwCustomCivilization)
+    {
+        const auto civilization         = rex::cvar::Query<int32_t>("gotw_civilization");
+        settings.gotwCustomCivilization = civilization >= 0 && gotw::IsValidCivilization(static_cast<uint32_t>(civilization));
+        settings.gotwCivilization       = settings.gotwCustomCivilization ? static_cast<uint32_t>(civilization) : 0;
     }
     auto metadata               = LocalModSnapshotForSettings();
     settings.mods               = std::move(metadata.mods);
@@ -204,10 +215,11 @@ bool ApplyNewGame(const host_settings::GameSnapshot& snapshot, bool networkGame,
     const auto& settings      = *snapshot.settings;
     const bool  standardRules = gotw::FreezeStandardRules(mode, settings.gotwStandardRules);
     ai_economy::FreezeForGame(standardRules);
-    ai_economy::RestoreForGame(standardRules ? ai_economy::Policy{} : ai_economy::Policy{ settings.aiResearchCostPercent, settings.aiProductionCostPercent });
+    ai_economy::RestoreForGame(standardRules ? ai_economy::Policy{} : ai_economy::Policy{ settings.aiResearchBonusPercent, settings.aiProductionBonusPercent, settings.aiGoldBonusPercent, settings.aiFoodBonusPercent, settings.aiCultureBonusPercent });
     raging_barbarians::RestoreForGame(!standardRules && settings.ragingBarbarians);
     occ::RestoreForGame({ !standardRules && settings.oneCityChallenge, occ::kMinimumPopulation });
     gameplay_fixes::NoteNewGame(standardRules);
+    SuspendModRulesForGame(standardRules);
     return standardRules;
 }
 
@@ -225,6 +237,7 @@ try
     const auto boundary = LockRuleBoundary();
     StoreNetworkSettings(nullptr);
     weeklyAttempt = {};
+    SuspendModRulesForGame(false);
 }
 catch (...)
 {

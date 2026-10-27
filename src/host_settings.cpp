@@ -1,5 +1,6 @@
 #include "host_settings.h"
 
+#include "ai_economy_settings.h"
 #include "gotw_settings.h"
 
 #include <algorithm>
@@ -17,7 +18,7 @@ namespace
 // Gate built-in gameplay semantics as well as the serialized field layout.
 constexpr uint8_t kFormatVersion   = 2;
 constexpr uint8_t kTruncatedFlag   = 0x01;
-constexpr size_t  kHeaderSize      = 18;
+constexpr size_t  kHeaderSize      = 21;
 constexpr size_t  kMaxFieldLength  = 255;
 constexpr size_t  kMaxModCount     = 255;
 constexpr size_t  kMaxListedIssues = 4;
@@ -92,8 +93,10 @@ HostSettings Normalize(HostSettings settings, bool networkGame)
     {
         settings.resources = 0;
     }
-    settings.aiResearchCostPercent   = std::clamp(settings.aiResearchCostPercent, 1, 100);
-    settings.aiProductionCostPercent = std::clamp(settings.aiProductionCostPercent, 1, 100);
+    for (int32_t* bonus : { &settings.aiResearchBonusPercent, &settings.aiProductionBonusPercent, &settings.aiGoldBonusPercent, &settings.aiFoodBonusPercent, &settings.aiCultureBonusPercent })
+    {
+        *bonus = std::clamp(*bonus, 0, ai_economy::kMaxBonusPercent);
+    }
     if (settings.dominationMinimumTurns != 1 && settings.dominationMinimumTurns != 5 && settings.dominationMinimumTurns != 10)
     {
         settings.dominationMinimumTurns = 10;
@@ -108,6 +111,12 @@ HostSettings Normalize(HostSettings settings, bool networkGame)
     else
     {
         settings.gotwSeed = gotw::SeedForWeek(settings.gotwWeek);
+    }
+    // The civilization is local-only and has no wire field, so network games drop it.
+    if (networkGame || !settings.gotwCustomCivilization || !gotw::IsValidCivilization(settings.gotwCivilization))
+    {
+        settings.gotwCustomCivilization = false;
+        settings.gotwCivilization       = 0;
     }
     if (!settings.rulesDigestPresent)
     {
@@ -191,8 +200,11 @@ std::vector<uint8_t> Encode(const HostSettings& settings)
                                        (normalized.gotwStandardRules ? 8 : 0) |
                                        (normalized.rulesDigestPresent ? 16 : 0)));
     out.push_back(static_cast<uint8_t>(normalized.resources));
-    out.push_back(static_cast<uint8_t>(normalized.aiResearchCostPercent));
-    out.push_back(static_cast<uint8_t>(normalized.aiProductionCostPercent));
+    out.push_back(static_cast<uint8_t>(normalized.aiResearchBonusPercent));
+    out.push_back(static_cast<uint8_t>(normalized.aiProductionBonusPercent));
+    out.push_back(static_cast<uint8_t>(normalized.aiGoldBonusPercent));
+    out.push_back(static_cast<uint8_t>(normalized.aiFoodBonusPercent));
+    out.push_back(static_cast<uint8_t>(normalized.aiCultureBonusPercent));
     out.push_back(static_cast<uint8_t>(normalized.dominationMinimumTurns));
     out.push_back(static_cast<uint8_t>(normalized.combatSpeed));
     for (uint32_t value : { normalized.gotwWeek, normalized.gotwSeed })
@@ -219,29 +231,33 @@ std::optional<HostSettings> Decode(std::span<const uint8_t> bytes)
 {
     if (bytes.size() < kHeaderSize || bytes.size() > rex::session_data::kMaxBytes || bytes[0] != kFormatVersion ||
         bytes[1] > kMaxAiCivilizations || (bytes[2] & ~kTruncatedFlag) != 0 || (bytes[4] & ~0x1Fu) != 0 ||
-        (bytes[5] != 0 && bytes[5] != 1 && bytes[5] != 3) || bytes[6] < 1 || bytes[6] > 100 || bytes[7] < 1 || bytes[7] > 100 ||
-        (bytes[8] != 1 && bytes[8] != 5 && bytes[8] != 10) || bytes[9] > 1)
+        (bytes[5] != 0 && bytes[5] != 1 && bytes[5] != 3) || bytes[6] > ai_economy::kMaxBonusPercent || bytes[7] > ai_economy::kMaxBonusPercent ||
+        bytes[8] > ai_economy::kMaxBonusPercent || bytes[9] > ai_economy::kMaxBonusPercent || bytes[10] > ai_economy::kMaxBonusPercent ||
+        (bytes[11] != 1 && bytes[11] != 5 && bytes[11] != 10) || bytes[12] > 1)
     {
         return std::nullopt;
     }
 
     HostSettings settings;
-    settings.aiCivilizations         = clampAi(bytes[1]);
-    settings.modsTruncated           = (bytes[2] & kTruncatedFlag) != 0;
-    settings.ragingBarbarians        = (bytes[4] & 1) != 0;
-    settings.oneCityChallenge        = (bytes[4] & 2) != 0;
-    settings.gotwCustomWeek          = (bytes[4] & 4) != 0;
-    settings.gotwStandardRules       = (bytes[4] & 8) != 0;
-    settings.rulesDigestPresent      = (bytes[4] & 16) != 0;
-    settings.resources               = bytes[5];
-    settings.aiResearchCostPercent   = bytes[6];
-    settings.aiProductionCostPercent = bytes[7];
-    settings.dominationMinimumTurns  = bytes[8];
-    settings.combatSpeed             = bytes[9];
+    settings.aiCivilizations          = clampAi(bytes[1]);
+    settings.modsTruncated            = (bytes[2] & kTruncatedFlag) != 0;
+    settings.ragingBarbarians         = (bytes[4] & 1) != 0;
+    settings.oneCityChallenge         = (bytes[4] & 2) != 0;
+    settings.gotwCustomWeek           = (bytes[4] & 4) != 0;
+    settings.gotwStandardRules        = (bytes[4] & 8) != 0;
+    settings.rulesDigestPresent       = (bytes[4] & 16) != 0;
+    settings.resources                = bytes[5];
+    settings.aiResearchBonusPercent   = bytes[6];
+    settings.aiProductionBonusPercent = bytes[7];
+    settings.aiGoldBonusPercent       = bytes[8];
+    settings.aiFoodBonusPercent       = bytes[9];
+    settings.aiCultureBonusPercent    = bytes[10];
+    settings.dominationMinimumTurns   = bytes[11];
+    settings.combatSpeed              = bytes[12];
     for (unsigned index = 0; index < 4; ++index)
     {
-        settings.gotwWeek |= uint32_t{ bytes[10 + index] } << (index * 8);
-        settings.gotwSeed |= uint32_t{ bytes[14 + index] } << (index * 8);
+        settings.gotwWeek |= uint32_t{ bytes[13 + index] } << (index * 8);
+        settings.gotwSeed |= uint32_t{ bytes[17 + index] } << (index * 8);
     }
     if (settings.gotwCustomWeek ? (!gotw::IsValidWeek(settings.gotwWeek) || settings.gotwSeed != gotw::SeedForWeek(settings.gotwWeek))
                                 : (settings.gotwWeek != 0 || settings.gotwSeed != 0))

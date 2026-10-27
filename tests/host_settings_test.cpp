@@ -189,7 +189,7 @@ void testRejection()
     UNSCOPED_INFO("the encoder always sorts");
     CHECK(Decode(Encode(unsorted)).has_value());
     auto swapped = Encode(unsorted);
-    std::swap(swapped[19], swapped[24]);
+    std::swap(swapped[22], swapped[27]);
     UNSCOPED_INFO("mods out of id order are rejected");
     CHECK(!Decode(swapped).has_value());
 }
@@ -349,19 +349,22 @@ TEST_CASE("host_settings", "[ctest][host-settings][local-fast]")
 
 TEST_CASE("host_settings gameplay snapshot validates complete policy", "[ctest][host-settings][local-fast]")
 {
-    HostSettings selected            = sample();
-    selected.ragingBarbarians        = true;
-    selected.oneCityChallenge        = true;
-    selected.resources               = 3;
-    selected.aiResearchCostPercent   = 37;
-    selected.aiProductionCostPercent = 61;
-    selected.dominationMinimumTurns  = 5;
-    selected.combatSpeed             = 1;
-    selected.gotwCustomWeek          = true;
-    selected.gotwWeek                = 123456;
-    selected.gotwSeed                = 210;
-    selected.gotwStandardRules       = false;
-    selected.rulesDigestPresent      = true;
+    HostSettings selected             = sample();
+    selected.ragingBarbarians         = true;
+    selected.oneCityChallenge         = true;
+    selected.resources                = 3;
+    selected.aiResearchBonusPercent   = 37;
+    selected.aiProductionBonusPercent = 161;
+    selected.aiGoldBonusPercent       = 200;
+    selected.aiFoodBonusPercent       = 99;
+    selected.aiCultureBonusPercent    = 1;
+    selected.dominationMinimumTurns   = 5;
+    selected.combatSpeed              = 1;
+    selected.gotwCustomWeek           = true;
+    selected.gotwWeek                 = 123456;
+    selected.gotwSeed                 = 210;
+    selected.gotwStandardRules        = false;
+    selected.rulesDigestPresent       = true;
     selected.rulesDigest.fill(0xA5);
     const auto bytes   = Encode(selected);
     const auto decoded = Decode(bytes);
@@ -370,8 +373,11 @@ TEST_CASE("host_settings gameplay snapshot validates complete policy", "[ctest][
     CHECK(decoded->ragingBarbarians);
     CHECK(decoded->oneCityChallenge);
     CHECK(decoded->resources == 3);
-    CHECK(decoded->aiResearchCostPercent == 37);
-    CHECK(decoded->aiProductionCostPercent == 61);
+    CHECK(decoded->aiResearchBonusPercent == 37);
+    CHECK(decoded->aiProductionBonusPercent == 161);
+    CHECK(decoded->aiGoldBonusPercent == 200);
+    CHECK(decoded->aiFoodBonusPercent == 99);
+    CHECK(decoded->aiCultureBonusPercent == 1);
     auto incompatible = bytes;
     incompatible[0]   = 3;
     CHECK_FALSE(Decode(incompatible));
@@ -389,14 +395,14 @@ TEST_CASE("host_settings gameplay snapshot validates complete policy", "[ctest][
     CHECK(Encode(*decoded) == bytes);
 
     for (const auto [offset, value] : std::vector<std::pair<size_t, uint8_t>>{
-             { 1, 5 }, { 4, 0x40 }, { 5, 2 }, { 6, 0 }, { 6, 101 }, { 7, 0 }, { 7, 101 }, { 8, 2 }, { 9, 2 } })
+             { 1, 5 }, { 4, 0x40 }, { 5, 2 }, { 6, 201 }, { 7, 201 }, { 8, 201 }, { 9, 201 }, { 10, 201 }, { 11, 2 }, { 12, 2 } })
     {
         auto invalid    = bytes;
         invalid[offset] = value;
         CHECK(!Decode(invalid));
     }
     auto invalid = bytes;
-    invalid[14] ^= 1;
+    invalid[17] ^= 1;
     CHECK(!Decode(invalid)); // Seed must be derived from the selected week.
     invalid = bytes;
     invalid[4] &= ~uint8_t{ 4 };
@@ -443,21 +449,27 @@ TEST_CASE("host_settings network game rejects stale and unverified settings", "[
 TEST_CASE("host_settings normalizes local selections before encoding", "[ctest][host-settings][local-fast]")
 {
     HostSettings local;
-    local.aiCivilizations         = 6;
-    local.resources               = 2;
-    local.aiResearchCostPercent   = -1;
-    local.aiProductionCostPercent = 200;
-    local.dominationMinimumTurns  = 7;
-    local.combatSpeed             = -1;
-    local.gotwCustomWeek          = true;
-    local.gotwWeek                = 1;
-    local.gotwSeed                = 99;
-    const auto encoded            = Decode(Encode(local));
+    local.aiCivilizations          = 6;
+    local.resources                = 2;
+    local.aiResearchBonusPercent   = -1;
+    local.aiProductionBonusPercent = 300;
+    local.aiGoldBonusPercent       = 201;
+    local.aiFoodBonusPercent       = -5;
+    local.aiCultureBonusPercent    = 150;
+    local.dominationMinimumTurns   = 7;
+    local.combatSpeed              = -1;
+    local.gotwCustomWeek           = true;
+    local.gotwWeek                 = 1;
+    local.gotwSeed                 = 99;
+    const auto encoded             = Decode(Encode(local));
     REQUIRE(encoded);
     CHECK(encoded->aiCivilizations == 4);
     CHECK(encoded->resources == 0);
-    CHECK(encoded->aiResearchCostPercent == 1);
-    CHECK(encoded->aiProductionCostPercent == 100);
+    CHECK(encoded->aiResearchBonusPercent == 0);
+    CHECK(encoded->aiProductionBonusPercent == 200);
+    CHECK(encoded->aiGoldBonusPercent == 200);
+    CHECK(encoded->aiFoodBonusPercent == 0);
+    CHECK(encoded->aiCultureBonusPercent == 150);
     CHECK(encoded->dominationMinimumTurns == 10);
     CHECK(encoded->combatSpeed == 0);
     CHECK(encoded->gotwWeek == 1);
@@ -467,4 +479,38 @@ TEST_CASE("host_settings normalizes local selections before encoding", "[ctest][
     CHECK(!invalidWeek.gotwCustomWeek);
     CHECK(invalidWeek.gotwWeek == 0);
     CHECK(invalidWeek.gotwSeed == 0);
+}
+
+TEST_CASE("host_settings keeps the Game of the Week civilization local", "[ctest][host-settings][local-fast]")
+{
+    HostSettings local           = sample();
+    local.gotwCustomCivilization = true;
+    local.gotwCivilization       = 9;
+    const auto network           = Normalize(local);
+    CHECK(!network.gotwCustomCivilization);
+    CHECK(network.gotwCivilization == 0);
+    CHECK(!Normalize(local, true).gotwCustomCivilization);
+    const auto kept = Normalize(local, false);
+    CHECK(kept.gotwCustomCivilization);
+    CHECK(kept.gotwCivilization == 9);
+    const auto resolved = ResolveForGame(false, statusWith(State::kNone, {}), local);
+    REQUIRE(resolved.settings);
+    CHECK(resolved.settings->gotwCustomCivilization);
+    CHECK(resolved.settings->gotwCivilization == 9);
+
+    local.gotwCivilization = 16;
+    const auto invalid     = Normalize(local, false);
+    CHECK(!invalid.gotwCustomCivilization);
+    CHECK(invalid.gotwCivilization == 0);
+    local.gotwCivilization       = 9;
+    local.gotwCustomCivilization = false;
+    CHECK(Normalize(local, false).gotwCivilization == 0);
+
+    // The wire format never carries the civilization.
+    local.gotwCustomCivilization = true;
+    CHECK(Encode(local) == Encode(sample()));
+    const auto decoded = Decode(Encode(local));
+    REQUIRE(decoded);
+    CHECK(!decoded->gotwCustomCivilization);
+    CHECK(decoded->gotwCivilization == 0);
 }

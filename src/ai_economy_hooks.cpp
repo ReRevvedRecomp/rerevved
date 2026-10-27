@@ -22,7 +22,7 @@ constexpr uint32_t kUnitStride    = 0x94;
 constexpr uint32_t kUnitCostField = 0x44;
 constexpr uint32_t kNetwork       = 0x8314F10B;
 
-const uint8_t* readable(uint32_t address, uint32_t size) noexcept
+uint8_t* guestBytes(uint32_t address, uint32_t size, rex::memory::PageAccess needed) noexcept
 {
     auto* kernel = REX_KERNEL_STATE();
     auto* memory = kernel ? kernel->memory() : nullptr;
@@ -32,11 +32,21 @@ const uint8_t* readable(uint32_t address, uint32_t size) noexcept
     }
     auto* heap = memory->LookupHeap(address);
     if (!heap || memory->LookupHeap(address + size - 1) != heap ||
-        (static_cast<uint32_t>(heap->QueryRangeAccess(address, address + size - 1)) & static_cast<uint32_t>(rex::memory::PageAccess::kReadOnly)) == 0)
+        (static_cast<uint32_t>(heap->QueryRangeAccess(address, address + size - 1)) & static_cast<uint32_t>(needed)) != static_cast<uint32_t>(needed))
     {
         return nullptr;
     }
-    return memory->TranslateVirtual<const uint8_t*>(address);
+    return memory->TranslateVirtual<uint8_t*>(address);
+}
+
+const uint8_t* readable(uint32_t address, uint32_t size) noexcept
+{
+    return guestBytes(address, size, rex::memory::PageAccess::kReadOnly);
+}
+
+uint8_t* writable(uint32_t address, uint32_t size) noexcept
+{
+    return guestBytes(address, size, rex::memory::PageAccess::kReadWrite);
 }
 
 bool readWord(uint32_t address, uint32_t& value) noexcept
@@ -47,6 +57,20 @@ bool readWord(uint32_t address, uint32_t& value) noexcept
         return false;
     }
     value = uint32_t{ bytes[0] } << 24 | uint32_t{ bytes[1] } << 16 | uint32_t{ bytes[2] } << 8 | uint32_t{ bytes[3] };
+    return true;
+}
+
+bool writeWord(uint32_t address, uint32_t value) noexcept
+{
+    auto* bytes = writable(address, 4);
+    if (!bytes)
+    {
+        return false;
+    }
+    bytes[0] = static_cast<uint8_t>(value >> 24);
+    bytes[1] = static_cast<uint8_t>(value >> 16);
+    bytes[2] = static_cast<uint8_t>(value >> 8);
+    bytes[3] = static_cast<uint8_t>(value);
     return true;
 }
 
@@ -79,6 +103,23 @@ bool cityOwner(int32_t offset, int32_t& owner) noexcept
     return true;
 }
 
+// Scale a completed city contribution held in a register and in the stack word
+// the native code saved it to. Both change together or neither does.
+void scaleYield(PPCRegister& stack, uint32_t savedOffset, int32_t owner, PPCRegister& value, int32_t bonusPercent) noexcept
+{
+    const int32_t native = value.s32;
+    if (bonusPercent == 0 || !ordinaryAi(owner))
+    {
+        return;
+    }
+    const int32_t scaled = rerevved::ai_economy::ScaleYield(native, bonusPercent);
+    if (scaled == native || !writeWord(stack.u32 + savedOffset, static_cast<uint32_t>(scaled)))
+    {
+        return;
+    }
+    value.u64 = static_cast<uint32_t>(scaled);
+}
+
 } // namespace
 
 bool rerevved::ai_economy::NativeCostsRequired() noexcept
@@ -90,17 +131,17 @@ bool rerevved::ai_economy::NativeCostsRequired() noexcept
 void ApplyAiResearchCostPercent(PPCRegister& technology, PPCRegister& player, PPCRegister& cost)
 {
     const auto policy = rerevved::ai_economy::ForGame();
-    if (policy.researchCostPercent == 100 || technology.s32 < 1 || technology.s32 > 47 || cost.s32 <= 0 || !ordinaryAi(player.s32))
+    if (policy.researchBonusPercent == 0 || technology.s32 < 1 || technology.s32 > 47 || cost.s32 <= 0 || !ordinaryAi(player.s32))
     {
         return;
     }
-    cost.s64 = rerevved::ai_economy::ScaleCost(cost.s32, policy.researchCostPercent);
+    cost.s64 = rerevved::ai_economy::ScaleCost(cost.s32, policy.researchBonusPercent);
 }
 
 void ApplyAiUnitProductionCostPercent(PPCRegister& cityOffset, PPCRegister& unitType, PPCRegister& scalar)
 {
     const auto policy = rerevved::ai_economy::ForGame();
-    if (policy.productionCostPercent == 100 || unitType.s32 < 0 || unitType.s32 > 28 || scalar.s32 <= 0)
+    if (policy.productionBonusPercent == 0 || unitType.s32 < 0 || unitType.s32 > 28 || scalar.s32 <= 0)
     {
         return;
     }
@@ -114,7 +155,7 @@ void ApplyAiUnitProductionCostPercent(PPCRegister& cityOffset, PPCRegister& unit
     {
         return;
     }
-    const int32_t result = rerevved::ai_economy::ScaleUnitScalar(scalar.s32, std::bit_cast<int8_t>(*factor), policy.productionCostPercent);
+    const int32_t result = rerevved::ai_economy::ScaleUnitScalar(scalar.s32, std::bit_cast<int8_t>(*factor), policy.productionBonusPercent);
     if (result != scalar.s32)
     {
         scalar.s64 = result;
@@ -125,7 +166,7 @@ void ApplyAiNonUnitProductionCostPercent(PPCRegister& cityOffset, PPCRegister& i
 {
     const auto policy    = rerevved::ai_economy::ForGame();
     const bool supported = (itemOffset.s32 >= 0 && itemOffset.s32 <= 22) || (itemOffset.s32 >= 100 && itemOffset.s32 <= 132);
-    if (policy.productionCostPercent == 100 || !supported || cost.s32 <= 0)
+    if (policy.productionBonusPercent == 0 || !supported || cost.s32 <= 0)
     {
         return;
     }
@@ -134,5 +175,29 @@ void ApplyAiNonUnitProductionCostPercent(PPCRegister& cityOffset, PPCRegister& i
     {
         return;
     }
-    cost.s64 = rerevved::ai_economy::ScaleCost(cost.s32, policy.productionCostPercent);
+    cost.s64 = rerevved::ai_economy::ScaleCost(cost.s32, policy.productionBonusPercent);
+}
+
+// Evidence: https://github.com/ReRevvedRecomp/rerevved-research/blob/main/manifests/ai-options-boundaries.json
+// Native stores r8 to the halfword city cache and keeps the saved word at r1+0x7C.
+void ApplyAiGoldBonus(PPCRegister& stack, PPCRegister& owner, PPCRegister& value)
+{
+    scaleYield(stack, 0x7C, owner.s32, value, rerevved::ai_economy::ForGame().goldBonusPercent);
+}
+
+// The owner is the signed word at r1+0x84, not r4.
+void ApplyAiFoodBonus(PPCRegister& stack, PPCRegister& value)
+{
+    const int32_t bonus = rerevved::ai_economy::ForGame().foodBonusPercent;
+    uint32_t      owner = 0;
+    if (bonus == 0 || !readWord(stack.u32 + 0x84, owner))
+    {
+        return;
+    }
+    scaleYield(stack, 0x90, static_cast<int32_t>(owner), value, bonus);
+}
+
+void ApplyAiCultureBonus(PPCRegister& stack, PPCRegister& owner, PPCRegister& value)
+{
+    scaleYield(stack, 0x78, owner.s32, value, rerevved::ai_economy::ForGame().cultureBonusPercent);
 }

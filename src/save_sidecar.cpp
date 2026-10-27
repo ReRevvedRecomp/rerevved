@@ -24,7 +24,7 @@ namespace
 {
 
 constexpr std::array<uint8_t, 4> kMagic{ 'R', 'R', 'G', 'S' };
-constexpr size_t                 kMaximumPayload = 4 + 1 + 1 + 42 + 4 + 64 + 6 + 3 + 32 * 32 * 3;
+constexpr size_t                 kMaximumPayload = 4 + 1 + 1 + 42 + 4 + 64 + 9 + 3 + 32 * 32 * 3;
 
 bool validIdentity(const Identity& identity)
 {
@@ -67,8 +67,10 @@ std::vector<uint8_t> Serialize(const State& state, const Identity& identity)
     bytes.push_back(state.occEnabled);
     bytes.push_back(static_cast<uint8_t>(state.occPopulation));
     bytes.push_back(static_cast<uint8_t>(state.resources));
-    bytes.push_back(static_cast<uint8_t>(state.aiEconomy.researchCostPercent));
-    bytes.push_back(static_cast<uint8_t>(state.aiEconomy.productionCostPercent));
+    for (int32_t bonus : { state.aiEconomy.researchBonusPercent, state.aiEconomy.productionBonusPercent, state.aiEconomy.goldBonusPercent, state.aiEconomy.foodBonusPercent, state.aiEconomy.cultureBonusPercent })
+    {
+        bytes.push_back(static_cast<uint8_t>(bonus));
+    }
     bytes.insert(bytes.end(), records.begin(), records.end());
     return bytes;
 }
@@ -81,8 +83,8 @@ std::optional<State> Deserialize(std::span<const uint8_t> bytes, const Identity&
         return std::nullopt;
     }
     const size_t slotSize  = bytes[5];
-    // Schema 1 has only the four setting bytes. Schema 2 adds the two AI cost percents.
-    const size_t stateSize = bytes[4] == 1 ? 4 : 6;
+    // Schema 1 has only the four setting bytes. Schema 2 adds the five AI bonuses.
+    const size_t stateSize = bytes[4] == 1 ? 4 : 9;
     if (slotSize != identity.slot.size() || bytes.size() < 6 + slotSize + 4 + 64 + stateSize + 3 ||
         !std::equal(identity.slot.begin(), identity.slot.end(), bytes.begin() + 6))
     {
@@ -106,7 +108,7 @@ std::optional<State> Deserialize(std::span<const uint8_t> bytes, const Identity&
     State state{ bytes[offset] != 0, bytes[offset + 1] != 0, bytes[offset + 2], bytes[offset + 3], {} };
     if (bytes[4] >= 2)
     {
-        state.aiEconomy = { bytes[offset + 4], bytes[offset + 5] };
+        state.aiEconomy = { bytes[offset + 4], bytes[offset + 5], bytes[offset + 6], bytes[offset + 7], bytes[offset + 8] };
     }
     const auto records = resource_identity_overrides::Deserialize(bytes.subspan(offset + stateSize));
     if (!records)

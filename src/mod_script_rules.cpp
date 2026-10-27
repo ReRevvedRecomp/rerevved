@@ -1,5 +1,6 @@
 #include "mod_script_rules.h"
 #include "gameplay_session_settings.h"
+#include "host_settings.h"
 #include "rules_bundle.h"
 #include <algorithm>
 #include <array>
@@ -9,6 +10,9 @@
 #include <mutex>
 #include <utility>
 #include <wonder_effect_rules.h>
+
+#include <rex/logging.h>
+#include <rex/ui/notifications.h>
 
 namespace rerevved
 {
@@ -249,6 +253,18 @@ public:
         return true;
     }
 
+    // Withdraws this host's Lua rules for a Standard Rules game, or republishes
+    // the latest selection. Callers hold the rule boundary.
+    void SetSuspended(bool suspend) noexcept
+    {
+        if (suspend == suspended_)
+            return;
+        if (suspend)
+            Suspend();
+        else
+            Resume();
+    }
+
     std::unique_ptr<ModScriptReplacement> PrepareReplacement(std::span<const ModScriptPublishRequest> requests, ModScriptPublishResult& result) noexcept override
     {
         result       = {};
@@ -275,6 +291,12 @@ public:
             {
                 result.message = "rules[" + std::to_string(native.bundleIndex) + "] " + native.ruleId + ": native result " + std::to_string(native.nativeResult) + "; active rules unchanged";
                 return nullptr;
+            }
+            if (suspended_)
+            {
+                // Validated here and published when the suspension ends.
+                replacement->prepared.reset();
+                replacement->deferred = true;
             }
             result.message.clear();
             result.published = true;
@@ -304,9 +326,17 @@ private:
         RulesHost&                             owner;
         RulesBundle                            next;
         std::unique_ptr<PreparedRulesBundle>   prepared;
+        bool                                   deferred = false;
 
         void Commit() noexcept override
         {
+            if (deferred)
+            {
+                owner.held_.rules.swap(next.rules);
+                deferred = false;
+                Notify("Mods paused", "Standard Rules keeps this Game of the Week unmodded. Your mod selection applies to your next game.");
+                return;
+            }
             if (!prepared)
                 return;
             prepared->Commit();
@@ -315,7 +345,87 @@ private:
         }
     };
 
+    // Posting must not fail a commit. A lost toast only hides the explanation.
+    static void Notify(const char* title, const char* message) noexcept
+    {
+        try
+        {
+            rex::ui::PostNotification(title, message);
+        }
+        catch (...)
+        {
+        }
+    }
+
+    void Suspend() noexcept
+    {
+        const size_t count = owned_.rules.size();
+        try
+        {
+            if (count != 0)
+            {
+                const RulesBundle none;
+                PublishResult     native{};
+                const auto        prepared = PrepareRulesBundle(none, owned_, native);
+                if (!prepared)
+                {
+                    REXLOG_ERROR("Mod rules: suspension failed, rules stay published (native result {})", native.nativeResult);
+                    return;
+                }
+                prepared->Commit();
+            }
+            held_.rules.swap(owned_.rules);
+            suspended_ = true;
+            REXLOG_INFO("Mod rules: suspended for Standard Rules Game of the Week (rules={})", count);
+        }
+        catch (...)
+        {
+            REXLOG_ERROR("Mod rules: suspension failed, rules stay published");
+        }
+    }
+
+    void Resume() noexcept
+    {
+        const size_t count    = held_.rules.size();
+        bool         restored = true;
+        try
+        {
+            if (count != 0)
+            {
+                PublishResult native{};
+                const auto    prepared = PrepareRulesBundle(held_, owned_, native);
+                if (prepared)
+                {
+                    prepared->Commit();
+                    owned_.rules.swap(held_.rules);
+                }
+                else
+                {
+                    restored = false;
+                    REXLOG_ERROR("Mod rules: restore failed (native result {})", native.nativeResult);
+                }
+            }
+        }
+        catch (...)
+        {
+            restored = false;
+            REXLOG_ERROR("Mod rules: restore failed");
+        }
+        held_.rules.clear();
+        suspended_ = false;
+        if (restored)
+            REXLOG_INFO("Mod rules: restored (rules={})", count);
+        else
+        {
+            // The accepted digest no longer describes the effective rules.
+            host_settings::InvalidateLocalModSnapshot();
+            Notify("Mods not restored", "Mod rules could not be restored. Open F2 Mods and apply your mods again.");
+        }
+    }
+
     RulesBundle owned_;
+    RulesBundle held_;
+    bool        suspended_ = false;
 
     static RulesBundle Decode(const ModScriptPublishRequest& request)
     {
@@ -482,7 +592,7 @@ private:
                 }
                 case 8:
                 {
-                    // Effect records are also reported to the support check; the bundle publishes them with the other rules.
+                    // The support check also receives effect records. The bundle publishes them with the other rules.
                     const auto effect  = MapRuleParameters(kind, { { "civilization", s("civilization") }, { "building", s("building") }, { "yield", s("yield") } });
                     const auto request = effectRequest<BuildingEffectRuleV2>(provider, id, effect, n("amount"));
                     effects.push_back({ locator, request });
@@ -565,6 +675,10 @@ private:
     std::array<ModScriptContract, 1>                         contracts_{ ModScriptContract{ "rerevved.rules", 1, {} } };
 };
 
+// The newest host receives suspension for the game. The title creates one host.
+std::mutex               activeHostMutex;
+std::weak_ptr<RulesHost> activeHost;
+
 } // namespace
 
 #ifdef RULES_BUNDLE_TESTING
@@ -578,7 +692,30 @@ void ObserveEffectRequestsForTests(void (*building)(const BuildingEffectRuleV2&)
 
 std::shared_ptr<rex::system::IModScriptHost> CreateModScriptRulesHost()
 {
-    return std::make_shared<RulesHost>();
+    auto host = std::make_shared<RulesHost>();
+    {
+        std::lock_guard lock(activeHostMutex);
+        activeHost = host;
+    }
+    return host;
+}
+
+void SuspendModRulesForGame(bool suspend) noexcept
+try
+{
+    std::shared_ptr<RulesHost> host;
+    {
+        std::lock_guard lock(activeHostMutex);
+        host = activeHost.lock();
+    }
+    if (!host)
+        return;
+    const auto boundary = gameplay_session::LockRuleBoundary();
+    host->SetSuspended(suspend);
+}
+catch (...)
+{
+    // No exception may escape a guest setup or load boundary.
 }
 
 } // namespace rerevved
