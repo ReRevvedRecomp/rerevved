@@ -165,6 +165,8 @@ template <typename T>
 struct Stage
 {
     std::vector<T>                      requests;
+    std::vector<T>                      removed;
+    bool                                exclusive = false;
     std::vector<const IndexedRequest*>  origins;
     std::vector<T>                      candidate;
     std::unique_lock<std::shared_mutex> lock;
@@ -188,18 +190,19 @@ void locate(PublishResult& result, const IndexedRequest& input) noexcept
 template <typename T>
 void acquire(Stage<T>& stage, PublishResult& result)
 {
-    if (stage.requests.empty())
+    if (stage.requests.empty() && stage.removed.empty())
     {
         return;
     }
-    locate(result, *stage.origins.front());
+    if (!stage.origins.empty())
+        locate(result, *stage.origins.front());
     stage.lock = Registry<T>::lock();
 }
 
 template <typename T>
 bool prepare(Stage<T>& stage, PublishResult& result)
 {
-    if (stage.requests.empty())
+    if (stage.requests.empty() && stage.removed.empty())
     {
         return true;
     }
@@ -207,16 +210,18 @@ bool prepare(Stage<T>& stage, PublishResult& result)
     int32_t status = Registry<T>::internalError;
     try
     {
-        status = Registry<T>::build(stage.requests, stage.candidate, offset, preparationCheckpoint);
+        status = Registry<T>::build(stage.requests, stage.candidate, offset, preparationCheckpoint, stage.removed, stage.exclusive);
     }
     catch (...)
     {
-        locate(result, *stage.origins[offset]);
+        if (!stage.origins.empty())
+            locate(result, *stage.origins[offset]);
         return false;
     }
     if (status != 0)
     {
-        locate(result, *stage.origins[offset]);
+        if (!stage.origins.empty())
+            locate(result, *stage.origins[offset]);
         result.nativeResult = status;
         return false;
     }
@@ -226,7 +231,7 @@ bool prepare(Stage<T>& stage, PublishResult& result)
 template <typename T>
 void commit(Stage<T>& stage) noexcept
 {
-    if (!stage.requests.empty())
+    if (!stage.requests.empty() || !stage.removed.empty())
     {
         Registry<T>::commit(stage.candidate);
     }
@@ -326,14 +331,67 @@ void FailPreparationAfterForTests(int64_t successfulSteps) noexcept
 }
 #endif
 
-PublishResult PublishRulesBundle(const RulesBundle& bundle) noexcept
+namespace
 {
-    PublishResult result{};
+
+struct PreparedBundle final : PreparedRulesBundle
+{
+    // Registry acquisition order stays terrain, combat, scalar, movement,
+    // effect, production, era, text, building, wonder, then founding units.
+    std::tuple<Stage<TerrainYieldRule>, Stage<UnitCombatRule>, Stage<UniqueUnitScalarRule>, Stage<UnitMovementRule>, Stage<UnitEffectRule>, Stage<UnitProductionCostRule>, Stage<EraAbilityReplacement>, Stage<NationSelectTextRule>, Stage<BuildingEffectRuleV2>, Stage<WonderEffectRuleV2>, Stage<city_founding_unit::Rule>> stages;
+
+    bool committed = false;
+
+    void Commit() noexcept override
+    {
+        if (committed)
+            return;
+        committed = true;
+        std::apply([](auto&... stage) noexcept
+                   {
+                       (commit(stage), ...);
+                   },
+                   stages);
+        // Unlock before observers can read the committed registries.
+        std::apply([](auto&... stage)
+                   {
+                       const auto unlock = [](auto& entry)
+                       {
+                           if (entry.lock.owns_lock())
+                               entry.lock.unlock();
+                       };
+                       (unlock(stage), ...);
+                   },
+                   stages);
+    }
+};
+
+std::unique_ptr<PreparedRulesBundle> prepareBundle(const RulesBundle& bundle, const RulesBundle* previous, PublishResult& result) noexcept
+{
+    result = {};
+    if (!bundle.rules.empty())
+        locate(result, bundle.rules.front());
+    else if (previous && !previous->rules.empty())
+        locate(result, previous->rules.front());
     try
     {
-        // Registry acquisition order is terrain, combat, scalar, movement,
-        // effect, production, era, text, building, wonder, then Militia.
-        std::tuple<Stage<TerrainYieldRule>, Stage<UnitCombatRule>, Stage<UniqueUnitScalarRule>, Stage<UnitMovementRule>, Stage<UnitEffectRule>, Stage<UnitProductionCostRule>, Stage<EraAbilityReplacement>, Stage<NationSelectTextRule>, Stage<BuildingEffectRuleV2>, Stage<WonderEffectRuleV2>, Stage<city_founding_unit::Rule>> stages;
+        auto  prepared = std::make_unique<PreparedBundle>();
+        auto& stages   = prepared->stages;
+        if (previous)
+        {
+            std::apply([](auto&... stage)
+                       {
+                           ((stage.exclusive = true), ...);
+                       },
+                       stages);
+            for (const auto& input : previous->rules)
+                std::visit([&](const auto& rule)
+                           {
+                               using T = std::decay_t<decltype(rule)>;
+                               std::get<Stage<T>>(stages).removed.push_back(rule);
+                           },
+                           input.request);
+        }
         for (const auto& input : bundle.rules)
         {
             locate(result, input);
@@ -357,7 +415,7 @@ PublishResult PublishRulesBundle(const RulesBundle& bundle) noexcept
                                     input.request);
             if (!valid)
             {
-                return result;
+                return nullptr;
             }
         }
         std::apply([&](auto&... stage)
@@ -372,20 +430,31 @@ PublishResult PublishRulesBundle(const RulesBundle& bundle) noexcept
                                       stages);
         if (!ready)
         {
-            return result;
+            return nullptr;
         }
-        // From the first swap to return: no allocation, validation or throwing work.
-        std::apply([](auto&... stage) noexcept
-                   {
-                       (commit(stage), ...);
-                   },
-                   stages);
-        return { true };
+        result.published = true;
+        return prepared;
     }
     catch (...)
     {
-        return result;
+        return nullptr;
     }
+}
+
+} // namespace
+
+std::unique_ptr<PreparedRulesBundle> PrepareRulesBundle(const RulesBundle& next, const RulesBundle& previous, PublishResult& result) noexcept
+{
+    return prepareBundle(next, &previous, result);
+}
+
+PublishResult PublishRulesBundle(const RulesBundle& bundle) noexcept
+{
+    PublishResult result{};
+    auto          prepared = prepareBundle(bundle, nullptr, result);
+    if (prepared)
+        prepared->Commit();
+    return result;
 }
 
 int32_t BuildCityFoundingUnitRule(RuleIdentity ids, bool enable, city_founding_unit::Rule& out) noexcept

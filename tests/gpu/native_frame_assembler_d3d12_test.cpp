@@ -1,14 +1,18 @@
+#include "callback_checks.hpp"
 #include "developer_checks.hpp"
 #include "gpu/d3d12/native_completion_source.h"
 #include "gpu/d3d12/native_renderer_d3d12.h"
 #include "gpu/d3d12/native_texture_upload.h"
 #include "gpu/guest_d3d/native_frame_assembler.h"
+#include "gpu/guest_d3d/resolve_surface_hooks.h"
 #include "gpu/present/native_output_lease.h"
 #include "logging_scope.hpp"
 #include "native_render_frame_test_access.h"
 #include "stream_queue_fixture.h"
 
+#include <rex/hook.h>
 #include <rex/logging.h>
+#include <rex/ppc/context.h>
 
 #include <Windows.h>
 #include <d3d12.h>
@@ -19,6 +23,7 @@
 #include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
+#include <condition_variable>
 #include <cstring>
 #include <filesystem>
 #include <format>
@@ -26,7 +31,9 @@
 #include <future>
 #include <iostream>
 #include <iterator>
+#include <map>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <span>
 #include <stdexcept>
@@ -67,7 +74,14 @@ struct RendererProducer final : INativeFrameProducer
     NativeRendererD3D12&                                    renderer;
     ID3D12Fence*                                            fence = nullptr;
     std::vector<std::shared_future<NativeDrawReplayResult>> terminals, terminalRecordings, prefixRecordings;
-    std::size_t                                             prefixes = 0;
+    std::size_t                                             prefixes        = 0;
+    bool                                                    inspectSurfaces = false;
+    bool                                                    inspectGraph    = false;
+    std::vector<NativeRenderFrame>                          prefixFrames;
+    std::vector<std::shared_ptr<NativeRenderFrameTicket>>   tickets;
+    std::vector<std::vector<std::uint64_t>>                 released;
+    std::uint64_t                                           captureOutput = 0;
+    std::optional<NativeRenderFrame>                        capturedFrame;
 
     explicit RendererProducer(NativeRendererD3D12& value)
     : renderer(value)
@@ -84,18 +98,34 @@ struct RendererProducer final : INativeFrameProducer
 
     bool QueueFrame(NativeRenderFrame frame, std::shared_future<NativeDrawReplayResult>& completion, std::string& error) override
     {
+        if (captureOutput && frame.outputTextureId == captureOutput)
+        {
+            capturedFrame = frame;
+        }
+        if (inspectSurfaces)
+        {
+            released.push_back(frame.releasedSurfaces);
+        }
         std::shared_ptr<NativeRenderFrameTicket> ticket;
         if (!renderer.QueueRenderFrame(std::move(frame), ticket, error))
             return false;
         completion = ticket->Completion();
         terminals.push_back(completion);
         terminalRecordings.push_back(ticket->Recording());
+        if (inspectSurfaces)
+        {
+            tickets.push_back(ticket);
+        }
         return true;
     }
 
     bool QueuePasses(NativeRenderFrame passes, std::shared_future<NativeDrawReplayResult>& recording, std::string& error) override
     {
         ++prefixes;
+        if (inspectGraph)
+        {
+            prefixFrames.push_back(passes);
+        }
         if (!renderer.QueueRenderFramePasses(std::move(passes), recording, error))
             return false;
         prefixRecordings.push_back(recording);
@@ -208,6 +238,12 @@ std::uint32_t referenceTiledOffset(std::uint32_t x, std::uint32_t y, std::uint32
     const auto micro          = ((x & 7) + ((y & 14) << 2)) << logBpp;
     const auto offset         = macro + ((micro & ~15U) << 1) + (micro & 15) + ((y & 1) << 4);
     return ((offset & ~511U) << 3) + ((y & 16) << 7) + ((offset & 448) << 2) + (((((y & 8) >> 2) + (x >> 3)) & 3) << 6) + (offset & 63);
+}
+
+// An opted-in GPU case skips on a runner without a D3D12 device.
+bool hasD3D12Device()
+{
+    return SUCCEEDED(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, __uuidof(ID3D12Device), nullptr));
 }
 
 // 1024x1024 raw clear readback exposes channel order, endian, and tiles.
@@ -1585,6 +1621,886 @@ void checkSurfaceRegistry()
     std::cout << "Draws bound to resolve surfaces present the bytes path's output across epochs (" << bound.counts.hits << " hits)\n";
 }
 
+class QueuedSurfaceConsumer
+{
+public:
+    QueuedSurfaceConsumer(NativeFrameAssembler& assembler, std::shared_ptr<ResolveSurfaceRegistry> surfaces, rerevved::tests::CallbackChecks& checks)
+    : surfaces(std::move(surfaces))
+    , previous(PublishedResolveSurfaces())
+    , dispatcher(makeConfig(assembler, checks))
+    {
+        REQUIRE(InstallNativeDrawDispatcher(dispatcher));
+        PublishResolveSurfaces(this->surfaces);
+    }
+
+    ~QueuedSurfaceConsumer()
+    {
+        Release();
+        surfaces->SetBarrier(nullptr);
+        (void)RemoveNativeDrawDispatcher(std::chrono::seconds(10));
+        PublishResolveSurfaces(previous);
+    }
+
+    void Queue(std::uint32_t kind)
+    {
+        PPCContext ctx{};
+        ctx.r1.u32        = 0x7000;
+        ctx.r3.u32        = kAliasGraphics;
+        ctx.r10.u32       = kind;
+        ctx.lr            = 0x82303E40;
+        std::uint8_t base = 0;
+        {
+            const NativeDrawScope scope(NativeDrawHook::IndexedBuffer, ctx, &base);
+            REQUIRE(scope.Root());
+        }
+    }
+
+    void WaitEntered()
+    {
+        std::unique_lock lock(mutex);
+        REQUIRE(changed.wait_for(lock, std::chrono::seconds(10), [&]
+                                 {
+                                     return entered;
+                                 }));
+    }
+
+    void Release()
+    {
+        {
+            std::lock_guard lock(mutex);
+            released = true;
+        }
+        changed.notify_all();
+    }
+
+    NativeDrawSequencerStats Stats() const
+    {
+        return dispatcher.Sequencer();
+    }
+
+private:
+    NativeDrawDispatchConfig makeConfig(NativeFrameAssembler& assembler, rerevved::tests::CallbackChecks& checks)
+    {
+        NativeDrawDispatchConfig config;
+        assembler.Attach(config);
+        config.sequenced = true;
+        // The authored shaders need no guest payload. The scope still reads
+        // state and posts through the installed production dispatcher.
+        config.read = [](const std::uint8_t*, std::uint32_t, std::uint32_t& value)
+        {
+            value = 0;
+            return true;
+        };
+        config.defer = [](const NativeDrawSubmission&) -> std::shared_ptr<const void>
+        {
+            return std::make_shared<int>(1);
+        };
+        config.began = [this, began = std::move(config.began), &checks](const NativeDrawSubmission& draw)
+        {
+            {
+                std::unique_lock lock(mutex);
+                entered = true;
+                changed.notify_all();
+                changed.wait(lock, [&]
+                             {
+                                 return released;
+                             });
+            }
+            checks.Require(draw.deferral != nullptr, "the surface consumer runs on the sequencer");
+            began(draw);
+        };
+        config.recorded = [recorded = std::move(config.recorded), &checks](const NativeDrawSubmission& draw, std::optional<NativeDrawReason> verdict)
+        {
+            recorded(draw, verdict);
+            checks.Require(!verdict, "the queued surface consumer is admitted");
+        };
+        config.failed = [&checks](const NativeDrawFailure&)
+        {
+            checks.Require(false, "the queued surface consumer must not fail dispatch");
+        };
+        return config;
+    }
+
+    std::shared_ptr<ResolveSurfaceRegistry> surfaces, previous;
+    std::mutex                              mutex;
+    std::condition_variable                 changed;
+    bool                                    entered = false, released = false;
+    NativeDrawDispatcher                    dispatcher;
+};
+
+struct OrderedSurfaceInputs
+{
+    static constexpr std::uint32_t                              width = 1280, height = 720;
+    static constexpr std::array<std::uint32_t, 6>               fetch{ 0x8A000002, 0x1DBB0086, 0x0059E4FF, 0x00A80C14, 0x00000003, 0x00000218 };
+    static constexpr std::array<std::array<std::uint8_t, 4>, 2> colors{ { { 17, 71, 163, 217 }, { 210, 107, 37, 143 } } };
+    std::array<std::vector<std::uint8_t>, 2>                    expected;
+    std::array<NativeDrawReplayRecipe, 2>                       producers;
+    NativeDrawReplayRecipe                                      sampler;
+
+    OrderedSurfaceInputs()
+    {
+        for (std::size_t version = 0; version < expected.size(); ++version)
+        {
+            expected[version].resize(kPlaneBytes);
+            for (std::uint32_t y = 0; y < height; ++y)
+            {
+                for (std::uint32_t x = 0; x < width; ++x)
+                {
+                    const std::array<std::uint32_t, 4> offset{ 3 * x + 5 * y, 7 * x + 11 * y, 13 * x + 19 * y, 0 };
+                    for (std::size_t c = 0; c < 4; ++c)
+                    {
+                        expected[version][(std::size_t(y) * width + x) * 4 + c] = static_cast<std::uint8_t>(colors[version][c] + offset[c]);
+                    }
+                }
+            }
+        }
+        NativeDrawReplayRecipe producerDraw;
+        producerDraw.schemaVersion = 2;
+        producerDraw.width         = width;
+        producerDraw.height        = height;
+        producerDraw.sampleCount = producerDraw.sampleMask = 1;
+        producerDraw.vertexShaderHash                      = 0xA11C5;
+        producerDraw.vertexShaderDxil                      = compile("float4 main(float4 p:TEXCOORD0):SV_Position { return p; }", "vs_5_1");
+        producerDraw.vertexAttributeCount                  = 1;
+        producerDraw.vertexStrideBytes                     = 16;
+        const std::array<std::array<float, 4>, 3> positions{ { { -1, -1, 0, 1 }, { -1, 3, 0, 1 }, { 3, -1, 0, 1 } } };
+        producerDraw.vertexData.resize(sizeof(positions));
+        std::memcpy(producerDraw.vertexData.data(), positions.data(), sizeof(positions));
+        producerDraw.indices    = { 0, 1, 2 };
+        producerDraw.indexCount = 3;
+        producerDraw.vertexConstants.resize(4096);
+        producerDraw.pixelConstants.resize(3584);
+        producerDraw.sharedConstants.resize(336);
+        producerDraw.viewport = { 0, 0, width, height, 0, 1 };
+        producerDraw.scissor  = { 0, 0, width, height };
+        producers             = { producerDraw, producerDraw };
+        for (std::size_t version = 0; version < producers.size(); ++version)
+        {
+            producers[version].pixelShaderHash = 0xA11C6 + version;
+            producers[version].pixelShaderDxil = compile(std::format(
+                                                             "float4 main(float4 p:SV_Position):SV_Target0 {{ uint2 q=uint2(p.xy);"
+                                                             " return float4((uint3({},{},{})+uint3(3*q.x+5*q.y,7*q.x+11*q.y,13*q.x+19*q.y))&255,{})/255.0; }}",
+                                                             colors[version][0],
+                                                             colors[version][1],
+                                                             colors[version][2],
+                                                             colors[version][3])
+                                                             .c_str(),
+                                                         "ps_5_1");
+        }
+        sampler                 = producerDraw;
+        sampler.pixelShaderHash = 0xA11C8;
+        sampler.pixelShaderDxil = compile("Texture2D<float4> t:register(t0); float4 main(float4 p:SV_Position):SV_Target0 { return t.Load(int3(int2(p.xy),0)); }", "ps_5_1");
+        sampler.textureMask     = 1;
+    }
+
+    void CheckPixels(std::span<const std::uint8_t> bytes, std::uint32_t rowPitch, std::size_t version) const
+    {
+        REQUIRE((rowPitch >= width * 4 && bytes.size() >= std::size_t(rowPitch) * height));
+        for (std::uint32_t y = 0; y < height; ++y)
+        {
+            INFO(std::format("version {} row {}", version + 1, y));
+            REQUIRE(std::equal(expected[version].begin() + std::size_t(y) * width * 4,
+                               expected[version].begin() + std::size_t(y + 1) * width * 4,
+                               bytes.begin() + std::size_t(y) * rowPitch));
+        }
+    }
+};
+
+// Both producer routes retain the actual A binding when B uses the same range.
+void checkOrderedSurfaceVersions(bool graph = false, bool staged = false)
+{
+    using Microsoft::WRL::ComPtr;
+    const OrderedSurfaceInputs inputs;
+    constexpr auto             width = OrderedSurfaceInputs::width, height = OrderedSurfaceInputs::height;
+    const auto&                fetch       = OrderedSurfaceInputs::fetch;
+    const auto&                producers   = inputs.producers;
+    const auto&                sampler     = inputs.sampler;
+    const auto                 checkPixels = [&](std::span<const std::uint8_t> bytes, std::uint32_t pitch, std::size_t version)
+    {
+        inputs.CheckPixels(bytes, pitch, version);
+    };
+
+    std::string               error;
+    NativeTextureMemoryRanges ranges;
+    const bool                ranged = GetNativeTextureMemoryRanges(fetch, ranges, error);
+    UNSCOPED_INFO("the authored destination layout: " + error);
+    REQUIRE((ranged && ranges.base.address == 0x1DBB0000 && ranges.base.size == 0x398000 &&
+             std::uint64_t(ranges.base.address) + ranges.base.size == 0x1DF48000 && ranges.mips.size == 0));
+
+    std::uint64_t        offers = 0;
+    NativeRendererD3D12  stream;
+    ComPtr<ID3D12Device> shared;
+    REQUIRE(SUCCEEDED(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&shared))));
+    const auto publish = [&offers](ID3D12Resource*, ID3D12Fence*, std::uint64_t)
+    {
+        auto lease = std::make_shared<NativeOutputLease>(++offers);
+        lease->Cancel();
+        return lease;
+    };
+    UNSCOPED_INFO("the ordered surface stream: " + error);
+    REQUIRE(stream.StartTitleDrawStream(error, shared.Get(), publish));
+    if (staged && !stream.CastableGuestWordTextures())
+    {
+        stream.Shutdown();
+        SKIP("The actual D3D12 device does not support castable guest word textures");
+    }
+    {
+        auto producer             = std::make_shared<RendererProducer>(stream);
+        producer->inspectSurfaces = true;
+        producer->inspectGraph    = graph;
+        D3D12CompletionSource      source({ producer });
+        auto                       surfaces = std::make_shared<ResolveSurfaceRegistry>();
+        NativeFrameAssemblerConfig config;
+        config.completion                   = &source;
+        config.resolveGraph                 = graph;
+        config.eagerGraphSegments           = graph;
+        config.resolveAlias                 = graph;
+        config.timing                       = graph;
+        config.castableGuestWords           = stream.CastableGuestWordTextures();
+        config.surfaces                     = surfaces;
+        bool                  tiledProducer = false;
+        const GuestWordReader tiledWords    = [words = targetWords(width, height, false, 0x300)](std::uint32_t address, std::uint32_t& out)
+        {
+            const auto offset = address - kAliasGraphics;
+            switch (offset)
+            {
+                case 0x2ABC:
+                    out = 0x20000000;
+                    return true;
+                case 0x31A4:
+                    out = 0xF;
+                    return true;
+                case 0x31AC:
+                    out = 1;
+                    return true;
+                case 0x31CC:
+                    out = 2;
+                    return true;
+                case 0x337C:
+                    out = width;
+                    return true;
+                case 0x3380:
+                    out = height;
+                    return true;
+                default:
+                    break;
+            }
+            if (offset >= 0x31B8 && offset <= 0x31C8 && offset % 4 == 0)
+            {
+                out = offset == 0x31B8 ? kAliasSurface : 0;
+                return true;
+            }
+            constexpr std::array<std::uint32_t, 8> rects{ 0, 0, width / 2, height, width / 2, 0, width, height };
+            if (offset >= 0x31D0 && offset < 0x31F0 && offset % 4 == 0)
+            {
+                out = rects[(offset - 0x31D0) / 4];
+                return true;
+            }
+            return words(address, out);
+        };
+        config.readTarget = [&tiledProducer, tiledWords, words = targetWords(width, height, false, 0)](std::uint32_t address, std::uint32_t& out)
+        {
+            return (tiledProducer ? tiledWords : words)(address, out);
+        };
+        if (staged)
+        {
+            config.coverage = [](const NativeDrawSubmission& value, const NativeDrawReplayRecipe& draw) -> std::optional<NativeFrameDrawCover>
+            {
+                if (value.arguments[7] != 3)
+                    return std::nullopt;
+                // The authored triangle writes every sample without blending,
+                // depth, stencil, or pixel kill.
+                return NativeFrameDrawCover{ draw.scissor };
+            };
+        }
+        config.watchWrites = [](std::uint32_t, std::uint32_t)
+        {
+        };
+        NativeFrameAssembler*           current = nullptr;
+        std::array<std::uint64_t, 2>    boundIds{};
+        rerevved::tests::CallbackChecks callbackChecks;
+        config.build = [&](const NativeDrawSubmission& value, NativeDrawReplayRecipe& draw, std::string&)
+        {
+            const auto kind = (staged ? value.arguments[7] : value.sequence) - 1;
+            if (kind % 2 == 0)
+            {
+                draw = producers[kind / 2];
+            }
+            else
+            {
+                draw               = sampler;
+                auto       miss    = NativeResolvedTextureMiss::Form;
+                const auto texture = current->ResolvedTexture(fetch, value.operationMark, miss);
+                callbackChecks.Require(texture.has_value(), "the ordered consumer binds a committed surface");
+                callbackChecks.Require((texture->layout.width == width && texture->layout.height == height &&
+                                        texture->layout.format == NativeDrawReplayTextureFormat::Rgba8 &&
+                                        texture->swizzle == std::array<std::uint8_t, 4>{ 0, 1, 2, 3 }),
+                                       "the ordered consumer uses the authored RGBA8 view");
+                boundIds[kind / 2] = texture->frameTextureId;
+                draw.textures[0]   = BindNativeResolvedTexture(*texture);
+            }
+            return true;
+        };
+        NativeFrameAssembler assembler(config);
+        current = &assembler;
+        GuestTarget target;
+        target.native = { width, height, 1, NativeDrawReplayTargetFormat::Rgba8, 0 };
+        GuestTarget main;
+        main.native      = { width, height, 4, NativeDrawReplayTargetFormat::Rgba8, 0x900 };
+        const auto clear = [&](const GuestTarget& destination)
+        {
+            GuestClear value;
+            value.target          = destination;
+            value.flags           = 1;
+            value.clear.rectangle = { 0, 0, width, height };
+            value.clear.color     = true;
+            const auto mark       = assembler.Clear(value, error);
+            UNSCOPED_INFO("the ordered target clear: " + error);
+            REQUIRE(mark != 0);
+        };
+        const auto scanout = [&]
+        {
+            GuestResolveCopy copy;
+            copy.copyControl   = 0x00100040;
+            copy.destBase      = kFrontbuffer;
+            copy.destPitch     = kScanoutDestPitch;
+            copy.destInfo      = 0x300;
+            copy.rectWidth     = width;
+            copy.rectHeight    = height;
+            bool       partial = false;
+            const auto mark    = assembler.Resolve(main, copy, true, partial, error);
+            UNSCOPED_INFO("the ordered scanout: " + error);
+            REQUIRE(mark != 0);
+        };
+        const auto submitDraw = [&](std::uint64_t sequence)
+        {
+            NativeDrawSubmission draw;
+            draw.hook          = NativeDrawHook::IndexedUp;
+            draw.caller        = 0x82303E40;
+            draw.stack         = 0x7000;
+            draw.arguments     = { kAliasGraphics, 4, 0, 3, 3, 0x3000, 1, std::uint32_t(sequence) };
+            draw.stateRead     = true;
+            draw.sequence      = sequence;
+            draw.operationMark = assembler.NumberOperation();
+            assembler.Began(draw);
+            const auto verdict = assembler.Admit(draw);
+            assembler.Recorded(draw, verdict);
+            callbackChecks.Verify();
+            REQUIRE(!verdict);
+        };
+        GuestResolveCopy copy;
+        copy.copyControl   = 0x00100000;
+        copy.destBase      = 0x1DBB0000;
+        copy.destPitch     = 0x02D00500;
+        copy.destInfo      = 0x01000302;
+        copy.destFetch     = fetch;
+        copy.rectWidth     = width;
+        copy.rectHeight    = height;
+        const auto resolve = [&](std::uint32_t base)
+        {
+            auto destination         = copy;
+            destination.destBase     = base;
+            destination.destFetch[1] = base | 0x86;
+            bool       partial       = false;
+            const auto mark          = assembler.Resolve(target, destination, false, partial, error);
+            UNSCOPED_INFO("the ordered resolve: " + error);
+            REQUIRE((mark && !partial));
+            return mark;
+        };
+        const auto complete = [&](std::uint64_t mark)
+        {
+            const auto flush = flushThrough(assembler, source, mark);
+            UNSCOPED_INFO("the ordered resolve completes: " + flush.error);
+            REQUIRE((flush.fence && source.WaitFor(flush.fence, std::chrono::seconds(10))));
+            return (graph ? producer->prefixRecordings.back() : producer->terminals.back()).get().completionFenceValue;
+        };
+        const auto binding = [&](std::uint64_t mark, std::uint64_t version)
+        {
+            const auto found = surfaces->Find(fetch, false);
+            REQUIRE((found && std::holds_alternative<ResolveSurfaceBinding>(*found)));
+            const auto& value = std::get<ResolveSurfaceBinding>(*found);
+            REQUIRE((value.mark == mark && value.version == version &&
+                     value.texture.frameTextureId == (std::uint64_t(3) << 60) + mark));
+            const auto imported = surfaces->Import(value.texture.frameTextureId);
+            REQUIRE((imported && imported->persistentKey == ((std::uint64_t(1) << 63) | mark) &&
+                     imported->importedWords == NativeGuestWordPacking::None));
+        };
+        const auto checkBytes = [&](std::uint64_t mark, std::size_t version)
+        {
+            const auto take = assembler.TakeGuestImage(mark);
+            UNSCOPED_INFO("the ordered guest image: " + take.error);
+            REQUIRE((take.image && take.image->physical == copy.destBase));
+            std::vector<std::uint8_t> memory(ranges.base.size, 0xE7);
+            for (const auto& run : take.image->runs)
+            {
+                REQUIRE(run.offset + run.length <= memory.size());
+                std::copy_n(take.image->bytes.begin() + run.offset, run.length, memory.begin() + run.offset);
+            }
+            NativeDrawReplayTexture decoded;
+            const bool              decodes = DecodeNativeTexture(fetch, memory, {}, decoded, error);
+            UNSCOPED_INFO("the ordered guest image decodes: " + error);
+            REQUIRE((decodes && decoded.width == width && decoded.height == height && decoded.payloadBytes().size() == kPlaneBytes));
+            REQUIRE(std::ranges::all_of(decoded.swizzle, [](std::uint8_t component)
+                                        {
+                                            return component < 4;
+                                        }));
+            std::vector<std::uint8_t> logical(kPlaneBytes);
+            for (std::size_t pixel = 0; pixel < kPlaneBytes / 4; ++pixel)
+            {
+                for (std::size_t c = 0; c < 4; ++c)
+                {
+                    logical[pixel * 4 + c] = decoded.payloadBytes()[pixel * 4 + decoded.swizzle[c]];
+                }
+            }
+            checkPixels(logical, width * 4, version);
+            assembler.GuestImageWritten(mark);
+        };
+
+        if (graph)
+        {
+            constexpr auto graphBase   = std::uint64_t(1) << 62;
+            const auto     graphPixels = [&](std::size_t index, std::uint64_t mark, std::size_t version)
+            {
+                const auto& frame  = producer->prefixFrames.at(index);
+                const auto& output = producer->prefixRecordings.at(index).get();
+                REQUIRE((output.success && output.completionFenceValue && producer->CompletedFence() >= output.completionFenceValue));
+                REQUIRE(std::ranges::any_of(frame.surfaces, [&](const NativeRenderFrameSurface& surface)
+                                            {
+                                                return surface.textureId == graphBase + mark && surface.key == ((std::uint64_t(1) << 63) | mark);
+                                            }));
+                const auto readback = std::ranges::find_if(output.rawReadbacks, [&](const auto& value)
+                                                           {
+                                                               return value.first == graphBase + mark;
+                                                           });
+                REQUIRE((readback != output.rawReadbacks.end() && readback->second));
+                std::vector<std::uint8_t> pixels;
+                std::uint32_t             rowPitch = 0;
+                REQUIRE(readback->second->Read(pixels, rowPitch, error));
+                checkPixels(pixels, rowPitch, version);
+            };
+            const auto swap = [&](std::uint64_t sequence)
+            {
+                auto value            = swapRecord(0xD10);
+                value.sequence        = sequence;
+                value.numberedThrough = 4;
+                const auto result     = assembler.Swap(value);
+                UNSCOPED_INFO("the graph epoch presents: " + result.detail);
+                REQUIRE((result.status == NativeFrameStatus::Provisional && result.hostFence));
+                return result.hostFence;
+            };
+
+            // Keep the source containing A's consumer across the first swap.
+            clear(main);
+            scanout();
+            clear(target);
+            submitDraw(1);
+            const auto a = resolve(copy.destBase);
+            REQUIRE((producer->prefixFrames.size() == 1 && producer->terminals.empty()));
+            const auto aFence = complete(a);
+            const auto keyA   = (std::uint64_t(1) << 63) | a;
+            binding(a, 1);
+            graphPixels(0, a, 0);
+            checkBytes(a, 0);
+
+            // The captured consumer pass owns its clear. Replay needs no
+            // producer work or attachments from the original graph chain.
+            clear(target);
+            submitDraw(2);
+            const auto consumerA = resolve(0x1C000000);
+            REQUIRE(producer->prefixFrames.size() == 2);
+            const auto consumerAFence = complete(consumerA);
+            graphPixels(1, consumerA, 0);
+            const auto& captured = producer->capturedFrame.emplace(producer->prefixFrames[1]);
+            REQUIRE((captured.passes.size() == 1 && captured.passes[0].DrawCount() == 1 &&
+                     !captured.passes[0].clears.empty() && !captured.passes[0].preservePreviousAttachments && !captured.passes[0].resumeAttachments &&
+                     captured.passes[0].Draw(0).textures[0].frameTextureId == ResolveSurfaceTexture(a)));
+
+            submitDraw(3);
+            const auto b = resolve(copy.destBase);
+            REQUIRE((producer->prefixFrames.size() == 3 && producer->terminals.empty()));
+            const auto bFence = complete(b);
+            const auto keyB   = (std::uint64_t(1) << 63) | b;
+            REQUIRE((b > consumerA && consumerAFence > aFence && bFence > consumerAFence));
+            binding(b, 2);
+            graphPixels(2, b, 1);
+            checkBytes(b, 1);
+            REQUIRE(surfaces->Import(ResolveSurfaceTexture(a)));
+
+            submitDraw(4);
+            const auto consumerB = resolve(0x1C400000);
+            REQUIRE((producer->prefixFrames.size() == 4 && producer->terminals.empty()));
+            const auto consumerBFence = complete(consumerB);
+            REQUIRE((consumerBFence > bFence &&
+                     boundIds[0] == ResolveSurfaceTexture(a) && boundIds[1] == ResolveSurfaceTexture(b)));
+            graphPixels(3, consumerB, 1);
+            const auto stats = assembler.ResolveGraphStats();
+            REQUIRE((stats.replays == 2 && stats.continuations == 2 && !stats.notReady && !stats.noSource && !stats.swapBatch));
+
+            const auto heldFence = swap(1);
+            REQUIRE(source.WaitFor(heldFence, std::chrono::seconds(10)));
+            REQUIRE((producer->tickets.size() == 1 && surfaces->Import(boundIds[0]) &&
+                     std::ranges::find(producer->released.back(), keyA) == producer->released.back().end()));
+            const auto terminalFence = producer->terminals.back().get().completionFenceValue;
+            REQUIRE(terminalFence > consumerBFence);
+            ID3D12Resource* aResource = nullptr;
+            ID3D12Resource* bResource = nullptr;
+            auto            aOwner    = rerevved::gpu::detail::NativeRenderFrameTestAccess::CompletedTexture(stream, producer->tickets.back()->Export(keyA), aResource);
+            auto            bOwner    = rerevved::gpu::detail::NativeRenderFrameTestAccess::CompletedTexture(stream, producer->tickets.back()->Export(keyB), bResource);
+            REQUIRE((aOwner && bOwner && aResource && bResource && aOwner != bOwner && aResource != bResource));
+            const std::weak_ptr<const void> weakA = aOwner;
+            const std::weak_ptr<const void> weakB = bOwner;
+            aOwner.reset();
+            bOwner.reset();
+
+            std::uint64_t replayFence = 0;
+            {
+                auto retainedFrame = captured;
+                REQUIRE((retainedFrame.passes[0].resolves.size() == 1 && retainedFrame.passes[0].resolves[0].readback));
+                // Only prefix-to-terminal output transport changes. The
+                // admitted draw and A import remain those actually bound.
+                retainedFrame.passes[0].resolves[0].readback = false;
+                retainedFrame.outputTextureId                = graphBase + consumerA;
+                retainedFrame.retainOnly = retainedFrame.returnRawOutput = true;
+                retainedFrame.surfaces.clear();
+                auto output = std::ranges::find(retainedFrame.textures, retainedFrame.outputTextureId, &NativeRenderFrameTexture::id);
+                REQUIRE((output != retainedFrame.textures.end() && !output->imported && !output->persistentKey));
+                output->persistentKey = (std::uint64_t(0x1C000000) << 32) | consumerA;
+                const bool valid      = ValidateNativeRenderFrame(retainedFrame, error);
+                UNSCOPED_INFO("the standalone graph-bound A frame: " + error);
+                REQUIRE(valid);
+                REQUIRE(retainedFrame.passes[0].admittedDraws == captured.passes[0].admittedDraws);
+                for (const auto& texture : captured.textures)
+                {
+                    if (texture.imported)
+                    {
+                        REQUIRE(std::ranges::find(retainedFrame.textures, texture) != retainedFrame.textures.end());
+                    }
+                }
+                std::shared_ptr<NativeRenderFrameTicket> ticket;
+                REQUIRE(stream.QueueRenderFrame(std::move(retainedFrame), ticket, error));
+                const auto retainedA = ticket->Completion().get();
+                UNSCOPED_INFO("the graph-bound A recipe after B: " + retainedA.error);
+                REQUIRE((retainedA.success && retainedA.completionFenceValue > terminalFence && retainedA.completionFenceValue > bFence));
+                replayFence = retainedA.completionFenceValue;
+                checkPixels(retainedA.rawOutput, retainedA.rawRowPitch, 0);
+                ID3D12Resource* replayResource = nullptr;
+                auto            replayOwner    = rerevved::gpu::detail::NativeRenderFrameTestAccess::CompletedTexture(stream, ticket->Export(keyA), replayResource);
+                REQUIRE((replayOwner && replayOwner == weakA.lock() && replayResource == aResource && !weakB.expired()));
+            }
+            producer->capturedFrame.reset();
+            producer->prefixFrames.clear();
+
+            clear(main);
+            scanout();
+            auto*                queue = rerevved::gpu::detail::NativeRenderFrameTestAccess::Queue(stream);
+            ComPtr<ID3D12Device> device;
+            ComPtr<ID3D12Fence>  gate;
+            REQUIRE((queue && SUCCEEDED(queue->GetDevice(IID_PPV_ARGS(&device))) && SUCCEEDED(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&gate)))));
+
+            struct ReleaseGate
+            {
+                ID3D12Fence* gate;
+
+                ~ReleaseGate()
+                {
+                    gate->Signal(1);
+                }
+            } release{ gate.Get() };
+
+            const auto completedBeforeRelease = producer->CompletedFence();
+            REQUIRE(SUCCEEDED(queue->Wait(gate.Get(), 1)));
+            const auto releasedFence = swap(2);
+            REQUIRE((std::ranges::find(producer->released.back(), keyA) != producer->released.back().end() && !surfaces->Import(boundIds[0])));
+            const auto recording = producer->terminalRecordings.back().get();
+            UNSCOPED_INFO("the graph A release recording: " + recording.error);
+            REQUIRE((recording.success && producer->terminals.back().wait_for(std::chrono::seconds(0)) == std::future_status::timeout &&
+                     producer->CompletedFence() == completedBeforeRelease && !weakA.expired()));
+            REQUIRE(SUCCEEDED(gate->Signal(1)));
+            REQUIRE(source.WaitFor(releasedFence, std::chrono::seconds(10)));
+            const auto releaseNativeFence = producer->terminals.back().get().completionFenceValue;
+            REQUIRE((releaseNativeFence > replayFence && producer->CompletedFence() >= releaseNativeFence));
+            producer->tickets.clear();
+            for (std::uint64_t epoch = 3; epoch <= 6 && !weakA.expired(); ++epoch)
+            {
+                clear(main);
+                scanout();
+                REQUIRE(source.WaitFor(swap(epoch), std::chrono::seconds(10)));
+            }
+            REQUIRE(weakA.expired());
+            std::cout << std::format("Graph surfaces A={} B={}; native fences A={} consumerA={} B={} consumerB={} terminal={} retainedA={} release={}; exact A/B pixels and owner retirement passed\n",
+                                     a,
+                                     b,
+                                     aFence,
+                                     consumerAFence,
+                                     bFence,
+                                     consumerBFence,
+                                     terminalFence,
+                                     replayFence,
+                                     releaseNativeFence);
+        }
+        else
+        {
+            // The scanout precedes off-screen work so Swap can retain that source.
+            clear(main);
+            scanout();
+            clear(target);
+            submitDraw(1);
+            const auto a      = resolve(copy.destBase);
+            const auto keyA   = (std::uint64_t(1) << 63) | a;
+            const auto aFence = complete(a);
+            binding(a, 1);
+            checkBytes(a, 0);
+            ID3D12Resource* aResource = nullptr;
+            auto            aOwner    = rerevved::gpu::detail::NativeRenderFrameTestAccess::CompletedTexture(stream, producer->tickets[0]->Export((std::uint64_t(copy.destBase) << 32) | a), aResource);
+            REQUIRE((aOwner && aResource));
+            const std::weak_ptr<const void> weakA = aOwner;
+            aOwner.reset();
+
+            std::uint64_t                          consumerA = 0, b = 0, bFence = 0;
+            std::size_t                            consumerAIndex = 1;
+            std::unique_ptr<QueuedSurfaceConsumer> queued;
+            if (staged)
+            {
+                tiledProducer = true;
+                submitDraw(3);
+                GuestTarget tiledTarget;
+                REQUIRE(ReadGuestTarget(config.readTarget, kAliasGraphics, 0, tiledTarget));
+                REQUIRE(tiledTarget.tiling.has_value());
+                const auto tile = [&](std::uint32_t index)
+                {
+                    auto destination  = copy;
+                    destination.rectX = destination.destX = index * width / 2;
+                    destination.rectWidth                 = width / 2;
+                    tiledTarget.tiling->predicateMask     = 3U << (2 * index);
+                    bool       partial                    = false;
+                    const auto mark                       = assembler.Resolve(tiledTarget, destination, false, partial, error);
+                    UNSCOPED_INFO("the staged packed tile resolve: " + error);
+                    REQUIRE((mark && !partial));
+                    return mark;
+                };
+                const auto checkTileStorage = [&](std::uint64_t mark)
+                {
+                    ID3D12Resource* resource = nullptr;
+                    const auto      owner    = rerevved::gpu::detail::NativeRenderFrameTestAccess::CompletedTexture(stream,
+                                                                                                                    producer->tickets.back()->Export((std::uint64_t(copy.destBase) << 32) | mark),
+                                                                                                                    resource);
+                    REQUIRE((owner && resource && resource->GetDesc().Format == DXGI_FORMAT_R32_UINT &&
+                             resource->GetDesc().Width == width / 2 && resource->GetDesc().Height == height));
+                };
+                b                    = tile(0);
+                const auto leftFence = complete(b);
+                checkTileStorage(b);
+                const auto right = tile(1);
+                REQUIRE(right > b);
+                const auto pending = surfaces->View(right);
+                REQUIRE((pending && !pending->committed && !pending->admitted && pending->width == width && pending->height == height));
+                binding(a, 1);
+
+                tiledProducer = false;
+                clear(main);
+                scanout();
+                clear(target);
+                queued = std::make_unique<QueuedSurfaceConsumer>(assembler, surfaces, callbackChecks);
+                queued->Queue(2);
+                queued->WaitEntered();
+                REQUIRE(boundIds[0] == 0);
+                unsigned barriers          = 0;
+                bool     boundBeforeCommit = false;
+                surfaces->SetBarrier([&]
+                                     {
+                                         ++barriers;
+                                         queued->Release();
+                                         DrainNativeDraws();
+                                         const auto stillStaged = surfaces->View(right);
+                                         boundBeforeCommit      = boundIds[0] == ResolveSurfaceTexture(a) && stillStaged && !stillStaged->committed && !stillStaged->admitted;
+                                     });
+                ObserveResolveSurfaceTiling();
+                surfaces->SetBarrier(nullptr);
+                callbackChecks.Verify();
+                REQUIRE((barriers == 1 && boundBeforeCommit && !surfaces->TilesPending()));
+                const auto unavailable = surfaces->Find(fetch, stream.CastableGuestWordTextures());
+                REQUIRE((unavailable && std::holds_alternative<NativeResolvedTextureMiss>(*unavailable) &&
+                         std::get<NativeResolvedTextureMiss>(*unavailable) == NativeResolvedTextureMiss::Unmodeled &&
+                         !surfaces->Import(ResolveSurfaceTexture(b))));
+                const auto committed = surfaces->View(right);
+                REQUIRE((committed && committed->committed && !committed->admitted && committed->version == 2));
+                bFence = complete(right);
+                REQUIRE(bFence > leftFence);
+                checkTileStorage(right);
+                const auto found = surfaces->Find(fetch, stream.CastableGuestWordTextures());
+                REQUIRE((found && std::holds_alternative<ResolveSurfaceBinding>(*found)));
+                const auto& value = std::get<ResolveSurfaceBinding>(*found);
+                REQUIRE((value.mark == b && value.version == 2 && value.texture.frameTextureId == ResolveSurfaceTexture(b)));
+                const auto imported = surfaces->Import(value.texture.frameTextureId);
+                REQUIRE((imported && imported->persistentKey == ResolveSurfaceKey(b) && imported->width == width && imported->height == height &&
+                         imported->format == NativeDrawReplayTextureFormat::R32Uint && imported->importedWords == NativeGuestWordPacking::Color8888));
+                const auto records = surfaces->HostCopy(ranges.base.address, std::uint64_t(ranges.base.address) + ranges.base.size);
+                REQUIRE((records.size() == 2 && records[0].mark == b && records[1].mark == right));
+                for (std::size_t index = 0; index < records.size(); ++index)
+                {
+                    REQUIRE((records[index].staged && records[index].packing == NativeGuestWordPacking::Color8888 &&
+                             records[index].copy.packing == GuestResolvePacking::Color8888Words));
+                }
+                // The real draw was bound before commit. Its GPU work follows
+                // the pending tile frames through the supported stream chain.
+                consumerA               = resolve(0x1C000000);
+                producer->captureOutput = consumerA;
+                consumerAIndex          = producer->terminals.size();
+                REQUIRE(complete(consumerA) > bFence);
+            }
+            else
+            {
+                submitDraw(2);
+                consumerA               = resolve(0x1C000000);
+                producer->captureOutput = consumerA;
+                submitDraw(3);
+                b = resolve(copy.destBase);
+                REQUIRE(b > consumerA);
+                bFence = complete(b);
+                binding(b, 2);
+                checkBytes(b, 1);
+            }
+            REQUIRE(surfaces->Import(ResolveSurfaceTexture(a)));
+            REQUIRE(producer->terminals.size() == (staged ? 4 : 3));
+            const auto& aOutput = producer->terminals[consumerAIndex].get();
+            REQUIRE((aOutput.success && aOutput.completionFenceValue > aFence &&
+                     (staged ? aOutput.completionFenceValue > bFence : aOutput.completionFenceValue < bFence)));
+            checkPixels(aOutput.rawOutput, aOutput.rawRowPitch, 0);
+            // The producer export and the registry-key import name the same owner.
+            ID3D12Resource* importedAResource = nullptr;
+            auto            importedAOwner    = rerevved::gpu::detail::NativeRenderFrameTestAccess::CompletedTexture(stream, producer->tickets[consumerAIndex]->Export(keyA), importedAResource);
+            REQUIRE((importedAOwner && importedAOwner == weakA.lock() && importedAResource == aResource));
+            importedAOwner.reset();
+            ID3D12Resource*           bResource = nullptr;
+            std::weak_ptr<const void> weakB;
+            if (!staged)
+            {
+                auto bOwner = rerevved::gpu::detail::NativeRenderFrameTestAccess::CompletedTexture(stream, producer->tickets[2]->Export((std::uint64_t(copy.destBase) << 32) | b), bResource);
+                REQUIRE((bOwner && bResource && aResource != bResource && !weakA.expired()));
+                weakB = bOwner;
+            }
+            REQUIRE(producer->capturedFrame.has_value());
+            const auto replayA = [&]
+            {
+                auto retainedFrame = *producer->capturedFrame;
+                REQUIRE((retainedFrame.passes.size() == 1 && !retainedFrame.passes[0].clears.empty() &&
+                         !retainedFrame.passes[0].preservePreviousAttachments && !retainedFrame.passes[0].resumeAttachments));
+                // The earlier presented prefix was consumed. A's own pass is
+                // self-contained. Replay its unchanged bound draws after B completes.
+                retainedFrame.continuedPrefixPasses = 0;
+                const bool valid                    = ValidateNativeRenderFrame(retainedFrame, error);
+                UNSCOPED_INFO("the standalone retained A frame: " + error);
+                REQUIRE(valid);
+                const auto retainedA = stream.SubmitRenderFrame(retainedFrame);
+                UNSCOPED_INFO("the retained A frame after B: " + retainedA.error);
+                REQUIRE((retainedA.success && retainedA.completionFenceValue > bFence));
+                checkPixels(retainedA.rawOutput, retainedA.rawRowPitch, 0);
+                producer->capturedFrame.reset();
+            };
+            if (!staged)
+            {
+                replayA();
+            }
+            if (staged)
+            {
+                queued->Queue(4);
+                DrainNativeDraws();
+                callbackChecks.Verify();
+                REQUIRE((queued->Stats().posted == 2 && queued->Stats().ran == 2));
+            }
+            else
+            {
+                submitDraw(4);
+            }
+            const auto consumerB      = resolve(0x1C400000);
+            const auto consumerBIndex = producer->terminals.size();
+            const auto consumerBFence = complete(consumerB);
+            REQUIRE((boundIds[0] == (std::uint64_t(3) << 60) + a && boundIds[1] == (std::uint64_t(3) << 60) + b && consumerBFence > bFence));
+            const auto& bOutput = producer->terminals[consumerBIndex].get();
+            REQUIRE(bOutput.success);
+            checkPixels(bOutput.rawOutput, bOutput.rawRowPitch, 1);
+            ID3D12Resource* importedBResource = nullptr;
+            auto            importedBOwner    = rerevved::gpu::detail::NativeRenderFrameTestAccess::CompletedTexture(stream, producer->tickets[consumerBIndex]->Export((std::uint64_t(1) << 63) | b), importedBResource);
+            if (staged)
+            {
+                REQUIRE((importedBOwner && importedBResource && importedBResource != aResource &&
+                         importedBResource->GetDesc().Format == DXGI_FORMAT_R32_UINT &&
+                         importedBResource->GetDesc().Width == width && importedBResource->GetDesc().Height == height));
+                weakB     = importedBOwner;
+                bResource = importedBResource;
+            }
+            REQUIRE((importedBOwner && importedBOwner == weakB.lock() && importedBResource == bResource));
+            importedBOwner.reset();
+            queued.reset();
+
+            const auto swap = [&](std::uint64_t sequence)
+            {
+                auto value            = swapRecord(0xD10);
+                value.sequence        = sequence;
+                value.numberedThrough = 4;
+                const auto result     = assembler.Swap(value);
+                UNSCOPED_INFO("the ordered epoch presents: " + result.detail);
+                REQUIRE((result.status == NativeFrameStatus::Provisional && result.hostFence));
+                return result.hostFence;
+            };
+            const auto heldFence = swap(1);
+            REQUIRE(source.WaitFor(heldFence, std::chrono::seconds(10)));
+            REQUIRE((surfaces->Import(boundIds[0]) && std::ranges::find(producer->released.back(), keyA) == producer->released.back().end() && !weakA.expired()));
+            if (staged)
+            {
+                replayA();
+            }
+
+            clear(main);
+            scanout();
+            auto*                queue = rerevved::gpu::detail::NativeRenderFrameTestAccess::Queue(stream);
+            ComPtr<ID3D12Device> device;
+            ComPtr<ID3D12Fence>  gate;
+            REQUIRE((queue && SUCCEEDED(queue->GetDevice(IID_PPV_ARGS(&device))) && SUCCEEDED(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&gate)))));
+
+            struct ReleaseGate
+            {
+                ID3D12Fence* gate;
+
+                ~ReleaseGate()
+                {
+                    gate->Signal(1);
+                }
+            } release{ gate.Get() };
+
+            const auto completedBeforeRelease = producer->CompletedFence();
+            REQUIRE(SUCCEEDED(queue->Wait(gate.Get(), 1)));
+            const auto releasedFence = swap(2);
+            REQUIRE((std::ranges::find(producer->released.back(), keyA) != producer->released.back().end() && !surfaces->Import(boundIds[0])));
+            const auto recording = producer->terminalRecordings.back().get();
+            UNSCOPED_INFO("the release recording: " + recording.error);
+            REQUIRE((recording.success && producer->terminals.back().wait_for(std::chrono::seconds(0)) == std::future_status::timeout &&
+                     producer->CompletedFence() == completedBeforeRelease && !weakA.expired()));
+            REQUIRE(SUCCEEDED(gate->Signal(1)));
+            REQUIRE(source.WaitFor(releasedFence, std::chrono::seconds(10)));
+            const auto releaseNativeFence = producer->terminals.back().get().completionFenceValue;
+            REQUIRE((releaseNativeFence > completedBeforeRelease && releaseNativeFence > consumerBFence && producer->CompletedFence() >= releaseNativeFence));
+            producer->tickets.clear();
+            // Both renderer contexts must discard their last imported draw views.
+            for (std::uint64_t epoch = 3; epoch <= 6 && !weakA.expired(); ++epoch)
+            {
+                clear(main);
+                scanout();
+                REQUIRE(source.WaitFor(swap(epoch), std::chrono::seconds(10)));
+            }
+            REQUIRE(weakA.expired());
+            if (staged)
+            {
+                REQUIRE(!weakB.expired());
+                std::cout << "Staged legacy producer-frame tiles: deferred A bound before commit and rendered after B admission, B missed until both admissions, and castable R32Uint B pixels and fence-held A retirement passed\n";
+            }
+        }
+        REQUIRE((!assembler.Failure() && !source.Failure()));
+        source.Close();
+    }
+    stream.Shutdown();
+}
+
 struct HeldSurfaceRun
 {
     std::vector<std::uint8_t> bytes;
@@ -1748,6 +2664,467 @@ void checkHeldSurfaceImage()
     UNSCOPED_INFO("the held image lands with the immediate encode's bytes");
     REQUIRE(held.bytes == encoded.bytes);
     std::cout << "A held resolve readback lands at a lock with the immediate encode's " << held.bytes.size() << " bytes\n";
+}
+
+// EndTiling drains a real queued consumer before publishing assembled words.
+void checkOrderedGraphTiling()
+{
+    using Microsoft::WRL::ComPtr;
+    const OrderedSurfaceInputs inputs;
+    constexpr auto             width = OrderedSurfaceInputs::width, height = OrderedSurfaceInputs::height;
+    const auto&                fetch = OrderedSurfaceInputs::fetch;
+    std::string                error;
+    NativeTextureMemoryRanges  ranges;
+    REQUIRE(GetNativeTextureMemoryRanges(fetch, ranges, error));
+    REQUIRE((ranges.base.address == 0x1DBB0000 && ranges.base.size == 0x398000 &&
+             std::uint64_t(ranges.base.address) + ranges.base.size == 0x1DF48000 && !ranges.mips.size));
+
+    auto tiledDraw             = inputs.producers[1];
+    tiledDraw.vertexShaderHash = 0xA11D0;
+    tiledDraw.pixelShaderHash  = 0xA11D1;
+    // Interpolation carries logical coordinates independently of tile-local
+    // SV_Position. Exchanging the two halves changes the expected pixels.
+    tiledDraw.vertexShaderDxil = compile("struct V { float4 p:SV_Position; float2 q:TEXCOORD0; };"
+                                         " V main(float4 p:TEXCOORD0) { V v; v.p=p; v.q=float2((p.x+1)*640,(1-p.y)*360); return v; }",
+                                         "vs_5_1");
+    tiledDraw.pixelShaderDxil  = compile("float4 main(float4 p:SV_Position,float2 v:TEXCOORD0):SV_Target0 { uint2 q=uint2(v);"
+                                         " return float4((uint3(210,107,37)+uint3(3*q.x+5*q.y,7*q.x+11*q.y,13*q.x+19*q.y))&255,143)/255.0; }",
+                                         "ps_5_1");
+
+    std::uint64_t        offers = 0;
+    NativeRendererD3D12  stream;
+    ComPtr<ID3D12Device> shared;
+    REQUIRE(SUCCEEDED(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&shared))));
+    REQUIRE(stream.StartTitleDrawStream(error, shared.Get(), [&](ID3D12Resource*, ID3D12Fence*, std::uint64_t)
+                                        {
+                                            auto lease = std::make_shared<NativeOutputLease>(++offers);
+                                            lease->Cancel();
+                                            return lease;
+                                        }));
+    const bool castable = stream.CastableGuestWordTextures();
+    if (!castable)
+    {
+        stream.Shutdown();
+        SKIP("The staged graph surface case requires castable guest word textures");
+    }
+    {
+        auto producer          = std::make_shared<RendererProducer>(stream);
+        producer->inspectGraph = true;
+        D3D12CompletionSource                  source({ producer });
+        auto                                   surfaces = std::make_shared<ResolveSurfaceRegistry>();
+        constexpr std::uint32_t                gA = 0x1000, gB = 0x5000, gConsumer = 0x9000;
+        constexpr std::uint32_t                sA = 0x20000, sB = 0x21000, sConsumer = 0x22000;
+        std::map<std::uint32_t, std::uint32_t> words;
+        const auto                             targetWordsAt = [&](std::uint32_t g, std::uint32_t surface, std::uint32_t base, bool tiled)
+        {
+            words[g + 0x3098] = surface;
+            words[g + 0x309C] = words[g + 0x30A0] = words[g + 0x30A4] = 0;
+            words[g + 0x2880]                                         = 0;
+            words[g + 0x2ABC]                                         = tiled ? 0x20U << 24 : 0;
+            words[g + 0x31A4]                                         = 0xFFFFFFFF;
+            words[g + 0x31AC]                                         = 0;
+            words[g + 0x3198] = words[g + 0x3194] = words[g + 0x2E2C] = 1;
+            words[surface + 0x24]                                     = ((tiled ? 639U : width - 1) << 18) | ((height - 1) << 3);
+            words[surface + 0x18]                                     = 0;
+            words[surface + 0x1C]                                     = base;
+            if (tiled)
+            {
+                words[g + 0x31CC] = 2;
+                words[g + 0x337C] = width;
+                words[g + 0x3380] = height;
+                for (std::uint32_t i = 0; i < 5; ++i)
+                {
+                    words[g + 0x31B8 + 4 * i] = i == 0 ? surface : 0;
+                }
+                for (std::uint32_t i = 0; i < 2; ++i)
+                {
+                    words[g + 0x31D0 + 16 * i] = i * 640;
+                    words[g + 0x31D4 + 16 * i] = 0;
+                    words[g + 0x31D8 + 16 * i] = (i + 1) * 640;
+                    words[g + 0x31DC + 16 * i] = height;
+                }
+            }
+        };
+        targetWordsAt(gA, sA, 0, false);
+        targetWordsAt(gB, sB, 0, true);
+        targetWordsAt(gConsumer, sConsumer, 0x500, false);
+        const GuestWordReader read = [words](std::uint32_t address, std::uint32_t& out)
+        {
+            const auto found = words.find(address);
+            if (found == words.end())
+            {
+                return false;
+            }
+            out = found->second;
+            return true;
+        };
+        GuestTarget targetA, targetB, observation;
+        REQUIRE((ReadGuestTarget(read, gA, 0, targetA) && ReadGuestTarget(read, gB, 0, targetB) && ReadGuestTarget(read, gConsumer, 0, observation)));
+        REQUIRE((targetB.tiling && targetB.native.width == width && targetB.native.height == height && targetB.surfaceWidth == 640 && targetB.native.sampleCount == 1));
+
+        struct DeferredDraw
+        {
+            std::uint32_t          graphics;
+            NativeDrawReplayRecipe recipe;
+            GuestWordReader        target;
+        };
+
+        rerevved::tests::CallbackChecks                     checks;
+        NativeFrameAssembler*                               current = nullptr;
+        std::array<std::optional<NativeResolvedTexture>, 2> bound;
+        std::size_t                                         consumers = 0;
+        NativeFrameAssemblerConfig                          config;
+        config.completion   = &source;
+        config.resolveGraph = config.resolveAlias = config.eagerGraphSegments = config.timing = true;
+        config.castableGuestWords                                                             = castable;
+        config.surfaces                                                                       = surfaces;
+        GuestWordReader deferredTarget                                                        = read;
+        config.readTarget                                                                     = [&](std::uint32_t address, std::uint32_t& value)
+        {
+            return deferredTarget(address, value);
+        };
+        config.coverage = [](const NativeDrawSubmission& submission, const NativeDrawReplayRecipe&) -> std::optional<NativeFrameDrawCover>
+        {
+            return submission.Graphics() == gB ? std::optional<NativeFrameDrawCover>{ NativeDrawReplayScissor{ 0, 0, width, height } } : std::nullopt;
+        };
+        config.watchWrites = [](std::uint32_t, std::uint32_t)
+        {
+        };
+        config.build = [&](const NativeDrawSubmission& submission, NativeDrawReplayRecipe& draw, std::string&)
+        {
+            const auto snapshot = std::static_pointer_cast<const DeferredDraw>(submission.deferral);
+            checks.Require(snapshot && snapshot->graphics == submission.Graphics() && bool(snapshot->target), "the queued root owns its recipe and immutable target words");
+            draw = snapshot->recipe;
+            if (submission.Graphics() == gConsumer)
+            {
+                auto       miss    = NativeResolvedTextureMiss::Form;
+                const auto texture = current->ResolvedTexture(fetch, submission.operationMark, miss);
+                checks.Require(texture.has_value(), "the actual queued consumer binds a resolve surface");
+                checks.Require(consumers < bound.size(), "only the two authored consumers build");
+                bound[consumers++] = *texture;
+                draw.textures[0]   = BindNativeResolvedTexture(*texture);
+            }
+            return true;
+        };
+        NativeFrameAssembler assembler(config);
+        current = &assembler;
+        std::mutex               mutex;
+        std::condition_variable  wake;
+        bool                     consumerEntered = false, releaseConsumer = false, holdConsumer = true, barrierRan = false;
+        NativeDrawDispatchConfig dispatch;
+        dispatch.sequenced = true;
+        dispatch.read      = [](const std::uint8_t* base, std::uint32_t address, std::uint32_t& out)
+        {
+            const auto& snapshot = *reinterpret_cast<const std::map<std::uint32_t, std::uint32_t>*>(base);
+            const auto  found    = snapshot.find(address);
+            if (found == snapshot.end())
+            {
+                return false;
+            }
+            out = found->second;
+            return true;
+        };
+        dispatch.defer = [&](const NativeDrawSubmission& submission) -> std::shared_ptr<const void>
+        {
+            const auto g = submission.Graphics();
+            return std::make_shared<DeferredDraw>(g, g == gA ? inputs.producers[0] : g == gB ? tiledDraw
+                                                                                             : inputs.sampler,
+                                                  read);
+        };
+        dispatch.numberOperation = [&]
+        {
+            return assembler.NumberOperation();
+        };
+        dispatch.began = [&](const NativeDrawSubmission& submission)
+        {
+            if (submission.Graphics() == gConsumer)
+            {
+                std::unique_lock lock(mutex);
+                if (holdConsumer)
+                {
+                    consumerEntered = true;
+                    wake.notify_all();
+                    wake.wait(lock, [&]
+                              {
+                                  return releaseConsumer;
+                              });
+                }
+            }
+            deferredTarget = std::static_pointer_cast<const DeferredDraw>(submission.deferral)->target;
+            assembler.Began(submission);
+        };
+        dispatch.admit = [&](const NativeDrawSubmission& submission)
+        {
+            return assembler.Admit(submission);
+        };
+        dispatch.recorded = [&](const NativeDrawSubmission& submission, std::optional<NativeDrawReason> reason)
+        {
+            std::string refusal;
+            assembler.Recorded(submission, reason, &refusal);
+            checks.Require(!reason, "the queued root is admitted and recorded: " + refusal);
+        };
+        dispatch.failed = [&](const NativeDrawFailure&)
+        {
+            checks.Require(false, "the real dispatcher does not fail");
+        };
+        NativeDrawDispatcher dispatcher(std::move(dispatch));
+        const auto           previous = PublishedResolveSurfaces();
+
+        struct InstalledDraws
+        {
+            std::shared_ptr<ResolveSurfaceRegistry> surfaces, previous;
+            std::mutex&                             mutex;
+            std::condition_variable&                wake;
+            bool&                                   release;
+            bool                                    installed = false;
+
+            ~InstalledDraws()
+            {
+                {
+                    std::lock_guard lock(mutex);
+                    release = true;
+                }
+                wake.notify_all();
+                if (installed)
+                {
+                    RemoveNativeDrawDispatcher(std::chrono::seconds(10));
+                }
+                surfaces->SetBarrier({});
+                PublishResolveSurfaces(previous);
+            }
+        } installed{ surfaces, previous, mutex, wake, releaseConsumer };
+
+        REQUIRE(InstallNativeDrawDispatcher(dispatcher));
+        installed.installed = true;
+        PublishResolveSurfaces(surfaces);
+        surfaces->SetBarrier([&]
+                             {
+                                 {
+                                     std::lock_guard lock(mutex);
+                                     barrierRan      = true;
+                                     releaseConsumer = true;
+                                 }
+                                 wake.notify_all();
+                                 DrainNativeDraws();
+                             });
+        const auto queueDraw = [&](std::uint32_t g)
+        {
+            PPCContext context{};
+            context.r1.u64 = 0x7000;
+            context.lr     = 0x82303E40;
+            context.r3.u64 = g;
+            {
+                NativeDrawScope root(NativeDrawHook::IndexedBuffer, context, reinterpret_cast<const std::uint8_t*>(&words));
+                REQUIRE((root.Observed() && root.Root()));
+                context.r3.u64 = 0;
+            }
+        };
+        const auto drain = [&]
+        {
+            DrainNativeDraws();
+            checks.Verify();
+            REQUIRE((!dispatcher.Failure() && !assembler.Failure()));
+        };
+        const auto clear = [&](const GuestTarget& target)
+        {
+            GuestClear value;
+            value.target          = target;
+            value.flags           = 1;
+            value.clear.rectangle = { 0, 0, width, height };
+            value.clear.color     = true;
+            REQUIRE(assembler.Clear(value, error));
+        };
+        GuestResolveCopy copy;
+        copy.copyControl   = 0x00100000;
+        copy.destBase      = 0x1DBB0000;
+        copy.destPitch     = 0x02D00500;
+        copy.destInfo      = 0x01000302;
+        copy.destFetch     = fetch;
+        copy.rectWidth     = width;
+        copy.rectHeight    = height;
+        const auto resolve = [&](const GuestTarget& target, const GuestResolveCopy& destination)
+        {
+            bool       partial = false;
+            const auto mark    = assembler.Resolve(target, destination, false, partial, error);
+            UNSCOPED_INFO("the staged graph resolve: " + error);
+            REQUIRE((mark && !partial));
+            return mark;
+        };
+        const auto complete = [&](std::uint64_t mark)
+        {
+            const auto flush = flushThrough(assembler, source, mark);
+            UNSCOPED_INFO("the staged graph prefix: " + flush.error);
+            REQUIRE((flush.fence && source.WaitFor(flush.fence, std::chrono::seconds(10))));
+            const auto& result = producer->prefixRecordings.back().get();
+            UNSCOPED_INFO(result.error);
+            REQUIRE((result.success && result.completionFenceValue && producer->CompletedFence() >= result.completionFenceValue));
+            return result.completionFenceValue;
+        };
+        const auto pixels = [&](std::size_t prefix, std::uint64_t mark, std::size_t version)
+        {
+            const auto& output   = producer->prefixRecordings.at(prefix).get();
+            const auto  readback = std::ranges::find_if(output.rawReadbacks, [&](const auto& item)
+                                                        {
+                                                           return item.first == (std::uint64_t(1) << 62) + mark;
+                                                        });
+            REQUIRE((readback != output.rawReadbacks.end() && readback->second));
+            std::vector<std::uint8_t> bytes;
+            std::uint32_t             pitch = 0;
+            REQUIRE(readback->second->Read(bytes, pitch, error));
+            inputs.CheckPixels(bytes, pitch, version);
+        };
+        GuestTarget main;
+        main.native = { width, height, 4, NativeDrawReplayTargetFormat::Rgba8, 0x900 };
+        clear(main);
+        auto scanout        = copy;
+        scanout.copyControl = 0x00100040;
+        scanout.destBase    = kFrontbuffer;
+        scanout.destInfo    = 0x300;
+        scanout.destFetch   = {};
+        bool partial        = false;
+        REQUIRE(assembler.Resolve(main, scanout, true, partial, error));
+        clear(targetA);
+        queueDraw(gA);
+        drain();
+        const auto a      = resolve(targetA, copy);
+        const auto aFence = complete(a);
+        REQUIRE((producer->prefixFrames.size() == 1 && producer->terminals.empty()));
+        pixels(0, a, 0);
+        REQUIRE(std::ranges::any_of(producer->prefixFrames[0].surfaces, [&](const auto& surface)
+                                    {
+                                        return surface.textureId == (std::uint64_t(1) << 62) + a && surface.key == ResolveSurfaceKey(a);
+                                    }));
+        const auto committedA = surfaces->Find(fetch, false);
+        REQUIRE((committedA && std::get<ResolveSurfaceBinding>(*committedA).mark == a && std::get<ResolveSurfaceBinding>(*committedA).version == 1));
+
+        // Replacing A's source lets the full-coverage tiled draw define B.
+        clear(observation);
+        queueDraw(gB);
+        drain();
+        std::array<std::uint64_t, 2> b{}, bFences{};
+        std::vector<std::uint8_t>    memory(ranges.base.size, 0xE7);
+        for (std::uint32_t tile = 0; tile < 2; ++tile)
+        {
+            auto tiledTarget                  = targetB;
+            tiledTarget.tiling->predicated    = 1;
+            tiledTarget.tiling->predicateMask = 3U << (2 * tile);
+            auto tileCopy                     = copy;
+            tileCopy.rectX = tileCopy.destX = 640 * tile;
+            tileCopy.rectWidth              = 640;
+            b[tile]                         = resolve(tiledTarget, tileCopy);
+            bFences[tile]                   = complete(b[tile]);
+            const auto& frame               = producer->prefixFrames.at(tile + 1);
+            REQUIRE((frame.passes.size() == 1 && frame.passes[0].resolves.size() == 1 &&
+                     frame.passes[0].resolves[0].guestWords == NativeGuestWordPacking::Color8888 &&
+                     frame.passes[0].resolves[0].sourceX == tile * 640));
+            REQUIRE(std::ranges::any_of(frame.textures, [&](const auto& texture)
+                                        {
+                                            return texture.id == (std::uint64_t(1) << 62) + b[tile] && texture.width == 640 && texture.height == height && texture.format == NativeDrawReplayTextureFormat::R32Uint;
+                                        }));
+            REQUIRE(std::ranges::any_of(frame.surfaces, [&](const auto& surface)
+                                        {
+                                            return surface.textureId == (std::uint64_t(1) << 62) + b[tile] && surface.key == ResolveSurfaceKey(b[0]) &&
+                                                   surface.width == width && surface.height == height && surface.x == tile * 640;
+                                        }));
+            const auto take = assembler.TakeGuestImage(b[tile]);
+            REQUIRE((take.image && take.image->physical == copy.destBase));
+            for (const auto& run : take.image->runs)
+            {
+                REQUIRE(run.offset + run.length <= memory.size());
+                std::copy_n(take.image->bytes.begin() + run.offset, run.length, memory.begin() + run.offset);
+            }
+            assembler.GuestImageWritten(b[tile]);
+        }
+        REQUIRE((aFence < bFences[0] && bFences[0] < bFences[1] && surfaces->TilesPending() && producer->prefixFrames.size() == 3 && producer->terminals.empty()));
+        REQUIRE(std::get<ResolveSurfaceBinding>(*surfaces->Find(fetch, false)).mark == a);
+        NativeDrawReplayTexture decoded;
+        REQUIRE(DecodeNativeTexture(fetch, memory, {}, decoded, error));
+        REQUIRE((decoded.width == width && decoded.height == height && decoded.payloadBytes().size() == kPlaneBytes));
+        std::vector<std::uint8_t> logical(kPlaneBytes);
+        REQUIRE(std::ranges::all_of(decoded.swizzle, [](auto component)
+                                    {
+                                        return component < 4;
+                                    }));
+        for (std::size_t p = 0; p < kPlaneBytes / 4; ++p)
+        {
+            for (std::size_t c = 0; c < 4; ++c)
+            {
+                logical[p * 4 + c] = decoded.payloadBytes()[p * 4 + decoded.swizzle[c]];
+            }
+        }
+        inputs.CheckPixels(logical, width * 4, 1);
+
+        clear(observation);
+        queueDraw(gConsumer);
+        {
+            std::unique_lock lock(mutex);
+            REQUIRE(wake.wait_for(lock, std::chrono::seconds(10), [&]
+                                  {
+                                      return consumerEntered;
+                                  }));
+        }
+        REQUIRE((dispatcher.Sequencer().posted == 3 && dispatcher.Sequencer().ran == 2 && !bound[0]));
+        ObserveResolveSurfaceTiling();
+        checks.Verify();
+        REQUIRE((barrierRan && dispatcher.Sequencer().ran == 3 && !surfaces->TilesPending() && bound[0]));
+        REQUIRE((bound[0]->frameTextureId == ResolveSurfaceTexture(a) && bound[0]->swizzle == std::array<std::uint8_t, 4>{ 0, 1, 2, 3 }));
+        auto observed             = copy;
+        observed.destBase         = 0x1C000000;
+        observed.destFetch[1]     = observed.destBase | 0x86;
+        const auto consumerA      = resolve(observation, observed);
+        const auto consumerAFence = complete(consumerA);
+        pixels(3, consumerA, 0);
+        REQUIRE(producer->prefixFrames[3].passes[0].Draw(0).textures[0].frameTextureId == ResolveSurfaceTexture(a));
+
+        const auto assembled = surfaces->Find(fetch, true);
+        REQUIRE((assembled && std::holds_alternative<ResolveSurfaceBinding>(*assembled)));
+        const auto& binding = std::get<ResolveSurfaceBinding>(*assembled);
+        INFO(std::format("assembled mark {} expected {} version {} id {} dimensions {}x{} swizzle {},{},{},{}", binding.mark, b[0], binding.version, binding.texture.frameTextureId, binding.texture.layout.width, binding.texture.layout.height, binding.texture.swizzle[0], binding.texture.swizzle[1], binding.texture.swizzle[2], binding.texture.swizzle[3]));
+        REQUIRE((binding.mark == b[0] && binding.version == 2 && binding.texture.frameTextureId == ResolveSurfaceTexture(b[0]) &&
+                 binding.texture.layout.width == width && binding.texture.layout.height == height &&
+                 binding.texture.swizzle == std::array<std::uint8_t, 4>{ 0, 1, 2, 3 }));
+        // Fetch selectors B,G,R,A and the copy's red/blue swap compose to
+        // identity for this admitted Color8888 view.
+        const auto imported = surfaces->Import(binding.texture.frameTextureId);
+        REQUIRE((imported && imported->persistentKey == ResolveSurfaceKey(b[0]) && imported->width == width && imported->height == height &&
+                 imported->format == NativeDrawReplayTextureFormat::R32Uint && imported->importedWords == NativeGuestWordPacking::Color8888));
+        {
+            std::lock_guard lock(mutex);
+            holdConsumer = false;
+        }
+        clear(observation);
+        queueDraw(gConsumer);
+        drain();
+        observed.destBase         = 0x1C400000;
+        observed.destFetch[1]     = observed.destBase | 0x86;
+        const auto consumerB      = resolve(observation, observed);
+        const auto consumerBFence = complete(consumerB);
+        REQUIRE((bound[1] && bound[1]->frameTextureId == ResolveSurfaceTexture(b[0]) && bound[1]->swizzle == binding.texture.swizzle && consumerBFence > consumerAFence));
+        pixels(4, consumerB, 1);
+        REQUIRE(producer->prefixFrames[4].passes[0].Draw(0).textures[0].frameTextureId == ResolveSurfaceTexture(b[0]));
+        REQUIRE(producer->prefixFrames[4].typedGuestWords);
+        REQUIRE(std::ranges::any_of(producer->prefixFrames[4].textures, [&](const auto& texture)
+                                    {
+                                        return texture.imported && texture.id == ResolveSurfaceTexture(b[0]) && texture.persistentKey == ResolveSurfaceKey(b[0]) &&
+                                               texture.width == width && texture.height == height && texture.format == NativeDrawReplayTextureFormat::R32Uint &&
+                                               texture.importedWords == NativeGuestWordPacking::Color8888;
+                                    }));
+        const auto stats = assembler.ResolveGraphStats();
+        REQUIRE((producer->prefixFrames.size() == 5 && !stats.notReady && !stats.noSource && !stats.swapBatch && stats.replays == 4 && stats.continuations == 1));
+        auto swap            = swapRecord(0xD10);
+        swap.numberedThrough = dispatcher.NumberedThrough();
+        const auto terminal  = assembler.Swap(swap);
+        UNSCOPED_INFO(terminal.detail);
+        REQUIRE((terminal.status == NativeFrameStatus::Provisional && terminal.hostFence && source.WaitFor(terminal.hostFence, std::chrono::seconds(10))));
+        REQUIRE((producer->terminals.back().get().success && !source.Failure() && !assembler.Failure() && !dispatcher.Failure()));
+        checks.Verify();
+        REQUIRE(RemoveNativeDrawDispatcher(std::chrono::seconds(10)));
+        installed.installed = false;
+        source.Close();
+        std::cout << "Staged graph tiles publish complete B after the drained consumer samples A; marks " << a << ',' << b[0] << ',' << b[1]
+                  << " fences " << aFence << ',' << bFences[0] << ',' << bFences[1] << ',' << consumerAFence << ',' << consumerBFence << " graph replays " << stats.replays << " continuations " << stats.continuations << '\n';
+    }
+    stream.Shutdown();
 }
 
 struct TiledSurfaceRun
@@ -2456,6 +3833,66 @@ void run(const std::filesystem::path& capture)
 }
 
 } // namespace
+
+TEST_CASE("native_frame_assembler_resolve_versions", "[ctest][native-frame-assembler-resolve-versions][native_gpu][timeout-120]")
+{
+    char enabled[8]{};
+    if (GetEnvironmentVariableA("REREVVED_TEST_NATIVE_D3D12", enabled, sizeof(enabled)) == 0 || std::string(enabled) != "1")
+    {
+        SKIP("Set REREVVED_TEST_NATIVE_D3D12=1 to run the capture-free ordered surface check");
+    }
+    if (!hasD3D12Device())
+    {
+        SKIP("No D3D12 device; the capture-free surface check was not rendered");
+    }
+    rerevved::tests::ScopedLogging logging;
+    checkOrderedSurfaceVersions();
+}
+
+TEST_CASE("native_frame_assembler_resolve_graph_versions", "[ctest][native-frame-assembler-resolve-versions][native_gpu][timeout-120]")
+{
+    char enabled[8]{};
+    if (GetEnvironmentVariableA("REREVVED_TEST_NATIVE_D3D12", enabled, sizeof(enabled)) == 0 || std::string(enabled) != "1")
+    {
+        SKIP("Set REREVVED_TEST_NATIVE_D3D12=1 to run the capture-free ordered graph surface check");
+    }
+    if (!hasD3D12Device())
+    {
+        SKIP("No D3D12 device; the capture-free surface check was not rendered");
+    }
+    rerevved::tests::ScopedLogging logging;
+    checkOrderedSurfaceVersions(true);
+}
+
+TEST_CASE("native_frame_assembler_resolve_graph_tiling", "[ctest][native-frame-assembler-resolve-versions][native_gpu][timeout-120]")
+{
+    char enabled[8]{};
+    if (GetEnvironmentVariableA("REREVVED_TEST_NATIVE_D3D12", enabled, sizeof(enabled)) == 0 || std::string(enabled) != "1")
+    {
+        SKIP("Set REREVVED_TEST_NATIVE_D3D12=1 to run the capture-free staged graph surface check");
+    }
+    if (!hasD3D12Device())
+    {
+        SKIP("No D3D12 device; the capture-free surface check was not rendered");
+    }
+    rerevved::tests::ScopedLogging logging;
+    checkOrderedGraphTiling();
+}
+
+TEST_CASE("native_frame_assembler_staged_tiling_versions", "[ctest][native-frame-assembler-resolve-versions][native_gpu][timeout-120]")
+{
+    char enabled[8]{};
+    if (GetEnvironmentVariableA("REREVVED_TEST_NATIVE_D3D12", enabled, sizeof(enabled)) == 0 || std::string(enabled) != "1")
+    {
+        SKIP("Set REREVVED_TEST_NATIVE_D3D12=1 to run the capture-free staged tiling surface check");
+    }
+    if (!hasD3D12Device())
+    {
+        SKIP("No D3D12 device; the capture-free surface check was not rendered");
+    }
+    rerevved::tests::ScopedLogging logging;
+    checkOrderedSurfaceVersions(false, true);
+}
 
 TEST_CASE("native_frame_assembler_d3d12", "[ctest][release-smoke][native-frame-assembler-d3d12][native_gpu][timeout-120]")
 {

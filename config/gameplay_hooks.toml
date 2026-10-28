@@ -3,6 +3,56 @@
 address = 0x82C7DF58
 name = "PublishGameplayState"
 
+# Keep native selection of the largest city without a Temple for Ceremonial
+# Burial, bypassing its impossible score > population gate.
+[[midasm_hook]]
+address = 0x82D0A158
+name = "AdmitFirstDiscoveryTempleCity"
+registers = ["r18"]
+jump_address_on_true = 0x82D0A160
+
+# Egypt's first free Irrigation keeps native first-discovery eligibility and
+# reward/presentation phases while bypassing the general free-technology clear.
+[[midasm_hook]]
+address = 0x82D09588
+name = "PreserveEgyptianIrrigationReward"
+registers = ["r14", "r16", "r25", "r22"]
+jump_address_on_true = 0x82D09594
+
+# Skip kidnapping's destination writes and victim retirement when the native
+# creator returns -1. Successful slots follow the native path.
+[[midasm_hook]]
+address = 0x82CF7090
+name = "SkipFailedSpyUnitCreation"
+registers = ["r3"]
+jump_address_on_true = 0x82CF7360
+
+# Skip bribery's destination writes and UI on creation failure, retaining its
+# native statistics recount before the common tail.
+[[midasm_hook]]
+address = 0x82CF7274
+name = "SkipFailedSpyUnitCreation"
+registers = ["r3"]
+jump_address_on_true = 0x82CF7354
+
+# Literacy's native Courthouse match is a bug. Before the technology/building
+# join branch, report no match for that one pair so the native loop advances
+# to the next building without scoring or delivery.
+[[midasm_hook]]
+address = 0x82D09BD0
+name = "SuppressLiteracyCourthouseReward"
+registers = ["r9", "r18"]
+jump_address_on_true = 0x82D0A2E4
+
+# First-discovery phase 2 can read a city saved by an earlier discovery.
+# This candidate fix skips only caption formatting when that city is invalid
+# or no longer owned by the acquiring player.
+[[midasm_hook]]
+address = 0x82D0A254
+name = "SuppressStaleFirstDiscoveryCaption"
+registers = ["r15", "r16", "r29"]
+jump_address_on_true = 0x82D0A280
+
 # Fast combat selects the guest's native 0.5 presentation divisor only after
 # setup selected an observed native 2.0 or 1.5 divisor.
 [[midasm_hook]]
@@ -56,6 +106,14 @@ address = 0x82D2A084
 name = "AdmitSpaceshipArrivalYear"
 registers = ["r31"]
 jump_address_on_true = 0x82D2A08C
+
+# Domination palace-count arm: log the capital requirement per player. r27 is the
+# player, r9 the owned count, r10 the scenario QUICKWIN value, r11 the required
+# count (total original capitals minus r10). Registers are not modified.
+[[midasm_hook]]
+address = 0x82D11250
+name = "LogDominationCapitals"
+registers = ["r27", "r9", "r10", "r11"]
 
 # Domination palace-count arm: rebase the elapsed turns for the native compare
 # against 10 so domination_min_turns sets the minimum.

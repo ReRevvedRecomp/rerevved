@@ -60,6 +60,31 @@ void testUnitRecords()
     CHECK(!IsLiveUnit(1, 0x80000000));
 }
 
+void testExpandedLayouts()
+{
+    CHECK(CivilizationMask(6, 5) == 0x1F);
+    CHECK(CivilizationMask(7, 6) == 0x3F);
+    CHECK(CivilizationMask(8, 7) == 0x7F);
+    CHECK(CivilizationMask(9, 8) == 0);
+    CHECK(CivilizationMask(8, 6) == 0);
+    CHECK(RemovableMask(7, 6, 1, 5) == 0);
+    CHECK(RemovableMask(8, 7, 1, 6) == 0);
+    CHECK(RemovableMask(7, 6, 1, 4) == 0x20);
+    CHECK(RemovableMask(8, 7, 1, 5) == 0x40);
+    CHECK(RemovableMask(8, 7, 1, 4) == 0x60);
+    CHECK(RemovableMask(8, 7, 0x41, 0) == 0x3E);
+    CHECK(RemovableMask(8, 7, 0x81, 0) == 0x7C);
+    CHECK(IsOrdinaryAi(7, 6, 1, 5));
+    CHECK(IsOrdinaryAi(8, 7, 1, 6));
+    CHECK_FALSE(IsOrdinaryAi(6, 5, 1, 5));
+    CHECK_FALSE(IsOrdinaryAi(7, 6, 1, 6));
+    CHECK_FALSE(IsOrdinaryAi(8, 7, 1, 7));
+    CHECK_FALSE(IsOrdinaryAi(8, 7, 0x41, 6));
+    CHECK_FALSE(IsOrdinaryAi(8, 7, 0x81, 6));
+    CHECK_FALSE(IsOrdinaryAi(8, 7, 0, 6));
+    CHECK_FALSE(IsOrdinaryAi(9, 8, 1, 6));
+}
+
 void testDigest()
 {
     KillDigest empty;
@@ -89,6 +114,7 @@ void testDigest()
 TEST_CASE("ai_civilizations", "[ctest][ai-civilizations]")
 {
     testRemovableMask();
+    testExpandedLayouts();
     testUnitRecords();
     testDigest();
 }

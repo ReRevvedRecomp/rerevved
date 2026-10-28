@@ -31,6 +31,10 @@ LOCAL_FAST_CASES = frozenset(
         "gotw_settings",
         "city_founding_unit_rules",
         "host_settings",
+        "host_settings network game rejects stale and unverified settings",
+        "host_settings normalizes local selections before encoding",
+        "host_settings keeps the Game of the Week civilization local",
+        "host_settings gameplay snapshot validates complete policy",
         "discord_presence_model",
         "discord_invites_model",
         "building_wonder_effect_rules_contract",
@@ -87,6 +91,7 @@ PYTHON_CONTRACTS = (
     "save_sidecar_contract",
     "resource_settings_contract",
     "raging_barbarians_contract",
+    "capital_grace_contract",
     "occ_contract",
     "gotw_contract",
     "city_founding_unit_contract",
@@ -383,7 +388,7 @@ class LocalFastTierContractTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn(message, result.stderr)
 
-    def test_python_contract_label_covers_the_six_verify_discovered_tests(
+    def test_python_contract_label_covers_the_verify_discovered_tests(
         self,
     ) -> None:
         match = re.search(

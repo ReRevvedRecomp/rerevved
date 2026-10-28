@@ -50,6 +50,10 @@ add_executable(rerevved_tests
     tests/support/guest_import_doubles.cpp
 
     src/building_wonder_effect_rules.cpp
+    src/ai_economy_settings.cpp
+    src/custom_achievements.cpp
+    src/ai_civilization_setup.cpp
+    src/ai_economy_hooks.cpp
     src/discord_invites_model.cpp
     src/discord_presence_model.cpp
     src/display_aspect.cpp
@@ -58,18 +62,27 @@ add_executable(rerevved_tests
     src/gotw_settings.cpp
     src/great_general_attachment.cpp
     src/gameplay_fixes.cpp
+    src/gameplay_fixes_hooks.cpp
     src/host_settings.cpp
+    src/gameplay_session_settings.cpp
     src/main_menu_logo_asset.cpp
     src/nation_select_text.cpp
     src/nation_select_text_hooks.cpp
     src/occ_hooks.cpp
     src/occ_settings.cpp
+    src/portable_mode.cpp
     src/raging_barbarians_hooks.cpp
     src/raging_barbarians_settings.cpp
+    src/capital_grace.cpp
+    src/capital_grace_hooks.cpp
+    src/capital_grace_special.cpp
+    src/capital_grace_nuclear.cpp
     src/resource_identity_overrides.cpp
     src/resource_settings.cpp
     src/retail_ui_art.cpp
     src/rush_cost.cpp
+    src/unit_sale_value.cpp
+    src/unit_sale_hooks.cpp
     src/save_sidecar.cpp
     src/start_resources.cpp
     src/system_link_trace.cpp
@@ -83,12 +96,18 @@ add_executable(rerevved_tests
     src/unit_effect_rules.cpp
     src/unit_movement_rules.cpp
     src/unit_production_cost_rules.cpp
+    src/unit_production_cost_rules_hooks.cpp
     src/xenos_frame_counter.cpp
 
     tests/advisor_popups_test.cpp
     tests/ai_civilizations_test.cpp
+    tests/ai_civilization_setup_test.cpp
+    tests/ai_economy_settings_test.cpp
+    tests/custom_achievements_test.cpp
+    tests/ai_economy_hooks_test.cpp
     tests/barbarian_messages_test.cpp
     tests/building_wonder_effect_rules_test.cpp
+    tests/bundled_mods_test.cpp
     tests/discord_invites_model_test.cpp
     tests/discord_presence_model_test.cpp
     tests/display_aspect_test.cpp
@@ -97,12 +116,20 @@ add_executable(rerevved_tests
     tests/gotw_settings_test.cpp
     tests/great_general_attachment_test.cpp
     tests/host_settings_test.cpp
+    tests/gameplay_session_settings_test.cpp
+    tests/occ_hooks_test.cpp
     tests/helper_commands_test.cpp
+    tests/network_pause_test.cpp
     tests/main_menu_logo_asset_test.cpp
     tests/mod_script_rules_test.cpp
     tests/nation_select_text_test.cpp
     tests/occ_settings_test.cpp
+    tests/portable_mode_test.cpp
     tests/raging_barbarians_settings_test.cpp
+    tests/capital_grace_test.cpp
+    tests/capital_grace_hooks_test.cpp
+    tests/capital_grace_nuclear_test.cpp
+    tests/capital_grace_type24_test.cpp
     tests/research_prompt_test.cpp
     tests/resource_identity_overrides_test.cpp
     tests/resource_identity_trace_test.cpp
@@ -110,6 +137,7 @@ add_executable(rerevved_tests
     tests/retail_ui_art_test.cpp
     tests/rules_bundle_test.cpp
     tests/rush_cost_test.cpp
+    tests/unit_sale_value_test.cpp
     tests/save_sidecar_test.cpp
     tests/start_resources_test.cpp
     tests/system_link_trace_test.cpp
@@ -136,12 +164,19 @@ target_link_libraries(rerevved_tests PRIVATE
     Threads::Threads
 )
 rexglue_apply_target_settings(rerevved_tests)
+target_compile_definitions(rerevved_tests PRIVATE UNIT_SALE_TESTING)
 # The test sources that see a variant source's test seam compile with it too.
 set_source_files_properties(
     tests/support/rules_fixtures.cpp
     tests/rules_bundle_test.cpp
     tests/mod_script_rules_test.cpp
     PROPERTIES COMPILE_DEFINITIONS RULES_BUNDLE_TESTING)
+
+# The bundled_mods case loads the mods that scripts/assemble_mods.py writes to
+# its default output, with the same version the title reports to the SDK.
+target_compile_definitions(rerevved_tests PRIVATE
+    REREVVED_BUNDLED_MODS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/out/bundled-mods"
+    REREVVED_TEST_GAME_VERSION="${PROJECT_VERSION}")
 
 # One case per former CTest registration, named exactly as it was. Cases tagged
 # [ctest] are the automatic ones; manual proofs and helper commands stay out of
@@ -198,6 +233,8 @@ add_test(NAME resource_settings_contract COMMAND ${Python3_EXECUTABLE} -B
     ${CMAKE_CURRENT_SOURCE_DIR}/scripts/tests/test_resource_settings_contract.py)
 add_test(NAME raging_barbarians_contract COMMAND ${Python3_EXECUTABLE} -B
     ${CMAKE_CURRENT_SOURCE_DIR}/scripts/tests/test_raging_barbarians_contract.py)
+add_test(NAME capital_grace_contract COMMAND ${Python3_EXECUTABLE} -B
+    ${CMAKE_CURRENT_SOURCE_DIR}/scripts/tests/test_capital_grace_contract.py)
 add_test(NAME occ_contract COMMAND ${Python3_EXECUTABLE} -B
     ${CMAKE_CURRENT_SOURCE_DIR}/scripts/tests/test_occ_contract.py)
 add_test(NAME gotw_contract COMMAND ${Python3_EXECUTABLE} -B
@@ -205,7 +242,7 @@ add_test(NAME gotw_contract COMMAND ${Python3_EXECUTABLE} -B
 add_test(NAME city_founding_unit_contract COMMAND ${Python3_EXECUTABLE} -B
     ${CMAKE_CURRENT_SOURCE_DIR}/scripts/tests/test_city_founding_unit_contract.py)
 foreach(_python_contract IN ITEMS
-    save_sidecar_contract resource_settings_contract raging_barbarians_contract
+    save_sidecar_contract resource_settings_contract raging_barbarians_contract capital_grace_contract
     occ_contract gotw_contract city_founding_unit_contract)
     set_property(TEST ${_python_contract} APPEND PROPERTY LABELS python-contract)
 endforeach()

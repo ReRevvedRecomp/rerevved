@@ -140,6 +140,7 @@ REREVVED_GUEST_IMPORT_DOUBLE(826A39F8)
 REREVVED_GUEST_IMPORT_DOUBLE(826A7040)
 REREVVED_GUEST_IMPORT_DOUBLE(826A7138)
 REREVVED_GUEST_IMPORT_DOUBLE(826AD150)
+REREVVED_GUEST_IMPORT_DOUBLE(82CF0CB0)
 
 // Guest helper functions the generated code would define, which the ring stub
 // route test replaces with scripted bodies. They share the address space of the

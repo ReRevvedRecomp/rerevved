@@ -18,6 +18,10 @@
   with -Stage Build. The configure and codegen passes are unchanged; omitting it
   builds the default target set.
 
+.PARAMETER Developer
+  Configure, build, and launch the win-amd64-developer preset instead of
+  win-amd64-release.
+
 .PARAMETER SelfTest
   Resolve and validate all required paths and print the constructed commands, but
   do not run CMake or launch the game.
@@ -71,6 +75,9 @@
 .EXAMPLE
   cd <repo>; .\scripts\rexglue.ps1 -Stage Launch -Interactive
 
+.EXAMPLE
+  cd <repo>; .\scripts\rexglue.ps1 -Developer -Stage Launch -Interactive -LaunchArgument '--native_xenos_frame_reference=out/diagnostics/<fresh-dir>'
+
 #>
 [CmdletBinding()]
 param(
@@ -79,6 +86,7 @@ param(
     [ValidateRange(1, 3600)]
     [int]$ProbeSeconds = 20,
     [switch]$Interactive,
+    [switch]$Developer,
     [string[]]$LaunchArgument = @(),
     [string]$LaunchArgumentJson,
     [string]$ReplayRecipe,
@@ -114,7 +122,8 @@ if ($PSBoundParameters.ContainsKey('ShaderRecipe')) {
 $sdkLock = Join-Path $repo 'rexglue-sdk.lock.json'
 $manifest = Join-Path $repo 'rerevved_manifest.toml'
 $xex = Join-Path $repo 'game\default.xex'
-$buildDir = Join-Path $repo 'out\build\win-amd64-release'
+$preset = if ($Developer) { 'win-amd64-developer' } else { 'win-amd64-release' }
+$buildDir = Join-Path $repo ('out\build\' + $preset)
 $exe = Join-Path $buildDir 'rerevved.exe'
 foreach ($pathOverride in @(
         @{ Name = 'UserDataRoot'; Value = $UserDataRoot },
@@ -374,9 +383,9 @@ Require-Path $VcVarsAll 'vcvarsall.bat'
 Require-Path (Join-Path $LlvmBin 'clang.exe') 'clang.exe'
 Require-Path (Join-Path $LlvmBin 'clang++.exe') 'clang++.exe'
 
-$configureCommand = 'cmake --preset win-amd64-release "-Drexglue_DIR=' + $sdkConfig + '"'
-$codegenCommand = 'cmake --build --preset win-amd64-release --target rerevved_codegen'
-$buildCommand = 'cmake --build --preset win-amd64-release'
+$configureCommand = 'cmake --preset ' + $preset + ' "-Drexglue_DIR=' + $sdkConfig + '"'
+$codegenCommand = "cmake --build --preset $preset --target rerevved_codegen"
+$buildCommand = "cmake --build --preset $preset"
 if ($PSBoundParameters.ContainsKey('Target')) {
     $buildCommand += ' --target ' + (@($Target) -join ' ')
 }
@@ -395,13 +404,14 @@ $arguments = $launchArguments -join ' '
 Write-Host "title ref: $titleHead ($titleDirty)" -ForegroundColor DarkGray
 Write-Host "sdk ref  : $sdkHead ($sdkDirty, $sdkVersion)" -ForegroundColor DarkGray
 Write-Host "platform : $installedBUILD_PLATFORM" -ForegroundColor DarkGray
-Write-Host 'config   : Release' -ForegroundColor DarkGray
+$configName = if ($Developer) { 'Developer' } else { 'Release' }
+Write-Host "config   : $configName" -ForegroundColor DarkGray
 Write-Host "stage    : $Stage" -ForegroundColor Cyan
 
 if ($SelfTest) {
     Write-Host 'self-test: resolved paths and constructed commands only; no CMake or game launch.' -ForegroundColor Cyan
-    Write-Host '  cmake --preset win-amd64-release "-Drexglue_DIR=<sdk-package>"'
-    Write-Host '  cmake --build --preset win-amd64-release --target rerevved_codegen'
+    Write-Host "  cmake --preset $preset `"-Drexglue_DIR=<sdk-package>`""
+    Write-Host "  cmake --build --preset $preset --target rerevved_codegen"
     Write-Host "  $buildCommand"
     if ($Stage -eq 'Replay') {
         Write-Host '  <native-draw-replay-executable> <recipe> <fresh-output>'

@@ -5,7 +5,32 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
+
+TEST_CASE("host_settings_raging_requires_capital_grace", "[ctest][host-settings]")
+{
+    using namespace rerevved::host_settings;
+    HostSettings settings;
+    auto         bytes = Encode(settings);
+    CHECK((bytes[4] & 0x21) == 0);
+    REQUIRE(Decode(bytes));
+    settings.ragingBarbarians = true;
+    bytes                     = Encode(settings);
+    CHECK((bytes[4] & 0x21) == 0x21);
+    REQUIRE(Decode(bytes));
+    CHECK(Decode(bytes)->ragingBarbarians);
+    bytes[4] &= ~uint8_t{ 0x20 };
+    CHECK_FALSE(Decode(bytes)); // Raging without capital grace.
+    bytes[4] ^= 0x21;
+    CHECK_FALSE(Decode(bytes)); // Capital grace without Raging.
+    for (const uint8_t undefined : { 0x40, 0x80 })
+    {
+        bytes = Encode(settings);
+        bytes[4] |= undefined;
+        CHECK_FALSE(Decode(bytes));
+    }
+}
 
 namespace
 {
@@ -46,7 +71,7 @@ void testRoundTrip()
     UNSCOPED_INFO("the encoding fits the channel");
     CHECK(bytes.size() <= rex::session_data::kMaxBytes);
     UNSCOPED_INFO("the first byte is the format version");
-    CHECK(bytes[0] == 1);
+    CHECK(bytes[0] == 2);
 
     const auto decoded = Decode(bytes);
     UNSCOPED_INFO("an encoding decodes");
@@ -82,6 +107,11 @@ void testOrderIsDeterministic()
 
 void testClamping()
 {
+    CHECK(HostSettings{}.aiCivilizations == 4);
+    for (const int32_t selected : { 5, 6 })
+    {
+        CHECK(Decode(Encode(HostSettings{ selected, {}, false }))->aiCivilizations == 4);
+    }
     HostSettings high    = sample();
     high.aiCivilizations = 9;
     HostSettings low     = sample();
@@ -93,8 +123,8 @@ void testClamping()
 
     auto bytes = Encode(sample());
     bytes[1]   = 200;
-    UNSCOPED_INFO("a received byte above 4 becomes 4");
-    CHECK(Decode(bytes)->aiCivilizations == 4);
+    UNSCOPED_INFO("a noncanonical received AI count is rejected");
+    CHECK(!Decode(bytes));
 }
 
 void testTruncation()
@@ -143,8 +173,14 @@ void testRejection()
     CHECK(!Decode(std::vector<uint8_t>{ 1, 2, 0 }).has_value());
 
     auto version = good;
-    version[0]   = 2;
+    version[0]   = 5;
     UNSCOPED_INFO("an unknown version is rejected");
+    CHECK(!Decode(version).has_value());
+    version[0] = 3;
+    UNSCOPED_INFO("version 3 is rejected");
+    CHECK(!Decode(version).has_value());
+    version[0] = 1;
+    UNSCOPED_INFO("the released version 1 payload is rejected");
     CHECK(!Decode(version).has_value());
     version[0] = 0;
     UNSCOPED_INFO("version 0 is rejected");
@@ -176,7 +212,8 @@ void testRejection()
     unsorted.mods = { { "b", "1", "" }, { "a", "1", "" } };
     UNSCOPED_INFO("the encoder always sorts");
     CHECK(Decode(Encode(unsorted)).has_value());
-    const std::vector<uint8_t> swapped = { 1, 4, 0, 2, 1, 'b', 1, '1', 0, 1, 'a', 1, '1', 0 };
+    auto swapped = Encode(unsorted);
+    std::swap(swapped[22], swapped[27]);
     UNSCOPED_INFO("mods out of id order are rejected");
     CHECK(!Decode(swapped).has_value());
 }
@@ -246,16 +283,34 @@ void testLocalMods()
     PublishLocalMods(sample().mods);
     UNSCOPED_INFO("published mods are returned");
     CHECK(sameMods(LocalMods(), sample().mods));
+    LocalModSnapshot verified;
+    verified.mods               = sample().mods;
+    verified.rulesDigestPresent = true;
+    verified.rulesDigest.fill(7);
+    PublishLocalModSnapshot(verified);
+    const auto retained = LocalModSnapshotForSettings();
+    CHECK(sameMods(retained.mods, verified.mods));
+    CHECK(retained.rulesDigestPresent);
+    CHECK(retained.rulesDigest == verified.rulesDigest);
+    InvalidateLocalModSnapshot();
+    CHECK_FALSE(LocalModSnapshotForSettings().complete);
+    CHECK(retained.complete);
     PublishLocalMods({});
     UNSCOPED_INFO("a later publish replaces the snapshot");
     CHECK(LocalMods().empty());
+    const auto replaced = LocalModSnapshotForSettings();
+    CHECK(!replaced.rulesDigestPresent);
+    CHECK((replaced.rulesDigest == std::array<uint8_t, 32>{}));
+    CHECK(sameMods(retained.mods, verified.mods));
+    CHECK(retained.rulesDigest == verified.rulesDigest);
 }
 
 Status statusWith(State state, const std::vector<uint8_t>& bytes)
 {
     Status status;
-    status.state = state;
-    status.bytes = bytes;
+    status.state      = state;
+    status.bytes      = bytes;
+    status.game_ready = state == State::kHost || state == State::kReceived;
     return status;
 }
 
@@ -278,20 +333,28 @@ void testResolveAiLimit()
     UNSCOPED_INFO("a peer with a lower own value still uses the host's");
     CHECK((ResolveAiLimit(true, statusWith(State::kReceived, host), 0, &source) == 2 && source == "received"));
 
-    UNSCOPED_INFO("an unavailable host value falls back to the local one");
-    CHECK((ResolveAiLimit(true, statusWith(State::kUnavailable, {}), 1, &source) == 1 && source == "fallback"));
-    UNSCOPED_INFO("a host value still pending falls back to the local one");
-    CHECK((ResolveAiLimit(true, statusWith(State::kPending, {}), 1, &source) == 1 && source == "fallback"));
-    UNSCOPED_INFO("a network game with no session data falls back to the local value");
-    CHECK((ResolveAiLimit(true, statusWith(State::kNone, {}), 1, &source) == 1 && source == "fallback"));
+    UNSCOPED_INFO("an unavailable host value rejects the game");
+    CHECK((ResolveAiLimit(true, statusWith(State::kUnavailable, {}), 1, &source) == -1 && source == "unavailable"));
+    UNSCOPED_INFO("a host value still pending rejects the game");
+    CHECK((ResolveAiLimit(true, statusWith(State::kPending, {}), 1, &source) == -1 && source == "unavailable"));
+    UNSCOPED_INFO("a network game with no session data rejects the game");
+    CHECK((ResolveAiLimit(true, statusWith(State::kNone, {}), 1, &source) == -1 && source == "unavailable"));
 
-    UNSCOPED_INFO("a malformed host value falls back to the local one");
-    CHECK((ResolveAiLimit(true, statusWith(State::kReceived, { 9, 9, 9 }), 1, &source) == 1 && source == "fallback"));
-    UNSCOPED_INFO("an empty host value falls back to the local one");
-    CHECK((ResolveAiLimit(true, statusWith(State::kReceived, {}), 1, &source) == 1 && source == "fallback"));
+    UNSCOPED_INFO("a malformed host value rejects the game");
+    CHECK((ResolveAiLimit(true, statusWith(State::kReceived, { 9, 9, 9 }), 1, &source) == -1 && source == "unavailable"));
+    UNSCOPED_INFO("an empty host value rejects the game");
+    CHECK((ResolveAiLimit(true, statusWith(State::kReceived, {}), 1, &source) == -1 && source == "unavailable"));
 
     UNSCOPED_INFO("a null source is accepted");
     CHECK(ResolveAiLimit(true, statusWith(State::kReceived, host), 4, nullptr) == 2);
+    for (const int32_t selected : { 5, 6 })
+    {
+        CHECK(ResolveAiLimit(false, statusWith(State::kNone, {}), selected, nullptr) == selected);
+        CHECK(ResolveAiLimit(true, statusWith(State::kUnavailable, {}), selected, nullptr) == -1);
+        CHECK(ResolveAiLimit(true, statusWith(State::kReceived, {}), selected, nullptr) == -1);
+    }
+    CHECK(ResolveAiLimit(false, statusWith(State::kNone, {}), 9, nullptr) == 6);
+    CHECK(ResolveAiLimit(false, statusWith(State::kNone, {}), -1, nullptr) == 0);
 }
 
 } // namespace
@@ -306,4 +369,181 @@ TEST_CASE("host_settings", "[ctest][host-settings][local-fast]")
     testMismatch();
     testLocalMods();
     testResolveAiLimit();
+}
+
+TEST_CASE("host_settings gameplay snapshot validates complete policy", "[ctest][host-settings][local-fast]")
+{
+    HostSettings selected             = sample();
+    selected.ragingBarbarians         = true;
+    selected.oneCityChallenge         = true;
+    selected.resources                = 3;
+    selected.aiResearchBonusPercent   = 37;
+    selected.aiProductionBonusPercent = 161;
+    selected.aiGoldBonusPercent       = 200;
+    selected.aiFoodBonusPercent       = 99;
+    selected.aiCultureBonusPercent    = 1;
+    selected.dominationMinimumTurns   = 5;
+    selected.combatSpeed              = 1;
+    selected.gotwCustomWeek           = true;
+    selected.gotwWeek                 = 123456;
+    selected.gotwSeed                 = 210;
+    selected.gotwStandardRules        = false;
+    selected.rulesDigestPresent       = true;
+    selected.rulesDigest.fill(0xA5);
+    const auto bytes   = Encode(selected);
+    const auto decoded = Decode(bytes);
+    REQUIRE(decoded);
+    CHECK(decoded->aiCivilizations == 2);
+    CHECK(decoded->ragingBarbarians);
+    CHECK(decoded->oneCityChallenge);
+    CHECK(decoded->resources == 3);
+    CHECK(decoded->aiResearchBonusPercent == 37);
+    CHECK(decoded->aiProductionBonusPercent == 161);
+    CHECK(decoded->aiGoldBonusPercent == 200);
+    CHECK(decoded->aiFoodBonusPercent == 99);
+    CHECK(decoded->aiCultureBonusPercent == 1);
+    auto incompatible = bytes;
+    incompatible[0]   = 3;
+    CHECK_FALSE(Decode(incompatible));
+    incompatible[0] = 1;
+    CHECK_FALSE(Decode(incompatible));
+    const auto rejected = ResolveForGame(true, { State::kReceived, incompatible, true }, selected);
+    CHECK_FALSE(rejected.settings);
+    CHECK(decoded->dominationMinimumTurns == 5);
+    CHECK(decoded->combatSpeed == 1);
+    CHECK(decoded->gotwCustomWeek);
+    CHECK(decoded->gotwWeek == 123456);
+    CHECK(decoded->gotwSeed == 210);
+    CHECK(!decoded->gotwStandardRules);
+    CHECK(decoded->rulesDigest == selected.rulesDigest);
+    CHECK(Encode(*decoded) == bytes);
+
+    for (const auto [offset, value] : std::vector<std::pair<size_t, uint8_t>>{
+             { 1, 5 }, { 5, 2 }, { 6, 201 }, { 7, 201 }, { 8, 201 }, { 9, 201 }, { 10, 201 }, { 11, 2 }, { 12, 2 } })
+    {
+        auto invalid    = bytes;
+        invalid[offset] = value;
+        CHECK(!Decode(invalid));
+    }
+    // Peers must use a supported Domination value and no undefined flag bit.
+    auto unsupported = bytes;
+    unsupported[4] |= 0x40;
+    CHECK(!Decode(unsupported));
+    unsupported[4] = bytes[4] | 0x80;
+    CHECK(!Decode(unsupported));
+    unsupported     = bytes;
+    unsupported[11] = 1;
+    CHECK(!Decode(unsupported));
+    auto invalid = bytes;
+    invalid[17] ^= 1;
+    CHECK(!Decode(invalid)); // Seed must be derived from the selected week.
+    invalid = bytes;
+    invalid[4] &= ~uint8_t{ 4 };
+    CHECK(!Decode(invalid)); // Automatic week cannot carry a custom seed/week.
+    for (size_t length = 0; length < bytes.size(); ++length)
+    {
+        CHECK(!Decode(std::span(bytes).first(length)));
+    }
+}
+
+TEST_CASE("host_settings network game rejects stale and unverified settings", "[ctest][host-settings][local-fast]")
+{
+    HostSettings local       = sample();
+    local.rulesDigestPresent = true;
+    local.rulesDigest.fill(9);
+    auto       status = statusWith(State::kReceived, Encode(local));
+    const auto frozen = ResolveForGame(true, status, local);
+    REQUIRE(frozen.settings);
+    CHECK(frozen.state == SnapshotState::Received);
+    local.resources = 3;
+    CHECK(frozen.settings->resources == 0);
+    CHECK(ResolveForGame(true, status, local).settings->resources == 0);
+    auto truncated          = local;
+    truncated.modsTruncated = true;
+    CHECK(!ResolveForGame(true, status, truncated).settings);
+    status.game_ready = false;
+    CHECK(ResolveForGame(true, status, local).state == SnapshotState::Pending);
+    status.game_ready = true;
+    local.rulesDigest[0] ^= 1;
+    CHECK(ResolveForGame(true, status, local).state == SnapshotState::Incompatible);
+    local.rulesDigestPresent = false;
+    CHECK(!ResolveForGame(true, status, local).settings);
+    status.bytes = { 1, 4, 0, 0 };
+    CHECK(ResolveForGame(true, status, local).state == SnapshotState::Incompatible);
+    status = statusWith(State::kUnavailable, {});
+    CHECK(ResolveForGame(true, status, local).state == SnapshotState::Missing);
+    local.aiCivilizations   = 6;
+    const auto singlePlayer = ResolveForGame(false, status, local);
+    REQUIRE(singlePlayer.settings);
+    CHECK(singlePlayer.state == SnapshotState::Local);
+    CHECK(singlePlayer.settings->aiCivilizations == 6);
+}
+
+TEST_CASE("host_settings normalizes local selections before encoding", "[ctest][host-settings][local-fast]")
+{
+    HostSettings local;
+    local.aiCivilizations          = 6;
+    local.resources                = 2;
+    local.aiResearchBonusPercent   = -1;
+    local.aiProductionBonusPercent = 300;
+    local.aiGoldBonusPercent       = 201;
+    local.aiFoodBonusPercent       = -5;
+    local.aiCultureBonusPercent    = 150;
+    local.dominationMinimumTurns   = 1;
+    local.combatSpeed              = -1;
+    local.gotwCustomWeek           = true;
+    local.gotwWeek                 = 1;
+    local.gotwSeed                 = 99;
+    const auto encoded             = Decode(Encode(local));
+    REQUIRE(encoded);
+    CHECK(encoded->aiCivilizations == 4);
+    CHECK(encoded->resources == 0);
+    CHECK(encoded->aiResearchBonusPercent == 0);
+    CHECK(encoded->aiProductionBonusPercent == 200);
+    CHECK(encoded->aiGoldBonusPercent == 200);
+    CHECK(encoded->aiFoodBonusPercent == 0);
+    CHECK(encoded->aiCultureBonusPercent == 150);
+    CHECK(encoded->dominationMinimumTurns == 10);
+    CHECK(encoded->combatSpeed == 0);
+    CHECK(encoded->gotwWeek == 1);
+    CHECK(encoded->gotwSeed == 2);
+    local.gotwWeek         = 0xFFFFFFFFu;
+    const auto invalidWeek = Normalize(local);
+    CHECK(!invalidWeek.gotwCustomWeek);
+    CHECK(invalidWeek.gotwWeek == 0);
+    CHECK(invalidWeek.gotwSeed == 0);
+}
+
+TEST_CASE("host_settings keeps the Game of the Week civilization local", "[ctest][host-settings][local-fast]")
+{
+    HostSettings local           = sample();
+    local.gotwCustomCivilization = true;
+    local.gotwCivilization       = 9;
+    const auto network           = Normalize(local);
+    CHECK(!network.gotwCustomCivilization);
+    CHECK(network.gotwCivilization == 0);
+    CHECK(!Normalize(local, true).gotwCustomCivilization);
+    const auto kept = Normalize(local, false);
+    CHECK(kept.gotwCustomCivilization);
+    CHECK(kept.gotwCivilization == 9);
+    const auto resolved = ResolveForGame(false, statusWith(State::kNone, {}), local);
+    REQUIRE(resolved.settings);
+    CHECK(resolved.settings->gotwCustomCivilization);
+    CHECK(resolved.settings->gotwCivilization == 9);
+
+    local.gotwCivilization = 16;
+    const auto invalid     = Normalize(local, false);
+    CHECK(!invalid.gotwCustomCivilization);
+    CHECK(invalid.gotwCivilization == 0);
+    local.gotwCivilization       = 9;
+    local.gotwCustomCivilization = false;
+    CHECK(Normalize(local, false).gotwCivilization == 0);
+
+    // The wire format never carries the civilization.
+    local.gotwCustomCivilization = true;
+    CHECK(Encode(local) == Encode(sample()));
+    const auto decoded = Decode(Encode(local));
+    REQUIRE(decoded);
+    CHECK(!decoded->gotwCustomCivilization);
+    CHECK(decoded->gotwCivilization == 0);
 }

@@ -1,5 +1,6 @@
 #include "allocation_harness.hpp"
 #include "building_effect_rules_registry.h"
+#include "host_settings.h"
 #include "mod_script_rules.h"
 #include "nation_select_text_registry.h"
 #include "preparation_failure.hpp"
@@ -913,4 +914,220 @@ TEST_CASE("mod_script_rules", "[ctest][mod-script-rules]")
     TestCityFoundingUnit();
     TestHostAllocation();
     TestAtomicity();
+}
+
+TEST_CASE("mod_script_loadout_replaces_all_owned_domains", "[ctest][mod-script-rules]")
+{
+    const tests::ScopedRegistryReset registryScope;
+    auto                             replacementHost = CreateModScriptRulesHost();
+    auto                             native          = packageFixture(0);
+    auto&                            nativeRule      = std::get<TerrainYieldRule>(native.rules.front().request);
+    std::memset(nativeRule.providerId, 0, sizeof(nativeRule.providerId));
+    std::memcpy(nativeRule.providerId, "native.provider", sizeof("native.provider"));
+    REQUIRE(PublishRulesBundle(native).published);
+    const auto                  nativeSnapshot = snapshot();
+    std::vector<ModScriptValue> values;
+    values.reserve(9);
+    for (const auto source : scripts)
+        values.push_back(decode(source));
+    values.push_back(decode("return {provider_id='test.founding', rules={{id='militia', kind='city_founding_unit', unit='militia', upgrades={'loyalty'}}}}"));
+    std::vector<rex::system::ModScriptPublishRequest> requests;
+    for (size_t i = 0; i < scripts.size(); ++i)
+        requests.push_back({ "package", "main.lua", "rerevved.rules", 1, domains[i], values[i] });
+    const std::vector<std::string> foundingDomain{ "city_founding_unit" };
+    requests.push_back({ "founding", "main.lua", "rerevved.rules", 1, foundingDomain, values.back() });
+    ModScriptPublishResult result;
+    auto                   prepared = replacementHost->PrepareReplacement(requests, result);
+    REQUIRE(prepared);
+    prepared->Commit();
+    const auto accepted = snapshot();
+    REQUIRE(accepted != nativeSnapshot);
+    REQUIRE(city_founding_unit::IsEnabled());
+    prepared = replacementHost->PrepareReplacement(requests, result);
+    REQUIRE(prepared);
+    prepared->Commit();
+    REQUIRE(snapshot() == accepted);
+    values[1] = decode(mutate(1, "bundle.rules[1].percentage_delta=25; bundle.rules[2].percentage_delta=25"));
+    prepared  = replacementHost->PrepareReplacement(requests, result);
+    REQUIRE(prepared);
+    prepared->Commit();
+    REQUIRE(snapshot() != accepted);
+    prepared = replacementHost->PrepareReplacement({}, result);
+    REQUIRE(prepared);
+    prepared->Commit();
+    REQUIRE(snapshot() == nativeSnapshot);
+    REQUIRE_FALSE(city_founding_unit::IsEnabled());
+    REQUIRE(building_effect_rules::RuleCount() == 0);
+    REQUIRE(wonder_effect_rules::RuleCount() == 0);
+    prepared = replacementHost->PrepareReplacement({}, result);
+    REQUIRE(prepared);
+    prepared->Commit();
+    REQUIRE(snapshot() == nativeSnapshot);
+}
+
+TEST_CASE("mod_script_replacement_cancels_and_rejects_across_domains", "[ctest][mod-script-rules]")
+{
+    const tests::ScopedRegistryReset registryScope;
+    auto                             replacementHost = CreateModScriptRulesHost();
+    // A real native registration owns this exact terrain identity.
+    REQUIRE(PublishRulesBundle(packageFixture(0)).published);
+    const auto                                 nativeSnapshot = snapshot();
+    const auto                                 initial        = decode(scripts[1]); // Combat and nation-select text.
+    const rex::system::ModScriptPublishRequest initialRequest{ "combat", "main.lua", "rerevved.rules", 1, domains[1], initial };
+    ModScriptPublishResult                     result;
+    auto                                       prepared = replacementHost->PrepareReplacement(std::span(&initialRequest, 1), result);
+    REQUIRE(prepared);
+    prepared->Commit();
+    const auto accepted = snapshot();
+    // Cancelling a prepared unload must retain ownership as well as values.
+    prepared = replacementHost->PrepareReplacement({}, result);
+    REQUIRE(prepared);
+    prepared.reset();
+    REQUIRE(snapshot() == accepted);
+    const auto                                 collision = decode(scripts[0]);
+    const rex::system::ModScriptPublishRequest conflicting{ "terrain", "main.lua", "rerevved.rules", 1, domains[0], collision };
+    REQUIRE_FALSE(replacementHost->PrepareReplacement(std::span(&conflicting, 1), result));
+    REQUIRE(snapshot() == accepted);
+    const auto                                                invalid = decode(mutate(1, "bundle.rules[3].text = 1"));
+    const std::array<rex::system::ModScriptPublishRequest, 2> invalidLoadout{ initialRequest,
+                                                                              rex::system::ModScriptPublishRequest{ "invalid", "main.lua", "rerevved.rules", 1, domains[1], invalid } };
+    REQUIRE_FALSE(replacementHost->PrepareReplacement(invalidLoadout, result));
+    REQUIRE(result.stage == ModScriptStage::kSchema);
+    REQUIRE(snapshot() == accepted);
+    bool succeeded = false;
+    for (int64_t step = 0; step < 100; ++step)
+    {
+        {
+            const tests::ScopedPreparationFailure failAt(step);
+            prepared = replacementHost->PrepareReplacement({}, result);
+        }
+        if (prepared)
+        {
+            succeeded = true;
+            break;
+        }
+        REQUIRE(snapshot() == accepted);
+    }
+    REQUIRE(succeeded);
+    prepared->Commit();
+    REQUIRE(snapshot() == nativeSnapshot);
+}
+
+TEST_CASE("mod_script_suspension_withdraws_and_restores_lua_rules", "[ctest][mod-script-rules]")
+{
+    const tests::ScopedRegistryReset registryScope;
+    auto                             replacementHost = CreateModScriptRulesHost();
+    // A native registration is not Lua-owned and must survive suspension.
+    auto  native     = packageFixture(0);
+    auto& nativeRule = std::get<TerrainYieldRule>(native.rules.front().request);
+    std::memset(nativeRule.providerId, 0, sizeof(nativeRule.providerId));
+    std::memcpy(nativeRule.providerId, "native.provider", sizeof("native.provider"));
+    REQUIRE(PublishRulesBundle(native).published);
+    const auto nativeSnapshot = snapshot();
+
+    const auto                                 combat = decode(scripts[1]); // Combat and nation-select text.
+    const rex::system::ModScriptPublishRequest combatRequest{ "combat", "main.lua", "rerevved.rules", 1, domains[1], combat };
+    const auto                                 scalar = decode(scripts[2]);
+    const rex::system::ModScriptPublishRequest scalarRequest{ "scalar", "main.lua", "rerevved.rules", 1, domains[2], scalar };
+    ModScriptPublishResult                     result;
+    auto                                       prepared = replacementHost->PrepareReplacement(std::span(&combatRequest, 1), result);
+    REQUIRE(prepared);
+    prepared->Commit();
+    const auto combatSnapshot = snapshot();
+    REQUIRE(combatSnapshot != nativeSnapshot);
+
+    SuspendModRulesForGame(true);
+    REQUIRE(snapshot() == nativeSnapshot);
+    SuspendModRulesForGame(true);
+    REQUIRE(snapshot() == nativeSnapshot);
+    SuspendModRulesForGame(false);
+    REQUIRE(snapshot() == combatSnapshot);
+    SuspendModRulesForGame(false);
+    REQUIRE(snapshot() == combatSnapshot);
+
+    SECTION("a cancelled or invalid replacement leaves the held selection")
+    {
+        SuspendModRulesForGame(true);
+        prepared = replacementHost->PrepareReplacement(std::span(&scalarRequest, 1), result);
+        REQUIRE(prepared);
+        prepared.reset();
+        const auto                                 invalid = decode(mutate(2, "bundle.rules[2].text = 1"));
+        const rex::system::ModScriptPublishRequest invalidRequest{ "invalid", "main.lua", "rerevved.rules", 1, domains[2], invalid };
+        REQUIRE_FALSE(replacementHost->PrepareReplacement(std::span(&invalidRequest, 1), result));
+        REQUIRE(snapshot() == nativeSnapshot);
+        SuspendModRulesForGame(false);
+        REQUIRE(snapshot() == combatSnapshot);
+    }
+
+    SECTION("a replacement applied while suspended publishes when the suspension ends")
+    {
+        SuspendModRulesForGame(true);
+        prepared = replacementHost->PrepareReplacement(std::span(&scalarRequest, 1), result);
+        REQUIRE(prepared);
+        prepared->Commit();
+        REQUIRE(snapshot() == nativeSnapshot);
+        SuspendModRulesForGame(false);
+        const auto scalarSnapshot = snapshot();
+        REQUIRE(scalarSnapshot != nativeSnapshot);
+        REQUIRE(scalarSnapshot != combatSnapshot);
+        // The restored selection is Lua-owned: a replay is idempotent and an
+        // unload leaves only the native registration.
+        prepared = replacementHost->PrepareReplacement(std::span(&scalarRequest, 1), result);
+        REQUIRE(prepared);
+        prepared->Commit();
+        REQUIRE(snapshot() == scalarSnapshot);
+        prepared = replacementHost->PrepareReplacement({}, result);
+        REQUIRE(prepared);
+        prepared->Commit();
+        REQUIRE(snapshot() == nativeSnapshot);
+    }
+
+    SECTION("an empty selection applied while suspended restores nothing")
+    {
+        SuspendModRulesForGame(true);
+        prepared = replacementHost->PrepareReplacement({}, result);
+        REQUIRE(prepared);
+        prepared->Commit();
+        SuspendModRulesForGame(false);
+        REQUIRE(snapshot() == nativeSnapshot);
+    }
+
+    SECTION("a failed restore ends the suspension with no Lua rules")
+    {
+        host_settings::PublishLocalModSnapshot({});
+        REQUIRE(host_settings::LocalModSnapshotForSettings().complete);
+        SuspendModRulesForGame(true);
+        {
+            const tests::ScopedPreparationFailure failAt(0);
+            SuspendModRulesForGame(false);
+        }
+        REQUIRE(snapshot() == nativeSnapshot);
+        // Network setup must not match a digest for rules that were discarded.
+        REQUIRE_FALSE(host_settings::LocalModSnapshotForSettings().complete);
+        host_settings::PublishLocalMods({});
+        SuspendModRulesForGame(false);
+        REQUIRE(snapshot() == nativeSnapshot);
+        // The suspension ended, so the next apply publishes at once.
+        prepared = replacementHost->PrepareReplacement(std::span(&combatRequest, 1), result);
+        REQUIRE(prepared);
+        prepared->Commit();
+        REQUIRE(snapshot() == combatSnapshot);
+    }
+
+    SECTION("suspending with no Lua rules still defers the next apply")
+    {
+        prepared = replacementHost->PrepareReplacement({}, result);
+        REQUIRE(prepared);
+        prepared->Commit();
+        REQUIRE(snapshot() == nativeSnapshot);
+        SuspendModRulesForGame(true);
+        prepared = replacementHost->PrepareReplacement(std::span(&combatRequest, 1), result);
+        REQUIRE(prepared);
+        prepared->Commit();
+        REQUIRE(snapshot() == nativeSnapshot);
+        SuspendModRulesForGame(false);
+        REQUIRE(snapshot() == combatSnapshot);
+    }
+
+    SuspendModRulesForGame(false);
 }

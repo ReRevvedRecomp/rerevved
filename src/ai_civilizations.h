@@ -30,7 +30,24 @@ constexpr uint32_t kSessionGlobal = 0x8314EFE0;
 constexpr int32_t kPlayerCount     = 6;
 constexpr int32_t kBarbarianPlayer = 5;
 // Civilization slots 0..4; the barbarian slot 5 is never removed.
-constexpr uint32_t kCivilizationSlots = 0x1F;
+constexpr uint32_t kCivilizationSlots      = 0x1F;
+constexpr int32_t  kMaxAiCivilizations     = 6;
+constexpr int32_t  kMaxCivilizationPlayers = 7;
+
+// Supported layouts reserve the last slot for Barbarians.
+constexpr uint32_t CivilizationMask(int32_t count, int32_t barbarian)
+{
+    return count >= kPlayerCount && count <= kMaxCivilizationPlayers + 1 && barbarian == count - 1
+               ? (1u << barbarian) - 1
+               : 0;
+}
+
+constexpr bool IsOrdinaryAi(int32_t count, int32_t barbarian, uint32_t humans, int32_t player)
+{
+    const uint32_t civilized = CivilizationMask(count, barbarian);
+    return civilized != 0 && humans != 0 && (humans & ~civilized) == 0 &&
+           player >= 0 && player < barbarian && (humans & (1u << player)) == 0;
+}
 
 // Unit records as sub_82D0C1E0 walks them: 256 records of 0x54 bytes per
 // player. Byte +0 is the owner (0xFF when free), byte +1 the unit type and bit
@@ -54,16 +71,17 @@ inline bool IsLiveUnit(uint8_t owner, uint32_t flags)
     return owner != 0xFF && (flags & kUnitKilledFlag) == 0;
 }
 
-// An ai_civilizations value of this or more keeps every AI civilization.
+// The default and stock layout capacity remain four AI civilizations.
 constexpr int32_t kAllAiCivilizations = 4;
 
-// For the ordinary six-slot layout with a human, keep the lowest maxAi AI slots
+// For supported layouts with a human, keep the lowest maxAi AI slots
 // so peers agree; one human retains at least one AI. Other layouts return no
 // removals.
 inline uint32_t RemovableMask(int32_t count, int32_t barbarian, uint32_t humanMask, int32_t maxAi)
 {
-    const uint32_t humans = humanMask & kCivilizationSlots;
-    if (count != kPlayerCount || barbarian != kBarbarianPlayer || humans == 0)
+    const uint32_t civilized = CivilizationMask(count, barbarian);
+    const uint32_t humans    = humanMask & civilized;
+    if (civilized == 0 || humans == 0)
     {
         return 0;
     }
@@ -73,7 +91,7 @@ inline uint32_t RemovableMask(int32_t count, int32_t barbarian, uint32_t humanMa
         keep = 1;
     }
     uint32_t removable = 0;
-    for (int32_t slot = 0; slot < kBarbarianPlayer; ++slot)
+    for (int32_t slot = 0; slot < barbarian; ++slot)
     {
         if ((humans >> slot & 1) != 0)
         {

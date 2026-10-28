@@ -46,6 +46,16 @@ address = 0x82D91A94
 name = "ReapplyGotwSeed"
 registers = ["r3", "r4", "r5"]
 
+# Evidence: https://github.com/ReRevvedRecomp/rerevved-research/blob/main/manifests/game-of-the-week-local-generation.json
+# civilizationOverrideBoundary:
+# Run before the writer stores the derived civilization (stw r10,316(r31)). r10 is
+# the derived civilization, r31 the setup and r5 the live civilization count.
+# The override applies only when the two launch hooks above armed it.
+[[midasm_hook]]
+address = 0x82DADD18
+name = "OverrideGotwCivilization"
+registers = ["r10", "r31", "r5"]
+
 # Read-only observers enabled by gotw_trace.
 [[midasm_hook]]
 address = 0x82DADC88

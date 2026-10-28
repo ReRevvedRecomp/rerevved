@@ -25,7 +25,9 @@ std::unique_lock<std::shared_mutex> AcquirePublicationLock();
 int32_t BuildCandidate(std::span<const WonderEffectRuleV2> requests,
                        std::vector<WonderEffectRuleV2>&    candidate,
                        size_t&                             failingOffset,
-                       void (*checkpoint)() = nullptr);
+                       void (*checkpoint)()                          = nullptr,
+                       std::span<const WonderEffectRuleV2> removed   = {},
+                       bool                                exclusive = false);
 void    CommitCandidate(std::vector<WonderEffectRuleV2>& candidate) noexcept;
 
 // True when any Religion grant rule is retained. Lock-free for the guest hook.

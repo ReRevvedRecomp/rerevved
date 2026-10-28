@@ -255,6 +255,8 @@ Only launch when your task calls for runtime verification:
 .\scripts\rexglue.ps1 -Stage Launch -Interactive
 ```
 
+Add `-Developer` to either command to use the developer preset.
+
 The first command stops the launched process after the probe timeout. The
 second waits for normal exit. The driver supplies the repository's `game/`
 root and redirects development user data, cache, and logs under ignored

@@ -249,15 +249,26 @@ std::unique_lock<std::shared_mutex> AcquirePublicationLock()
 int32_t BuildCandidate(std::span<const BuildingEffectRuleV2> requests,
                        std::vector<BuildingEffectRuleV2>&    candidate,
                        size_t&                               failingOffset,
-                       void (*checkpoint)())
+                       void (*checkpoint)(),
+                       std::span<const BuildingEffectRuleV2> removed,
+                       bool                                  exclusive)
 {
     failingOffset = 0;
     if (checkpoint)
     {
         checkpoint();
     }
-    candidate   = registry;
-    int64_t sum = 0;
+    candidate = registry;
+    // Only the preceding Lua transaction's exact owned records may be removed.
+    std::erase_if(candidate, [&](const auto& existing)
+                  {
+                      return std::any_of(removed.begin(), removed.end(), [&](const auto& owned)
+                                         {
+                                             return std::memcmp(&existing, &owned, sizeof(owned)) == 0;
+                                         });
+                  });
+    const size_t retainedCount = candidate.size();
+    int64_t      sum           = 0;
     for (const auto& rule : candidate)
     {
         sum += rule.amount;
@@ -272,7 +283,7 @@ int32_t BuildCandidate(std::span<const BuildingEffectRuleV2> requests,
                                               });
         if (existing != candidate.end())
         {
-            if (std::memcmp(&*existing, &normalized, sizeof(normalized)) != 0)
+            if ((exclusive && static_cast<size_t>(existing - candidate.begin()) < retainedCount) || std::memcmp(&*existing, &normalized, sizeof(normalized)) != 0)
             {
                 return BUILDING_EFFECT_RULES_ERR_CONFLICT;
             }
@@ -475,7 +486,9 @@ std::unique_lock<std::shared_mutex> AcquirePublicationLock()
 int32_t BuildCandidate(std::span<const WonderEffectRuleV2> requests,
                        std::vector<WonderEffectRuleV2>&    candidate,
                        size_t&                             failingOffset,
-                       void (*checkpoint)())
+                       void (*checkpoint)(),
+                       std::span<const WonderEffectRuleV2> removed,
+                       bool                                exclusive)
 {
     failingOffset = 0;
     if (checkpoint)
@@ -483,6 +496,15 @@ int32_t BuildCandidate(std::span<const WonderEffectRuleV2> requests,
         checkpoint();
     }
     candidate = registry;
+    // Only the preceding Lua transaction's exact owned records may be removed.
+    std::erase_if(candidate, [&](const auto& existing)
+                  {
+                      return std::any_of(removed.begin(), removed.end(), [&](const auto& owned)
+                                         {
+                                             return std::memcmp(&existing, &owned, sizeof(owned)) == 0;
+                                         });
+                  });
+    const size_t retainedCount = candidate.size();
     for (size_t i = 0; i < requests.size(); ++i)
     {
         failingOffset          = i;
@@ -493,7 +515,7 @@ int32_t BuildCandidate(std::span<const WonderEffectRuleV2> requests,
                                               });
         if (existing != candidate.end())
         {
-            if (std::memcmp(&*existing, &normalized, sizeof(normalized)) != 0)
+            if ((exclusive && static_cast<size_t>(existing - candidate.begin()) < retainedCount) || std::memcmp(&*existing, &normalized, sizeof(normalized)) != 0)
             {
                 return WONDER_EFFECT_RULES_ERR_CONFLICT;
             }

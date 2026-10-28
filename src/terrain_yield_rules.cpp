@@ -279,7 +279,9 @@ std::unique_lock<std::shared_mutex> AcquirePublicationLock()
 int32_t BuildCandidate(std::span<const TerrainYieldRule> requests,
                        std::vector<TerrainYieldRule>&    candidate,
                        size_t&                           failingOffset,
-                       void (*checkpoint)())
+                       void (*checkpoint)(),
+                       std::span<const TerrainYieldRule> removed,
+                       bool                              exclusive)
 {
     failingOffset = 0;
     if (checkpoint)
@@ -287,6 +289,15 @@ int32_t BuildCandidate(std::span<const TerrainYieldRule> requests,
         checkpoint();
     }
     candidate = registry;
+    // Only the preceding Lua transaction's exact owned records may be removed.
+    std::erase_if(candidate, [&](const auto& existing)
+                  {
+                      return std::any_of(removed.begin(), removed.end(), [&](const auto& owned)
+                                         {
+                                             return std::memcmp(&existing, &owned, sizeof(owned)) == 0;
+                                         });
+                  });
+    const size_t retainedCount = candidate.size();
     for (size_t i = 0; i < requests.size(); ++i)
     {
         failingOffset          = i;
@@ -297,7 +308,7 @@ int32_t BuildCandidate(std::span<const TerrainYieldRule> requests,
                                               });
         if (duplicate != candidate.end())
         {
-            if (std::memcmp(&*duplicate, &normalized, sizeof(normalized)) != 0)
+            if ((exclusive && static_cast<size_t>(duplicate - candidate.begin()) < retainedCount) || std::memcmp(&*duplicate, &normalized, sizeof(normalized)) != 0)
             {
                 return TERRAIN_YIELD_RULES_ERR_DUPLICATE_RULE_ID;
             }

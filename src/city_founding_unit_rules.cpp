@@ -158,7 +158,7 @@ std::unique_lock<std::shared_mutex> AcquirePublicationLock()
     return std::unique_lock(registryMutex);
 }
 
-int32_t BuildCandidate(std::span<const Rule> requests, std::vector<Rule>& candidate, size_t& failingOffset, void (*checkpoint)())
+int32_t BuildCandidate(std::span<const Rule> requests, std::vector<Rule>& candidate, size_t& failingOffset, void (*checkpoint)(), std::span<const Rule> removed, bool exclusive)
 {
     failingOffset = 0;
     if (checkpoint)
@@ -166,12 +166,21 @@ int32_t BuildCandidate(std::span<const Rule> requests, std::vector<Rule>& candid
         checkpoint();
     }
     candidate = registry;
+    // Only the preceding Lua transaction's exact owned records may be removed.
+    std::erase_if(candidate, [&](const auto& existing)
+                  {
+                      return std::any_of(removed.begin(), removed.end(), [&](const auto& owned)
+                                         {
+                                             return std::memcmp(&existing, &owned, sizeof(owned)) == 0;
+                                         });
+                  });
+    const size_t retainedCount = candidate.size();
     for (size_t i = 0; i < requests.size(); ++i)
     {
         failingOffset = i;
         if (!candidate.empty())
         {
-            if (std::memcmp(&candidate.front(), &requests[i], sizeof(Rule)) != 0)
+            if ((exclusive && retainedCount != 0) || std::memcmp(&candidate.front(), &requests[i], sizeof(Rule)) != 0)
             {
                 return kConflict;
             }

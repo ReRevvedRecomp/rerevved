@@ -1,6 +1,6 @@
 [project]
 name = "rerevved"
-sdk_version = "0.12.1"
+sdk_version = "0.13.0"
 game_root = "game"
 
 [entrypoint]
@@ -9,6 +9,7 @@ out_directory_path = "generated/default"
 includes = [
     "config/rerevved_functions.toml",
     "config/gameplay_hooks.toml",
+    "config/unit_sale_hooks.toml",
     "config/asset_hooks.toml",
     "config/graphics_compat_hooks.toml",
     "config/display_aspect_hooks.toml",
@@ -19,8 +20,13 @@ includes = [
     "config/terrain_hooks.toml",
     "config/advisor_hooks.toml",
     "config/ai_civilizations_hooks.toml",
+    "config/ai_economy_hooks.toml",
     "config/occ_hooks.toml",
     "config/raging_barbarians_hooks.toml",
+    "config/capital_grace_hooks.toml",
+    "config/custom_achievement_event_hooks.toml",
+    "config/custom_achievement_movement_hooks.toml",
+    "config/custom_achievement_combat_hooks.toml",
     "config/gotw_hooks.toml",
     "config/save_sidecar_hooks.toml",
     "config/native_progress_hooks.toml",

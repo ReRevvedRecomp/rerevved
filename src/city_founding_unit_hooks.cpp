@@ -1,5 +1,6 @@
 #include "city_founding_unit_hooks.h"
 #include "city_founding_unit_rules.h"
+#include "custom_achievement_event_hooks.h"
 
 #include <cstring>
 
@@ -141,6 +142,7 @@ const char* decisionName(rerevved::city_founding_unit::Decision decision)
 
 void ApplyCityFoundingUnit(PPCRegister& stack, PPCRegister& citySlot, PPCRegister& owner, PPCRegister& threadPointer, PPCFPSCRRegister& fpscr)
 {
+    ObserveCustomAchievementCityFounded(stack, citySlot, owner, threadPointer, fpscr);
     try
     {
         GuestWorld world(stack, threadPointer, fpscr);

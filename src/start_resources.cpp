@@ -34,7 +34,7 @@ struct Ring
 Ring ring(const Snapshot& snapshot, size_t player)
 {
     Ring result;
-    if (player >= kPlayers || !snapshot.bounds.Contains(snapshot.players[player].anchor))
+    if (player >= kPlayers || player >= snapshot.civilizationCount || !snapshot.bounds.Contains(snapshot.players[player].anchor))
     {
         return result;
     }
@@ -163,7 +163,7 @@ Result Apply(resource_settings::FrozenSelection& selection, World& world)
     }
 
     Snapshot original;
-    if (!world.Capture(original) || !original.bounds.Valid())
+    if (!world.Capture(original) || !original.bounds.Valid() || original.civilizationCount < ai_civilizations::kBarbarianPlayer || original.civilizationCount > kPlayers)
     {
         return result;
     }
@@ -172,7 +172,7 @@ Result Apply(resource_settings::FrozenSelection& selection, World& world)
     overrides::Snapshot            records;
     std::array<int, kTileCapacity> chosen;
     chosen.fill(kAbsent);
-    for (size_t player = 0; player < kPlayers; ++player)
+    for (size_t player = 0; player < original.civilizationCount; ++player)
     {
         auto& report    = result.players[player];
         report.anchor   = original.players[player].anchor;
