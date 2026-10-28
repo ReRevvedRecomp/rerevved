@@ -1,12 +1,18 @@
 #include "mod_script_rules.h"
+#include "gameplay_session_settings.h"
+#include "host_settings.h"
 #include "rules_bundle.h"
 #include <algorithm>
 #include <array>
 #include <building_effect_rules.h>
 #include <cmath>
 #include <cstring>
+#include <mutex>
 #include <utility>
 #include <wonder_effect_rules.h>
+
+#include <rex/logging.h>
+#include <rex/ui/notifications.h>
 
 namespace rerevved
 {
@@ -209,245 +215,8 @@ public:
         try
         {
             // Prepare the exception diagnostic before any registry commit.
-            fallback.message = "host preparation failed; no rules from this bundle published";
-            if (request.api != "rerevved.rules" || request.api_version != 1)
-            {
-                fail("contract", "expected rerevved.rules version 1", ModScriptStage::kSupport);
-            }
-            const auto& root = request.value;
-            checkTable(root, "root");
-            for (const auto& entry : root.entries)
-            {
-                if (entry.key.string != "provider_id" && entry.key.string != "rules")
-                {
-                    fail("root", "field " + entry.key.string + ": unknown field");
-                }
-            }
-            const auto provider = stringField(root, "provider_id", "root");
-            checkId(provider, "root", "provider_id");
-            const auto& rules = field(root, "rules", "root");
-            if (rules.type != Type::kTable || rules.entries.empty() || rules.entries.size() > 256)
-            {
-                fail("rules", "expected dense array of 1..256 records");
-            }
-            RulesBundle bundle;
-            bundle.rules.reserve(rules.entries.size());
-            std::vector<EffectRequest> effects;
-            for (size_t i = 0; i < rules.entries.size(); ++i)
-            {
-                std::string locator = "rules[" + std::to_string(i + 1) + "]";
-                const auto& entry   = rules.entries[i];
-                if (entry.key.type != Type::kInteger || entry.key.integer != static_cast<int64_t>(i + 1))
-                {
-                    fail(locator, "expected dense integer keys 1..n");
-                }
-                const auto& record = entry.value;
-                checkTable(record, locator);
-                const auto id = stringField(record, "id", locator);
-                checkId(id, locator, "id");
-                locator += " " + std::string(id);
-                const auto kind   = stringField(record, "kind", locator);
-                const auto schema = std::find_if(std::begin(schemas), std::end(schemas), [&](const auto& item)
-                                                 {
-                                                     return item.kind == kind;
-                                                 });
-                if (schema == std::end(schemas))
-                {
-                    fail(locator, "field kind: unsupported kind " + std::string(kind), ModScriptStage::kSupport);
-                }
-                if (std::find(request.declared_domains.begin(), request.declared_domains.end(), kind) == request.declared_domains.end())
-                {
-                    fail(locator, "field kind: domain not declared in requires");
-                }
-                std::initializer_list<std::string_view> textFields;
-                if (kind == "nation_select_text")
-                {
-                    const auto surface = stringField(record, "surface", locator);
-                    if (surface == "unique_unit")
-                    {
-                        textFields = unitTextFields;
-                    }
-                    else if (surface == "era_ability")
-                    {
-                        textFields = eraTextFields;
-                    }
-                    else
-                    {
-                        fail(locator, "field surface: invalid token");
-                    }
-                }
-                for (const auto& item : record.entries)
-                {
-                    const auto& name = item.key.string;
-                    if (name != "id" && name != "kind" &&
-                        std::find(schema->fields.begin(), schema->fields.end(), name) == schema->fields.end() &&
-                        std::find(textFields.begin(), textFields.end(), name) == textFields.end())
-                    {
-                        fail(locator, "field " + name + ": unknown field");
-                    }
-                }
-                const auto validate = [&](std::string_view name)
-                {
-                    if (name == "value" || name == "percentage_delta" || name == "amount")
-                    {
-                        integerField(record, name, locator);
-                    }
-                    else
-                    {
-                        const auto value = name == "upgrades" ? upgradeField(record, locator) : stringField(record, name, locator);
-                        if (name != "text" && !IsContractToken(kind, name, value))
-                        {
-                            const auto supported = SupportedRuleParameterValues(kind, name);
-                            fail(locator, "field " + std::string(name) + (supported.empty() ? ": invalid token" : ": unsupported value; supported values: " + supported));
-                        }
-                    }
-                };
-                for (const auto name : schema->fields)
-                    validate(name);
-                for (const auto name : textFields)
-                    validate(name);
-                const auto s = [&](std::string_view name)
-                {
-                    return stringField(record, name, locator);
-                };
-                const auto n = [&](std::string_view name)
-                {
-                    return integerField(record, name, locator);
-                };
-                const auto unit = [&]()
-                {
-                    return UnitSelectors{ s("civilization"), s("base_unit_type"), s("identity") };
-                };
-                const RuleIdentity ids{ provider, id };
-                NativeRequest      mapped;
-                int32_t            status = 0;
-                switch (schema - std::begin(schemas))
-                {
-                    case 0:
-                        status = BuildTerrainYieldRule(ids, s("terrain"), s("component"), s("operation"), n("value"), mapped.emplace<TerrainYieldRule>());
-                        break;
-                    case 1:
-                        status = BuildUnitCombatRule(ids, unit(), s("terrain"), s("property"), n("percentage_delta"), mapped.emplace<UnitCombatRule>());
-                        break;
-                    case 2:
-                        status = BuildUniqueUnitScalarRule(ids, unit(), s("property"), s("operation"), n("value"), mapped.emplace<UniqueUnitScalarRule>());
-                        break;
-                    case 3:
-                        status = BuildUnitMovementRule(ids, unit(), n("value"), mapped.emplace<UnitMovementRule>());
-                        break;
-                    case 4:
-                        status = BuildUnitEffectRule(ids, unit(), s("effect"), mapped.emplace<UnitEffectRule>());
-                        break;
-                    case 5:
-                        status = BuildUnitProductionCostRule(ids, unit(), n("percentage_delta"), mapped.emplace<UnitProductionCostRule>());
-                        break;
-                    case 6:
-                        status = BuildEraTechnologyAbility(ids, s("civilization"), s("unlock_era"), s("technology"), mapped.emplace<EraAbilityReplacement>());
-                        break;
-                    case 7:
-                    {
-                        const auto text = s("text");
-                        if (text.empty() || text.size() > 255 || !std::all_of(text.begin(), text.end(), [](unsigned char c)
-                                                                              {
-                                                                                  return c >= 32 && c <= 126;
-                                                                              }))
-                        {
-                            fail(locator, "field text: expected 1..255 printable ASCII bytes");
-                        }
-                        TextSelectors selectors{};
-                        selectors.surface      = s("surface");
-                        selectors.civilization = s("civilization");
-                        if (selectors.surface == "unique_unit")
-                        {
-                            selectors.baseUnitType = s("base_unit_type");
-                            selectors.identity     = s("identity");
-                            selectors.displayForm  = s("display_form");
-                        }
-                        else
-                        {
-                            selectors.unlockEra = s("unlock_era");
-                            selectors.ability   = s("ability");
-                        }
-                        status = BuildNationSelectTextRule(ids, selectors, text, mapped.emplace<NationSelectTextRule>());
-                        break;
-                    }
-                    case 8:
-                    {
-                        // Effect records are also reported to the support check; the bundle publishes them with the other rules.
-                        const auto effect  = MapRuleParameters(kind, { { "civilization", s("civilization") }, { "building", s("building") }, { "yield", s("yield") } });
-                        const auto request = effectRequest<BuildingEffectRuleV2>(provider, id, effect, n("amount"));
-                        effects.push_back({ locator, request });
-                        mapped.emplace<BuildingEffectRuleV2>(request);
-                        break;
-                    }
-                    case 9:
-                    {
-                        const auto effect  = MapRuleParameters(kind, { { "wonder", s("wonder") }, { "technology", s("technology") } });
-                        const auto request = effectRequest<WonderEffectRuleV2>(provider, id, effect, 0);
-                        effects.push_back({ locator, request });
-                        mapped.emplace<WonderEffectRuleV2>(request);
-                        break;
-                    }
-                    case 10:
-                    {
-                        const auto enable = MapRuleParameters(kind, { { "unit", s("unit") }, { "upgrades", upgradeField(record, locator) } });
-                        if (enable == 0)
-                            fail(locator, "unsupported unit and upgrades combination");
-                        status = BuildCityFoundingUnitRule(ids, true, mapped.emplace<city_founding_unit::Rule>());
-                        break;
-                    }
-                }
-                if (status != 0)
-                {
-                    fail(locator, "invalid selector combination or value; native result " + std::to_string(status));
-                }
-                bundle.rules.push_back({ i + 1, std::move(mapped) });
-            }
-            // Check each requested domain before any registry publication.
-            BuildingEffectSupportV2 buildingSupport{};
-            WonderEffectSupportV2   wonderSupport{};
-            int32_t                 buildingStatus = 0;
-            int32_t                 wonderStatus   = 0;
-            const auto              hasBuilding    = std::any_of(effects.begin(), effects.end(), [](const auto& entry)
-                                                                 {
-                                                     return std::holds_alternative<BuildingEffectRuleV2>(entry.rule);
-                                                                 });
-            const auto              hasWonder      = std::any_of(effects.begin(), effects.end(), [](const auto& entry)
-                                                                 {
-                                                   return std::holds_alternative<WonderEffectRuleV2>(entry.rule);
-                                                                 });
-            if (hasBuilding)
-            {
-                buildingStatus = GetBuildingEffectSupportV2(&buildingSupport, sizeof(buildingSupport));
-            }
-            if (hasWonder)
-            {
-                wonderStatus = GetWonderEffectSupportV2(&wonderSupport, sizeof(wonderSupport));
-            }
-#ifdef RULES_BUNDLE_TESTING
-            for (const auto& entry : effects)
-            {
-                if (const auto* rule = std::get_if<BuildingEffectRuleV2>(&entry.rule); rule && observeBuildingEffect)
-                    observeBuildingEffect(*rule);
-                if (const auto* rule = std::get_if<WonderEffectRuleV2>(&entry.rule); rule && observeWonderEffect)
-                    observeWonderEffect(*rule);
-            }
-#endif
-            for (const auto& entry : effects)
-            {
-                const bool        building  = std::holds_alternative<BuildingEffectRuleV2>(entry.rule);
-                const auto        status    = building ? buildingStatus : wonderStatus;
-                const bool        available = building ? buildingSupport.runtimeAvailable != 0 : wonderSupport.runtimeAvailable != 0;
-                const std::string domain    = building ? "Building Effect Rules" : "Wonder Effect Rules";
-                if (status != 0)
-                {
-                    fail(entry.locator, domain + " support query failed; no rules from this bundle published", ModScriptStage::kSupport);
-                }
-                if (!available)
-                {
-                    fail(entry.locator, domain + " runtime integration unavailable; no rules from this bundle published", ModScriptStage::kSupport);
-                }
-            }
+            fallback.message              = "host preparation failed; no rules from this bundle published";
+            auto                   bundle = Decode(request);
             ModScriptPublishResult success;
             success.published = true;
             const auto result = PublishRulesBundle(bundle);
@@ -479,11 +248,436 @@ public:
         }
     }
 
+    bool supports_replacement() const noexcept override
+    {
+        return true;
+    }
+
+    // Withdraws this host's Lua rules for a Standard Rules game, or republishes
+    // the latest selection. Callers hold the rule boundary.
+    void SetSuspended(bool suspend) noexcept
+    {
+        if (suspend == suspended_)
+            return;
+        if (suspend)
+            Suspend();
+        else
+            Resume();
+    }
+
+    std::unique_ptr<ModScriptReplacement> PrepareReplacement(std::span<const ModScriptPublishRequest> requests, ModScriptPublishResult& result) noexcept override
+    {
+        result       = {};
+        result.stage = ModScriptStage::kPublish;
+        try
+        {
+            result.message   = "loadout preparation failed; active rules unchanged";
+            auto replacement = std::make_unique<Replacement>(*this);
+            if (!gameplay_session::RuleReplacementAllowed())
+            {
+                result.stage   = ModScriptStage::kSupport;
+                result.message = "Leave the multiplayer session before changing mods";
+                return nullptr;
+            }
+            for (const auto& request : requests)
+            {
+                auto decoded = Decode(request);
+                for (auto& rule : decoded.rules)
+                    replacement->next.rules.push_back(std::move(rule));
+            }
+            PublishResult native{};
+            replacement->prepared = PrepareRulesBundle(replacement->next, owned_, native);
+            if (!replacement->prepared)
+            {
+                result.message = "rules[" + std::to_string(native.bundleIndex) + "] " + native.ruleId + ": native result " + std::to_string(native.nativeResult) + "; active rules unchanged";
+                return nullptr;
+            }
+            if (suspended_)
+            {
+                // Validated here and published when the suspension ends.
+                replacement->prepared.reset();
+                replacement->deferred = true;
+            }
+            result.message.clear();
+            result.published = true;
+            return replacement;
+        }
+        catch (ModScriptPublishResult& failure)
+        {
+            result = std::move(failure);
+        }
+        catch (...)
+        {
+        }
+        return nullptr;
+    }
+
 private:
+    struct Replacement final : ModScriptReplacement
+    {
+        explicit Replacement(RulesHost& owner)
+        : boundary(gameplay_session::LockRuleBoundary())
+        , owner(owner)
+        {
+        }
+
+        // Keep the shared boundary through SDK metadata publication and its callback.
+        std::unique_lock<std::recursive_mutex> boundary;
+        RulesHost&                             owner;
+        RulesBundle                            next;
+        std::unique_ptr<PreparedRulesBundle>   prepared;
+        bool                                   deferred = false;
+
+        void Commit() noexcept override
+        {
+            if (deferred)
+            {
+                owner.held_.rules.swap(next.rules);
+                deferred = false;
+                Notify("Mods paused", "Standard Rules keeps this Game of the Week unmodded. Your mod selection applies to your next game.");
+                return;
+            }
+            if (!prepared)
+                return;
+            prepared->Commit();
+            owner.owned_.rules.swap(next.rules);
+            prepared.reset();
+        }
+    };
+
+    // Posting must not fail a commit. A lost toast only hides the explanation.
+    static void Notify(const char* title, const char* message) noexcept
+    {
+        try
+        {
+            rex::ui::PostNotification(title, message);
+        }
+        catch (...)
+        {
+        }
+    }
+
+    void Suspend() noexcept
+    {
+        const size_t count = owned_.rules.size();
+        try
+        {
+            if (count != 0)
+            {
+                const RulesBundle none;
+                PublishResult     native{};
+                const auto        prepared = PrepareRulesBundle(none, owned_, native);
+                if (!prepared)
+                {
+                    REXLOG_ERROR("Mod rules: suspension failed, rules stay published (native result {})", native.nativeResult);
+                    return;
+                }
+                prepared->Commit();
+            }
+            held_.rules.swap(owned_.rules);
+            suspended_ = true;
+            REXLOG_INFO("Mod rules: suspended for Standard Rules Game of the Week (rules={})", count);
+        }
+        catch (...)
+        {
+            REXLOG_ERROR("Mod rules: suspension failed, rules stay published");
+        }
+    }
+
+    void Resume() noexcept
+    {
+        const size_t count    = held_.rules.size();
+        bool         restored = true;
+        try
+        {
+            if (count != 0)
+            {
+                PublishResult native{};
+                const auto    prepared = PrepareRulesBundle(held_, owned_, native);
+                if (prepared)
+                {
+                    prepared->Commit();
+                    owned_.rules.swap(held_.rules);
+                }
+                else
+                {
+                    restored = false;
+                    REXLOG_ERROR("Mod rules: restore failed (native result {})", native.nativeResult);
+                }
+            }
+        }
+        catch (...)
+        {
+            restored = false;
+            REXLOG_ERROR("Mod rules: restore failed");
+        }
+        held_.rules.clear();
+        suspended_ = false;
+        if (restored)
+            REXLOG_INFO("Mod rules: restored (rules={})", count);
+        else
+        {
+            // The accepted digest no longer describes the effective rules.
+            host_settings::InvalidateLocalModSnapshot();
+            Notify("Mods not restored", "Mod rules could not be restored. Open F2 Mods and apply your mods again.");
+        }
+    }
+
+    RulesBundle owned_;
+    RulesBundle held_;
+    bool        suspended_ = false;
+
+    static RulesBundle Decode(const ModScriptPublishRequest& request)
+    {
+        if (request.api != "rerevved.rules" || request.api_version != 1)
+        {
+            fail("contract", "expected rerevved.rules version 1", ModScriptStage::kSupport);
+        }
+        const auto& root = request.value;
+        checkTable(root, "root");
+        for (const auto& entry : root.entries)
+        {
+            if (entry.key.string != "provider_id" && entry.key.string != "rules")
+            {
+                fail("root", "field " + entry.key.string + ": unknown field");
+            }
+        }
+        const auto provider = stringField(root, "provider_id", "root");
+        checkId(provider, "root", "provider_id");
+        const auto& rules = field(root, "rules", "root");
+        if (rules.type != Type::kTable || rules.entries.empty() || rules.entries.size() > 256)
+        {
+            fail("rules", "expected dense array of 1..256 records");
+        }
+        RulesBundle bundle;
+        bundle.rules.reserve(rules.entries.size());
+        std::vector<EffectRequest> effects;
+        for (size_t i = 0; i < rules.entries.size(); ++i)
+        {
+            std::string locator = "rules[" + std::to_string(i + 1) + "]";
+            const auto& entry   = rules.entries[i];
+            if (entry.key.type != Type::kInteger || entry.key.integer != static_cast<int64_t>(i + 1))
+            {
+                fail(locator, "expected dense integer keys 1..n");
+            }
+            const auto& record = entry.value;
+            checkTable(record, locator);
+            const auto id = stringField(record, "id", locator);
+            checkId(id, locator, "id");
+            locator += " " + std::string(id);
+            const auto kind   = stringField(record, "kind", locator);
+            const auto schema = std::find_if(std::begin(schemas), std::end(schemas), [&](const auto& item)
+                                             {
+                                                 return item.kind == kind;
+                                             });
+            if (schema == std::end(schemas))
+            {
+                fail(locator, "field kind: unsupported kind " + std::string(kind), ModScriptStage::kSupport);
+            }
+            if (std::find(request.declared_domains.begin(), request.declared_domains.end(), kind) == request.declared_domains.end())
+            {
+                fail(locator, "field kind: domain not declared in requires");
+            }
+            std::initializer_list<std::string_view> textFields;
+            if (kind == "nation_select_text")
+            {
+                const auto surface = stringField(record, "surface", locator);
+                if (surface == "unique_unit")
+                {
+                    textFields = unitTextFields;
+                }
+                else if (surface == "era_ability")
+                {
+                    textFields = eraTextFields;
+                }
+                else
+                {
+                    fail(locator, "field surface: invalid token");
+                }
+            }
+            for (const auto& item : record.entries)
+            {
+                const auto& name = item.key.string;
+                if (name != "id" && name != "kind" &&
+                    std::find(schema->fields.begin(), schema->fields.end(), name) == schema->fields.end() &&
+                    std::find(textFields.begin(), textFields.end(), name) == textFields.end())
+                {
+                    fail(locator, "field " + name + ": unknown field");
+                }
+            }
+            const auto validate = [&](std::string_view name)
+            {
+                if (name == "value" || name == "percentage_delta" || name == "amount")
+                {
+                    integerField(record, name, locator);
+                }
+                else
+                {
+                    const auto value = name == "upgrades" ? upgradeField(record, locator) : stringField(record, name, locator);
+                    if (name != "text" && !IsContractToken(kind, name, value))
+                    {
+                        const auto supported = SupportedRuleParameterValues(kind, name);
+                        fail(locator, "field " + std::string(name) + (supported.empty() ? ": invalid token" : ": unsupported value; supported values: " + supported));
+                    }
+                }
+            };
+            for (const auto name : schema->fields)
+                validate(name);
+            for (const auto name : textFields)
+                validate(name);
+            const auto s = [&](std::string_view name)
+            {
+                return stringField(record, name, locator);
+            };
+            const auto n = [&](std::string_view name)
+            {
+                return integerField(record, name, locator);
+            };
+            const auto unit = [&]()
+            {
+                return UnitSelectors{ s("civilization"), s("base_unit_type"), s("identity") };
+            };
+            const RuleIdentity ids{ provider, id };
+            NativeRequest      mapped;
+            int32_t            status = 0;
+            switch (schema - std::begin(schemas))
+            {
+                case 0:
+                    status = BuildTerrainYieldRule(ids, s("terrain"), s("component"), s("operation"), n("value"), mapped.emplace<TerrainYieldRule>());
+                    break;
+                case 1:
+                    status = BuildUnitCombatRule(ids, unit(), s("terrain"), s("property"), n("percentage_delta"), mapped.emplace<UnitCombatRule>());
+                    break;
+                case 2:
+                    status = BuildUniqueUnitScalarRule(ids, unit(), s("property"), s("operation"), n("value"), mapped.emplace<UniqueUnitScalarRule>());
+                    break;
+                case 3:
+                    status = BuildUnitMovementRule(ids, unit(), n("value"), mapped.emplace<UnitMovementRule>());
+                    break;
+                case 4:
+                    status = BuildUnitEffectRule(ids, unit(), s("effect"), mapped.emplace<UnitEffectRule>());
+                    break;
+                case 5:
+                    status = BuildUnitProductionCostRule(ids, unit(), n("percentage_delta"), mapped.emplace<UnitProductionCostRule>());
+                    break;
+                case 6:
+                    status = BuildEraTechnologyAbility(ids, s("civilization"), s("unlock_era"), s("technology"), mapped.emplace<EraAbilityReplacement>());
+                    break;
+                case 7:
+                {
+                    const auto text = s("text");
+                    if (text.empty() || text.size() > 255 || !std::all_of(text.begin(), text.end(), [](unsigned char c)
+                                                                          {
+                                                                              return c >= 32 && c <= 126;
+                                                                          }))
+                    {
+                        fail(locator, "field text: expected 1..255 printable ASCII bytes");
+                    }
+                    TextSelectors selectors{};
+                    selectors.surface      = s("surface");
+                    selectors.civilization = s("civilization");
+                    if (selectors.surface == "unique_unit")
+                    {
+                        selectors.baseUnitType = s("base_unit_type");
+                        selectors.identity     = s("identity");
+                        selectors.displayForm  = s("display_form");
+                    }
+                    else
+                    {
+                        selectors.unlockEra = s("unlock_era");
+                        selectors.ability   = s("ability");
+                    }
+                    status = BuildNationSelectTextRule(ids, selectors, text, mapped.emplace<NationSelectTextRule>());
+                    break;
+                }
+                case 8:
+                {
+                    // The support check also receives effect records. The bundle publishes them with the other rules.
+                    const auto effect  = MapRuleParameters(kind, { { "civilization", s("civilization") }, { "building", s("building") }, { "yield", s("yield") } });
+                    const auto request = effectRequest<BuildingEffectRuleV2>(provider, id, effect, n("amount"));
+                    effects.push_back({ locator, request });
+                    mapped.emplace<BuildingEffectRuleV2>(request);
+                    break;
+                }
+                case 9:
+                {
+                    const auto effect  = MapRuleParameters(kind, { { "wonder", s("wonder") }, { "technology", s("technology") } });
+                    const auto request = effectRequest<WonderEffectRuleV2>(provider, id, effect, 0);
+                    effects.push_back({ locator, request });
+                    mapped.emplace<WonderEffectRuleV2>(request);
+                    break;
+                }
+                case 10:
+                {
+                    const auto enable = MapRuleParameters(kind, { { "unit", s("unit") }, { "upgrades", upgradeField(record, locator) } });
+                    if (enable == 0)
+                        fail(locator, "unsupported unit and upgrades combination");
+                    status = BuildCityFoundingUnitRule(ids, true, mapped.emplace<city_founding_unit::Rule>());
+                    break;
+                }
+            }
+            if (status != 0)
+            {
+                fail(locator, "invalid selector combination or value; native result " + std::to_string(status));
+            }
+            bundle.rules.push_back({ i + 1, std::move(mapped) });
+        }
+        // Check each requested domain before any registry publication.
+        BuildingEffectSupportV2 buildingSupport{};
+        WonderEffectSupportV2   wonderSupport{};
+        int32_t                 buildingStatus = 0;
+        int32_t                 wonderStatus   = 0;
+        const auto              hasBuilding    = std::any_of(effects.begin(), effects.end(), [](const auto& entry)
+                                                             {
+                                                 return std::holds_alternative<BuildingEffectRuleV2>(entry.rule);
+                                                             });
+        const auto              hasWonder      = std::any_of(effects.begin(), effects.end(), [](const auto& entry)
+                                                             {
+                                               return std::holds_alternative<WonderEffectRuleV2>(entry.rule);
+                                                             });
+        if (hasBuilding)
+        {
+            buildingStatus = GetBuildingEffectSupportV2(&buildingSupport, sizeof(buildingSupport));
+        }
+        if (hasWonder)
+        {
+            wonderStatus = GetWonderEffectSupportV2(&wonderSupport, sizeof(wonderSupport));
+        }
+#ifdef RULES_BUNDLE_TESTING
+        for (const auto& entry : effects)
+        {
+            if (const auto* rule = std::get_if<BuildingEffectRuleV2>(&entry.rule); rule && observeBuildingEffect)
+                observeBuildingEffect(*rule);
+            if (const auto* rule = std::get_if<WonderEffectRuleV2>(&entry.rule); rule && observeWonderEffect)
+                observeWonderEffect(*rule);
+        }
+#endif
+        for (const auto& entry : effects)
+        {
+            const bool        building  = std::holds_alternative<BuildingEffectRuleV2>(entry.rule);
+            const auto        status    = building ? buildingStatus : wonderStatus;
+            const bool        available = building ? buildingSupport.runtimeAvailable != 0 : wonderSupport.runtimeAvailable != 0;
+            const std::string domain    = building ? "Building Effect Rules" : "Wonder Effect Rules";
+            if (status != 0)
+            {
+                fail(entry.locator, domain + " support query failed; no rules from this bundle published", ModScriptStage::kSupport);
+            }
+            if (!available)
+            {
+                fail(entry.locator, domain + " runtime integration unavailable; no rules from this bundle published", ModScriptStage::kSupport);
+            }
+        }
+        return bundle;
+    }
+
     static constexpr std::initializer_list<std::string_view> unitTextFields{ "base_unit_type", "identity", "display_form" };
     static constexpr std::initializer_list<std::string_view> eraTextFields{ "unlock_era", "ability" };
     std::array<ModScriptContract, 1>                         contracts_{ ModScriptContract{ "rerevved.rules", 1, {} } };
 };
+
+// The newest host receives suspension for the game. The title creates one host.
+std::mutex               activeHostMutex;
+std::weak_ptr<RulesHost> activeHost;
 
 } // namespace
 
@@ -498,7 +692,30 @@ void ObserveEffectRequestsForTests(void (*building)(const BuildingEffectRuleV2&)
 
 std::shared_ptr<rex::system::IModScriptHost> CreateModScriptRulesHost()
 {
-    return std::make_shared<RulesHost>();
+    auto host = std::make_shared<RulesHost>();
+    {
+        std::lock_guard lock(activeHostMutex);
+        activeHost = host;
+    }
+    return host;
+}
+
+void SuspendModRulesForGame(bool suspend) noexcept
+try
+{
+    std::shared_ptr<RulesHost> host;
+    {
+        std::lock_guard lock(activeHostMutex);
+        host = activeHost.lock();
+    }
+    if (!host)
+        return;
+    const auto boundary = gameplay_session::LockRuleBoundary();
+    host->SetSuspended(suspend);
+}
+catch (...)
+{
+    // No exception may escape a guest setup or load boundary.
 }
 
 } // namespace rerevved

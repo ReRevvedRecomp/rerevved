@@ -1,4 +1,5 @@
 #include "app.h"
+#include "custom_achievements.h"
 #include "gotw_settings.h"
 #include "gpu/completion/guest_progress_hooks.h"
 
@@ -48,6 +49,7 @@
 #include "discord_presence.h"
 #include "display_aspect.h"
 #include "game_content.h"
+#include "gameplay_session_settings.h"
 #include "gpu/d3d12/native_renderer_d3d12.h"
 #include "gpu/guest_d3d/clear_consume.h"
 #include "gpu/guest_d3d/clear_derive.h"
@@ -82,6 +84,7 @@
 #include "host_settings.h"
 #include "main_menu_logo_asset.h"
 #include "mod_script_rules.h"
+#include "portable_mode.h"
 #include "xenos_frame_counter.h"
 #if REREVVED_DEVELOPER
 #include "gpu/diagnostics/label_draw_capture.h"
@@ -209,8 +212,8 @@ REXCVAR_DEFINE_BOOL(hide_popup_trophy_room, false, "ReRevved", "Do not offer to 
 REXCVAR_DEFINE_BOOL(hide_popup_government_available, false, "ReRevved", "Do not ask to change government when a new one becomes available; keep the current one");
 REXCVAR_DEFINE_BOOL(hide_barbarian_messages, false, "ReRevved", "Do not show the Barbarian leader message on first contact with a Barbarian tribe");
 REXCVAR_DEFINE_BOOL(hide_village_barbarian_messages, false, "ReRevved", "Do not show the Barbarian leader message that names the reward for capturing a Barbarian village; the reward is still granted");
-REXCVAR_DEFINE_INT32(ai_civilizations, 4, "ReRevved", "Maximum AI civilizations in a new game. A game with one human keeps at least one AI civilization. Multiplayer uses the host's value for all players")
-    .range(0, 4);
+REXCVAR_DEFINE_INT32(ai_civilizations, 4, "ReRevved", "Number of AI civilizations in a new game. A game with one human keeps at least one AI civilization. Five or six AI apply to single-player. Multiplayer uses the host's value up to four for all players")
+    .range(0, 6);
 REXCVAR_DEFINE_COMMAND(open_log_folder, openLogFolder, "ReRevved", "Open the folder that holds the log file and crash dumps");
 REXCVAR_DEFINE_BOOL(xenos_frame_counter, false, "ReRevved", "Log one-second VdSwap return counts and decoded swap intervals")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
@@ -612,21 +615,47 @@ rex::ui::VirtualKey SettingsOverlayKey()
 
 } // namespace
 
-namespace rerevved::host_settings
-{
-
-HostSettings LocalSettings()
-{
-    HostSettings settings;
-    settings.aiCivilizations = REXCVAR_GET(ai_civilizations);
-    settings.mods            = LocalMods();
-    return settings;
-}
-
-} // namespace rerevved::host_settings
-
 namespace rerevved
 {
+
+namespace
+{
+
+void PublishModSnapshot(rex::Runtime& activeRuntime)
+{
+    host_settings::InvalidateLocalModSnapshot();
+    host_settings::LocalModSnapshot snapshot;
+    bool                            luaOnly = true;
+    for (const auto& active : activeRuntime.active_mod_states())
+    {
+        const auto& packages = activeRuntime.active_mods_info();
+        const auto  package  = std::ranges::find(packages, active.id, &rex::system::ModPackage::id);
+        luaOnly              = luaOnly && package != packages.end() && package->payload_kind == rex::system::ModPayloadKind::kLua;
+        snapshot.mods.push_back({ active.id, package != packages.end() ? package->version : std::string{}, package != packages.end() ? package->display_name : std::string{} });
+    }
+    const auto& digest          = activeRuntime.active_mod_script_digest();
+    snapshot.rulesDigestPresent = luaOnly && digest.size() == 64;
+    for (size_t index = 0; snapshot.rulesDigestPresent && index < snapshot.rulesDigest.size(); ++index)
+    {
+        const auto digit = [](char value) -> int
+        {
+            if (value >= '0' && value <= '9')
+                return value - '0';
+            if (value >= 'a' && value <= 'f')
+                return value - 'a' + 10;
+            if (value >= 'A' && value <= 'F')
+                return value - 'A' + 10;
+            return -1;
+        };
+        const int high = digit(digest[2 * index]), low = digit(digest[2 * index + 1]);
+        snapshot.rulesDigestPresent = high >= 0 && low >= 0;
+        if (snapshot.rulesDigestPresent)
+            snapshot.rulesDigest[index] = static_cast<uint8_t>(16 * high + low);
+    }
+    host_settings::PublishLocalModSnapshot(std::move(snapshot));
+}
+
+} // namespace
 
 void App::OnPreSetup(rex::RuntimeConfig& config)
 {
@@ -658,6 +687,11 @@ void App::OnPreSetup(rex::RuntimeConfig& config)
 
 std::filesystem::path App::GetDefaultUserDataRoot() const
 {
+    // Opt-in Portable Mode keeps player data beside the executable.
+    if (const auto portable = portable_mode::PortableRoot(rex::filesystem::GetExecutableFolder()))
+    {
+        return *portable;
+    }
     const auto userFolder = rex::filesystem::GetUserFolder();
 #if defined(_WIN32)
     return userFolder / "My Games" / "ReRevved";
@@ -685,9 +719,38 @@ std::optional<rex::system::ProfileCopySpecification> App::GetProfileCopySpecific
 
 bool App::SetupEnvironment()
 {
+    // Portable Mode must prove its folder is writable before player data is
+    // touched. An explicit user_data_root overrides the marker.
+    std::optional<std::filesystem::path> portableRoot;
+    if (std::string(REXCVAR_GET(user_data_root)).empty())
+    {
+        portableRoot = portable_mode::PortableRoot(rex::filesystem::GetExecutableFolder());
+    }
+    if (portableRoot)
+    {
+        const std::string reason = portable_mode::PrepareRoot(*portableRoot);
+        if (!reason.empty())
+        {
+            const std::string message = fmt::format(
+                "Portable Mode is on (portable.txt is beside rerevved.exe), but ReRevved cannot use its data "
+                "folder:\n\n{}\n\n{}\n\nMove the game to a folder you can write to, or delete portable.txt "
+                "to use the normal Documents data folder.",
+                portableRoot->string(),
+                reason);
+            REXLOG_ERROR("{}", message);
+            rex::ShowSimpleMessageBox(rex::SimpleMessageBoxType::Error, message);
+            return false;
+        }
+    }
+
     if (!rex::ReXApp::SetupEnvironment())
     {
         return false;
+    }
+
+    if (portableRoot)
+    {
+        REXLOG_INFO("Portable Mode is active; player data is stored in {}", portableRoot->string());
     }
 
     // Game of the Week and Leaderboards require a Live sign-in. The SDK
@@ -1079,9 +1142,33 @@ void App::OnPreSystemLinkInit()
     REXLOG_INFO("Discord join launch: invite {}", applied ? "applied" : "rejected");
 }
 
+// Runs after the XEX achievement catalog is loaded and before guest launch.
+void App::OnPostLoadXexImage()
+{
+    rex::ReXApp::OnPostLoadXexImage();
+    if (!rerevved::custom_achievements::Register())
+    {
+        REXLOG_WARN("Custom achievements: registration failed");
+    }
+}
+
 void App::OnPostSetup()
 {
     rex::ReXApp::OnPostSetup();
+    runtime()->SetModLoadoutChangedCallback([this]
+                                            {
+                                                PublishModSnapshot(*runtime());
+                                            });
+    // Live rule replacement is refused for the same network game, so the
+    // overlay locks loadout edits instead of saving them for a restart.
+    runtime()->SetModLoadoutLockProvider([]() -> std::optional<std::string>
+                                         {
+                                             if (rerevved::gameplay_session::RuleReplacementAllowed())
+                                             {
+                                                 return std::nullopt;
+                                             }
+                                             return "Mods can't be changed during a multiplayer game.";
+                                         });
 
     // Resolve selected package assets after the SDK has built the loadout and
     // before the guest main thread is resumed.
@@ -1096,22 +1183,11 @@ void App::OnPostSetup()
                            : "ReRevved");
 }
 
-// Snapshot builds follow plugin and script activation before the guest thread;
-// F2 rescans replace the catalog only.
+// Publish the accepted loadout after startup and every live Lua replacement.
 void App::OnPostLaunchModule(rex::system::XThread* thread)
 {
     rex::ReXApp::OnPostLaunchModule(thread);
-
-    std::vector<host_settings::ModRef> mods;
-    for (const auto& active : runtime()->active_mod_states())
-    {
-        const auto& packages = runtime()->active_mods_info();
-        const auto  package  = std::ranges::find(packages, active.id, &rex::system::ModPackage::id);
-        mods.push_back({ active.id,
-                         package != packages.end() ? package->version : std::string{},
-                         package != packages.end() ? package->display_name : std::string{} });
-    }
-    host_settings::PublishLocalMods(std::move(mods));
+    PublishModSnapshot(*runtime());
 }
 
 void App::OnGuestThreadExit(rex::system::XThread* thread)

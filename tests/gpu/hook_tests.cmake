@@ -65,6 +65,8 @@ if(BUILD_TESTING)
     target_sources(rerevved_tests PRIVATE
         tests/support/cvar_isolation.cpp
 
+        # This pure DTO persistence helper has no live recorder integration.
+        src/gpu/diagnostics/draw_capture_frame_inputs.cpp
         src/gpu/completion/guest_progress_hooks.cpp
         src/gpu/guest_d3d/clear_consume.cpp
         src/gpu/guest_d3d/clear_derive.cpp
@@ -103,6 +105,7 @@ if(BUILD_TESTING)
         tests/gpu/completion_ledger_test.cpp
         tests/gpu/diagnostics/native_renderer_guest_state_test.cpp
         tests/gpu/draw_hooks_test.cpp
+        tests/gpu/draw_capture_frame_inputs_test.cpp
         tests/gpu/gamma_observer_test.cpp
         tests/gpu/guest_gpu_service_test.cpp
         tests/gpu/guest_memory_test.cpp
@@ -130,8 +133,8 @@ if(BUILD_TESTING)
     target_include_directories(rerevved_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(rerevved_tests PRIVATE rerevved_test_present_variant)
 
-    # The recorder and probe sources, their test seams and cases exist only in a
-    # developer build.
+    # Live recorder and probe integrations, their test seams and cases exist
+    # only in a developer build.
     if(REREVVED_DEVELOPER)
         target_sources(rerevved_tests PRIVATE
             tests/support/original_residue_probe_variant.cpp
@@ -139,7 +142,6 @@ if(BUILD_TESTING)
             tests/support/route_effect_variant.cpp
             tests/support/route_trace_variant.cpp
             tests/support/xenos_frame_reference_variant.cpp
-            src/gpu/diagnostics/draw_capture_frame_inputs.cpp
             src/gpu/diagnostics/scene_payload_store.cpp
             src/gpu/diagnostics/scene_target_readback.cpp
             src/gpu/guest_d3d/completion_probe.cpp

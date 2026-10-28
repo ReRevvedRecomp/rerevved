@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(rerevved VERSION 0.5.2 LANGUAGES C CXX)
+project(rerevved VERSION 0.6.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -131,6 +131,8 @@ set(REREVVED_SOURCES
     src/display_aspect.h
     src/display_aspect_hooks.cpp
     src/display_aspect_hooks.h
+    src/portable_mode.cpp
+    src/portable_mode.h
     src/gpu/guest_gpu_service.cpp
     src/gpu/guest_gpu_service.h
     src/gpu/completion/completion_ledger.cpp
@@ -287,6 +289,9 @@ set(REREVVED_SOURCES
     src/discord_presence_model.h
     src/rush_cost.cpp
     src/rush_cost.h
+    src/unit_sale_value.cpp
+    src/unit_sale_value.h
+    src/unit_sale_hooks.cpp
     src/gameplay_fixes.cpp
     src/gameplay_fixes.h
     src/gameplay_fixes_hooks.cpp
@@ -305,8 +310,25 @@ set(REREVVED_SOURCES
     src/barbarian_message_hooks.cpp
     src/ai_civilizations.h
     src/ai_civilizations_hooks.cpp
+    src/ai_civilization_setup.h
+    src/ai_civilization_setup.cpp
+    src/ai_economy_settings.h
+    src/ai_economy_settings.cpp
+    src/ai_economy_hooks.cpp
+    src/custom_achievements.h
+    src/custom_achievements.cpp
+    src/custom_achievement_hooks.cpp
+    src/custom_achievement_event_hooks.cpp
+    src/custom_achievement_event_hooks.h
+    src/custom_achievement_movement_hooks.cpp
+    src/custom_achievement_combat_hooks.cpp
+    src/custom_achievement_combat_hooks.h
+    src/network_pause.h
+    src/network_pause_hooks.cpp
     src/host_settings.cpp
     src/host_settings.h
+    src/gameplay_session_settings.cpp
+    src/gameplay_session_settings.h
     src/unit_catalog_api.cpp
     src/unit_catalog_api.h
 )
@@ -379,6 +401,14 @@ list(APPEND REREVVED_SOURCES
     src/raging_barbarians_settings.h
     src/raging_barbarians_hooks.cpp
     src/raging_barbarians_hooks.h
+    src/capital_grace.cpp
+    src/capital_grace.h
+    src/capital_grace_hooks.cpp
+    src/capital_grace_hooks.h
+    src/capital_grace_special.cpp
+    src/capital_grace_nuclear.cpp
+    src/capital_grace_special.h
+    src/capital_grace_nuclear.h
     src/occ_settings.cpp
     src/occ_settings.h
     src/occ_hooks.cpp

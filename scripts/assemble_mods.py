@@ -70,16 +70,16 @@ def main():
     if git(REPO, "merge-base", "--is-ancestor", title, "HEAD").returncode != 0:
         raise SystemExit(f"error: mods title lock {title} is not an ancestor of HEAD")
 
-    build = [sys.executable, str(checkout / "scripts" / "build_mods.py")]
+    build = [sys.executable, str(checkout / "tools" / "build_mods.py")]
     for package_id in BUNDLED_MODS:
         build += ["--mod", package_id]
     result = subprocess.run(build, cwd=checkout)
     if result.returncode != 0:
-        raise SystemExit("error: rerevved-mods build_mods.py failed")
+        raise SystemExit("error: rerevved-mods tools/build_mods.py failed")
 
     args.out.mkdir(parents=True)
     for package_id in BUNDLED_MODS:
-        shutil.copytree(checkout / "mods" / package_id, args.out / package_id)
+        shutil.copytree(checkout / "out" / "mods" / package_id, args.out / package_id)
     check_mods(args.out)
     print(f"assembled: {args.out} ({', '.join(BUNDLED_MODS)})")
 

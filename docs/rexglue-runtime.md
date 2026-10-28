@@ -18,7 +18,10 @@ driver never modifies that checkout.
   [One City Challenge](#gameplay-one-city-challenge),
   [gameplay fixes](#gameplay-fixes) and
   [Game of the Week](#gameplay-game-of-the-week): gameplay integration limits.
-- [System Link transports](#system-link-transports): online settings and
+- [Custom achievements](#custom-achievements): the title-defined achievements
+  and their award rules.
+- [Multiplayer gameplay snapshots](#multiplayer-gameplay-snapshots) and
+  [System Link transports](#system-link-transports): gameplay admission and
   transport behavior; [Online play](online-play.md) covers hosting and joining.
 - [Runtime boundary](#runtime-boundary) and
   [presentation](#presentation-contract): renderer ownership and image delivery.
@@ -86,7 +89,9 @@ A bare launch, an omitted profile, or `--profile=default` selects the default
 environment with `P=B`. On Windows,
 `B` is normally `Documents\My Games\ReRevved`; on Linux, it is normally
 `$XDG_DATA_HOME/rerevved` or `~/.local/share/rerevved` when
-`XDG_DATA_HOME` is not set.
+`XDG_DATA_HOME` is not set. With a `portable.txt` marker beside the
+executable, `B` is `userdata` beside it (see
+[Portable Mode](configuration.md#portable-mode)).
 
 Use `--profile=<id>` to select a named profile:
 
@@ -112,12 +117,25 @@ selection isolated between named profiles.
 Explicit `log_file` and `cache_root` overrides retain their existing meanings
 and may select locations outside `P`.
 
-F2 discovers packages installed under `mods/` beside the executable and stages
-enabling, disabling, and changing the load order for the active profile. Release archives
-include the first-party mods there; with no profile `mod_order.txt` they start
-disabled. Save changes writes the profile loadout atomically; mod changes take
-effect after restarting the game. Missing or invalid enabled packages block the
-complete desired mod set for that launch while leaving the game and F2 repair flow available.
+F2 discovers packages installed under `mods/` beside the executable. Release
+archives include the first-party mods there. With no profile `mod_order.txt`,
+they start disabled. [Mods](mods.md#enable-or-change-mods) describes Apply
+and when a restart is required.
+
+The [Lua rules host](../src/mod_script_rules.cpp) prepares the complete selected
+Lua loadout as one replacement across all 11 supported rule domains. It removes
+previous Lua-owned rules while preserving other providers. Enabling, disabling,
+reordering, editing and applying again, or unloading all Lua mods uses that same
+transaction. The SDK prepares active metadata and the digest before publication,
+atomically saves the requested loadout, then commits the rules and active state.
+Preparation or save failure preserves the running rules and saved loadout.
+Already completed gameplay effects remain subject to each domain's semantics.
+
+`gameplay_session::RuleReplacementAllowed` in
+[gameplay_session_settings.cpp](../src/gameplay_session_settings.cpp) rejects
+replacement while the guest network byte at `0x8314F10B` is nonzero and the SDK
+session state is not `kNone`. Leaving that session permits another Apply without
+restarting the process. Native DLLs and asset caches retain their restart limits.
 
 Marketplace content is shared. Marketplace packages and their headers remain
 in the base root's namespace for XUID zero, such as
@@ -500,13 +518,20 @@ fallback, a following Normal game and GOTW Standard Rules with Legendary selecte
 ## Save sidecar
 
 `save_sidecar` (default `true`) controls whether the host stores gameplay
-state separately for each save. The payload stores schema version 1, the frozen
-Resources selection,
-sorted unique Balanced or Legendary identity overrides, the frozen Raging Barbarians boolean
-and the fixed One City Challenge policy for whether it is enabled and its
-minimum population. Founding
-Militia and Game of the Week seed state are excluded. New games still freeze
-the effective gameplay selections, including standard GOTW values.
+state separately for each save. The payload stores schema version 2, the frozen
+Resources selection, sorted unique Balanced or Legendary identity overrides, the frozen Raging
+Barbarians boolean, the fixed One City Challenge enabled state and minimum
+population, the effective AI research, production, gold, food and culture bonus
+percentages, and custom achievement progress: whether One
+City Challenge was enabled at game setup (only possible while it is enabled), the Barbarian defeat count, 0 to
+50, and the whole-game history (tracked flag, unit built, battle fought, deep
+Ocean entered, first founding turn and initial AI opponent count). Schema 1
+stores only the Resources selection, Raging Barbarians, One City Challenge and
+the identity overrides. It uses native AI values and gives no progress: One
+City Challenge not from setup, a count of 0 and untracked history. Game of the
+Week seed state is excluded.
+New games freeze the effective gameplay selections, including standard GOTW
+values.
 
 The sidecar is the native slot's host filename plus `.rerevved-gameplay`, in
 the same directory. The title resolves the user/device namespace when opening
@@ -532,10 +557,18 @@ publishes the saved snapshot and frozen settings before native readers resume.
 A repeated reset in the same load restores the staged values again. A successful
 restore logs once; a staged state never restored warns when the load ends.
 A valid sidecar wins over live settings. Missing, unreadable or rejected
-sidecars log one reason and retain live selections with no overrides. A save
+sidecars log one reason and retain live Resources, Raging Barbarians and OCC
+selections with no overrides. AI values remain native during loading. Saved
+bonuses become active only after the loaded game is confirmed offline.
+Missing, rejected or disabled sidecars use native AI values. A save
 made before sidecar support loads under live settings; saving it with sidecars
 enabled records those effective values for subsequent loads. Disabling
 `save_sidecar` retains that existing load behavior and performs no sidecar I/O.
+
+A saved OCC policy of off also overrides a currently checked OCC setting.
+Loading clears the new-game network snapshot. Multiplayer save loading has not
+been certified to restore a shared host snapshot: the existing local sidecar
+policy remains, and AI values return to native for a network load.
 
 Runtime acceptance requires a Balanced or Legendary, Raging Barbarians and OCC game: save,
 quit, flip all gameplay selections, and load. Check resource identities and both
@@ -553,6 +586,38 @@ the hook for loading saves `0x82D86674` in `sub_82D86400`. Changing the checkbox
 play affects the next new game or save load. Loading uses the saved frozen value
 when a matching [Save sidecar](#save-sidecar) is enabled, otherwise the current
 checkbox.
+
+While Raging Barbarians is on, Barbarians cannot capture a civilization's
+capital before 3000 BC. Capital status uses current ownership,
+positive population and the Palace. The signed native calendar
+year controls the cutoff. Native eligibility resumes at 3000 BC.
+
+The admission hook at `0x82CDDF34` checks Combat0, Type1, ordinary Move17 and
+Capture27 before gameplay effects. Refusal takes the native result-1 tail at
+`0x82CE16AC`, so the queue consumes the command. Like the native no-action exit,
+refusal clears the actor's in-action flag 0x8000 that the producer set before
+submitting. A fresh actor also loses its remaining movement and pending X, and only
+matching selection/cache entries clear to -1. A busy actor keeps its other
+state. Exact queue serials and frame/record associations limit producer
+escapes to the matching invocation, including native cleanup of the parent's
+busy flag for linked submissions. The fresh capture check at `0x82D1B43C`
+prevents ownership transfer independently of admission. Spy/Caravan foreign-city ordinary arrivals
+retain their native path.
+
+The extension checks native instruction words before enabling protection and
+logs one explicit warning if the supported profile cannot be confirmed.
+Nuclear Move17 admission checks the native blast footprint, then rechecks each
+selected population destination and victim after application message pumping.
+Protected footprints are consumed. Unreadable or unsupported nuclear bindings
+and every Barbarian Type24 submission during grace are consumed as unsupported
+capabilities. Type24 lifecycle collections can change during message pumping,
+so this capability remains unavailable. Each reason for a capability failure
+warns once independently of tracing. Separate counters distinguish these
+failures from refusals due to protected footprints. Token capacity failures
+leave the excess scope untracked and preserve existing producer escapes.
+Tracing reports their count.
+The save sidecar retains its existing frozen boolean. Multiplayer requires the
+capital-grace capability bit together with the Raging bit.
 
 When enabled, the consumer hook at `0x82D153E4` replaces the local signed
 fecundity input with native case `2`, after `extsh r10,r11` and both native
@@ -625,6 +690,18 @@ once, retaining the native store of the threshold marker at `0x82CF5BE0` and lat
 reward tiers. Disabled OCC leaves every hook's native path and operands
 unchanged.
 
+When enabled, a friendly village whose population category would grant Settlers
+(native Chieftain and Warlord only) takes the native 25 Gold rejection path at
+`0x82D0EF30` through the hook at `0x82D0EEB8`, for human and AI players. The
+other village categories, the two-Spy alternative and the technology
+alternatives are unchanged. Disabled OCC keeps the native branch.
+
+When enabled, the AI tile-scan expansion that spends one population of an
+existing owned city to found a new city without Settlers is skipped at
+`0x82CBBE58`, resuming the native continuation for failed expansion at `0x82CBC3D4`.
+Ordinary tile work, Settle commands with existing units, city capture and game
+setup are unchanged. Disabled OCC keeps the native path.
+
 The frozen enabled policy also replaces Mongolian Ancient's UEA `40`,
 barbarian villages become cities, with Knowledge of Horseback Riding. This uses
 the existing consumer of era abilities and its check for technology ownership.
@@ -640,14 +717,16 @@ text reads **Start with Horseback Riding** while the live OCC checkbox is
 checked. Otherwise it uses native text or text published by mods.
 
 The diagnostic `--occ_trace=true` is off by default. It logs blocked Settlers
-comparisons, the shared policy identity and `R`, AI no-choice exits, reward
-applications, owned city indices, population before/after, cap skips, helper
-entry/return mask samples and marker retention. An application completes only
-after all owned cities have been visited. Helper calls must return while
-retaining city owner/population, saved frames, and marker memory. Actual mask
+comparisons, the shared policy identity and `R`, AI no-choice exits, village
+Settlers replacements, reward applications, owned city indices, population
+before/after, cap skips, helper entry/return mask samples and marker
+retention. An application completes only after all owned cities have been
+visited. Helper calls must return while retaining city owner/population, saved
+frames, and marker memory. Actual mask
 production/order and session-child dispatch/lifetime remain runtime acceptance
 conditions; entry/return mask samples alone do not prove intermediate reads.
-Human and AI rejection, continuation of turns with no candidates, one reward per
+Village Gold instead of Settlers on Chieftain and Warlord, human and AI
+rejection, continuation of turns with no candidates, one reward per
 milestone, cap behavior, later tiers, and checkbox changes across new games
 and save loads require gameplay validation. Mongolian starting Horseback
 Riding, ordinary camp rewards without city conversion, and selection screen
@@ -656,11 +735,12 @@ together. Multiplayer is unverified.
 
 ## Gameplay Game of the Week
 
-F1 **Gameplay** has a **Game of the Week** section with **Week** above
-**Standard Rules**. Week combines a checkbox (`gotw_custom_week`, default off)
-and a decimal field (`gotw_week`). Checking Week unlocks the field and replays
-the chosen week's game using `expanded_MapList[week % 277]` as its seed.
-Unchecked Week preserves native selection for the shared week.
+F1 **Gameplay** has a **Game of the Week** section with **Week**,
+**Civilization** and **Standard Rules**. Week combines a checkbox
+(`gotw_custom_week`, default off) and a decimal field (`gotw_week`). Checking
+Week unlocks the field and replays the chosen week's game using
+`expanded_MapList[week % 277]` as its seed. Unchecked Week preserves native
+selection for the shared week.
 
 Week accepts `1..2147483647`. Zero is a native sentinel and is rejected.
 Blank and other invalid inputs are rejected without changing the previous
@@ -673,11 +753,35 @@ the UI dispatcher and its alive token. Checking Week before delivery protects
 the field, and another launch invalidates older queued updates. The info log
 records the native week, effective week and effective seed.
 
+**Civilization** combines a checkbox (`gotw_custom_civilization`, default off)
+and a dropdown (`gotw_civilization`, default 0). The dropdown lists Roman,
+Egyptian, Greek, Spanish, German, Russian, Chinese, American, Japanese, French,
+Indian, Arabian, Aztec, Zulu, Mongolian and English as IDs `0..15`. Barbarian
+is not a choice. Checking Civilization unlocks the dropdown and plays the
+game as the chosen civilization with the week, seed and map of the Week
+setting or the native selection. Its tooltip is "Enable to play Game of the
+Week as the civilization you choose." The writer `0x82DADC88` derives the
+player's civilization from the week and seed and stores it at setup `+0x13C`
+with `stw r10,316(r31)` at `0x82DADD18`. A midasm hook at that address, before
+the store, replaces r10 only for the accepted launch, inside the writer calls
+from `0x82E76ED4` and `0x82D91A94`. The launch hooks arm it for one writer
+call, and it requires the armed setup pointer and launch to match. The chosen
+ID must be in `0..15` and below the live civilization count in r5, read from
+`(*0x8314EFCC)+60`. Otherwise the hook logs a warning and keeps the derived
+civilization. Other writer calls stay native, including the load writer at
+`0x82D8685C` and modes 1 and 3. A launch with only Civilization checked leaves
+the writer's r4 and r5 untouched. The info log records the derived and chosen
+civilizations.
+Standard Rules does not disable Civilization. AI civilization assignment stays
+native, so in mode 2 an AI can receive the player's civilization because the
+duplicate scan starts at slot 1.
+
 **Standard Rules** is a plain checkbox (`gotw_standard_rules`, default on).
-Its tooltip is "Enable to play Game of the Week without gameplay changes."
+Its tooltip is "Enable to play Game of the Week without Lua mods or gameplay changes other than Earliest Domination."
 For a new GOTW game, it freezes Resources as Normal, Raging Barbarians and
-One City Challenge off, including OCC's Mongol ability swap, and keeps the
-native AI civilization count. Unchecking it uses the player's gameplay settings.
+One City Challenge off, including OCC's Mongol ability swap, keeps the
+native AI civilization count, and suspends gameplay Lua mod rules. Earliest
+Domination still applies. Unchecking it uses the player's gameplay settings and Lua mods.
 Other game modes retain their settings. Combat speed, display, audio, controls,
 notifications and online options retain their configured behavior.
 
@@ -693,10 +797,22 @@ edit cannot change that decision. The save sidecar captures the effective frozen
 Resources, Raging Barbarians and OCC values, so restoring it preserves standard
 values even when the live checkboxes differ. AI elimination is native save state.
 
-Gameplay Lua mods remain active with Standard Rules selected. The SDK
-executes Lua and publishes each decoded bundle before guest execution.
-The title retains those rules for the process; Standard Rules does not
-suspend or restore them per game.
+A Standard Rules GOTW game runs without gameplay Lua mod rules. At the frozen
+decision in `gameplay_session::ApplyNewGame`, before native setup, the title
+withdraws the rules published by the Lua rules host and holds that bundle. The
+withdrawal removes only the host's own records. Native registrations stay. A new
+game that is not a Standard Rules GOTW game, or any save load, republishes the
+held bundle. If republishing fails, the game logs an error, posts a
+notification, and leaves the rules empty. Multiplayer setup refuses until the
+next successful F2 Apply. Mod rules, including Nation Select text, stay native
+in menus until the next game starts or a save loads.
+
+F2 Apply during a suspended game succeeds and records the new selection, but
+rules stay native. The title validates the loadout, holds it, and posts the
+"Mods paused" notification. The held selection publishes when the suspension
+ends. The SDK mod manager keeps listing the selection as active throughout.
+Native DLL mods and asset packs are not suspended: native mods load only at
+startup and keep any rules they register.
 
 The accepted GOTW start snapshots the selection immediately before
 `0x82E76ED4 -> 0x82DADC88`, after the native session result equals 1.
@@ -728,9 +844,9 @@ state. One increasing sequence spans all sites and launches in the process;
 the cap is 512 events, followed by a truncation marker. A truncated trace
 cannot establish complete ordering.
 
-Results for a custom week in mode 2 take the native branch for nonlocal results
-at `0x82D7DC90` before the outcome is classified. It writes outcome -1 and sets
-the completion
+Results for a custom week or civilization in mode 2 take the native branch
+for nonlocal results at `0x82D7DC90` before the outcome is classified. It
+writes outcome -1 and sets the completion
 byte required by native session cleanup. Native guards for null results and
 failures remain before this diversion. Custom results also skip the score/week
 cache stores at `0x82DBF138` and `0x82DBF14C` and the common base/victory-child
@@ -754,10 +870,11 @@ locations in [gotw_hooks.toml](../config/gotw_hooks.toml).
 
 ## Gameplay fixes
 
-Three midasm hooks in `config/gameplay_hooks.toml` repair native behavior.
-Two always apply; the third is controlled by a setting. `src/gameplay_fixes.h`
-holds their arithmetic. Static evidence is in rerevved-research manifests `science-completion.json`,
-`technology-prompt-callers.json` and `spaceship-launch-arrival-year-boundary.json`.
+The midasm hooks in `config/gameplay_hooks.toml` repair native behavior.
+The Domination minimum is controlled by a setting. `src/gameplay_fixes.h`
+holds their selection and arithmetic. Static evidence is in rerevved-research manifests `science-completion.json`,
+`technology-prompt-callers.json`, `spaceship-launch-arrival-year-boundary.json`,
+`technology-first-discovery-rewards.json` and `economy-bonus-corrections.json`.
 
 - **AI research choice.** The computer-player branch of the technology prompt
   `sub_82CECCD8` lists the eligible technologies ascending at ordinals
@@ -772,34 +889,167 @@ holds their arithmetic. Static evidence is in rerevved-research manifests `scien
   The hook at `0x82D2A084` admits every result except -1 and leaves the
   payload and every other gate unchanged.
 - **Domination minimum turns.** See below.
+- **Ceremonial Burial's free Temple.** The native recipient score for a
+  Temple equals city population, but its recipient gate requires a score
+  greater than population. The hook admits the Temple through that gate.
+  Existing first-discovery, city ownership, positive population and missing
+  Temple checks still apply. The native scan chooses the largest eligible
+  city, retaining the earlier city slot on ties, and writes the ordinary
+  Temple ownership bit. A civilization without an eligible city receives none.
+- **Egypt's free Irrigation.** Egypt's first free Irrigation keeps the native
+  first-discovery flag through the general free-technology suppression. The
+  ordinary reward adds one population to each owned populated city during
+  acquisition phase 1. Phase 2 can present the result without another population
+  write, subject to native flag retention and notification cadence. Repeated
+  phase 1 acquisitions do not gain a new first-discovery flag. This exception
+  to the shipped rule for free technologies includes Egypt's Medieval era bonus.
+- **Literacy's Courthouse.** The first-discovery building join matches a
+  building to the acquiring technology through its definition field at
+  offset 0x42, which pairs Courthouse (normalized building 14) with Literacy
+  (technology 12). The hook at `0x82D09BD0` reports no match for that pair, so
+  the native loop advances to the next building without scoring, delivery or
+  writing a saved recipient. Literacy itself and every other technology/building
+  pair are unchanged.
+- **Stale first-discovery caption (candidate fix).** Phase 2 rereads the saved
+  recipient city, which an earlier discovery by any player may have left, and
+  formats "built in" for it. The hook at `0x82D0A254` skips only that format
+  call when the saved city is outside the 128-record table, has no current
+  owner, or is owned by a player other than the acquirer, by taking the guest's
+  resolver-mismatch continuation at `0x82D0A280`. Delivery, the owner
+  classifier and the later city refresh stay native. A stale saved city that is
+  still owned by the acquirer and already has the building can still caption.
+- **Gold bonus rush prices.** UEA25 (Spain's and the Zulu's Industrial bonus,
+  the Aztecs' Modern bonus) adds +50% Gold but also raises the rush numerator
+  `(1 + bonus) * era + 2`. A result hook on the bonus lookup `sub_82CF0CB0`
+  reports the bonus inactive only for its sixteen rush quote, amount text,
+  paid conversion and purchasing-power callers, matched by their native return
+  PC with cumulative mode 0. Rush rates then follow the ordinary era rate
+  (Industrial 40 Gold for 10 Production instead of 60). City Gold income,
+  candidate valuations and the bonus table are unchanged.
+- **Zulu growth.** UEA8 sets the growth threshold to `max(20, B - 10)` for the
+  composed Food baseline `B`, which raises baselines below 20. The same lookup
+  hook reports UEA8 inactive at its threshold call (return PC `0x82CF10FC`) when
+  `B` in r31 is 0 through 19 unsigned, so those baselines stay `B`. Larger
+  baselines keep the native discount and negative baselines stay native.
 
-Each hook logs at INFO with the prefix `GameplayFix:` so a play session shows
-that it ran: `research scan base=<hex> count=<N> first=<tech> alphabet=<0|1>`
-(on a change of count or first technology; the first 64 lines, then
+The research, launch-year and Domination hooks log at INFO with the prefix
+`GameplayFix:` to show when they run: `research scan base=<hex> count=<N> first=<tech> alphabet=<0|1>`
+(on a change of count or first technology, for the first 64 lines, then
 `research scan suppressed=<n>` every 256th suppressed change),
 `spaceship launch year=<signed> admitted=<0|1> old=<0|1>` (every call), and
 `domination elapsed=<turns> minimum=<n> native_allowed=<0|1> allowed=<0|1>`
 (only when the minimum is not 10 or the decision differs from native, once per
-change of elapsed and minimum). The domination hook runs only once a player's
-capital count meets the domination requirement, so a new game also logs
+change of elapsed and minimum), and
+`domination capitals player=<p> owned=<n> required=<n> total=<n>` (per player,
+on a change of owned, required or total, only for players owning at least one
+original capital, since the native arm skips zero). The domination hook runs
+only once a player's capital count meets the domination requirement, so a new
+game also logs
 `new game domination minimum=<n>`, the minimum in effect for that game.
+
+### Unit sale cargo valuation
+
+The sale hooks in [unit_sale_hooks.toml](../config/unit_sale_hooks.toml) value
+each extant record using its own army or fleet marker: zero selects one and
+any nonzero byte selects three. Carrier and admitted cargo factors are weighted
+separately. For a fleet with factor six carrying ordinary cargo with factor
+five, one cargo record gives 115 and ten give 340. Type 7 contributes zero. This is a
+correction policy that matches standalone valuation of each surviving record.
+American rush pricing is independent.
+The [native sale boundary](https://github.com/ReRevvedRecomp/rerevved-research/blob/5102d92e6969ac958798f0510fa153a0afbcce03/manifests/unit-sale-refund-value-boundary.json)
+records the supported image, source operands and interception guards.
+
+Guest owner `0x82D259E8` collects the native sale factors at
+`0x82D2B398..0x82D2B41C` and `0x82D2B4BC..0x82D2B568`. Preview excludes the
+credit classifier factor H. Credit retains native H=1 or 2. The hooks replace
+only complete r6 at `0x82D2B45C` and complete r5 at `0x82D2B5DC`, after native
+arithmetic agrees with the captured inputs. Within the supported signed-byte
+factor bounds these registers contain the low 32 bits, zero-extended,
+including for negative values. The identity lookup, formatter, classifier,
+credit command 41 and later removal command 16 remain native.
+
+Each collection requires a matching current player, original player, selected
+slot, saved frame slot, native bases and readable bounded records. A second
+snapshot must preserve the roster, markers, factors and relevant flags,
+including across the credit classifier. The scan retains native owner-not-255,
+live, signed cargo-link and type-7 predicates. Nested or self-linked carrier
+cargo, unsupported types, failed reads, changed state, mismatched native values
+and nested collections retain the complete original amount. Credit also has
+direct native entry points at `0x82D2ABF4` and `0x82D2AC0C`. It independently
+guards the actual retained slot. Dialog decline at `0x82D2B4B8` still bypasses
+credit.
+
+`unit_sale_trace` defaults to false and logs at most 256 begin/apply decisions
+per process with rejection reasons. Production sampling uses permission checks
+and the guarded guest copy on Windows. Other platforms retain native values.
+The fixtures establish arithmetic, memory and register contracts. They do not
+establish displayed values, command delivery, credited reserves or removal in
+play. Sampling assumes the normal current record/frame lifetime and no external
+mutation. Separate reads do not establish an atomic snapshot or exclude an
+unobserved intermediate mutation.
 
 ## Gameplay Domination minimum turns
 
 The palace-count arm of `sub_82D10FD8` requires `currentTurn - startTurn >= 10`
 at `0x82D11264`. `domination_min_turns` is a string setting with the choices
-`10` (default, native), `5` and `1`; F1 **Gameplay > Earliest Domination**
-labels them with the turn-zero 4000 BC calendar dates 3000 BC, 3500 BC and
-3900 BC. The hook rebases the elapsed turn count in `r9` so the native compare
-against 10 tests the chosen minimum. Palace counts, enabled-victory checks and
-the relative start turn are unchanged. The value is read at each check, so a
-change applies at the next evaluation.
+`10` (default, native) and `5`. Any other value reads as 10. F1
+**Gameplay > Earliest Domination** labels them with the turn-zero 4000 BC
+calendar dates 3000 BC and 3500 BC. The hook rebases the elapsed turn count in
+`r9` so the native compare against 10 tests the chosen minimum. Palace counts, enabled-victory checks and
+the relative start turn are unchanged. The required capital count is the live
+total of original capitals minus the scenario QUICKWIN value (0 in ordinary
+games), so expanded AI setups require every founded capital. In an offline
+game the setting is read at each check, so a change applies at the next
+evaluation. A new network game uses its prepared host snapshot throughout
+the game.
 
 The setting is read through the registry's synchronized getter. It applies only
-to a game started in the current launch. A Game of the Week with Standard Rules
-keeps the native 10, and so does every loaded save, because saves do not record
-whether Standard Rules applied. The setting is not synchronized between
-players in an online session.
+to a game started in the current launch, including a Game of the Week with
+Standard Rules, where it is the one gameplay setting Standard Rules leaves in
+force. Every loaded save keeps the native 10, because saves do not record the
+setting. A network peer rejects a host payload that carries any other value.
+
+## Multiplayer gameplay snapshots
+
+[Online play](online-play.md#gameplay-settings-and-mods) describes the player
+settings and compatibility requirements. The version-2 title payload in
+[host_settings.cpp](../src/host_settings.cpp) carries AI count capped at 4,
+Resources, Raging Barbarians, OCC, the AI research, production, gold, food and
+culture bonus percentages (0 to 200), Domination minimum turns (5 or 10), Game
+of the Week selections and combat speed. The override applies to that game
+and leaves local CVars unchanged.
+
+Before gameplay settings are frozen for a new game,
+[`gameplay_session::Prepare`](../src/gameplay_session_settings.cpp) calls SDK
+`PrepareForGame` and waits up to 15 seconds for a ready authenticated snapshot.
+Lobby bytes do not satisfy this requirement. The host captures its current
+provider for each game. Joiners request that game's fresh snapshot.
+`ResolveForGame` requires ready host or received status, a valid version-2
+payload, complete matching package IDs and versions, and matching verified Lua
+digests when mod content is present. Old, missing, malformed, truncated or
+unverified data rejects setup without a local gameplay fallback.
+
+The [new-game wrapper](../src/start_resources_runtime.cpp) classifies the current
+setup mode before entering `SetupGate`: 1/2 are local, 3 is a load, and 4/5/6
+are network games. Loads pass through without new-game policies or AI removal.
+Unknown modes reject. On rejection, the `sub_82D217C8` hook returns `-1`, so the
+native failure path skips successful setup and recount. An error and the
+**Cannot start this game** notification report the reason.
+
+After startup and every committed live Apply, the
+[application callback](../src/app.cpp) publishes active package IDs and versions
+with the Lua digest as one snapshot under the rule/metadata boundary. The digest
+is available for Lua-only active loadouts and covers ordered decoded content.
+It does not certify native DLLs or assets. Rescan alone does not republish rules.
+
+The early Game of the Week seed hook requires setup mode 2 and stages its local
+snapshot before latching the week. Setup consumes that same accepted snapshot
+or rejection. A local weekly launch clears the previous host policy before
+selecting its week.
+
+This is a new-game contract. `ResetOnLoad` clears the override rather than
+reusing an earlier game's snapshot. The [save sidecar](#save-sidecar) section
+describes the current save/load limits.
 
 ## Research prompt
 
@@ -832,16 +1082,204 @@ message can appear at a later contact once the setting is off.
 Barbarian village, which names the reward; the reward is still granted.
 `src/barbarian_messages.h` lists the village call sites.
 
+## AI handicaps
+
+[AI handicaps](ai-difficulty.md) describes the player settings, rounding and
+save policy. The three cost hooks run after native research, unit scalar and
+non-unit cost composition. Units keep the existing identity rule before the
+AI scalar adjustment. Positive costs have a floor. Unsupported player layouts
+and unsupported item IDs retain native results. The gold, food and culture
+hooks sit inside `sub_82D13978` after native loads each completed city
+contribution and before it stores the halfword city cache. Each hook scales
+the register and the stack word the native code saved it to, so both agree.
+New network games use the prepared host bonuses. Network loads keep native
+behavior. Standard Rules freezes native values at setup.
+
+## Custom achievements
+
+The title adds seventeen achievements to the SDK catalog, 955 gamerscore in
+total. Native XDBF achievement IDs are 16-bit, so these IDs cannot collide with
+them. `App::OnPostLoadXexImage` registers them after the XEX catalog is loaded
+and before the guest launches. Registration reports success only when all
+seventeen register. An Image entry is a title XDBF image ID, or an embedded
+icon under `metadata/icons/`.
+
+| ID | Label | G | Image |
+|---|---|---:|---|
+| `0x10001` | `200% Concentrated Power of Will` | 200 | embedded icon |
+| `0x10002` | `One To Rule Them All` | 15 | 5 |
+| `0x10003` | `Their Rage Is Within Your Control` | 25 | 21 |
+| `0x10004` | `100% Reason to Remember the Name` | 125 | embedded icon |
+| `0x10005` | `Halcyon Templar` | 5 | 19 |
+| `0x10006` | `Beyond the Firmament` | 5 | 4 |
+| `0x10007` | `Blockbuster World Champion` | 50 | 34 |
+| `0x10008` | `Shallow Worldview` | 20 | 9 |
+| `0x10009` | `Cosmic Eclipse` | 75 | 32 |
+| `0x1000A` | `Art of the Walk In` | 20 | 12 |
+| `0x1000B` | `Last Stand` | 50 | 1 |
+| `0x1000C` | `Weekend Warrior` | 100 | 13 |
+| `0x1000D` | `Ye Are Idle, Ye Are Idle` | 75 | 20 |
+| `0x1000E` | `Leap Through Time` | 10 | 22 |
+| `0x1000F` | `I Have No Enemies` | 50 | 51 |
+| `0x10010` | `No More Worlds To Conquer` | 30 | 37 |
+| `0x10011` | `Tactically Centered` | 100 | 21 |
+
+### Victory achievements
+
+`200% Concentrated Power of Will` unlocks on a local win on Deity (difficulty 4
+or higher) in a game whose five AI handicaps were all 200% for the entire game.
+`One To Rule Them All` unlocks on a local win on Deity in a game with One City
+Challenge enabled. `Their Rage Is Within Your Control` unlocks when the local
+player defeats 50 Barbarian units in a single game.
+
+The award comes from a hook on `sub_82D052C8`, the native local-player victory
+handler. Every victory test reaches it only when the winner is the local
+player, so it is awarded from that event and never from loading a save or from
+the result screen. The hook reads the difficulty, the network byte, the current
+year (`0x8312B8E0`, negative is BC) and the effective AI policy before calling
+the native handler unchanged, then evaluates every victory predicate below and
+asks the SDK unlock store for each one that qualifies. A second delivery of the
+same victory finds the achievements unlocked and does nothing, so duplicate
+delivery relies on that store. An unreadable difficulty or network byte never
+qualifies, and an unreadable year fails every predicate that requires a year.
+Network games are excluded from every predicate.
+
+| ID | Predicate |
+|---|---|
+| `0x10001` | Deity, no native economy, all five handicaps 200 |
+| `0x10002` | Deity, One City Challenge enabled at setup |
+| `0x10004` | Deity, no native economy, all five handicaps 100 |
+| `0x10011` | Deity, no native economy, all five handicaps 50, tracked history and no unit built |
+| `0x10007` | Deity, tracked history, no unit built, year 1994 or earlier |
+| `0x10008` | Tracked history and no unit moved onto a deep Ocean tile, any difficulty |
+| `0x10009` | Technology victory (type 2), year 100 BC or earlier, any difficulty |
+| `0x1000C` | Game of the Week, Deity, year before 3000 BC |
+| `0x1000D` | Deity, tracked history, first city founded on turn 100 or later |
+| `0x1000E` | Game of the Week on week 36428, any difficulty |
+| `0x1000F` | Deity, tracked history, no battle fought |
+| `0x10010` | Domination victory (type 1), Deity, 6 AI opponents at setup |
+
+Eligibility uses the frozen game policy, not the settings sliders. Slider edits
+for the next game do not affect a running game. A save without a restored
+sidecar, a rejected sidecar, and Standard Rules Game of the Week all leave the
+policy at native values and disable the handicap achievements.
+
+### Event achievements
+
+`Halcyon Templar` unlocks when the Knights Templar are discovered in 3500 BC or
+earlier. `Beyond the Firmament` unlocks on an ICBM launch whose source and
+target are at least 24 tiles apart (Chebyshev distance on the 32 by 32 map, x
+wrapping and y not). `Art of the Walk In` unlocks on a capital capture before
+3500 BC on Deity in a non-network game. `Last Stand` unlocks when a defending
+Militia in a city wins a battle in which the attack strength was strictly
+greater than the defense strength. An event achievement awards immediately
+through the SDK store and logs `Custom achievement unlocked: <name>`.
+
+### Per-game history
+
+Whole-game achievements need history from the start of the game. An accepted
+new-game setup starts tracking: flags for units built, battles fought and deep
+Ocean entered clear, the first founding turn becomes unset, and the tracked
+flag is set.
+The effective AI opponent count is known only after the native setup: it is the
+number of non-human, non-Barbarian civilizations left in the final layout after
+the AI limit removes excess civilizations. A rejected expansion to five or six
+AI leaves the native layout, so the count reflects the actual opponents. For a
+Game of the Week the week is the effective week of the seed latch
+(`0x82E76ED4`), which runs before the outer setup. It counts only when that
+latch followed this setup's weekly preparation, so a latch left by an earlier
+launch with the same setup address never supplies it.
+The week and the Game of the Week flag are not saved, because Game of the
+Week saving is disabled. A load clears them. A rejected setup and a load reset
+every field to unknown (history untracked, AI count -1), and a valid schema 2 sidecar restores the saved
+fields. A game loaded from a schema 1 sidecar or without a sidecar never
+qualifies for a whole-game achievement. The first founding turn keeps only the
+first city.
+
+`IsDeepOcean` reads the current terrain plane (`0x8312B288`, index
+`40 * x + y`): a tile is deep when it and all eight neighbours, with x
+wrapping at the map width and y clipped at the edges, are Ocean (value 0).
+
+### One To Rule Them All
+
+The same `sub_82D052C8` hook awards it, from the same victory read plus the
+frozen One City Challenge policy. It qualifies for a local, non-network win on
+Deity or higher when the policy is enabled and OCC was enabled at game setup.
+It is independent of the 200% rule, so one win may unlock both.
+
+The setup flag exists because a load without a valid sidecar freezes the
+policy from the live `one_city_challenge` setting, which can turn OCC on
+mid-game, and a later save would then record it as enabled. New games record
+the flag when they publish the OCC policy, a load without a sidecar clears it,
+and a restored sidecar supplies it, so such a game never qualifies.
+
+### Their Rage Is Within Your Control
+
+The counter hooks `sub_82D02390`, the native unit kill, which also serves many
+non-combat removals. A kill counts only when it is a combat defeat of a
+Barbarian unit by the local player. Four call sites in the combat resolvers are
+combat defeats, identified by the return address at hook entry:
+
+| Return address | Resolver | Loser |
+|---|---|---|
+| `0x82CD83DC` | `sub_82CD7A60` | attacker |
+| `0x82CD8938` | `sub_82CD7A60` | defender |
+| `0x82CDCD80` | `sub_82CD9970` | defender |
+| `0x82CDD124` | `sub_82CD9970` | attacker |
+
+At a site the hook reads the calling resolver's stack words for the loser and
+the winner and requires the loser to equal the kill's player and unit
+arguments, the kill mode to be 0, the loser to be the Barbarian player, and the
+winner to be the local player. The resolver `sub_82CD9970` is re-entered many
+times per combat, so the unit's killed flag (bit 31 of record word `+0x0C`)
+must be clear before the native call and set after it. A repeat callback never
+counts again. Captures, other removals, and units carried by a destroyed
+transport are not counted.
+
+The count saturates at 50. At 50, each qualifying defeat asks the SDK store,
+so the unlock happens once, including after a saturated save is loaded under
+a profile that lacks it. The count is per game: a new game resets it to 0, the
+gameplay sidecar saves it and restores it on load, and a load whose sidecar is
+missing or schema 1 starts again at 0.
+
+### Diagnostics and acceptance
+
+`--custom_achievement_trace=true` logs each native victory record and, on one
+line, the facts read and every victory decision. It also logs each kill from
+the four sites and each other kill of a Barbarian unit, with the return address,
+mode, loser, winner, local and Barbarian players, the killed flag before and after, whether it counted, and
+the count. An unlock logs one line even with tracing off, and a victory unlock
+adds the victory type.
+
+Runtime acceptance is still required: a natural Deity win, the F3 list entries
+and unlock toasts, persistence across a restart, Barbarian defeats by attack
+and defence at all four sites, the count surviving a save and load, and a
+mid-game OCC load that does not qualify.
+
 ## AI civilizations
 
-`ai_civilizations` sets the most AI civilizations in a new game, from 0 to 4.
+`ai_civilizations` sets the most AI civilizations in a new game, from 0 to 6.
 It defaults to 4, which leaves the game unchanged, and appears in F1
-**Gameplay** below Combat Speed, labeled **AI Civilizations**. Below 4, right after the game
+**Gameplay** after Earliest Domination, labeled **AI Civilizations**. Below 4, right after the game
 sets up the players, the starting units of the AI civilizations beyond the
 limit are removed through the game's own unit removal; the lowest AI slots are
 kept. At the end of the first round the game eliminates the removed
 civilizations as it would any civilization with no city and no unit.
 Barbarians are unchanged.
+
+Choices 5 and 6 expand an ordinary single-player setup to six or seven
+civilizations, plus Barbarians in the final participant slot. Six AI therefore
+means one human, six AI and Barbarians, eight participants total. The setting
+is frozen before setup, and the native civilization selection, duplicate
+check, placement and starting-unit creation handle the added slots. The
+expanded layouts fit the native unit pools for eight participants and saved
+player arrays. Contacts, full AI turns and save/load remain gameplay
+acceptance checks.
+
+Expansion requires the ordinary offline layout with the human in slot zero.
+Multiplayer, Game of the Week, restricted civilization selections and the
+native special two-player setup retain their native participant counts.
+Multiplayer values are capped at 4 in the prepared host snapshot.
 
 - A game with one human keeps at least one AI civilization, so 0 (**None**)
   applies only to multiplayer games with two or more humans. Domination then
@@ -851,31 +1289,35 @@ Barbarians are unchanged.
   civilizations eliminated in play are unchanged.
 - It applies only when a new game starts. Loading a saved game does not
   remove anything; a game saved after the removal keeps it.
-- In a multiplayer game the host's value applies to every player for that
-  game; the other players' saved settings do not change. A joining player
-  requests the host's settings when the session is created and receives them
-  in the background. If they have not arrived when the game starts, the game
-  waits up to 3 seconds. If they still have not arrived, that player keeps
-  their own value, logs a warning and sees an on-screen notice, and the games
-  may diverge if the values differ.
-- A joining player whose enabled mods differ from the host's still joins. The
-  difference is logged as a warning and shown on screen when the game starts;
-  the host's mods are not applied. The comparison uses the mods each side
-  activated at launch, so enabling or rescanning mods later in F2 does not
-  change it. If the host has too many mods to send in full, the warning says
-  the full list could not be checked.
+- Multiplayer uses the [prepared host snapshot](#multiplayer-gameplay-snapshots)
+  and its compatibility gate before setup.
 - With no AI civilizations, a player who has not founded a city by turn 10
   lets another player who has win by Domination.
 - Setups that start players with a city instead of a Settler are not
   supported: an AI civilization there keeps its city.
 
 Each new game with a limit below 4 logs one `AI civilizations:` line with the
-limit, its source (`local`, `host`, `received` or `fallback`), the removed
+limit, its source (`local`, `host snapshot` or `standard GOTW`), the removed
 slots, the human player mask, the network game flag, the local player, the
 number of removed units and a digest of the removed units, so two peers can
 compare their logs. When the limit removes no civilization,
 the line says `unchanged` and gives the limit, slot layout, human player mask,
 network game flag and local player instead.
+
+## Multiplayer pause
+
+In a network game the native pause opens for every player, and any player can
+close it for everyone. The title hooks the frontend root child dispatch
+(`sub_82D7CE90`), which the pause menu's local Resume request goes through, and
+reads its request byte before running it. Resumes received from other players
+reach the consumer directly and are not hooked. A nonzero byte is a pause
+request and passes through unchanged. For a zero byte (resume) the native
+dispatch runs first, so the native send of its resume message is still
+attempted. If the pause is still set afterward, the local player clears it
+through the native resume consumer, on host and joiner alike, and logs `Multiplayer pause: resume applied locally`. A
+later native resume finds the pause already clear and does nothing. A peer's
+pause screen closes only if the native message reaches it. Single-player games
+run the native path unchanged.
 
 ## Xenos return counter
 
@@ -1464,6 +1906,17 @@ RGB10 output (`reference.rgb10`). `reference.toml` is written last and records
 the status, the request boundary and the frame span. The SDK frame mailbox
 holds one request at a time, so the option fails when another frame consumer
 holds it.
+
+The diagnostic input manifest keeps schema 1 and records the SDK snapshot
+schema separately as `sdk_schema_version`. Execution and input acquisition
+statuses retain their own reasons. Texture uses preserve whether an input was
+required and available. Textures retain their instance and content generation
+identities as fixed 16-digit hexadecimal strings. Every captured mip and array
+slice keeps its own dimensions, source row pitch, packed row layout and payload.
+The base texture payload remains available separately. Swap source/output
+availability and the supplied gamma tables are also retained. A `complete`
+reference status means the finalized snapshot was saved. Required inputs may
+still be unavailable as reported by their individual metadata.
 
 The reference has the same triggers as the scene capture, and the first to fire
 requests the frame; whichever fires reserves the mailbox before it returns, so a

@@ -155,6 +155,9 @@ void testIdentityAndSettler()
     const Coord anchor{ 10, 10 };
     UNSCOPED_INFO("slot zero can hold a live Settler");
     CHECK(IsLiveSettler(0, 0, 0, 0, anchor, anchor));
+    CHECK(IsLiveSettler(5, 5, 0, 0, anchor, anchor));
+    CHECK(IsLiveSettler(6, 6, 0, 0, anchor, anchor));
+    CHECK_FALSE(IsLiveSettler(7, 7, 0, 0, anchor, anchor));
     UNSCOPED_INFO("owner must match the player pool");
     CHECK(!IsLiveSettler(0, 1, 0, 0, anchor, anchor));
     UNSCOPED_INFO("a Militia is not a Settler");
@@ -503,7 +506,7 @@ void testLegendary()
     CHECK(secondResult.players[1].legendary == secondRepeated.players[1].legendary);
 
     FakeWorld allPlayers;
-    for (size_t player = 0; player < kPlayers; ++player)
+    for (size_t player = 0; player < allPlayers.state.civilizationCount; ++player)
     {
         const int   position = 5 * static_cast<int>(player + 1);
         const Coord start{ position, position };
@@ -514,10 +517,10 @@ void testLegendary()
     const auto      allResult = Apply(all, allPlayers);
     UNSCOPED_INFO("all five players can receive eight Legendary additions through the shared path");
     CHECK((allPlayers.writes == 40 && allPlayers.refreshes == 40 && !allResult.rolledBack));
-    for (const auto& player : allResult.players)
+    for (size_t player = 0; player < allPlayers.state.civilizationCount; ++player)
     {
         UNSCOPED_INFO("all five Legendary player results verify");
-        CHECK(player.status == Status::Verified);
+        CHECK(allResult.players[player].status == Status::Verified);
     }
     FakeWorld water;
     setRing(water.state, water.state.players[0].anchor, { 0, 0, 0, 0, 0, 0, 0, 0 });
@@ -544,6 +547,56 @@ void testLegendary()
     CHECK((rollback.rolledBack && rollback.rollbackVerified && !rollback.hardFailure && rollback.players[0].status == Status::ReadbackFailed && failed.state.tiles == before && overrides::Current()->empty()));
 }
 
+void testExpandedPlayers()
+{
+    for (const size_t count : { size_t{ 5 }, size_t{ 6 }, size_t{ 7 } })
+    {
+        for (const int mode : { 1, 3 })
+        {
+            FakeWorld world;
+            world.state.civilizationCount = count;
+            for (size_t player = 0; player < kPlayers; ++player)
+            {
+                const Coord anchor{ 4 + 7 * static_cast<int>(player % 4), 6 + 12 * static_cast<int>(player / 4) };
+                world.state.players[player] = { anchor, static_cast<int>(player), true };
+                setRing(world.state, anchor, { 1, 3, 0, 1, 3, 2, 2, 0 });
+            }
+            const auto      before = world.state;
+            FrozenSelection selection(mode);
+            const auto      result = Apply(selection, world);
+            CHECK_FALSE(result.rolledBack);
+            CHECK(world.writes == static_cast<int>(count) * (mode == 1 ? 3 : 8));
+            for (size_t player = 0; player < count; ++player)
+            {
+                CHECK(result.players[player].status == Status::Verified);
+                if (mode == 1)
+                {
+                    CHECK(result.players[player].finalIdentities == kBalancedResources);
+                }
+            }
+            for (size_t player = count; player < kPlayers; ++player)
+            {
+                CHECK(result.players[player].status == Status::NotRun);
+                CHECK_FALSE(SelectTrio(before, player).valid);
+                for (size_t tile = 0; tile < kOffsets.size(); ++tile)
+                {
+                    const auto coordinate = neighbor(before.players[player].anchor, tile);
+                    CHECK(world.state.tiles[Index(coordinate)] == before.tiles[Index(coordinate)]);
+                }
+            }
+            const auto records = *overrides::Current();
+            FakeWorld  repeated;
+            repeated.state = before;
+            FrozenSelection same(mode);
+            const auto      second = Apply(same, repeated);
+            CHECK(second.players[count - 1].trio == result.players[count - 1].trio);
+            CHECK(second.players[count - 1].legendary == result.players[count - 1].legendary);
+            CHECK(repeated.state.tiles == world.state.tiles);
+            CHECK(*overrides::Current() == records);
+        }
+    }
+}
+
 } // namespace
 
 TEST_CASE("start_resources", "[ctest][start-resources][local-fast]")
@@ -555,4 +608,5 @@ TEST_CASE("start_resources", "[ctest][start-resources][local-fast]")
     testEdgesAndPlayers();
     testRollback();
     testLegendary();
+    testExpandedPlayers();
 }

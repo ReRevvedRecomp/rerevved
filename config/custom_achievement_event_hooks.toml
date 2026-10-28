@@ -1,0 +1,72 @@
+# Each hook precedes the named native instruction, whose words are verified in
+# custom_achievement_event_hooks.cpp. ApplyCityFoundingUnit calls the founding
+# observer (config/city_effect_hooks.toml, 0x82D1A314).
+
+# CityUpdate, after the shared creator returned a slot other than -1.
+# Precedes lbzx r11,r21,r17. r26 owner, r25 queued item, r27 slot, r31 city base
+# (city offset at frame+0x74).
+[[midasm_hook]]
+address = 0x82D15AC0
+name = "ObserveCustomAchievementUnitBuilt"
+registers = ["r1", "r26", "r25", "r27", "r31", "r13", "fpscr"]
+
+# sub_82D17AE0 after the subtype helper 0x821C6548 returns (bl at 0x82D17C4C).
+# Precedes lis r11,-31985. r3 selector, r15 player, r19 x, r18 y.
+[[midasm_hook]]
+address = 0x82D17C50
+name = "BindCustomAchievementTemplarSelector"
+registers = ["r1", "r3", "r15", "r19", "r18"]
+
+# Artifact flags store at the common tail. Precedes sthx r8,r11,r10.
+# r9 old halfword, r8 new halfword.
+[[midasm_hook]]
+address = 0x82D18BE4
+name = "ObserveCustomAchievementTemplarConsumption"
+registers = ["r1", "r15", "r19", "r18", "r9", "r8", "r13", "fpscr"]
+
+# sub_82CDDF08 nuclear Move case, before the opaque helper. Precedes
+# bl 0x82D076D8. r31 actor, r15 unit slot, r27 target x, r26 target y.
+[[midasm_hook]]
+address = 0x82CDEE84
+name = "CaptureCustomAchievementIcbm"
+registers = ["r1", "r31", "r15", "r27", "r26", "r13", "fpscr"]
+
+# Selector word just loaded from 0x8314F1AC. Precedes cmpwi cr6,r11,0.
+[[midasm_hook]]
+address = 0x82CDEE90
+name = "NoteCustomAchievementIcbmSelector"
+registers = ["r1", "r11"]
+
+# Mode-zero source consumption. Precedes bl 0x82D02390 (UnitKill r31,r15,0).
+[[midasm_hook]]
+address = 0x82CDF1C4
+name = "ConsumeCustomAchievementIcbmModeZero"
+registers = ["r1", "r31", "r15", "r27", "r26"]
+
+# sub_82CF78D8 early SDI arm, observed only. Precedes mulli r11,r9,188.
+# r16 actor, r24 target x, r23 target y. The unit slot is at frame+0x11C.
+[[midasm_hook]]
+address = 0x82CF7B60
+name = "ObserveCustomAchievementIcbmEarlySdi"
+registers = ["r1", "r16", "r24", "r23"]
+
+# Nonzero-mode source consumption. Precedes bl 0x82D02390 (UnitKill r16,r4,0).
+# r4 is the slot reloaded from frame+0x11C.
+[[midasm_hook]]
+address = 0x82CF7D58
+name = "ConsumeCustomAchievementIcbmNonzero"
+registers = ["r16", "r4", "r24", "r23"]
+
+# sub_82CDDF08 after sub_82CF78D8 returns. Precedes b 0x82CE16AC.
+[[midasm_hook]]
+address = 0x82CDEEAC
+name = "FinishCustomAchievementIcbmDispatch"
+registers = ["r1", "r31", "r15"]
+
+# sub_82D1B400 after the owner byte store at 0x82D1B45C. Precedes
+# lwzx r11,r24,r10. r16 city, r19 old owner, r18 new owner, r21 city table,
+# r26 188*city. sub_82D1B400 itself is wrapped by REX_HOOK_RAW.
+[[midasm_hook]]
+address = 0x82D1B460
+name = "CaptureCustomAchievementCityTransfer"
+registers = ["r16", "r19", "r18", "r21", "r26"]

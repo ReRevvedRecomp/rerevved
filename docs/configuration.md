@@ -6,9 +6,9 @@ Close ReRevved before editing the file directly.
 
 ## Settings
 
-- **Gameplay**: combat speed, AI civilizations, resources, Raging Barbarians,
-  One City Challenge, Earliest Domination, Game of the Week, and the Support
-  section.
+- **Gameplay**: combat speed, resources, Raging Barbarians, One City
+  Challenge, Earliest Domination, AI civilizations, AI Handicaps, Game of the
+  Week, and the Support section.
 - **Notifications**: research prompts, advisor pop-ups, and Barbarian messages.
   **Disable Save Reminder** suppresses a prompt; it does not save the game.
 - **Online**: connection status, player name, relay invite, and Discord options.
@@ -20,11 +20,19 @@ Close ReRevved before editing the file directly.
 
 Gameplay options that initialize a new game do not rewrite an existing save.
 The [runtime contracts](rexglue-runtime.md) document individual option behavior.
+For new multiplayer games, the host supplies the shared gameplay choices.
+See [Online play](online-play.md#gameplay-settings-and-mods).
+
+**Raging Barbarians** produces more Barbarian units and lets them leave camps
+sooner. While it is on, Barbarians cannot capture a civilization's capital
+before 3000 BC. The host controls new multiplayer games. Local saves restore
+the frozen setting. Game of the Week Standard Rules disables it.
 
 **Earliest Domination** sets how many turns must pass before a Domination
-victory can be declared: 10 turns (3000 BC, the default), 5 turns (3500 BC) or
-1 turn (3900 BC). It applies to games started in the current launch. Loaded
-saves and Game of the Week with Standard Rules keep the default.
+victory can be declared: 10 turns (3000 BC, the default) or 5 turns
+(3500 BC). It applies to games started in the current launch, including Game of
+the Week with Standard Rules. A new multiplayer game uses the host's value.
+Loaded saves keep the default.
 
 ## Display and audio
 
@@ -89,11 +97,25 @@ Omit it or use `--profile=default` to return to the default profile.
 See the [storage profile contract](rexglue-runtime.md#storage-profiles) for
 valid names, copying a default profile, shared content, and path overrides.
 
+### Portable Mode
+
+To keep everything beside the game, create an empty file named `portable.txt`
+in the folder that holds `rerevved.exe`. The data folder then becomes
+`userdata\` in that folder instead of the table above. It needs a writable
+location: if ReRevved cannot create or write `userdata\`, for example under
+`Program Files`, it shows a message and refuses to start. Move the game to a
+writable folder or delete `portable.txt`.
+
+An explicit `--user_data_root` still overrides the marker. Named profiles live
+under `userdata\profiles\<id>\`. Release archives do not include
+`portable.txt`. To move existing progress, copy the contents of the Documents
+data folder into `userdata\` while ReRevved is closed.
+
 ## Back up or restore progress
 
 1. Exit every running copy of ReRevved.
-2. Copy the entire player data folder to a separate backup location. Include
-   `profiles/` if you use named profiles.
+2. Copy the entire player data folder (`userdata\` in Portable Mode) to a
+   separate backup location. Include `profiles/` if you use named profiles.
 3. To restore, close ReRevved and copy the backup to the same location.
 
 If you set explicit paths for user data, logs, or caches, account for those

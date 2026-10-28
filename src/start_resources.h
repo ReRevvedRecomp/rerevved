@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ai_civilizations.h"
 #include "resource_settings.h"
 
 #include <array>
@@ -11,7 +12,7 @@ namespace rerevved::start_resources
 
 constexpr int                kMapStride         = 40;
 constexpr size_t             kTileCapacity      = kMapStride * kMapStride;
-constexpr size_t             kPlayers           = 5;
+constexpr size_t             kPlayers           = ai_civilizations::kMaxCivilizationPlayers;
 constexpr int                kAbsent            = -1;
 constexpr int                kOxen              = 0;
 constexpr int                kOak               = 9;
@@ -54,7 +55,8 @@ struct Snapshot
     Bounds                       bounds;
     Tiles                        tiles;
     std::array<Player, kPlayers> players;
-    uint32_t                     seed = 0;
+    uint32_t                     seed              = 0;
+    size_t                       civilizationCount = ai_civilizations::kBarbarianPlayer;
 };
 
 constexpr size_t Index(Coord coordinate)

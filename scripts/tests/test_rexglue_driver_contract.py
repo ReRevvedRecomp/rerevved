@@ -161,9 +161,10 @@ class RexGlueDriverContractTests(unittest.TestCase):
         self.assertIn("[string[]]$Target", self.source)
         self.assertIn(".PARAMETER Target", self.source)
         self.assertIn(
-            "$buildCommand = 'cmake --build --preset win-amd64-release'\n",
+            "$preset = if ($Developer) { 'win-amd64-developer' } else { 'win-amd64-release' }\n",
             self.source,
         )
+        self.assertIn('$buildCommand = "cmake --build --preset $preset"\n', self.source)
         self.assertIn("$PSBoundParameters.ContainsKey('Target')", self.source)
         self.assertIn("' --target ' + (@($Target) -join ' ')", self.source)
         self.assertEqual(

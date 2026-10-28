@@ -18,16 +18,18 @@ The supported runtime driver is [`rexglue.ps1`](rexglue.ps1):
 | `.\scripts\rexglue.ps1 -Stage All` | Run the staged build and bounded launch check. |
 | `.\scripts\rexglue.ps1 -Stage Replay -ReplayRecipe <recipe> -ReplayOutput <fresh-file>` | Run `native_draw_replay` from the developer build directory (`out/build/win-amd64-developer/`) without launching the game; the output parent directory must exist. |
 
+`-Developer` selects the `win-amd64-developer` preset and
+`out/build/win-amd64-developer/` for configure, build, and launch.
 `-ProbeSeconds <n>` bounds `Launch` and `All`. The default is 20 seconds. A
 timeout stops the process started by the driver. `-Interactive` waits for normal
 game exit and removes that timeout. `-LaunchArgument --name=value` appends one
 validated game argument. Launch creates the ignored `out/rexglue-user/` and
 `out/rexglue-cache/` directories.
 
-The driver builds only the release (player) configuration. The recorders, their
-console variables and the offline replay tools belong to the developer build
-(`cmake --preset win-amd64-developer`; see
-[Development](../docs/development.md#developer-build)).
+The driver builds the release player configuration by default. The recorders,
+their console variables and the offline replay tools belong to the developer
+build. Select it with `-Developer` or `cmake --preset win-amd64-developer`.
+See [Development](../docs/development.md#developer-build).
 `scripts/gpu/analyze-scene-resources.py` and `scripts/gpu/analyze-native-route-trace.py`
 read output recorded by a developer build, and `scripts/package.py` rejects
 a build directory configured with `REREVVED_DEVELOPER=ON`.

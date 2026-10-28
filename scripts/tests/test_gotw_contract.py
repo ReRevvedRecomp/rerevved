@@ -55,7 +55,13 @@ NEW_HOOKS = [
     {"address": 0x82D0F100, "name": "TraceGotwProcedural"},
     {"address": 0x82D0F0F4, "name": "TraceGotwNamedLoad", "registers": ["r3"]},
 ]
-EXPECTED_HOOKS += NEW_HOOKS
+OVERRIDE_HOOK = {
+    "address": 0x82DADD18,
+    "name": "OverrideGotwCivilization",
+    "registers": ["r10", "r31", "r5"],
+}
+# The override sits between the late launch hook and the trace observers.
+EXPECTED_HOOKS += [NEW_HOOKS[0], OVERRIDE_HOOK, *NEW_HOOKS[1:]]
 
 CPP_TOKEN = re.compile(r'"(?:\\.|[^"\\])*"|\w+|[^\s]')
 
@@ -198,18 +204,32 @@ class GotwContractTests(unittest.TestCase):
                 f"void {hook}(PPCRegister& setup, PPCRegister& week, PPCRegister& seed) noexcept;",
                 header,
             )
+        self.assert_cpp(
+            "void OverrideGotwCivilization(PPCRegister& civilization, PPCRegister& setup, PPCRegister& count) noexcept;",
+            header,
+        )
         self.assertNotIn(0x82D8685C, [hook["address"] for hook in EXPECTED_HOOKS])
 
     def test_argument_only_writes_and_unconditional_info(self):
         hooks = (ROOT / "src/gotw_hooks.cpp").read_text(encoding="utf-8")
-        apply = function_body(hooks, "ApplyGotwSeed")
-        self.assertIn("LatchForGame(week.u32, setup.u32)", apply)
-        self.assert_cpp("if (policy.customWeek) { week.u64 = policy.week; }", apply)
-        self.assert_cpp("if (policy.IsCustom())", apply)
-        self.assert_cpp("seed.u64 = policy.seed;", apply)
+        wrapper = function_body(hooks, "ApplyGotwSeed")
+        self.assertIn("detail::ApplySeed(setup, week, seed, readWord)", wrapper)
+        apply = function_body(hooks, "ApplySeed")
+        self.assertLess(apply.index("PrepareWeekly("), apply.index("LatchForGame("))
+        self.assertIn("if (!prepared)", apply)
+        self.assertIn("LatchForGame(week.u32, setup.u32, *prepared)", apply)
+        self.assert_cpp(
+            "if (policy.customWeek) { week.u64 = policy.week; seed.u64 = policy.seed; }",
+            apply,
+        )
+        self.assertNotIn("IsCustom", apply)
+        self.assert_cpp(
+            'if (policy.customCivilization) { setCivilizationArm({ true, setup.u32, policy.launch, policy.civilization, "early" }); }',
+            apply,
+        )
         self.assertEqual(
             re.findall(r"\b(\w+)\.u64\s*=(?!=)", hooks),
-            ["week", "seed", "week", "seed"],
+            ["week", "seed", "week", "seed", "civilization"],
         )
         self.assertNotIn("REX_STORE_", hooks)
         self.assertNotIn("TranslateVirtual<uint8_t*>", hooks)
@@ -237,29 +257,51 @@ class GotwContractTests(unittest.TestCase):
         self.assert_cpp("result.ptr != text.data() + text.size()", source)
         latch = function_body(source, "LatchForGame")
         self.assert_cpp(
-            "next.customWeek = ParseWeek(REXCVAR_GET(gotw_week), next.week);", latch
+            "settings.gotwCustomWeek = ParseWeek(REXCVAR_GET(gotw_week), settings.gotwWeek);",
+            latch,
+        )
+        captured = function_body(
+            source[source.index(latch) + len(latch) :], "LatchForGame"
         )
         self.assert_cpp(
-            "if (next.customWeek) { next.seed = SeedForWeek(next.week); }", latch
+            "if (next.customWeek) { next.seed = SeedForWeek(next.week); }", captured
         )
+        self.assertNotIn("REXCVAR_GET", captured)
+        self.assertIn("settings.gotwWeek", captured)
         self.assertIn('logRejected("week",', latch)
         self.assertNotIn("REXCVAR_GET", function_body(source, "ForGame"))
         self.assert_cpp("mode == 2 && ForGame().IsCustom()", source)
         header = (ROOT / "src/gotw_settings.h").read_text(encoding="utf-8")
-        self.assert_cpp("return customWeek;", function_body(header, "IsCustom"))
+        self.assert_cpp(
+            "return customWeek || customCivilization;",
+            function_body(header, "IsCustom"),
+        )
+        self.assert_cpp(
+            'REXCVAR_DEFINE_BOOL(gotw_custom_civilization, false, "ReRevved",', source
+        )
+        self.assert_cpp(
+            'REXCVAR_DEFINE_INT32(gotw_civilization, 0, "ReRevved",', source
+        )
+        self.assert_cpp(".range(0, 15);", source)
         self.assertNotIn("customSeed", header)
         overlay = (ROOT / "src/overlay_settings.cpp").read_text(encoding="utf-8")
         for text in (
-            '{ "Game of the Week", { "gotw_custom_week", "gotw_week", "gotw_standard_rules" } }',
+            '{ "Game of the Week", { "gotw_standard_rules", "gotw_custom_week", "gotw_week", "gotw_custom_civilization", "gotw_civilization" } }',
             '{ "gotw_custom_week", Audience::kPlayer }',
             '{ "gotw_week", Audience::kPlayer }',
+            '{ "gotw_custom_civilization", Audience::kPlayer }',
+            '{ "gotw_civilization", Audience::kPlayer }',
             '{ "gotw_standard_rules", Audience::kPlayer }',
             '{ "gotw_custom_week", "Week" }',
             '{ "gotw_week", "Week" }',
+            '{ "gotw_custom_civilization", "Civilization" }',
+            '{ "gotw_civilization", "Civilization" }',
             '{ "gotw_standard_rules", "Standard Rules" }',
-            'layout.inline_toggles = { { "gotw_custom_week", "gotw_week", true } };',
+            'layout.inline_toggles = { { "gotw_custom_week", "gotw_week", true }, { "gotw_custom_civilization", "gotw_civilization", true } };',
             """{ "gotw_custom_week", "Enable to play a different week's game instead of this week's." }""",
-            '{ "gotw_standard_rules", "Enable to play Game of the Week without gameplay changes." }',
+            '{ "gotw_custom_civilization", "Enable to play Game of the Week as the civilization you choose." }',
+            '{ "gotw_civilization", { { "0", "Roman" }, { "1", "Egyptian" }, { "2", "Greek" }, { "3", "Spanish" }, { "4", "German" }, { "5", "Russian" }, { "6", "Chinese" }, { "7", "American" }, { "8", "Japanese" }, { "9", "French" }, { "10", "Indian" }, { "11", "Arabian" }, { "12", "Aztec" }, { "13", "Zulu" }, { "14", "Mongolian" }, { "15", "English" } } }',
+            '{ "gotw_standard_rules", "Enable to play Game of the Week without Lua mods or gameplay changes other than Earliest Domination." }',
         ):
             self.assert_cpp(text, overlay)
         for removed in ("gotw_custom_seed", "gotw_seed", "gotw_weekly_seed"):
@@ -290,9 +332,13 @@ class GotwContractTests(unittest.TestCase):
     def test_standard_rules_freeze_and_consumers(self):
         settings = (ROOT / "src/gotw_settings.cpp").read_text(encoding="utf-8")
         freeze = function_body(settings, "FreezeStandardRules")
-        self.assert_cpp("mode == 2 && REXCVAR_GET(gotw_standard_rules)", freeze)
+        self.assertIn("host->gotwStandardRules", freeze)
+        selected = settings.split(
+            "FreezeStandardRules(int32_t mode, bool selected)", 1
+        )[1]
+        self.assert_cpp("mode == 2 && selected", selected)
         self.assert_cpp(
-            "standardRules.store(enabled, std::memory_order_relaxed);", freeze
+            "standardRules.store(enabled, std::memory_order_relaxed);", selected
         )
         self.assertNotIn("REXCVAR", function_body(settings, "StandardRulesForGame"))
         runtime = (ROOT / "src/start_resources_runtime.cpp").read_text(encoding="utf-8")
@@ -300,18 +346,21 @@ class GotwContractTests(unittest.TestCase):
         for read in ("loadU32(base, kSetupObject)", "loadU32(base, setup + 4)"):
             self.assertIn(read, wrapper)
         self.assert_cpp("constexpr uint32_t kSetupObject = 0x8314EFC8;", runtime)
-        gate = wrapper.index("gotw::FreezeStandardRules(mode)")
-        native = wrapper.index("__imp__sub_82D25170(context, base)")
-        for consumer in (
-            "raging_barbarians::FreezeForGame(standardRules)",
-            "occ::FreezeForGame(standardRules)",
-            "SetupScope scope(standardRules)",
-        ):
-            self.assertLess(gate, wrapper.index(consumer))
-            self.assertLess(wrapper.index(consumer), native)
-        self.assert_cpp(
-            "const int32_t value = standardRules ? 0 : REXCVAR_GET(resources);", runtime
+        gate = wrapper.index("gameplay_session::ApplyNewGame(snapshot, network, mode)")
+        resources = wrapper.index("SetupScope scope(standardRules, settings.resources)")
+        native = wrapper.rindex("__imp__sub_82D25170(context, base)")
+        self.assertLess(gate, resources)
+        self.assertLess(resources, native)
+        session = (ROOT / "src/gameplay_session_settings.cpp").read_text(
+            encoding="utf-8"
         )
+        policy = function_body(session, "ApplyNewGame")
+        self.assertIn(
+            "gotw::FreezeStandardRules(mode, settings.gotwStandardRules)", policy
+        )
+        self.assertIn("!standardRules && settings.ragingBarbarians", policy)
+        self.assertIn("!standardRules && settings.oneCityChallenge", policy)
+        self.assert_cpp("const int32_t value = standardRules ? 0 : requested;", runtime)
         for name, config in (
             ("raging_barbarians", "raging_barbarians"),
             ("occ", "one_city_challenge"),
@@ -326,7 +375,7 @@ class GotwContractTests(unittest.TestCase):
             "const bool standardRules = rerevved::gotw::StandardRulesForGame();", ai
         )
         self.assert_cpp(
-            "standardRules ? ai_civs::kAllAiCivilizations : resolveLimit(network, source)",
+            "standardRules ? ai_civs::kAllAiCivilizations : expanded != 0 ? expanded : settings ? settings->aiCivilizations : REXCVAR_GET(ai_civilizations)",
             ai,
         )
         load = function_body(ai, "ResetAiCivilizationsOnLoad")
@@ -474,13 +523,38 @@ class GotwContractTests(unittest.TestCase):
             "if (read && read(kSetupGlobal, setup) && setup != 0 && setup == policy.setup && "
             "receiver.u32 == setup && week.u32 == policy.week && "
             "read(uint64_t{ setup } + 4, mode) && mode == 2) "
-            "{ if (policy.customWeek) { week.u64 = policy.week; } seed.u64 = policy.seed; }",
+            "{ if (policy.customWeek) { week.u64 = policy.week; seed.u64 = policy.seed; } "
+            'if (policy.customCivilization) { setCivilizationArm({ true, setup, policy.launch, policy.civilization, "late" }); } }',
             reapply,
         )
         self.assertNotIn("LatchForGame", late)
         self.assertNotIn("REXCVAR", late)
         self.assertNotIn("LatchForGame", reapply)
         self.assertNotIn("REXCVAR", reapply)
+
+    def test_civilization_override_is_one_shot_and_validated(self):
+        source = (ROOT / "src/gotw_hooks.cpp").read_text(encoding="utf-8")
+        wrapper = function_body(source, "OverrideGotwCivilization")
+        self.assert_cpp(
+            "rerevved::gotw::detail::OverrideCivilization(civilization, setup, count);",
+            wrapper,
+        )
+        override = function_body(source, "OverrideCivilization")
+        self.assert_cpp("if (!civilizationArm.armed) { return; }", override)
+        self.assert_cpp("civilizationArm = {};", override)
+        self.assert_cpp(
+            "armed.setup != setup.u32 || armed.launch != policy.launch || "
+            "!rerevved::gotw::IsValidCivilization(armed.civilization) || "
+            "armed.civilization >= count.u32",
+            override,
+        )
+        self.assert_cpp("civilization.u64 = armed.civilization;", override)
+        self.assertLess(
+            override.index("civilizationArm = {};"),
+            override.index("civilization.u64 = armed.civilization;"),
+        )
+        self.assertNotIn("REXCVAR", override)
+        self.assertNotIn("LatchForGame", override)
 
     def test_observers_are_default_off_bounded_and_read_only(self):
         settings = (ROOT / "src/gotw_settings.cpp").read_text(encoding="utf-8")
@@ -563,6 +637,7 @@ class GotwContractTests(unittest.TestCase):
                 "GuardGotwWeekCache": "sub_82DBF090",
                 "GuardGotwSubmission": "sub_82DBE688",
                 "ReapplyGotwSeed": "sub_82D91A78",
+                "OverrideGotwCivilization": "sub_82DADC88",
                 "TraceGotwWriterEntry": "sub_82DADC88",
                 "TraceGotwWriterExit": "sub_82DADC88",
                 "TraceGotwGeneratorSeed": "sub_82D0F0D0",
@@ -599,6 +674,10 @@ class GotwContractTests(unittest.TestCase):
             end.index("TraceGotwWriterExit(ctx.lr, ctx.r3, ctx.r4, ctx.r5, ctx.r31);"),
         )
         self.assertLess(end.index("TraceGotwWriterExit("), end.index("sub_821B15C0("))
+        self.assertLess(
+            end.index("OverrideGotwCivilization(ctx.r10, ctx.r31, ctx.r5);"),
+            end.index("REX_STORE_U32(ctx.r31.u32 + 316, ctx.r10.u32);"),
+        )
         named = self.windows["named_load"]
         self.assertLess(
             named.index("sub_82D0ADE0("), named.index("TraceGotwNamedLoad(ctx.r3);")

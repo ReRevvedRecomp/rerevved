@@ -1,18 +1,20 @@
-// Values below 4 remove excess civs before recount; barbarian_message_hooks.cpp
-// hides farewell messages and peers use host setup.
+// Remove excess civilizations before recount. Peers use host setup.
 
 #include "ai_civilizations.h"
 
+#include "ai_civilization_setup.h"
+#include "ai_economy_settings.h"
+#include "custom_achievement_combat_hooks.h"
+#include "custom_achievements.h"
 #include "gameplay_fixes.h"
+#include "gameplay_session_settings.h"
 #include "gotw_settings.h"
-#include "host_settings.h"
 #include "occ_hooks.h"
 #include "raging_barbarians_hooks.h"
 #include "save_sidecar.h"
 #include "start_resources_runtime.h"
 
 #include <atomic>
-#include <chrono>
 #include <cstdint>
 #include <string>
 
@@ -20,8 +22,6 @@
 #include <rex/hook.h>
 #include <rex/logging.h>
 #include <rex/ppc.h>
-#include <rex/session_data.h>
-#include <rex/ui/notifications.h>
 
 REXCVAR_DECLARE(int32_t, ai_civilizations);
 
@@ -33,10 +33,6 @@ namespace
 {
 
 namespace ai_civs = rerevved::ai_civilizations;
-namespace host    = rerevved::host_settings;
-
-// How long a joining peer waits for the host's settings at game start.
-constexpr std::chrono::seconds kHostSettingsWait{ 3 };
 
 // Slots removed in the current game. Not saved: a load clears it, and the
 // next new game replaces it.
@@ -94,7 +90,7 @@ void removeAiCivilizations(PPCContext& ctx, uint8_t* base, int32_t maxAi, const 
     }
 
     ai_civs::KillDigest digest;
-    for (uint32_t player = 0; player < ai_civs::kBarbarianPlayer; ++player)
+    for (uint32_t player = 0; player < ai_civs::kMaxCivilizationPlayers; ++player)
     {
         if ((removable >> player & 1) == 0)
         {
@@ -127,44 +123,48 @@ void removeAiCivilizations(PPCContext& ctx, uint8_t* base, int32_t maxAi, const 
                 digest.Value());
 }
 
-// The limit for this new game, and a warning to a peer whose game cannot match
-// the host's. A peer keeps its own mods and settings; only this game changes.
-int32_t resolveLimit(bool network, std::string& source)
+void logExpandedSetup(const uint8_t* base)
 {
-    auto status = rex::session_data::Current();
-    if (network && status.state == rex::session_data::State::kPending)
+    const int32_t requested = ai_civs::ExpandedAiLimit();
+    if (requested == 0)
     {
-        status = rex::session_data::WaitForHostData(kHostSettingsWait);
+        return;
     }
-
-    const int32_t limit = host::ResolveAiLimit(network, status, REXCVAR_GET(ai_civilizations), &source);
-    if (!network)
+    const uint32_t count     = loadU32(base, ai_civs::kPlayerCountGlobal);
+    const uint32_t barbarian = loadU32(base, ai_civs::kBarbarianPlayerGlobal);
+    uint32_t       seen      = 0;
+    bool           distinct  = true;
+    for (uint32_t player = 0; player < count && player <= ai_civs::kMaxCivilizationPlayers; ++player)
     {
-        return limit;
-    }
-
-    if (source == "fallback")
-    {
-        REXLOG_WARN("AI civilizations: host settings not received (state={}); using local limit {}",
-                    static_cast<int>(status.state),
-                    limit);
-        rex::ui::PostNotification("Host settings not received",
-                                  "Using your own AI Civilizations setting; this game may go out of sync.");
-    }
-    else if (source == "received")
-    {
-        const auto hostSettings = host::Decode(status.bytes);
-        const auto differences  = hostSettings
-                                      ? host::DescribeModMismatch(
-                                            hostSettings->mods, host::LocalMods(), hostSettings->modsTruncated)
-                                      : std::string{};
-        if (!differences.empty())
+        const uint32_t civilization = loadU32(base, 0x830ECD28 + 4 * player);
+        if (player != barbarian)
         {
-            REXLOG_WARN("AI civilizations: mods differ from the host: {}", differences);
-            rex::ui::PostNotification("Mods differ from the host", differences + ". This game may go out of sync.");
+            distinct = distinct && civilization < 16 && (seen & (1u << civilization)) == 0;
+            if (civilization < 16)
+            {
+                seen |= 1u << civilization;
+            }
         }
+        uint32_t live = 0;
+        for (uint32_t unit = 0; unit < ai_civs::kUnitsPerPlayer; ++unit)
+        {
+            const uint32_t record = ai_civs::UnitRecord(player, unit);
+            live += ai_civs::IsLiveUnit(loadU8(base, record), loadU32(base, record + ai_civs::kUnitFlagsOffset));
+        }
+        REXLOG_INFO("AI civilizations: player={} civilization={} barbarian={} start=({}, {}) live_records={}",
+                    player,
+                    civilization,
+                    player == barbarian,
+                    static_cast<int32_t>(loadU32(base, 0x830E345C + 4 * player)),
+                    static_cast<int32_t>(loadU32(base, 0x830E343C + 4 * player)),
+                    live);
     }
-    return limit;
+    REXLOG_INFO("AI civilizations: expanded setup requested={} count={} barbarian={} human_mask=0x{:08X} distinct_ids={}",
+                requested,
+                count,
+                barbarian,
+                loadU32(base, ai_civs::kHumanMaskGlobal),
+                distinct);
 }
 
 } // namespace
@@ -177,14 +177,21 @@ bool rerevved::ai_civilizations::IsRemovedCivilization(uint32_t player)
 // The statistics recount; acts only for its call right after new-game setup.
 REX_HOOK_RAW(sub_82D11AD8)
 {
-    if (ctx.lr == ai_civs::kNewGameRecountReturn)
+    if (ctx.lr == ai_civs::kNewGameRecountReturn && rerevved::gameplay_session::SetupActive())
     {
         removedMask.store(0);
         const bool    network       = loadU8(base, ai_civs::kNetworkGameByte) != 0;
         const bool    standardRules = rerevved::gotw::StandardRulesForGame();
-        std::string   source        = standardRules ? "standard GOTW" : "";
-        const int32_t maxAi         = standardRules ? ai_civs::kAllAiCivilizations : resolveLimit(network, source);
-        if (maxAi < ai_civs::kAllAiCivilizations)
+        const auto    settings      = rerevved::gameplay_session::ForNetworkGame();
+        std::string   source        = standardRules ? "standard GOTW" : settings ? "host snapshot"
+                                                                                 : "local";
+        const int32_t expanded      = ai_civs::ExpandedAiLimit();
+        const int32_t maxAi         = standardRules ? ai_civs::kAllAiCivilizations : expanded != 0 ? expanded
+                                                                                 : settings        ? settings->aiCivilizations
+                                                                                                   : REXCVAR_GET(ai_civilizations);
+        const int32_t count         = static_cast<int32_t>(loadU32(base, ai_civs::kPlayerCountGlobal));
+        const int32_t barbarian     = static_cast<int32_t>(loadU32(base, ai_civs::kBarbarianPlayerGlobal));
+        if (ai_civs::CivilizationMask(count, barbarian) != 0 && maxAi < barbarian - 1)
         {
             removeAiCivilizations(ctx, base, maxAi, source);
         }
@@ -192,6 +199,8 @@ REX_HOOK_RAW(sub_82D11AD8)
         {
             REXLOG_INFO("AI civilizations: network game keeps every AI civilization, source={}", source);
         }
+        logExpandedSetup(base);
+        ai_civs::NoteNewGameRecount();
         rerevved::start_resources::OnNewGameSetup(ctx, base);
     }
     __imp__sub_82D11AD8(ctx, base);
@@ -200,10 +209,15 @@ REX_HOOK_RAW(sub_82D11AD8)
 // Before the load path's serializer call in sub_82D86400.
 void ResetAiCivilizationsOnLoad()
 {
+    rerevved::gameplay_session::ResetOnLoad();
+    ai_civs::ResetOnLoad();
+    rerevved::ai_economy::ResetForLoad();
     rerevved::start_resources::ResetOnLoad();
     removedMask.store(0);
     FreezeRagingBarbariansForGame();
     FreezeOccForGame();
     rerevved::gameplay_fixes::NoteGameLoad();
+    rerevved::custom_achievements::ResetProgress();
+    rerevved::custom_achievement_combat::ResetCombatObservers();
     rerevved::save_sidecar::RestoreAfterLoadReset();
 }

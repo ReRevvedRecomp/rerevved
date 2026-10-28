@@ -16,7 +16,7 @@
 #include <rex/system/thread_state.h>
 #include <rex/system/xmemory.h>
 
-REXCVAR_DEFINE_BOOL(occ_trace, false, "ReRevved", "Log One City Challenge rewards, city populations and comparisons for blocked Settlers")
+REXCVAR_DEFINE_BOOL(occ_trace, false, "ReRevved", "Log One City Challenge rewards, city populations, comparisons for blocked Settlers, village Settlers replacements and refused AI expansion")
     .debug_only();
 
 namespace
@@ -31,6 +31,15 @@ constexpr uint32_t kCityStride   = 0xBC;
 constexpr uint32_t kGrowthHelper = 0x82D00C78;
 constexpr uint32_t kMask         = 0x8312E608;
 constexpr uint32_t kMaskSource   = 0x8314F1B0;
+
+// Evidence: https://github.com/ReRevvedRecomp/rerevved-research/blob/main/manifests/friendly-village-rewards.json
+// (ordinaryRewards category 1 / settlersDifficultyBoundary).
+constexpr uint32_t kVillageSettlersBlocked = 0x8314F10B;
+constexpr uint32_t kVillageDifficulty      = 0x82FFE7C8;
+
+// Evidence: https://github.com/ReRevvedRecomp/rerevved-research/blob/main/manifests/city-militia-scout-feasibility.json
+// (occAiFoundingBoundary).
+constexpr uint32_t kAiExpansionPlayerOffset = 0x1C4;
 
 std::atomic<uint64_t> rewardApplications{ 0 };
 
@@ -282,6 +291,48 @@ bool ApplyOccGoldReward(PPCRegister& owner, PPCRegister& applying)
         if (REXCVAR_GET(occ_trace))
         {
             REXLOG_INFO("OCC: reward={} complete owner={} marker_retained=1 continuation=82CF57E8", application, owner.s32);
+        }
+    }
+    catch (...)
+    {
+    }
+    return true;
+}
+
+bool GuardOccVillageSettlers(PPCRegister& player)
+{
+    const auto policy = occ::ForGame();
+    if (!policy->enabled)
+    {
+        return false;
+    }
+    try
+    {
+        if (REXCVAR_GET(occ_trace))
+        {
+            const bool nativeEligible = *checkedBytes(kVillageSettlersBlocked, 1) == 0 && std::bit_cast<int32_t>(readWord(kVillageDifficulty)) < 2;
+            REXLOG_INFO("OCC: village_settlers player={} native_eligible={} replacement=25_gold continuation=82D0EF30", player.s32, nativeEligible);
+        }
+    }
+    catch (...)
+    {
+    }
+    return true;
+}
+
+bool GuardOccAiExpansion(PPCRegister& stack, PPCRegister& x, PPCRegister& y)
+{
+    const auto policy = occ::ForGame();
+    if (!policy->enabled)
+    {
+        return false;
+    }
+    try
+    {
+        if (REXCVAR_GET(occ_trace))
+        {
+            const int32_t player = std::bit_cast<int32_t>(readWord(uint64_t{ stack.u32 } + kAiExpansionPlayerOffset));
+            REXLOG_INFO("OCC: ai_expansion_refused player={} x={} y={} continuation=82CBC3D4", player, x.s32, y.s32);
         }
     }
     catch (...)

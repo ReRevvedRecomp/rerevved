@@ -1,0 +1,46 @@
+# Creator scope: the alternate creator places a new unit through the ordinary
+# executor (bl at 0x82CF5560, return 0x82CF5564). r3 = player, r4 = new unit.
+[[midasm_hook]]
+address = 0x82CF5560
+name = "BeginAchievementUnitCreation"
+registers = ["r1", "r3", "r4"]
+
+[[midasm_hook]]
+address = 0x82CF5564
+name = "EndAchievementUnitCreation"
+registers = ["r1"]
+
+# Ordinary executor, after the x/y stores at 0x82CD6CC4/0x82CD6CCC (before
+# addi r6,r1,96). r19 = player, r15 = unit, r21/r20 = committed x/y.
+[[midasm_hook]]
+address = 0x82CD6CD0
+name = "ObserveAchievementOrdinaryMove"
+registers = ["r1", "r19", "r15", "r21", "r20", "r13", "fpscr"]
+
+# Command 19 packed coordinate replacement, at the arm entry before its x/y
+# stores at 0x82CDFDCC/0x82CDFDD8. r31 = player, r15 = unit, r29 = packed.
+[[midasm_hook]]
+address = 0x82CDFD94
+name = "ObserveAchievementPackedMove"
+registers = ["r1", "r31", "r15", "r29", "r13", "fpscr"]
+
+# Involuntary displacement: adjacent-tile stores at 0x82CF30F4/0x82CF30FC
+# (before cmpwi cr6,r7,0). r26 = player, r22 = unit, r20/r19 = old x/y.
+[[midasm_hook]]
+address = 0x82CF3100
+name = "ObserveAchievementDisplacement"
+registers = ["r1", "r26", "r22", "r20", "r19", "r13", "fpscr"]
+
+# Carrier child propagation, before the child x store at 0x82CF3150.
+# r11 = child record + 0x1C.
+[[midasm_hook]]
+address = 0x82CF3150
+name = "ObserveAchievementCarrierChild"
+registers = ["r1", "r26", "r22", "r11", "r13", "fpscr"]
+
+# Displacement city fallback, after the stores at 0x82CF3204/0x82CF3208
+# (before b 0x82CF3220).
+[[midasm_hook]]
+address = 0x82CF320C
+name = "ObserveAchievementCityDisplacement"
+registers = ["r1", "r26", "r22", "r20", "r19", "r13", "fpscr"]

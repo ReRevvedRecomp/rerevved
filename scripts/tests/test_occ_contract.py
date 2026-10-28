@@ -36,6 +36,18 @@ EXPECTED_HOOKS = [
         "registers": ["r22", "r15"],
         "jump_address_on_true": 0x82CF57E8,
     },
+    {
+        "address": 0x82D0EEB8,
+        "name": "GuardOccVillageSettlers",
+        "registers": ["r27"],
+        "jump_address_on_true": 0x82D0EF30,
+    },
+    {
+        "address": 0x82CBBE58,
+        "name": "GuardOccAiExpansion",
+        "registers": ["r1", "r24", "r29"],
+        "jump_address_on_true": 0x82CBC3D4,
+    },
 ]
 
 
@@ -114,7 +126,7 @@ class OccContractTests(unittest.TestCase):
         hooks = HOOKS.read_text(encoding="utf-8")
         self.assertNotIn("REXCVAR_GET(one_city_challenge)", hooks)
         self.assertEqual(
-            len(re.findall(r"const auto\s+policy\s*= occ::ForGame\(\);", hooks)), 4
+            len(re.findall(r"const auto\s+policy\s*= occ::ForGame\(\);", hooks)), 6
         )
 
     def test_mongol_horseback_uses_consumers_without_publication(self):
@@ -168,21 +180,26 @@ class OccContractTests(unittest.TestCase):
     def test_title_checkbox_and_ingress(self):
         overlay = (ROOT / "src/overlay_settings.cpp").read_text(encoding="utf-8")
         for entry in (
-            '{ "", { "one_city_challenge" } }',
+            '{ "", { "combat_speed", "resources", "raging_barbarians", "one_city_challenge", "domination_min_turns", "ai_civilizations" } }',
             '{ "one_city_challenge", Audience::kPlayer }',
             '{ "one_city_challenge", "One City Challenge" }',
-            '{ "", { "resources" } }',
-            '{ "", { "raging_barbarians" } }',
         ):
             self.assertIn(entry, overlay)
         runtime = (ROOT / "src/start_resources_runtime.cpp").read_text(encoding="utf-8")
         setup = runtime.split("void RunNativeNewGameSetup(", 1)[1].split(
             "} // namespace", 1
         )[0]
-        self.assertEqual(setup.count("occ::FreezeForGame(standardRules);"), 1)
+        freeze = "gameplay_session::ApplyNewGame(snapshot, network, mode)"
+        self.assertEqual(setup.count(freeze), 1)
         self.assertLess(
-            setup.index("occ::FreezeForGame(standardRules);"),
-            setup.index("__imp__sub_82D25170(context, base)"),
+            setup.index(freeze),
+            setup.rindex("__imp__sub_82D25170(context, base)"),
+        )
+        session = (ROOT / "src/gameplay_session_settings.cpp").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            "occ::RestoreForGame({ !standardRules && settings.oneCityChallenge", session
         )
         load = (ROOT / "src/ai_civilizations_hooks.cpp").read_text(encoding="utf-8")
         load = load.split("void ResetAiCivilizationsOnLoad()", 1)[1].split("}", 1)[0]
@@ -262,6 +279,30 @@ class OccContractTests(unittest.TestCase):
         self.assertLess(
             reward.index("ApplyOccGoldReward(ctx.r22, ctx.r15)"),
             reward.index("ctx.cr6.compare<int32_t>(ctx.r15.s32, 0, ctx.xer);"),
+        )
+        village = windows[names[4]]
+        self.assertIn("goto loc_82D0EF30;", village)
+        self.assertLess(
+            village.index("loc_82D0EEB8:"),
+            village.index("GuardOccVillageSettlers(ctx.r27)"),
+        )
+        self.assertLess(
+            village.index("GuardOccVillageSettlers(ctx.r27)"),
+            village.index("REX_LOAD_U8(ctx.r11.u32 + -3829)"),
+        )
+        expansion = windows[names[5]]
+        self.assertIn("goto loc_82CBC3D4;", expansion)
+        self.assertLess(
+            expansion.index("if (!ctx.cr6.eq) goto loc_82CBC07C;"),
+            expansion.index("GuardOccAiExpansion(ctx.r1, ctx.r24, ctx.r29)"),
+        )
+        self.assertLess(
+            expansion.index("GuardOccAiExpansion(ctx.r1, ctx.r24, ctx.r29)"),
+            expansion.index("ctx.r11.s64 = -2095906816;"),
+        )
+        self.assertLess(
+            expansion.index("ctx.r11.s64 = -2095906816;"),
+            expansion.index("REX_LOAD_U32(ctx.r11.u32 + -18212)"),
         )
 
 

@@ -1,5 +1,6 @@
 #include "save_sidecar.h"
 
+#include "custom_achievements.h"
 #include "occ_settings.h"
 #include "raging_barbarians_settings.h"
 #include "start_resources_runtime.h"
@@ -14,7 +15,7 @@
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
 
-REXCVAR_DEFINE_BOOL(save_sidecar, true, "ReRevved", "Persist per-save Resources, Raging Barbarians and One City Challenge in a host sidecar");
+REXCVAR_DEFINE_BOOL(save_sidecar, true, "ReRevved", "Persist per-save Resources, Raging Barbarians, One City Challenge and AI policies in a host sidecar");
 
 REX_EXTERN(__imp__sub_82D82510);
 REX_EXTERN(__imp__sub_82D84238);
@@ -52,7 +53,7 @@ struct Transaction
                 }
                 else
                 {
-                    REXLOG_INFO("Save sidecar: {}; using live settings, no overrides", nativeFile.empty() ? "no native file captured" : fallbackReason);
+                    REXLOG_INFO("Save sidecar: {}; no saved gameplay settings restored", nativeFile.empty() ? "no native file captured" : fallbackReason);
                 }
             }
         }
@@ -114,12 +115,22 @@ std::string readString(uint64_t address, size_t limit)
 
 sidecar::State captureState()
 {
-    const auto occ = rerevved::occ::ForGame();
+    const auto occ      = rerevved::occ::ForGame();
+    const auto progress = rerevved::custom_achievements::CurrentProgress();
     return { rerevved::raging_barbarians::Evaluate(0).enabled,
              occ->enabled,
              occ->minimumPopulation,
              rerevved::start_resources::ForGame(),
-             *rerevved::resource_identity_overrides::Current() };
+             *rerevved::resource_identity_overrides::Current(),
+             rerevved::ai_economy::ForSave(rerevved::ai_economy::NativeCostsRequired()),
+             progress.occFromSetup,
+             progress.barbarianDefeats,
+             progress.historyKnown,
+             progress.unitBuilt,
+             progress.battleFought,
+             progress.deepOceanEntered,
+             progress.firstFoundingTurn,
+             progress.initialAiOpponents };
 }
 
 } // namespace
@@ -128,8 +139,10 @@ sidecar::State captureState()
 // The wrapper bounds the pending restore to this native load, including failures.
 REX_HOOK_RAW(sub_82D84238)
 {
-    Transaction transaction(ctx.r4.u32, true);
+    Transaction                     transaction(ctx.r4.u32, true);
+    rerevved::ai_economy::LoadScope economyLoad;
     __imp__sub_82D84238(ctx, base);
+    economyLoad.Finish(rerevved::ai_economy::NativeCostsRequired());
 }
 
 REX_HOOK_RAW(sub_82D82510)
@@ -258,6 +271,15 @@ void RestoreAfterLoadReset() noexcept
             raging_barbarians::RestoreForGame(state->ragingBarbarians);
             occ::RestoreForGame({ state->occEnabled, state->occPopulation });
             start_resources::RestoreForGame(state->resources);
+            ai_economy::RestoreForGame(state->aiEconomy);
+            custom_achievements::RestoreProgress({ .occFromSetup       = state->occFromSetup,
+                                                   .barbarianDefeats   = state->barbarianDefeats,
+                                                   .historyKnown       = state->historyKnown,
+                                                   .unitBuilt          = state->unitBuilt,
+                                                   .battleFought       = state->battleFought,
+                                                   .deepOceanEntered   = state->deepOceanEntered,
+                                                   .firstFoundingTurn  = state->firstFoundingTurn,
+                                                   .initialAiOpponents = state->initialAiOpponents });
             if (!active->restoreLogged)
             {
                 active->restoreLogged = true;

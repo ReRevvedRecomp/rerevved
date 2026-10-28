@@ -1,4 +1,7 @@
 #include "gotw_settings.h"
+#include "gameplay_session_settings.h"
+
+#include <game_ids.h>
 
 #include <array>
 #include <charconv>
@@ -10,6 +13,9 @@
 #include <rex/logging.h>
 
 REXCVAR_DEFINE_BOOL(gotw_custom_week, false, "ReRevved", "Choose a custom week for the next Game of the Week");
+REXCVAR_DEFINE_BOOL(gotw_custom_civilization, false, "ReRevved", "Choose your civilization for the next Game of the Week");
+REXCVAR_DEFINE_INT32(gotw_civilization, 0, "ReRevved", "Civilization for Game of the Week: 0 Roman, 1 Egyptian, 2 Greek, 3 Spanish, 4 German, 5 Russian, 6 Chinese, 7 American, 8 Japanese, 9 French, 10 Indian, 11 Arabian, 12 Aztec, 13 Zulu, 14 Mongolian, 15 English")
+    .range(0, 15);
 REXCVAR_DEFINE_BOOL(gotw_standard_rules, true, "ReRevved", "Use standard gameplay rules for Game of the Week");
 REXCVAR_DEFINE_BOOL(gotw_trace, false, "ReRevved", "Trace Game of the Week seed writers and map construction; capped at 512 events per process");
 REXCVAR_DEFINE_STRING(gotw_week, "1", "ReRevved", "Week number for Game of the Week: 1..2147483647")
@@ -106,6 +112,11 @@ bool IsValidWeek(uint32_t week) noexcept
     return week >= 1 && week <= 0x7FFFFFFFu;
 }
 
+bool IsValidCivilization(uint32_t civilization) noexcept
+{
+    return civilization < static_cast<uint32_t>(CIVILIZATION_COUNT);
+}
+
 uint32_t SeedForWeek(uint32_t week) noexcept
 {
     // 0x82E2B91C..0x82E2B930 uses one-based ordinal (week % 277) + 1.
@@ -126,21 +137,60 @@ bool ParseWeek(std::string_view text, uint32_t& week) noexcept
 Selection LatchForGame(uint32_t nativeWeek, uint32_t setup) noexcept
 try
 {
-    Selection next;
-    next.nativeWeek = nativeWeek;
-    next.week       = nativeWeek;
-    next.setup      = setup;
+    const auto host = gameplay_session::ForNetworkGame();
+    if (host)
+    {
+        return LatchForGame(nativeWeek, setup, *host);
+    }
+    host_settings::HostSettings settings;
     if (REXCVAR_GET(gotw_custom_week))
     {
-        next.customWeek = ParseWeek(REXCVAR_GET(gotw_week), next.week);
-        if (!next.customWeek)
+        settings.gotwCustomWeek = ParseWeek(REXCVAR_GET(gotw_week), settings.gotwWeek);
+        if (!settings.gotwCustomWeek)
         {
             logRejected("week", REXCVAR_GET(gotw_week));
         }
     }
+    if (REXCVAR_GET(gotw_custom_civilization))
+    {
+        const int32_t civilization      = REXCVAR_GET(gotw_civilization);
+        settings.gotwCustomCivilization = civilization >= 0 && IsValidCivilization(static_cast<uint32_t>(civilization));
+        if (settings.gotwCustomCivilization)
+        {
+            settings.gotwCivilization = static_cast<uint32_t>(civilization);
+        }
+        else
+        {
+            logRejected("civilization", std::to_string(civilization));
+        }
+    }
+    return LatchForGame(nativeWeek, setup, settings);
+}
+catch (...)
+{
+    return {};
+}
+
+Selection LatchForGame(uint32_t nativeWeek, uint32_t setup, const host_settings::HostSettings& settings) noexcept
+try
+{
+    Selection next;
+    next.nativeWeek = nativeWeek;
+    next.week       = nativeWeek;
+    next.setup      = setup;
+    if (settings.gotwCustomWeek && IsValidWeek(settings.gotwWeek))
+    {
+        next.customWeek = true;
+        next.week       = settings.gotwWeek;
+    }
     if (next.customWeek)
     {
         next.seed = SeedForWeek(next.week);
+    }
+    if (settings.gotwCustomCivilization && IsValidCivilization(settings.gotwCivilization))
+    {
+        next.customCivilization = true;
+        next.civilization       = settings.gotwCivilization;
     }
     std::lock_guard lock(selectionMutex);
     next.launch = selection.launch + 1;
@@ -195,7 +245,13 @@ void RecordAutomaticWeek(uint32_t week) noexcept
 
 bool FreezeStandardRules(int32_t mode) noexcept
 {
-    const bool enabled = mode == 2 && REXCVAR_GET(gotw_standard_rules);
+    const auto host = gameplay_session::ForNetworkGame();
+    return FreezeStandardRules(mode, host ? host->gotwStandardRules : REXCVAR_GET(gotw_standard_rules));
+}
+
+bool FreezeStandardRules(int32_t mode, bool selected) noexcept
+{
+    const bool enabled = mode == 2 && selected;
     standardRules.store(enabled, std::memory_order_relaxed);
     return enabled;
 }

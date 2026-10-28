@@ -1,0 +1,21 @@
+# Snapshot each native collection, then replace only its complete value register.
+[[midasm_hook]]
+address = 0x82D2B398
+name = "BeginUnitSalePreview"
+registers = ["r1", "r3", "r7", "r10", "r11", "r15", "r17", "r19", "r21", "r26", "r31"]
+
+[[midasm_hook]]
+address = 0x82D2B45C
+name = "ApplyUnitSalePreview"
+registers = ["r1", "r3", "r5", "r6", "r9", "r15", "r17", "r19", "r21", "r26", "r31"]
+
+# Native credit collection runs through the dialog or directly.
+[[midasm_hook]]
+address = 0x82D2B4BC
+name = "BeginUnitSaleCredit"
+registers = ["r1", "r15", "r17", "r19", "r21", "r26", "r31"]
+
+[[midasm_hook]]
+address = 0x82D2B5DC
+name = "ApplyUnitSaleCredit"
+registers = ["r1", "r5", "r8", "r15", "r17", "r19", "r21", "r29", "r30", "r31"]

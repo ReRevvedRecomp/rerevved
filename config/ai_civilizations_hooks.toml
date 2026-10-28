@@ -1,6 +1,19 @@
 # Reset per-game policy state before deserialization.
 # Reapply the staged sidecar after the reset.
 
+# The human mask has just been rebuilt. Publish the frozen offline layout
+# before the first membership scan uses the count and AI IDs are assigned.
+[[midasm_hook]]
+address = 0x82D21FF8
+name = "ConfigureExpandedAiSetup"
+
+# Preserve the accepted layout when native code stores the count and Barbarian slot.
+# The native special two-player override remains later in the function.
+[[midasm_hook]]
+address = 0x82D22918
+name = "PreserveExpandedAiSetup"
+registers = ["r11", "r10"]
+
 # Load routine sub_82D86400, before its serializer call (sub_82CC4040 with
 # r3 = 1; the save path calls it with r3 = 0).
 [[midasm_hook]]

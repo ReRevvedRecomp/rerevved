@@ -13,7 +13,7 @@
 namespace
 {
 
-constexpr uint32_t kCities              = 0x8315FE28;
+constexpr uint32_t kCities              = 0x8314FE28;
 constexpr uint32_t kCityStride          = 0xBC;
 constexpr uint32_t kPlayerCivilizations = 0x830ECD28;
 constexpr int32_t  kPlayerCount         = 6;

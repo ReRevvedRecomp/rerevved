@@ -27,7 +27,9 @@ std::unique_lock<std::shared_mutex> AcquirePublicationLock();
 int32_t BuildCandidate(std::span<const UniqueUnitScalarRule> requests,
                        std::vector<UniqueUnitScalarRule>&    candidate,
                        size_t&                               failingOffset,
-                       void (*checkpoint)() = nullptr);
+                       void (*checkpoint)()                            = nullptr,
+                       std::span<const UniqueUnitScalarRule> removed   = {},
+                       bool                                  exclusive = false);
 void    CommitCandidate(std::vector<UniqueUnitScalarRule>& candidate) noexcept;
 
 void ResetForTests();

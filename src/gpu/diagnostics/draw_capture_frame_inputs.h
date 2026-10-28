@@ -12,9 +12,9 @@ struct DrawCaptureFrameSnapshot;
 namespace rerevved::gpu::diagnostics
 {
 
-// Saves an owned Xenos frame snapshot under root: manifest.toml with each
-// event's registers, microcode, fetches and texture uses, the textures, the
-// gamma table, the pre-gamma swap source and the RGB10 output reference.
+// Saves an owned Xenos frame in diagnostic schema 1 with its SDK schema,
+// independent execution/acquisition status and all captured texture subresources.
+// Texture identities and generations are fixed-width uppercase hexadecimal strings.
 void SaveDrawCaptureFrameInputs(const std::filesystem::path& root, const rex::graphics::diagnostic::DrawCaptureFrameSnapshot& snapshot);
 
 } // namespace rerevved::gpu::diagnostics

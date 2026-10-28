@@ -1,13 +1,17 @@
+#include "callback_checks.hpp"
 #include "developer_checks.hpp"
 #include "gpu/completion/completion_ledger.h"
+#include "gpu/d3d12/native_texture_upload.h"
 #include "gpu/guest_d3d/indexed_buffer_consume.h"
 #include "gpu/guest_d3d/lowerer_consume.h"
 #include "gpu/guest_d3d/native_draw_dispatch.h"
+#include "gpu/guest_d3d/resolve_surface_hooks.h"
 #include "gpu/guest_d3d/ring_stubs.h"
 #include "gpu/guest_d3d/user_pointer_consume.h"
 #include "guest_import_doubles.hpp"
 
 #if REREVVED_DEVELOPER
+#include "directory_removal.hpp"
 #include "gpu/diagnostics/label_draw_capture.h"
 #include "gpu/diagnostics/route_trace.h"
 #include "gpu/diagnostics/scene_resource_capture.h"
@@ -38,6 +42,7 @@
 #include <thread>
 #include <tuple>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
@@ -974,6 +979,160 @@ void testSequencer()
     REQUIRE((thrown && abandoned.size() == 1 && abandoned[0].thread != guest && abandoned[0].deferred && recorded.size() == 5));
     UNSCOPED_INFO("the sequencer ran each deferred root once");
     REQUIRE((stats.posted == 5 && stats.ran == 5 && dispatcher.CurrentFrame().abandoned == 1));
+}
+
+// The queued reader cannot run early and conceal an EndTiling ordering error.
+void testResolveTilingDrain(bool drain)
+{
+    using namespace rerevved::gpu;
+    constexpr std::array<std::uint32_t, 6> fetch{ 0x8A000002, 0x1DBB0086, 0x0059E4FF, 0x00A80C14, 0x00000003, 0x00000218 };
+    std::string                            error;
+    NativeTextureMemoryRanges              ranges;
+    REQUIRE(GetNativeTextureMemoryRanges(fetch, ranges, error));
+    const auto registry = std::make_shared<ResolveSurfaceRegistry>();
+    const auto stored   = [](std::uint64_t mark, bool staged)
+    {
+        NativeRenderFrameTexture texture{ ResolveSurfaceTexture(mark), staged ? 640U : 1280U, 720, staged ? NativeDrawReplayTextureFormat::R32Uint : NativeDrawReplayTextureFormat::Rgba8, ResolveSurfaceKey(mark), true };
+        texture.importedWords = staged ? NativeGuestWordPacking::Color8888 : NativeGuestWordPacking::None;
+        return texture;
+    };
+    const auto record = [&](std::uint64_t mark, bool staged, std::uint32_t x, bool admit)
+    {
+        ResolveSurfaceRecord value;
+        value.mark             = mark;
+        value.destEnd          = std::uint64_t(ranges.base.address) + ranges.base.size;
+        value.packing          = staged ? NativeGuestWordPacking::Color8888 : NativeGuestWordPacking::None;
+        value.staged           = staged;
+        value.copy.copyControl = 0x00100000;
+        value.copy.destBase    = 0x1DBB0000;
+        value.copy.destPitch   = 0x02D00500;
+        value.copy.destInfo    = 0x01000302;
+        value.copy.destFetch   = fetch;
+        value.copy.rectX       = x;
+        value.copy.destX       = x;
+        value.copy.rectWidth   = staged ? 640 : 1280;
+        value.copy.rectHeight  = 720;
+        value.copy.packing     = staged ? GuestResolvePacking::Color8888Words : GuestResolvePacking::HostRgba8;
+        registry->Record(value);
+        if (admit)
+            registry->Admit(mark, stored(mark, staged));
+    };
+    record(10, false, 0, true);
+    record(20, true, 0, true);
+    record(21, true, 640, false);
+
+    std::mutex                                       mutex;
+    std::condition_variable                          changed;
+    bool                                             entered = false, released = false;
+    std::vector<std::optional<ResolveSurfaceLookup>> observed;
+    rerevved::tests::CallbackChecks                  callbackChecks;
+    auto                                             config = skipConfig();
+    config.sequenced                                        = true;
+    config.defer                                            = [](const NativeDrawSubmission&) -> std::shared_ptr<const void>
+    {
+        return std::make_shared<int>(1);
+    };
+    config.began = [&](const NativeDrawSubmission& draw)
+    {
+        {
+            std::unique_lock lock(mutex);
+            entered = true;
+            changed.notify_all();
+            changed.wait(lock, [&]
+                         {
+                             return released;
+                         });
+        }
+        callbackChecks.Require(draw.deferral != nullptr, "the surface reader runs as deferred work");
+        const auto      lookup = registry->Find(fetch, true);
+        std::lock_guard lock(mutex);
+        observed.push_back(lookup);
+    };
+    config.failed = [&](const NativeDrawFailure&)
+    {
+        callbackChecks.Require(false, "the surface reader must not fail dispatch");
+    };
+    auto             memory = guestMemory();
+    auto             ctx    = entry(0x8250C768);
+    ScopedDispatcher dispatcher(std::move(config));
+
+    struct Restore
+    {
+        std::shared_ptr<ResolveSurfaceRegistry> previous;
+        std::mutex&                             mutex;
+        std::condition_variable&                changed;
+        bool&                                   released;
+
+        ~Restore()
+        {
+            // Wake before ScopedDispatcher withdraws and joins its worker.
+            {
+                std::lock_guard lock(mutex);
+                released = true;
+            }
+            changed.notify_all();
+            PublishResolveSurfaces(previous);
+        }
+    } restore{ PublishedResolveSurfaces(), mutex, changed, released };
+
+    const auto release = [&]
+    {
+        {
+            std::lock_guard lock(mutex);
+            released = true;
+        }
+        changed.notify_all();
+    };
+    unsigned barriers = 0;
+    if (drain)
+        registry->SetBarrier([&]
+                             {
+                                 ++barriers;
+                                 release();
+                                 DrainNativeDraws();
+                             });
+    install(dispatcher);
+    PublishResolveSurfaces(registry);
+    sub_826A39F8(ctx, memory.data());
+    {
+        std::unique_lock lock(mutex);
+        REQUIRE(changed.wait_for(lock, 10s, [&]
+                                 {
+                                     return entered;
+                                 }));
+        REQUIRE(observed.empty());
+    }
+    ObserveResolveSurfaceTiling();
+    const auto pending = registry->Find(fetch, true);
+    REQUIRE((pending && std::holds_alternative<NativeResolvedTextureMiss>(*pending) &&
+             std::get<NativeResolvedTextureMiss>(*pending) == NativeResolvedTextureMiss::Unmodeled));
+    registry->Admit(21, stored(21, true));
+    // Also wakes the control, or a queued reader if the observer missed its barrier.
+    release();
+    DrainNativeDraws();
+    callbackChecks.Verify();
+    REQUIRE(barriers == (drain ? 1U : 0U));
+    {
+        std::lock_guard lock(mutex);
+        REQUIRE((observed.size() == 1 && observed[0] && std::holds_alternative<ResolveSurfaceBinding>(*observed[0])));
+        const auto& value = std::get<ResolveSurfaceBinding>(*observed[0]);
+        REQUIRE((value.mark == (drain ? 10U : 20U) && value.version == (drain ? 1U : 2U)));
+    }
+    ctx = entry(0x8250C768);
+    sub_826A39F8(ctx, memory.data());
+    DrainNativeDraws();
+    callbackChecks.Verify();
+    {
+        std::lock_guard lock(mutex);
+        REQUIRE((observed.size() == 2 && observed[1] && std::holds_alternative<ResolveSurfaceBinding>(*observed[1])));
+        const auto& value = std::get<ResolveSurfaceBinding>(*observed[1]);
+        REQUIRE((value.mark == 20 && value.version == 2 && value.texture.frameTextureId == ResolveSurfaceTexture(20)));
+        const auto imported = registry->Import(value.texture.frameTextureId);
+        REQUIRE((imported && imported->persistentKey == ResolveSurfaceKey(20) && imported->width == 1280 && imported->height == 720 &&
+                 imported->format == NativeDrawReplayTextureFormat::R32Uint && imported->importedWords == NativeGuestWordPacking::Color8888));
+    }
+    REQUIRE((dispatcher.Sequencer().posted == 2 && dispatcher.Sequencer().ran == 2));
+    remove();
 }
 
 // Callback self-removal never waits; timeouts keep the dispatcher withdrawn.
@@ -3456,9 +3615,25 @@ void testConsumeIndexedBuffer()
     {
         return std::filesystem::temp_directory_path() / (std::string(name) + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
     };
+    const auto                                    routeDirectory = scratch("rerevved-consume-route-");
+    const auto                                    sceneDirectory = scratch("rerevved-consume-scene-");
+    const rerevved::tests::ScopedDirectoryRemoval routeRemoval(routeDirectory);
+    const rerevved::tests::ScopedDirectoryRemoval sceneRemoval(sceneDirectory);
+
+    // Declared after the removals, so both sessions close their files before
+    // the directories go.
+    struct SessionEnd
+    {
+        ~SessionEnd()
+        {
+            rerevved::gpu::diagnostics::StopAndResetSceneResourceCaptureForTests();
+            rerevved::gpu::diagnostics::StopAndResetRouteTraceForTests();
+        }
+    } sessionEnd;
+
     std::string error;
     UNSCOPED_INFO("start the route trace fixture");
-    REQUIRE(rerevved::gpu::diagnostics::StartRouteTrace(scratch("rerevved-consume-route-"), "fixture", "fixture", error));
+    REQUIRE(rerevved::gpu::diagnostics::StartRouteTrace(routeDirectory, "fixture", "fixture", error));
     run = draw(none);
     requireUserPointerKeepsOriginal("a route trace runs a wrapper's Original");
     rerevved::gpu::diagnostics::StopRouteTrace();
@@ -3466,16 +3641,7 @@ void testConsumeIndexedBuffer()
 
     // Before its window the session gives the draw an empty token; Original must still run.
     UNSCOPED_INFO("start the scene session fixture");
-
-    struct SceneSessionEnd
-    {
-        ~SceneSessionEnd()
-        {
-            rerevved::gpu::diagnostics::StopAndResetSceneResourceCaptureForTests();
-        }
-    } sceneSessionEnd;
-
-    REQUIRE(rerevved::gpu::diagnostics::StartSceneResourceCapture(scratch("rerevved-consume-scene-"), 2, "fixture", "fixture", error, false, 256 * 1024 * 1024, false, false, 64 * 1024 * 1024, 1000));
+    REQUIRE(rerevved::gpu::diagnostics::StartSceneResourceCapture(sceneDirectory, 2, "fixture", "fixture", error, false, 256 * 1024 * 1024, false, false, 64 * 1024 * 1024, 1000));
     run = draw(none);
     requireUserPointerKeepsOriginal("a scene session runs a wrapper's Original");
     rerevved::gpu::diagnostics::StopAndResetSceneResourceCaptureForTests();
@@ -5655,6 +5821,21 @@ void runDispatch()
 TEST_CASE("native_draw_dispatch", "[ctest][native-draw-dispatch][timeout-60]")
 {
     runDispatch();
+}
+
+TEST_CASE("native_draw_dispatch_resolve_tiling", "[ctest][native-draw-dispatch][timeout-60]")
+{
+    bool drain = true;
+    SECTION("EndTiling drains the queued reader before committing B")
+    {
+        drain = true;
+    }
+    SECTION("without a drain the delayed reader observes B")
+    {
+        drain = false;
+    }
+    DispatchFixtures fixtures;
+    testResolveTilingDrain(drain);
 }
 
 // Runs one dirty-replay test with the dispatch fixtures:

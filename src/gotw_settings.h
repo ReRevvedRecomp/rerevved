@@ -6,35 +6,47 @@
 #include <memory>
 #include <string_view>
 
+namespace rerevved::host_settings
+{
+
+struct HostSettings;
+
+}
+
 namespace rerevved::gotw
 {
 
 struct Selection
 {
-    bool     customWeek = false;
-    uint32_t nativeWeek = 0;
-    uint32_t week       = 0;
-    uint32_t seed       = 0;
-    uint32_t setup      = 0;
-    uint64_t launch     = 0;
+    bool     customWeek         = false;
+    bool     customCivilization = false;
+    uint32_t nativeWeek         = 0;
+    uint32_t week               = 0;
+    uint32_t seed               = 0;
+    uint32_t civilization       = 0; // Valid only with customCivilization.
+    uint32_t setup              = 0;
+    uint64_t launch             = 0;
 
     bool IsCustom() const noexcept
     {
-        return customWeek;
+        return customWeek || customCivilization;
     }
 };
 
 bool     IsValidWeek(uint32_t week) noexcept;
+bool     IsValidCivilization(uint32_t civilization) noexcept; // Roman 0..English 15, excluding Barbarian.
 uint32_t SeedForWeek(uint32_t week) noexcept;
 // Reject invalid decimal input without changing the caller's previous value.
 bool ParseWeek(std::string_view text, uint32_t& week) noexcept;
 
 // Snapshot once at new-game ingress; later consumers use the same decision.
 bool FreezeStandardRules(int32_t mode) noexcept;
+bool FreezeStandardRules(int32_t mode, bool selected) noexcept;
 bool StandardRulesForGame() noexcept;
 
 // Only the accepted GOTW setup call snapshots the pending settings.
 Selection LatchForGame(uint32_t nativeWeek, uint32_t setup) noexcept;
+Selection LatchForGame(uint32_t nativeWeek, uint32_t setup, const host_settings::HostSettings& settings) noexcept;
 Selection ForGame() noexcept;
 using UiDispatcher = std::function<void(std::function<void()>)>;
 // Install before guest execution; clear before the app context is destroyed.

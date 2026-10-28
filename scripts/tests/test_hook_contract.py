@@ -8,11 +8,14 @@ import unittest
 from pathlib import Path
 
 from generated_scan import (
+    WindowCollector,
+    chunk_lines,
     chunk_paths,
     chunk_texts,
     count_per_chunk,
     generated_chunks,
     generated_text,
+    scan_once,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -52,6 +55,7 @@ HOOK_SOURCES = [
     ROOT / "src" / "main_menu_logo_hooks.cpp",
     ROOT / "src" / "system_link_trace_hooks.cpp",
     ROOT / "src" / "gameplay_fixes_hooks.cpp",
+    ROOT / "src" / "ai_economy_hooks.cpp",
 ]
 GENERAL_SOURCE = ROOT / "src" / "great_general_attachment.cpp"
 NATION_SELECT_TEXT_SOURCE = ROOT / "src" / "nation_select_text_hooks.cpp"
@@ -87,6 +91,7 @@ def compat_hooks() -> list[dict]:
         "terrain_hooks.toml",
         "city_effect_hooks.toml",
         "system_link_trace_hooks.toml",
+        "ai_economy_hooks.toml",
     )
     hooks = []
     for path in paths:
@@ -111,6 +116,36 @@ SCENE_ALLOCATION_HOOKS = [
 ]
 
 EXPECTED_HOOKS = [
+    {
+        "address": 0x82CF1058,
+        "name": "ApplyAiResearchCostPercent",
+        "registers": ["r25", "r26", "r3"],
+    },
+    {
+        "address": 0x82CF126C,
+        "name": "ApplyAiUnitProductionCostPercent",
+        "registers": ["r30", "r29", "r3"],
+    },
+    {
+        "address": 0x82CF154C,
+        "name": "ApplyAiNonUnitProductionCostPercent",
+        "registers": ["r29", "r27", "r31"],
+    },
+    {
+        "address": 0x82D14ECC,
+        "name": "ApplyAiGoldBonus",
+        "registers": ["r1", "r17", "r8"],
+    },
+    {
+        "address": 0x82D14280,
+        "name": "ApplyAiFoodBonus",
+        "registers": ["r1", "r10"],
+    },
+    {
+        "address": 0x82D152E8,
+        "name": "ApplyAiCultureBonus",
+        "registers": ["r1", "r17", "r18"],
+    },
     {
         "address": 0x8230575C,
         "name": "ObserveSceneRegionLocked",
@@ -432,10 +467,51 @@ EXPECTED_HOOKS = [
         "registers": ["r10", "r11", "r18", "r26"],
     },
     {
+        "address": 0x82D0A158,
+        "name": "AdmitFirstDiscoveryTempleCity",
+        "registers": ["r18"],
+        "jump_address_on_true": 0x82D0A160,
+    },
+    {
+        "address": 0x82D09588,
+        "name": "PreserveEgyptianIrrigationReward",
+        "registers": ["r14", "r16", "r25", "r22"],
+        "jump_address_on_true": 0x82D09594,
+    },
+    {
+        "address": 0x82D09BD0,
+        "name": "SuppressLiteracyCourthouseReward",
+        "registers": ["r9", "r18"],
+        "jump_address_on_true": 0x82D0A2E4,
+    },
+    {
+        "address": 0x82D0A254,
+        "name": "SuppressStaleFirstDiscoveryCaption",
+        "registers": ["r15", "r16", "r29"],
+        "jump_address_on_true": 0x82D0A280,
+    },
+    {
         "address": 0x82D2A084,
         "name": "AdmitSpaceshipArrivalYear",
         "registers": ["r31"],
         "jump_address_on_true": 0x82D2A08C,
+    },
+    {
+        "address": 0x82CF7090,
+        "name": "SkipFailedSpyUnitCreation",
+        "registers": ["r3"],
+        "jump_address_on_true": 0x82CF7360,
+    },
+    {
+        "address": 0x82CF7274,
+        "name": "SkipFailedSpyUnitCreation",
+        "registers": ["r3"],
+        "jump_address_on_true": 0x82CF7354,
+    },
+    {
+        "address": 0x82D11250,
+        "name": "LogDominationCapitals",
+        "registers": ["r27", "r9", "r10", "r11"],
     },
     {
         "address": 0x82D11264,
@@ -1332,7 +1408,7 @@ class HookContractTests(unittest.TestCase):
         )
         # Hooks with jump_address_on_true return bool and take guest registers.
         source_names.update(
-            re.findall(r"^bool ([A-Z]\w*)[ \t]*\(PPCRegister", source, re.MULTILINE)
+            re.findall(r"^bool ([A-Z]\w*)[ \t]*\(\s*PPCRegister", source, re.MULTILINE)
         )
         draw_hook_source = (ROOT / "src/gpu/guest_d3d/draw_hooks.cpp").read_text(
             encoding="utf-8"
@@ -1800,6 +1876,94 @@ class HookContractTests(unittest.TestCase):
         self.assertEqual(override.count("writeGuestU32Safely("), 1)
         self.assertNotIn("REXLOG_", override)
 
+    def test_generated_spy_kidnapping_failure_guard_when_available(self) -> None:
+        def scan(paths: list[Path]) -> dict[str, str]:
+            windows = WindowCollector()
+            for lines in chunk_lines(paths):
+                for index, line in enumerate(lines):
+                    windows.advance(line)
+                    if line.strip() == "loc_82CF7090:":
+                        windows.start("creation", lines[index - 6 : index + 1], 110)
+                    elif line.strip() == "loc_82CF7360:":
+                        windows.start("tail", [line], 12)
+                windows.end_chunk()
+            return windows.windows
+
+        paths, windows = scan_once("spy_kidnapping_failure_guard", scan)
+        if not paths:
+            self.skipTest("generated sources are not available")
+        self.assertEqual(set(windows), {"creation", "tail"})
+        creation = windows["creation"]
+        self.assertRegex(
+            creation,
+            r"ctx\.lr = 0x82CF7090;\s+sub_82D11750\(ctx, base\);\s+"
+            r"loc_82CF7090:\s+// addi r11,r31,3\s+"
+            r"if \(SkipFailedSpyUnitCreation\(ctx\.r3\)\) \{\s+"
+            r"goto loc_82CF7360;\s+\}\s+else \{\s+\}\s+"
+            r"ctx\.r11\.s64 = ctx\.r31\.s64 \+ 3;",
+        )
+        order = [
+            "SkipFailedSpyUnitCreation(ctx.r3)",
+            "ctx.r10.u64 = ctx.r18.u64 + ctx.r3.u64;",
+            "REX_STORE_U8(ctx.r29.u32 + ctx.r31.u32, ctx.r23.u8);",
+            "REX_STORE_U16(ctx.r30.u32 + ctx.r11.u32, ctx.r8.u16);",
+            "sub_82D02390(ctx, base);",
+        ]
+        positions = [creation.index(token) for token in order]
+        self.assertEqual(positions, sorted(positions))
+        self.assertRegex(
+            windows["tail"],
+            r"loc_82CF7360:\s+// lis r11,-32000\s+"
+            r"ctx\.r11\.s64 = -2097152000;\s+// lbz r11,-10304\(r11\)\s+"
+            r"ctx\.r11\.u64 = REX_LOAD_U8\(ctx\.r11\.u32 \+ -10304\);\s+"
+            r"// cmplwi cr6,r11,0\s+"
+            r"ctx\.cr6\.compare<uint32_t>\(ctx\.r11\.u32, 0, ctx\.xer\);\s+"
+            r"// beq cr6,0x82cf741c\s+if \(ctx\.cr6\.eq\) goto loc_82CF741C;",
+        )
+
+    def test_generated_spy_bribery_failure_guard_when_available(self) -> None:
+        def scan(paths: list[Path]) -> dict[str, str]:
+            windows = WindowCollector()
+            for lines in chunk_lines(paths):
+                for index, line in enumerate(lines):
+                    windows.advance(line)
+                    if line.strip() == "loc_82CF7274:":
+                        windows.start("creation", lines[index - 6 : index + 1], 42)
+                    elif line.strip() == "loc_82CF7354:":
+                        windows.start("recount", [line], 12)
+                windows.end_chunk()
+            return windows.windows
+
+        paths, windows = scan_once("spy_bribery_failure_guard", scan)
+        if not paths:
+            self.skipTest("generated sources are not available")
+        self.assertEqual(set(windows), {"creation", "recount"})
+        creation = windows["creation"]
+        self.assertRegex(
+            creation,
+            r"ctx\.lr = 0x82CF7274;\s+sub_82D11750\(ctx, base\);\s+"
+            r"loc_82CF7274:\s+// addi r9,r31,3\s+"
+            r"if \(SkipFailedSpyUnitCreation\(ctx\.r3\)\) \{\s+"
+            r"goto loc_82CF7354;\s+\}\s+else \{\s+\}\s+"
+            r"ctx\.r9\.s64 = ctx\.r31\.s64 \+ 3;",
+        )
+        order = [
+            "SkipFailedSpyUnitCreation(ctx.r3)",
+            "ctx.r7.u64 = ctx.r18.u64 + ctx.r3.u64;",
+            "ctx.r11.s64 = static_cast<int64_t>(ctx.r7.u64 * static_cast<uint64_t>(84));",
+            "REX_STORE_U8(ctx.r11.u32 + ctx.r31.u32, ctx.r8.u8);",
+            "REX_STORE_U8(ctx.r11.u32 + ctx.r10.u32, ctx.r6.u8);",
+        ]
+        positions = [creation.index(token) for token in order]
+        self.assertEqual(positions, sorted(positions))
+        self.assertRegex(
+            windows["recount"],
+            r"loc_82CF7354:\s+// li r4,1\s+ctx\.r4\.s64 = 1;\s+"
+            r"// li r3,1\s+ctx\.r3\.s64 = 1;\s+"
+            r"// bl 0x82d11ad8\s+ctx\.lr = 0x82CF7360;\s+"
+            r"sub_82D11AD8\(ctx, base\);\s+loc_82CF7360:",
+        )
+
     def test_generated_combat_speed_hook_when_available(self) -> None:
         paths, generated = generated_text()
         if not paths:
@@ -2225,6 +2389,116 @@ class HookContractTests(unittest.TestCase):
         self.assertIn("ctx.r29.u64 = ctx.r10.u64;", function)
         self.assertIn("ctx.r3.u64 = ctx.r28.u64;", function)
 
+    def test_ai_economy_hooks_follow_native_cost_composition(self) -> None:
+        self.assertEqual(
+            read_hooks(ROOT / "config" / "ai_economy_hooks.toml"),
+            [
+                {
+                    "address": 0x82CF1058,
+                    "name": "ApplyAiResearchCostPercent",
+                    "registers": ["r25", "r26", "r3"],
+                },
+                {
+                    "address": 0x82CF126C,
+                    "name": "ApplyAiUnitProductionCostPercent",
+                    "registers": ["r30", "r29", "r3"],
+                },
+                {
+                    "address": 0x82CF154C,
+                    "name": "ApplyAiNonUnitProductionCostPercent",
+                    "registers": ["r29", "r27", "r31"],
+                },
+                {
+                    "address": 0x82D14ECC,
+                    "name": "ApplyAiGoldBonus",
+                    "registers": ["r1", "r17", "r8"],
+                },
+                {
+                    "address": 0x82D14280,
+                    "name": "ApplyAiFoodBonus",
+                    "registers": ["r1", "r10"],
+                },
+                {
+                    "address": 0x82D152E8,
+                    "name": "ApplyAiCultureBonus",
+                    "registers": ["r1", "r17", "r18"],
+                },
+            ],
+        )
+        paths, generated = generated_text()
+        if not paths:
+            self.skipTest("generated sources are not available")
+        for owner, hook, before, after in (
+            (
+                "82CF0EE8",
+                "ApplyAiResearchCostPercent(ctx.r25, ctx.r26, ctx.r3);",
+                "// mullw r3,r11,r30",
+                "ctx.r1.s64 = ctx.r1.s64 + 160;",
+            ),
+            (
+                "82CF1148",
+                "ApplyAiUnitProductionCostPercent(ctx.r30, ctx.r29, ctx.r3);",
+                "ctx.r3.u64 = ctx.r28.u64;",
+                "ctx.r1.s64 = ctx.r1.s64 + 128;",
+            ),
+            (
+                "82CF1278",
+                "ApplyAiNonUnitProductionCostPercent(ctx.r29, ctx.r27, ctx.r31);",
+                "loc_82CF154C:",
+                "ctx.r3.u64 = ctx.r31.u64;",
+            ),
+        ):
+            function = generated.split(f"DEFINE_REX_FUNC(sub_{owner})", 1)[1]
+            function = function.split("DEFINE_REX_FUNC", 1)[0]
+            self.assertEqual(function.count(hook), 1)
+            self.assertLess(function.index(before), function.index(hook))
+            self.assertIn(hook + "\n\t" + after, function)
+            if owner == "82CF1148":
+                self.assertLess(
+                    function.index("ApplyUnitProductionCostPercent("),
+                    function.index(before),
+                )
+            if owner == "82CF1278":
+                self.assertIn("goto loc_82CF1550;", function)
+
+    def test_ai_yield_hooks_follow_native_city_contributions(self) -> None:
+        paths, generated = generated_text()
+        if not paths:
+            self.skipTest("generated sources are not available")
+        function = generated.split("DEFINE_REX_FUNC(sub_82D13978)", 1)[1]
+        function = function.split("DEFINE_REX_FUNC", 1)[0]
+        # Hooks run after their native loads and before the named instructions.
+        for hook, after, next_line, before in (
+            (
+                "ApplyAiGoldBonus(ctx.r1, ctx.r17, ctx.r8);",
+                "// lwz r8,124(r1)",
+                "ctx.cr6.compare<int32_t>(ctx.r15.s32, 0, ctx.xer);",
+                "REX_STORE_U16(ctx.r31.u32 + ctx.r27.u32, ctx.r8.u16);",
+            ),
+            (
+                "ApplyAiFoodBonus(ctx.r1, ctx.r10);",
+                "// lwz r10,144(r1)",
+                "ctx.r9.s64 = ctx.r21.s64 + 76;",
+                "// extsh r27,r10",
+            ),
+            (
+                "ApplyAiCultureBonus(ctx.r1, ctx.r17, ctx.r18);",
+                "loc_82D152E8:",
+                "ctx.r11.s64 = ctx.r30.s64 + 72;",
+                "REX_STORE_U16(ctx.r31.u32 + ctx.r11.u32, ctx.r18.u16);",
+            ),
+        ):
+            self.assertEqual(function.count(hook), 1)
+            position = function.index(hook)
+            self.assertLess(function.index(after), position)
+            self.assertTrue(
+                function[position + len(hook) :].startswith("\n\t" + next_line)
+            )
+            self.assertLess(position, function.index(before, position))
+        # The culture hook follows its label, so the branch and fallthrough
+        # paths both scale once.
+        self.assertIn("goto loc_82D152E8;", function)
+
     def test_generated_unit_effect_hook_preserves_native_creation_gate_when_available(
         self,
     ) -> None:
@@ -2533,7 +2807,15 @@ class HookContractTests(unittest.TestCase):
             hooks = tomllib.load(stream)["midasm_hook"]
         self.assertEqual(
             hooks,
-            [{"address": 0x82D86674, "name": "ResetAiCivilizationsOnLoad"}],
+            [
+                {"address": 0x82D21FF8, "name": "ConfigureExpandedAiSetup"},
+                {
+                    "address": 0x82D22918,
+                    "name": "PreserveExpandedAiSetup",
+                    "registers": ["r11", "r10"],
+                },
+                {"address": 0x82D86674, "name": "ResetAiCivilizationsOnLoad"},
+            ],
         )
         others = compat_hooks()
         self.assertNotIn(0x82D86674, {hook["address"] for hook in others})
@@ -2542,25 +2824,31 @@ class HookContractTests(unittest.TestCase):
 
         app = APP_SOURCE.read_text(encoding="utf-8")
         self.assertIn('REXCVAR_DEFINE_INT32(ai_civilizations, 4, "ReRevved",', app)
-        # A Gameplay row under Combat Speed: a label, choices, one tab source
-        # and one Player audience rule.
+        # A Gameplay row after the other new-game rows: a label, choices, one
+        # tab source and one Player audience rule.
         settings = OVERLAY_SETTINGS_SOURCE.read_text(encoding="utf-8")
         self.assertIn('{ "ai_civilizations", "AI Civilizations" }', settings)
         self.assertIn(
             '{ "ai_civilizations", { { "0", "None (Multiplayer)" },', settings
         )
-        self.assertIn('{ "", { "combat_speed", "ai_civilizations" } }', settings)
+        self.assertRegex(
+            settings, r'\{ "", \{ [^}]*"domination_min_turns", "ai_civilizations" \} \}'
+        )
         self.assertIn('{ "ai_civilizations", Audience::kPlayer }', settings)
         self.assertEqual(settings.count('"ai_civilizations"'), 5)
 
         source = AI_CIV_SOURCE.read_text(encoding="utf-8")
         override = source.split("REX_HOOK_RAW(sub_82D11AD8)", 1)[1]
         self.assertIn("ctx.lr == ai_civs::kNewGameRecountReturn", override)
-        # The limit comes from the local cvar or, in a network game, the host.
-        self.assertIn("resolveLimit(network, source)", override)
-        resolver = source.split("int32_t resolveLimit(", 1)[1].split("\n}\n", 1)[0]
-        self.assertIn("REXCVAR_GET(ai_civilizations)", resolver)
-        self.assertIn("maxAi < ai_civs::kAllAiCivilizations", override)
+        self.assertIn("gameplay_session::SetupActive()", override)
+        # The host snapshot is resolved before setup, never at the late recount.
+        self.assertIn("gameplay_session::ForNetworkGame()", override)
+        self.assertIn("settings->aiCivilizations", override)
+        self.assertIn("REXCVAR_GET(ai_civilizations)", override)
+        self.assertNotIn("WaitForHostData", source)
+        self.assertIn("ai_civs::CivilizationMask(count, barbarian) != 0", override)
+        self.assertIn("maxAi < barbarian - 1", override)
+        self.assertIn("ai_civs::ExpandedAiLimit()", override)
         self.assertLess(
             override.index("removeAiCivilizations(ctx, base, maxAi, source)"),
             override.index("__imp__sub_82D11AD8(ctx, base);"),
@@ -2569,6 +2857,53 @@ class HookContractTests(unittest.TestCase):
             "callGuest(ctx, base, __imp__sub_82D02390, player, unit, 0)", source
         )
         self.assertIn("ResetAiCivilizationsOnLoad(", source)
+
+        setup = (ROOT / "src/start_resources_runtime.cpp").read_text(encoding="ascii")
+        setup = setup.split("void RunNativeNewGameSetup(", 1)[1]
+        native_setup = setup.rindex("__imp__sub_82D25170(context, base);")
+        load = setup.split("kind == gameplay_session::SetupKind::Load", 1)[1].split(
+            "gameplay_session::LockRuleBoundary()", 1
+        )[0]
+        self.assertIn("gameplay_session::SetupGate gate(true, false)", load)
+        self.assertLess(load.index("__imp__sub_82D25170"), load.index("return;"))
+        self.assertNotIn("ApplyNewGame", load)
+        self.assertLess(
+            setup.index("gameplay_session::LockRuleBoundary()"),
+            setup.index("gameplay_session::Prepare(network, setup, mode)"),
+        )
+        self.assertLess(
+            setup.index("gameplay_session::Prepare(network, setup, mode)"), native_setup
+        )
+        self.assertLess(setup.index("gameplay_session::SetupGate gate("), native_setup)
+        self.assertLess(
+            setup.index("gameplay_session::ApplyNewGame(snapshot, network, mode)"),
+            setup.index("SetupScope scope(standardRules, settings.resources)"),
+        )
+        self.assertLess(
+            setup.index(
+                "civilizations(settings.aiCivilizations, standardRules, base, mode)"
+            ),
+            native_setup,
+        )
+        self.assertLess(
+            native_setup,
+            setup.index("ai_civilizations::CommitNewGame();"),
+        )
+        self.assertIn("ai_civs::NoteNewGameRecount();", override)
+        self.assertLess(
+            override.index("start_resources::OnNewGameSetup(ctx, base);"),
+            override.index("__imp__sub_82D11AD8(ctx, base);"),
+        )
+        reset = source.split("void ResetAiCivilizationsOnLoad()", 1)[1]
+        self.assertTrue(
+            reset.lstrip().startswith(
+                "{\n    rerevved::gameplay_session::ResetOnLoad();"
+            )
+        )
+        gate = setup.split("REX_HOOK_RAW(sub_82D217C8)", 1)[1]
+        self.assertIn("gameplay_session::SetupBlocked()", gate)
+        self.assertIn("ctx.r3.s64 = -1;", gate)
+        self.assertIn("__imp__sub_82D217C8(ctx, base);", gate)
 
         table = AI_CIV_TABLE.read_text(encoding="utf-8")
         for constant in (
@@ -2613,6 +2948,22 @@ class HookContractTests(unittest.TestCase):
             "\tctx.lr = 0x82D86678;\n\tsub_82CC4040(ctx, base);\n"
         )
         self.assertEqual(function(0x82D86400).count(reset), 1)
+
+    def test_generated_expanded_ai_setup_placement_when_available(self) -> None:
+        paths = chunk_paths()
+        if not paths:
+            self.skipTest("generated sources are not available")
+        # These instruction windows establish hook placement, not the full
+        # native setup control flow.
+        for placement in (
+            "\tctx.lr = 0x82D21FF8;\n\tsub_82CD59A8(ctx, base);\n"
+            "\t// lwz r9,0(r18)\n\tConfigureExpandedAiSetup();\n",
+            "\t// stw r11,0(r18)\n"
+            "\tPreserveExpandedAiSetup(ctx.r11, ctx.r10);\n"
+            "\tREX_STORE_U32(ctx.r18.u32 + 0, ctx.r11.u32);\n"
+            "\t// stw r10,176(r9)\n",
+        ):
+            self.assertEqual(count_per_chunk(placement), 1)
 
 
 VIDEO_SCALER_HOOK_CONFIG = ROOT / "config" / "native_video_hooks.toml"
