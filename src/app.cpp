@@ -49,6 +49,7 @@
 #include "discord_presence.h"
 #include "display_aspect.h"
 #include "game_content.h"
+#include "gameplay_session_settings.h"
 #include "gpu/d3d12/native_renderer_d3d12.h"
 #include "gpu/guest_d3d/clear_consume.h"
 #include "gpu/guest_d3d/clear_derive.h"
@@ -1158,6 +1159,16 @@ void App::OnPostSetup()
                                             {
                                                 PublishModSnapshot(*runtime());
                                             });
+    // Live rule replacement is refused for the same network game, so the
+    // overlay locks loadout edits instead of saving them for a restart.
+    runtime()->SetModLoadoutLockProvider([]() -> std::optional<std::string>
+                                         {
+                                             if (rerevved::gameplay_session::RuleReplacementAllowed())
+                                             {
+                                                 return std::nullopt;
+                                             }
+                                             return "Mods can't be changed during a multiplayer game.";
+                                         });
 
     // Resolve selected package assets after the SDK has built the loadout and
     // before the guest main thread is resumed.
