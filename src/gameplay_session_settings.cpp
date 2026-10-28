@@ -88,7 +88,8 @@ struct WeeklyAttempt
 };
 
 WeeklyAttempt weeklyAttempt;
-// Week latched by the weekly attempt the last accepted Game of the Week Prepare consumed; 0 otherwise.
+// Week latched by the weekly attempt consumed by the last accepted Game of the Week
+// Prepare call, or 0 if none.
 uint32_t acceptedWeeklyWeek = 0;
 
 host_settings::GameSnapshot captureSettings(bool networkGame)
@@ -123,8 +124,8 @@ host_settings::GameSnapshot detail::Prepare(bool networkGame, uint32_t setup, in
     {
         const bool matches  = weeklyAttempt.setup == setup && weeklyAttempt.mode == std::optional{ 2 } && mode == 2 && !networkGame;
         auto       snapshot = matches ? std::move(weeklyAttempt.snapshot) : host_settings::GameSnapshot{};
-        // The seed latch runs between PrepareWeekly and this call and advances the launch counter by
-        // one for its setup, so only that latch belongs to this attempt; an older one never does.
+        // The seed latch runs between PrepareWeekly and this call, advancing the launch
+        // counter by one for its setup. Only that latch belongs to this attempt.
         const auto latched = gotw::ForGame();
         if (matches && snapshot.settings && latched.launch == weeklyAttempt.launchBefore + 1 && latched.setup == setup)
         {
@@ -177,7 +178,7 @@ try
     }
     catch (...)
     {
-        // Capture/publication allocation failures must stay rejected at outer setup.
+        // Outer setup must reject allocation failures during capture or publication.
         weeklyAttempt.snapshot = {};
         StoreNetworkSettings(nullptr);
         return std::nullopt;
@@ -238,9 +239,9 @@ bool ApplyNewGame(const host_settings::GameSnapshot& snapshot, bool networkGame,
     ai_economy::RestoreForGame(standardRules ? ai_economy::Policy{} : ai_economy::Policy{ settings.aiResearchBonusPercent, settings.aiProductionBonusPercent, settings.aiGoldBonusPercent, settings.aiFoodBonusPercent, settings.aiCultureBonusPercent });
     raging_barbarians::RestoreForGame(!standardRules && settings.ragingBarbarians);
     occ::RestoreForGame({ !standardRules && settings.oneCityChallenge, occ::kMinimumPopulation });
-    // The effective AI count and the latched weekly week follow the native setup (RunNativeNewGameSetup).
+    // The effective AI count and latched week are recorded after native setup in RunNativeNewGameSetup.
     custom_achievements::BeginNewGame(!standardRules && settings.oneCityChallenge, mode == 2);
-    gameplay_fixes::NoteNewGame(standardRules);
+    gameplay_fixes::NoteNewGame();
     SuspendModRulesForGame(standardRules);
     return standardRules;
 }

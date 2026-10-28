@@ -1,4 +1,4 @@
-// Remove excess civilizations before recount; peers use host setup.
+// Remove excess civilizations before recount. Peers use host setup.
 
 #include "ai_civilizations.h"
 

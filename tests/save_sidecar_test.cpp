@@ -436,7 +436,7 @@ TEST_CASE("save_sidecar_history", "[ctest][save-sidecar]")
     CHECK(std::equal(unknownBytes.begin(), unknownBytes.end(), untrackedBytes.begin() + stateOffset + 11));
     CHECK(sidecar::Deserialize(untrackedBytes, kIdentity) == untracked);
 
-    // The range limits round trip; one past them is rejected on write.
+    // The range limits round trip. One past them is rejected on write.
     auto limit               = saved;
     limit.firstFoundingTurn  = 0xFFFE;
     limit.initialAiOpponents = 0;

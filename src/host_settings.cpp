@@ -98,7 +98,7 @@ HostSettings Normalize(HostSettings settings, bool networkGame)
     {
         *bonus = std::clamp(*bonus, 0, ai_economy::kMaxBonusPercent);
     }
-    if (settings.dominationMinimumTurns != 1 && settings.dominationMinimumTurns != 5 && settings.dominationMinimumTurns != 10)
+    if (settings.dominationMinimumTurns != 5 && settings.dominationMinimumTurns != 10)
     {
         settings.dominationMinimumTurns = 10;
     }
@@ -236,7 +236,7 @@ std::optional<HostSettings> Decode(std::span<const uint8_t> bytes)
         ((bytes[4] & kCapitalGraceFlag) != 0) != ((bytes[4] & 1) != 0) ||
         (bytes[5] != 0 && bytes[5] != 1 && bytes[5] != 3) || bytes[6] > ai_economy::kMaxBonusPercent || bytes[7] > ai_economy::kMaxBonusPercent ||
         bytes[8] > ai_economy::kMaxBonusPercent || bytes[9] > ai_economy::kMaxBonusPercent || bytes[10] > ai_economy::kMaxBonusPercent ||
-        (bytes[11] != 1 && bytes[11] != 5 && bytes[11] != 10) || bytes[12] > 1)
+        (bytes[11] != 5 && bytes[11] != 10) || bytes[12] > 1)
     {
         return std::nullopt;
     }

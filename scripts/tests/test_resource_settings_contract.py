@@ -272,7 +272,10 @@ class ResourceSettingsContractTests(unittest.TestCase):
             re.findall(r'\{ "(\d+)", "([^"]+)" \}', choices.group(1)),
             [("0", "Normal"), ("1", "Balanced"), ("3", "Legendary")],
         )
-        self.assertIn('{ "", { "resources" } }', overlay)
+        self.assertIn(
+            '{ "", { "combat_speed", "resources", "raging_barbarians", "one_city_challenge", "domination_min_turns", "ai_civilizations" } }',
+            overlay,
+        )
         self.assertIn('{ "resources", Audience::kPlayer }', overlay)
         self.assertIn('{ "resources", "Resources" }', overlay)
 

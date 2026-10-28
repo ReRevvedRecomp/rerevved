@@ -2467,8 +2467,7 @@ class HookContractTests(unittest.TestCase):
             self.skipTest("generated sources are not available")
         function = generated.split("DEFINE_REX_FUNC(sub_82D13978)", 1)[1]
         function = function.split("DEFINE_REX_FUNC", 1)[0]
-        # Each call follows the hook address's instruction comment and runs
-        # before that instruction's body, after the native load it reads.
+        # Hooks run after their native loads and before the named instructions.
         for hook, after, next_line, before in (
             (
                 "ApplyAiGoldBonus(ctx.r1, ctx.r17, ctx.r8);",
@@ -2825,14 +2824,16 @@ class HookContractTests(unittest.TestCase):
 
         app = APP_SOURCE.read_text(encoding="utf-8")
         self.assertIn('REXCVAR_DEFINE_INT32(ai_civilizations, 4, "ReRevved",', app)
-        # A Gameplay row under Combat Speed: a label, choices, one tab source
-        # and one Player audience rule.
+        # A Gameplay row after the other new-game rows: a label, choices, one
+        # tab source and one Player audience rule.
         settings = OVERLAY_SETTINGS_SOURCE.read_text(encoding="utf-8")
         self.assertIn('{ "ai_civilizations", "AI Civilizations" }', settings)
         self.assertIn(
             '{ "ai_civilizations", { { "0", "None (Multiplayer)" },', settings
         )
-        self.assertIn('{ "", { "combat_speed", "ai_civilizations" } }', settings)
+        self.assertRegex(
+            settings, r'\{ "", \{ [^}]*"domination_min_turns", "ai_civilizations" \} \}'
+        )
         self.assertIn('{ "ai_civilizations", Audience::kPlayer }', settings)
         self.assertEqual(settings.count('"ai_civilizations"'), 5)
 
@@ -2952,8 +2953,8 @@ class HookContractTests(unittest.TestCase):
         paths = chunk_paths()
         if not paths:
             self.skipTest("generated sources are not available")
-        # Exact hook windows only: native-only setup research does not consume
-        # a generated setup body as evidence for its control flow.
+        # These instruction windows establish hook placement, not the full
+        # native setup control flow.
         for placement in (
             "\tctx.lr = 0x82D21FF8;\n\tsub_82CD59A8(ctx, base);\n"
             "\t// lwz r9,0(r18)\n\tConfigureExpandedAiSetup();\n",

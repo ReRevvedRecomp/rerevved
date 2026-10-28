@@ -1,8 +1,8 @@
 #pragma once
 
-// Host session data supplies the per-game gameplay policy and rule identity.
-// Guest-memory-free model; LocalSettings samples preferences and accepted mod
-// metadata in gameplay_session_settings.cpp.
+// Host session data supplies each game's gameplay policy and rule identity.
+// This model does not access guest memory. LocalSettings samples preferences
+// and accepted mod metadata in gameplay_session_settings.cpp.
 
 #include <array>
 #include <cstdint>
@@ -50,7 +50,7 @@ struct HostSettings
     int32_t                 aiFoodBonusPercent       = 0;
     int32_t                 aiCultureBonusPercent    = 0;
     int32_t                 dominationMinimumTurns   = 10;
-    int32_t                 combatSpeed              = 0; // 0 normal, 1 fast; presentation only.
+    int32_t                 combatSpeed              = 0; // 0 normal, 1 fast. Presentation only.
     bool                    gotwCustomWeek           = false;
     uint32_t                gotwWeek                 = 0; // Zero when the native week applies.
     uint32_t                gotwSeed                 = 0; // Zero when the native seed applies.
@@ -63,9 +63,10 @@ struct HostSettings
 
 // Format 2 has a fixed gameplay header and optional content digest, followed
 // by sorted mods with length-prefixed id, version and display name fields.
-// Normalize local selections before publication; decode rejects noncanonical values.
+// Normalize local selections before publication. Decode rejects noncanonical values.
 // The local-only Game of the Week civilization is never serialized.
 // Gameplay bit 0x20 must equal Raging bit 0x01: peers must support capital grace.
+// Domination turns are 5 or 10.
 std::vector<uint8_t> Encode(const HostSettings& settings);
 
 HostSettings Normalize(HostSettings settings, bool networkGame = true);
@@ -90,21 +91,21 @@ struct GameSnapshot
     std::string                 diagnostic;
 };
 
-// Call after SDK PrepareForGame/WaitForHostData, before every gameplay freezer.
-// Returns an owned immutable-by-convention value. No local gameplay fallback is
-// returned on a network failure or unverified/different mod content.
+// Call after SDK PrepareForGame/WaitForHostData, before freezing gameplay settings.
+// Treat the returned owned value as immutable. No local gameplay fallback is
+// returned if the network fails or mod content is unverified or different.
 GameSnapshot ResolveForGame(bool                             networkGame,
                             const rex::session_data::Status& status,
                             const HostSettings&              local);
 
 // Publish after each accepted loadout transaction. Readers copy the snapshot
 // instead of consulting the live catalog, which a rescan can replace.
-// Identities and digest are replaced together; LocalSettings reads them once.
+// Identities and digest are replaced together. LocalSettings reads them once.
 void             PublishLocalModSnapshot(LocalModSnapshot snapshot);
 void             InvalidateLocalModSnapshot() noexcept;
 LocalModSnapshot LocalModSnapshotForSettings();
 
-// Legacy identity-only publication clears content verification.
+// Publishing identities alone clears content verification.
 void                PublishLocalMods(std::vector<ModRef> mods);
 std::vector<ModRef> LocalMods();
 
@@ -117,8 +118,8 @@ std::string DescribeModMismatch(const std::vector<ModRef>& host,
                                 const std::vector<ModRef>& local,
                                 bool                       hostTruncated = false);
 
-// Legacy AI-only reader: -1 with source "unavailable" when a network game has
-// no valid prepared snapshot. New callers use ResolveForGame for the full gate.
+// Returns -1 with source "unavailable" when a network game has no valid prepared
+// snapshot. Use ResolveForGame to validate all gameplay settings.
 int32_t ResolveAiLimit(bool                             networkGame,
                        const rex::session_data::Status& status,
                        int32_t                          local,

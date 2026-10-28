@@ -180,8 +180,9 @@ private:
     uint8_t*    base_;
 };
 
-// Ordinary AI civilizations in the final layout, after the AI limit removed its excess; -1 when the
-// layout or human mask is unsupported. An expansion the setup rejected leaves the native layout.
+// Ordinary AI civilizations remaining in the final layout after applying the AI
+// limit, or -1 for an unsupported layout or human mask. Rejected expansions
+// leave the native layout.
 int32_t effectiveAiOpponents(const uint8_t* base)
 {
     namespace civs           = ai_civilizations;
@@ -383,10 +384,9 @@ void RunNativeNewGameSetup(PPCContext& context, uint8_t* base)
     }
     const auto& settings      = *snapshot.settings;
     const bool  standardRules = gameplay_session::ApplyNewGame(snapshot, network, mode);
-    // The seed latch (0x82E76ED4) precedes this outer setup; only the latch of the attempt Prepare consumed counts.
+    // The seed latch (0x82E76ED4) precedes outer setup. Only the latch from the attempt consumed by Prepare counts.
     const uint32_t weeklyWeek = mode == 2 ? gameplay_session::AcceptedWeeklyWeek() : 0;
-    REXLOG_INFO("GameplayFix: new game domination minimum={}",
-                standardRules ? gameplay_fixes::kNativeDominationMinimumTurns : settings.dominationMinimumTurns);
+    REXLOG_INFO("GameplayFix: new game domination minimum={}", settings.dominationMinimumTurns);
     SetupScope scope(standardRules, settings.resources);
 
     ai_civilizations::SetupScope civilizations(settings.aiCivilizations, standardRules, base, mode);
@@ -396,7 +396,7 @@ void RunNativeNewGameSetup(PPCContext& context, uint8_t* base)
     }
     __imp__sub_82D25170(context, base);
     ai_civilizations::CommitNewGame();
-    // The AI count is final only after the native setup; the week was bound to this accepted attempt.
+    // The AI count is final only after native setup. The week is bound to this accepted attempt.
     custom_achievements::RecordSetupOutcome(effectiveAiOpponents(base), weeklyWeek);
 }
 

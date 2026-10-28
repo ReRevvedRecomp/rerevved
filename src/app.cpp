@@ -211,7 +211,7 @@ REXCVAR_DEFINE_BOOL(hide_popup_trophy_room, false, "ReRevved", "Do not offer to 
 REXCVAR_DEFINE_BOOL(hide_popup_government_available, false, "ReRevved", "Do not ask to change government when a new one becomes available; keep the current one");
 REXCVAR_DEFINE_BOOL(hide_barbarian_messages, false, "ReRevved", "Do not show the Barbarian leader message on first contact with a Barbarian tribe");
 REXCVAR_DEFINE_BOOL(hide_village_barbarian_messages, false, "ReRevved", "Do not show the Barbarian leader message that names the reward for capturing a Barbarian village; the reward is still granted");
-REXCVAR_DEFINE_INT32(ai_civilizations, 4, "ReRevved", "Maximum AI civilizations in a new game. A game with one human keeps at least one AI civilization. Five or six AI apply to single-player. Multiplayer uses the host's value up to four for all players")
+REXCVAR_DEFINE_INT32(ai_civilizations, 4, "ReRevved", "Number of AI civilizations in a new game. A game with one human keeps at least one AI civilization. Five or six AI apply to single-player. Multiplayer uses the host's value up to four for all players")
     .range(0, 6);
 REXCVAR_DEFINE_COMMAND(open_log_folder, openLogFolder, "ReRevved", "Open the folder that holds the log file and crash dumps");
 REXCVAR_DEFINE_BOOL(xenos_frame_counter, false, "ReRevved", "Log one-second VdSwap return counts and decoded swap intervals")

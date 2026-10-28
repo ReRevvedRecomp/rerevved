@@ -425,11 +425,14 @@ TEST_CASE("host_settings gameplay snapshot validates complete policy", "[ctest][
         invalid[offset] = value;
         CHECK(!Decode(invalid));
     }
-    // Peers must use no undefined flag bit.
+    // Peers must use a supported Domination value and no undefined flag bit.
     auto unsupported = bytes;
     unsupported[4] |= 0x40;
     CHECK(!Decode(unsupported));
     unsupported[4] = bytes[4] | 0x80;
+    CHECK(!Decode(unsupported));
+    unsupported     = bytes;
+    unsupported[11] = 1;
     CHECK(!Decode(unsupported));
     auto invalid = bytes;
     invalid[17] ^= 1;
@@ -486,7 +489,7 @@ TEST_CASE("host_settings normalizes local selections before encoding", "[ctest][
     local.aiGoldBonusPercent       = 201;
     local.aiFoodBonusPercent       = -5;
     local.aiCultureBonusPercent    = 150;
-    local.dominationMinimumTurns   = 7;
+    local.dominationMinimumTurns   = 1;
     local.combatSpeed              = -1;
     local.gotwCustomWeek           = true;
     local.gotwWeek                 = 1;

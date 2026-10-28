@@ -286,7 +286,7 @@ class GotwContractTests(unittest.TestCase):
         self.assertNotIn("customSeed", header)
         overlay = (ROOT / "src/overlay_settings.cpp").read_text(encoding="utf-8")
         for text in (
-            '{ "Game of the Week", { "gotw_custom_week", "gotw_week", "gotw_custom_civilization", "gotw_civilization", "gotw_standard_rules" } }',
+            '{ "Game of the Week", { "gotw_standard_rules", "gotw_custom_week", "gotw_week", "gotw_custom_civilization", "gotw_civilization" } }',
             '{ "gotw_custom_week", Audience::kPlayer }',
             '{ "gotw_week", Audience::kPlayer }',
             '{ "gotw_custom_civilization", Audience::kPlayer }',
@@ -301,7 +301,7 @@ class GotwContractTests(unittest.TestCase):
             """{ "gotw_custom_week", "Enable to play a different week's game instead of this week's." }""",
             '{ "gotw_custom_civilization", "Enable to play Game of the Week as the civilization you choose." }',
             '{ "gotw_civilization", { { "0", "Roman" }, { "1", "Egyptian" }, { "2", "Greek" }, { "3", "Spanish" }, { "4", "German" }, { "5", "Russian" }, { "6", "Chinese" }, { "7", "American" }, { "8", "Japanese" }, { "9", "French" }, { "10", "Indian" }, { "11", "Arabian" }, { "12", "Aztec" }, { "13", "Zulu" }, { "14", "Mongolian" }, { "15", "English" } } }',
-            '{ "gotw_standard_rules", "Enable to play Game of the Week without gameplay changes or Lua mods." }',
+            '{ "gotw_standard_rules", "Enable to play Game of the Week without Lua mods or gameplay changes other than Earliest Domination." }',
         ):
             self.assert_cpp(text, overlay)
         for removed in ("gotw_custom_seed", "gotw_seed", "gotw_weekly_seed"):

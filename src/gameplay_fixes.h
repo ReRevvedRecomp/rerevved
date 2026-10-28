@@ -18,7 +18,7 @@ constexpr bool BypassTemplePopulationThreshold(int32_t buildingIndex) noexcept
 }
 
 // Preserve the native discovery flag for Egypt's free Irrigation. Phase 1
-// applies the reward; phase 2 presents it without repeating population writes.
+// applies the reward. Phase 2 presents it without repeating population writes.
 constexpr bool PreserveEgyptianIrrigationDiscovery(
     int32_t technology, int32_t source, int32_t phase, int32_t civilization) noexcept
 {
@@ -35,7 +35,7 @@ constexpr bool SuppressLiteracyCourthouseReward(int32_t technology, int32_t buil
 
 // The first-discovery caption rereads the saved recipient city. Skip its format
 // call when that city is outside the 128-record table or its current owner is
-// not the acquiring player; delivery and the owner classifier stay native.
+// not the acquiring player. Delivery and the owner classifier stay native.
 constexpr int32_t kFirstDiscoveryCityCount  = 128;
 constexpr int32_t kFirstDiscoveryCityStride = 188;
 
@@ -74,7 +74,7 @@ constexpr int32_t kGoldBonusAbility   = 25;
 constexpr int32_t kGrowthBonusAbility = 8;
 
 // UEA25 adds bonus * era to the rush numerator (1 + bonus) * era + 2. These
-// callers price, display or convert rushed Production; City Gold income at
+// callers price, display or convert rushed Production. City Gold income at
 // 0x82D148C0 and the candidate valuations stay native.
 constexpr std::array<uint32_t, 16> kGoldBonusRateReturns = {
     0x82CB3468,
@@ -96,7 +96,7 @@ constexpr std::array<uint32_t, 16> kGoldBonusRateReturns = {
 };
 
 // UEA8's growth threshold is max(20, B - 10) with the composed baseline B in
-// r31 at the call; the false branch returns B. Unsigned keeps negative B native.
+// r31 at the call. The false branch returns B. Unsigned keeps negative B native.
 constexpr uint32_t kGrowthThresholdReturn = 0x82CF10FC;
 constexpr uint32_t kGrowthThresholdFloor  = 20;
 
@@ -125,12 +125,12 @@ constexpr bool SuppressBonusLookupResult(
 // Domination needs currentTurn - startTurn >= 10 in the native palace-count arm.
 constexpr int32_t kNativeDominationMinimumTurns = 10;
 
-// Accepts the offered choices "10", "5" and "1".
+// Accepts only the offered choices "10" and "5".
 bool ParseDominationMinimumTurns(std::string_view text, int32_t& turns) noexcept;
 
-// Applies only to a game started in this process and not a Game of the Week with
-// Standard Rules; loaded saves keep the native minimum as they do not record it.
-void NoteNewGame(bool standardRules) noexcept;
+// Applies only to a game started in this process, including a Game of the Week
+// with Standard Rules. Loaded saves do not record it and keep the native minimum.
+void NoteNewGame() noexcept;
 void NoteGameLoad() noexcept;
 bool ShortenedMinimumAllowed() noexcept;
 

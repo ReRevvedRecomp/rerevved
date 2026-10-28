@@ -58,7 +58,10 @@ struct RestorePolicies
         rerevved::occ::RestoreForGame(occ);
         rerevved::raging_barbarians::RestoreForGame(raging);
         rerevved::gotw::FreezeStandardRules(2, standard);
-        rerevved::gameplay_fixes::NoteNewGame(!shortened);
+        if (shortened)
+            rerevved::gameplay_fixes::NoteNewGame();
+        else
+            rerevved::gameplay_fixes::NoteGameLoad();
     }
 };
 
@@ -121,6 +124,11 @@ TEST_CASE("host gameplay policy precedes title freezes", "[ctest][host-settings]
     CHECK((rerevved::ai_economy::ForGame() == rerevved::ai_economy::Policy{}));
     CHECK_FALSE(rerevved::occ::ForGame()->enabled);
     CHECK_FALSE(rerevved::raging_barbarians::Evaluate(0).enabled);
+    // Earliest Domination is the one setting Standard Rules leaves in force.
+    CHECK(rerevved::gameplay_fixes::ShortenedMinimumAllowed());
+
+    session::ResetOnLoad();
+    rerevved::gameplay_fixes::NoteGameLoad();
     CHECK_FALSE(rerevved::gameplay_fixes::ShortenedMinimumAllowed());
 
     session::ResetOnLoad();

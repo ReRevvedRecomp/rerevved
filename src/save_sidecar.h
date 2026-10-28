@@ -26,7 +26,7 @@ struct State
     ai_economy::Policy                    aiEconomy;
     bool                                  occFromSetup                   = false;
     int32_t                               barbarianDefeats               = 0;
-    bool                                  historyKnown                   = false; // Schema 2 whole-game history; schema 1 loads untracked.
+    bool                                  historyKnown                   = false; // Schema 2 whole-game history. Schema 1 loads untracked.
     bool                                  unitBuilt                      = false;
     bool                                  battleFought                   = false;
     bool                                  deepOceanEntered               = false;
