@@ -187,8 +187,9 @@ a restart.
 
 Civilization Revolution renders a fixed 1280x720 guest image. The
 `resolution_scale` setting scales that image. ReRevved defaults it to 0
-(auto), which chooses the scale once at startup from the window or fullscreen
-monitor size and logs a `Display:` line. With a fixed scale, `window_size` controls the host
+(auto), which chooses once at startup the largest whole-number scale whose
+image fits the window or fullscreen monitor, at least 1, and logs a `Display:`
+line. With a fixed scale, `window_size` controls the host
 window without changing render resolution. Explicit `window_width` and
 `window_height` values in the config file or command line override Window Size.
 ReRevved 0.5 renders with Xenos.
@@ -202,8 +203,10 @@ command line or in the console, subject to their persistence policy.
 
 ## Ultrawide display aspect
 
-`display_aspect` accepts `original` and `auto`, shown in F1 as **Aspect Ratio**
-choices **16:9** and **Ultrawide**. It defaults to `original`.
+`display_aspect` accepts `original`, `auto`, `21:9` and `32:9`, shown in F1 as
+**Aspect Ratio** choices **16:9**, **Ultrawide**, **21:9** and **32:9**. It
+defaults to `original`. `21:9` and `32:9` request that fixed aspect through the
+custom-aspect path and ignore `display_aspect_custom`.
 `display_aspect_custom` is config-only and empty by default. It holds a
 `numerator:denominator` that `auto` uses instead of the window shape.
 `display_aspect_probe` defaults to `false`. Starting with `original` and the

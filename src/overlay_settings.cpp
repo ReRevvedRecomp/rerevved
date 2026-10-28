@@ -235,7 +235,7 @@ void rerevved::App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
         { "resolution_scale", { { "0", "Auto (Match Display)" }, { "1", "1280x720" }, { "2", "2560x1440" }, { "3", "3840x2160" } } },
         { "renderer", { { "xenos", "Xenos" }, { "native", "Native (Experimental)" } } },
         { "window_size", { { "", "Default (1280x720)" }, { "maximized", "Maximized" } } },
-        { "display_aspect", { { "original", "16:9" }, { "auto", "Ultrawide" } } },
+        { "display_aspect", { { "original", "16:9" }, { "auto", "Ultrawide" }, { "21:9", "21:9" }, { "32:9", "32:9" } } },
         { "ai_civilizations", { { "0", "None (Multiplayer)" }, { "1", "1" }, { "2", "2" }, { "3", "3" }, { "4", "4 (Default)" }, { "5", "5" }, { "6", "6" } } },
         { "gotw_civilization", { { "0", "Roman" }, { "1", "Egyptian" }, { "2", "Greek" }, { "3", "Spanish" }, { "4", "German" }, { "5", "Russian" }, { "6", "Chinese" }, { "7", "American" }, { "8", "Japanese" }, { "9", "French" }, { "10", "Indian" }, { "11", "Arabian" }, { "12", "Aztec" }, { "13", "Zulu" }, { "14", "Mongolian" }, { "15", "English" } } },
         { "domination_min_turns", { { "10", "10 Turns (3000 BC)" }, { "5", "5 Turns (3500 BC)" } } },
