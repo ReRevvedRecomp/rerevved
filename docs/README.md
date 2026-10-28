@@ -6,9 +6,10 @@ Choose a guide by the task you want to complete.
 
 - [Getting started](getting-started.md): install and select your game content.
 - [Configuration](configuration.md): change settings and back up player data.
+- [AI handicaps](ai-difficulty.md): set AI bonuses.
 - [Troubleshooting](troubleshooting.md): resolve setup and runtime problems.
-- [Online play](online-play.md): host or join a Player Match through a relay.
-- [Mods](mods.md): enable, order, and troubleshoot mod packages and asset overrides.
+- [Online play](online-play.md): host or join a Player Match and match gameplay loadouts.
+- [Mods](mods.md): apply Lua loadouts and manage native mods and asset overrides.
 - [Support](support.md): report a problem and share a reviewed log safely.
 - [Packaged README](../scripts/packaging/README.txt): use the offline player guide.
 - [Online play](../scripts/packaging/ONLINE.txt): use the offline relay guide.

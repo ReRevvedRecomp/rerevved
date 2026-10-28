@@ -27,6 +27,36 @@ NAT, and `host-manual.cmd` for manual UDP forwarding. The manual script runs
 the relay but does not start the game or set up Discord's advertised address;
 use its invite codes and start ReRevved yourself.
 
+## Gameplay settings and mods
+
+For each new multiplayer game, the host supplies AI civilization count, Resources,
+Raging Barbarians, One City Challenge, the five AI bonus percentages,
+Earliest Domination, Game of the Week choices, and combat speed. AI civilization
+count is capped at 4 online. These values apply to that game without changing
+the other players' saved settings. Set the host's choices before starting the game.
+
+While Raging Barbarians is on, Barbarians cannot capture a civilization's
+capital before 3000 BC. Every peer must support this rule. The host payload
+requires the capital-grace capability bit whenever its Raging bit is set.
+Older builds reject that unknown bit. A payload with only one of those bits
+set is rejected as noncanonical.
+
+Every player must apply the same Lua packages, versions, order, and rule content
+before joining. The game compares active package IDs and versions plus a digest
+of the decoded Lua loadout. Native DLL loadouts cannot pass this content check.
+The host does not install or enable packages on other players' machines.
+
+New-game setup waits up to 15 seconds for authenticated settings prepared for
+that game. Missing, old, invalid, incomplete, or incompatible settings block
+setup, as do different or unverified mod rules. The game shows **Cannot start
+this game** and logs the reason. Correct the settings or loadout before retrying.
+If session freshness cannot be established, recreate the session. See
+[Mods](mods.md#enable-or-change-mods) to apply Lua changes after leaving a session.
+
+This synchronization covers new games. Multiplayer save loading has not been
+certified to restore one shared host gameplay snapshot. See the
+[save sidecar contract](rexglue-runtime.md#save-sidecar) for current load behavior.
+
 ## Keep the test private
 
 Invite codes contain the room secret. Share them only with the players joining
@@ -36,5 +66,4 @@ mapping is removed afterwards. Review logs and screenshots before sharing them.
 
 For two game copies on one PC, use separate profiles and player identities as
 shown in the packaged guide. Do not copy one online profile's config into the
-other. Agree on the same enabled mods before playing together; see
-[Mods](mods.md).
+other.

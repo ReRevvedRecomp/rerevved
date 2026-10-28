@@ -8,15 +8,24 @@ profile has no saved loadout.
 
 1. Open F2 and review each package's compatibility and activation messages.
 2. Enable the mods you want and set their load order.
-3. Select **Save changes**, then restart the game.
+3. Select **Save changes**. Lua mods take effect right away. Native DLL mods
+   take effect after a restart.
 
-The active profile's `mod_order.txt` records the selection. A missing or invalid
-enabled package can block the entire selected mod set for that launch; F2
-remains available so you can repair and save the selection. To return to an
-unmodded loadout, disable the code mods, save, and restart.
+Apply replaces the complete Lua loadout, including enabled packages, load order,
+and edits to their Lua rules. Disabling every Lua mod removes its published
+rules. A failed script, validation, preparation, or save leaves the running
+rules and saved loadout unchanged. F2 shows the failure so you can repair it and
+apply again. The active profile's `mod_order.txt` records the selection.
 
-Everyone in an online game should use the same mod selection. Avoid changing
-packages while the game is running.
+Game of the Week with Standard Rules runs without Lua mod rules. F2 still lists
+the selection, and Apply succeeds during such a game, but the new selection
+applies from your next game or a save load. Native DLL mods and asset packs stay
+active.
+
+F2 locks mod changes during a multiplayer game. Leave the network game session
+to change mods, then save them before creating or joining the next session.
+[Online play](online-play.md#gameplay-settings-and-mods) describes the required
+matching loadouts.
 
 ## Install or customize a package
 
@@ -38,8 +47,8 @@ Package sources and contribution rules are in
 
 - Check the folder depth. The manifest must be at `mods/<id>/mod.toml`, not
   `mods/mods/<id>/mod.toml`.
-- Restart after saving. **Rescan** refreshes the list in F2 but does not reload
-  rules into the running game.
+- After editing a Lua package, select **Save changes** even if its selection
+  has not changed. **Rescan** refreshes the list without executing Lua.
 - Test with other mods disabled to rule out a conflict.
 - Disabling a mod does not undo what it already changed in a save. Keep save
   backups when testing.
