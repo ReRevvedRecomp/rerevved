@@ -107,6 +107,15 @@ name = "AdmitSpaceshipArrivalYear"
 registers = ["r31"]
 jump_address_on_true = 0x82D2A08C
 
+# AI nuclear arm 0x82CBF570: let ordinary AI skip reverse pair-history bit 0x20
+# by jumping to the opponent store 0x82CBF66C. r14 player, r11 opponent, r5 bit.
+# See rerevved-research manifests/ai-nuclear-weapon-gates.json.
+[[midasm_hook]]
+address = 0x82CBF668
+name = "AdmitAiNuclearOpponent"
+registers = ["r14", "r11", "r5"]
+jump_address_on_true = 0x82CBF66C
+
 # Domination palace-count arm: log the capital requirement per player. r27 is the
 # player, r9 the owned count, r10 the scenario QUICKWIN value, r11 the required
 # count (total original capitals minus r10). Registers are not modified.

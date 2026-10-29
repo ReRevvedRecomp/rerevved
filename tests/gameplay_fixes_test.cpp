@@ -21,9 +21,54 @@ bool PreserveEgyptianIrrigationReward(
 bool SuppressLiteracyCourthouseReward(PPCRegister& technology, PPCRegister& buildingIndex);
 bool SuppressStaleFirstDiscoveryCaption(PPCRegister& savedCity, PPCRegister& cityTable, PPCRegister& acquirer);
 bool SkipFailedSpyUnitCreation(PPCRegister& returnedSlot);
+bool AdmitAiNuclearOpponent(PPCRegister& player, PPCRegister& opponent, PPCRegister& history);
 REX_EXTERN(sub_82CF0CB0);
 
 namespace gf = rerevved::gameplay_fixes;
+
+TEST_CASE("ai_nuclear_opponent_skips_only_history_bit", "[ctest][gameplay-fixes]")
+{
+    CHECK(gf::AdmitAiNuclearOpponent(true, 0));
+    CHECK(!gf::AdmitAiNuclearOpponent(true, 0x20));
+    CHECK(!gf::AdmitAiNuclearOpponent(false, 0));
+    CHECK(!gf::AdmitAiNuclearOpponent(false, 0x20));
+
+    rex::Runtime runtime(std::filesystem::path{});
+    REQUIRE(runtime.Setup(rex::RuntimeConfig{
+                .kernel_init = rex::kernel::InitializeKernel,
+                .tool_mode   = true,
+            }) == 0);
+    auto* memory = runtime.memory();
+    for (const uint32_t page : { 0x82F70000u, 0x83120000u })
+    {
+        auto* heap = memory->LookupHeap(page);
+        REQUIRE((heap && heap->AllocFixed(page, 0x10000, 0x10000, rex::memory::kMemoryAllocationReserve | rex::memory::kMemoryAllocationCommit, rex::memory::kMemoryProtectRead | rex::memory::kMemoryProtectWrite)));
+    }
+    // Six players with the Barbarians last and player 0 human.
+    rex::memory::store_and_swap<uint32_t>(memory->TranslateVirtual(0x82F700AC), 6);
+    rex::memory::store_and_swap<uint32_t>(memory->TranslateVirtual(0x82F700B0), 5);
+    rex::memory::store_and_swap<uint32_t>(memory->TranslateVirtual(0x8312E608), 0x1);
+
+    PPCRegister player{}, opponent{}, history{};
+    opponent.u64 = 0x1234567800000000ull;
+    for (const uint32_t p : { 1u, 4u })
+    {
+        player.u64  = 0x1234567800000000ull | p;
+        history.u64 = 0x1234567800000000ull;
+        CHECK(AdmitAiNuclearOpponent(player, opponent, history));
+        CHECK(player.u64 == (0x1234567800000000ull | p));
+        CHECK(opponent.u64 == 0x1234567800000000ull);
+        CHECK(history.u64 == 0x1234567800000000ull);
+        history.u64 = 0x1234567800000020ull;
+        CHECK(!AdmitAiNuclearOpponent(player, opponent, history));
+    }
+    history.u64 = 0;
+    for (const int64_t p : { int64_t{ 0 }, int64_t{ 5 }, int64_t{ 6 }, int64_t{ -1 } })
+    {
+        player.s64 = p;
+        CHECK(!AdmitAiNuclearOpponent(player, opponent, history));
+    }
+}
 
 TEST_CASE("spy_unit_creation_failure_preserves_guest_state", "[ctest][gameplay-fixes]")
 {

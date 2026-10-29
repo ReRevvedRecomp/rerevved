@@ -68,6 +68,14 @@ constexpr bool AdmitsSpaceshipArrivalYear(int32_t dialogResult) noexcept
     return dialogResult != -1;
 }
 
+// AI nuclear arm 0x82CBF570 requires reverse pair-history bit 0x20, whose known
+// writer chain needs a nuclear threat, matching reply and lost city.
+// Ordinary AI bypasses only this bit; humans keep the native rule.
+constexpr bool AdmitAiNuclearOpponent(bool ordinaryAi, uint32_t maskedHistory) noexcept
+{
+    return ordinaryAi && maskedHistory == 0;
+}
+
 // ActiveCivilizationBonusLookup (sub_82CF0CB0) result filter. Each rule matches
 // the captured bonus ID, cumulative mode 0 and the caller's native return PC.
 constexpr int32_t kGoldBonusAbility   = 25;

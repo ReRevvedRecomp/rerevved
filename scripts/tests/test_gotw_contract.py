@@ -494,13 +494,15 @@ class GotwContractTests(unittest.TestCase):
         controls = re.split(r'\{\s*"Controls"\s*,', tabs, maxsplit=1)[1]
         controls = re.split(r'\{\s*"Display"\s*,', controls, maxsplit=1)[0]
         for text in (
-            '{ "", { "input_gamepad_in_background", "input_vibration", "mnk_mode", "mnk_mouse", "mnk_sensitivity" } }',
+            '{ "", { "input_gamepad_in_background", "input_vibration", "button_icons", "mnk_mode", "mnk_mouse", "mnk_sensitivity" } }',
             '{ "Keybinds", { "@Input/Keybinds/Controller" }, true }',
             '{ "Overlay Hotkeys", { "@Input/Keybinds" }, true }',
         ):
             self.assert_cpp(text, controls)
         self.assert_cpp('{ "input_vibration", Audience::kPlayer }', overlay)
         self.assert_cpp('{ "input_vibration", "Vibration" }', overlay)
+        self.assert_cpp('{ "button_icons", Audience::kPlayer }', overlay)
+        self.assert_cpp('{ "button_icons", "Button Icons" }', overlay)
         self.assert_cpp(
             'layout.float_decimals = { { "mnk_sensitivity", 2 } };', overlay
         )

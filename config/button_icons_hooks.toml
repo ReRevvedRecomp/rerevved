@@ -1,0 +1,20 @@
+# PlayStation button icons (button_icons setting). Each hook writes only
+# the registers it names, and only when the setting selects PlayStation.
+
+# External image open: r4 is the requested basename, such as "A.dds".
+[[midasm_hook]]
+address = 0x821E3018
+name = "SwapButtonIconImage"
+registers = ["r4"]
+
+# Narrow-string constructor entry: r4 is the C string it copies.
+[[midasm_hook]]
+address = 0x82D3A6C8
+name = "SwapButtonIconLabel"
+registers = ["r4"]
+
+# Loading-tip image builder entry: r3 name, r4 width, r5 height.
+[[midasm_hook]]
+address = 0x82E81F58
+name = "SwapButtonIconTipImage"
+registers = ["r3", "r4", "r5"]

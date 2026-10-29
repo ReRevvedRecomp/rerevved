@@ -1,0 +1,7 @@
+# Effect 0x82CF6800 reads the bare city in r5 as mission 0.
+# Choose an eligible mission by changing only r5.
+# r14 is the acting player; r29 is the new Spy's slot.
+[[midasm_hook]]
+address = 0x82CC16B0
+name = "ChooseAiSpyMission"
+registers = ["r14", "r29", "r5"]

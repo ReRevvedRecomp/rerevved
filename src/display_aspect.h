@@ -72,8 +72,12 @@ std::string_view ReasonToken(Reason reason) noexcept;
 // Strict "numerator:denominator" of two unsigned decimal integers around one
 // colon, ASCII-trimmed, zero and 32-bit overflow rejected, reduced by the GCD.
 std::optional<Aspect> ParseAspect(std::string_view text) noexcept;
-Mode                  ParseMode(std::string_view text) noexcept;
-std::string_view      ModeToken(Mode mode) noexcept;
+// "21:9" and "32:9" select Mode::Custom with that aspect; unknown text is
+// Mode::Original.
+Mode ParseMode(std::string_view text) noexcept;
+// The fixed aspect a display_aspect preset value names, or empty.
+std::string_view FixedPresetAspect(std::string_view text) noexcept;
+std::string_view ModeToken(Mode mode) noexcept;
 
 // True when a is wider than 16:9, by integer cross-product.
 bool IsWiderThanOriginal(Aspect aspect) noexcept;
