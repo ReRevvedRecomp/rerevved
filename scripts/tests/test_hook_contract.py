@@ -56,6 +56,12 @@ HOOK_SOURCES = [
     ROOT / "src" / "system_link_trace_hooks.cpp",
     ROOT / "src" / "gameplay_fixes_hooks.cpp",
     ROOT / "src" / "ai_economy_hooks.cpp",
+    ROOT / "src" / "spy_mission_ai_hooks.cpp",
+]
+SPY_MISSION_AI_SOURCES = [
+    ROOT / "src" / "spy_mission_ai.h",
+    ROOT / "src" / "spy_mission_ai.cpp",
+    ROOT / "src" / "spy_mission_ai_hooks.cpp",
 ]
 GENERAL_SOURCE = ROOT / "src" / "great_general_attachment.cpp"
 NATION_SELECT_TEXT_SOURCE = ROOT / "src" / "nation_select_text_hooks.cpp"
@@ -92,6 +98,7 @@ def compat_hooks() -> list[dict]:
         "city_effect_hooks.toml",
         "system_link_trace_hooks.toml",
         "ai_economy_hooks.toml",
+        "spy_mission_ai_hooks.toml",
     )
     hooks = []
     for path in paths:
@@ -497,6 +504,12 @@ EXPECTED_HOOKS = [
         "jump_address_on_true": 0x82D2A08C,
     },
     {
+        "address": 0x82CBF668,
+        "name": "AdmitAiNuclearOpponent",
+        "registers": ["r14", "r11", "r5"],
+        "jump_address_on_true": 0x82CBF66C,
+    },
+    {
         "address": 0x82CF7090,
         "name": "SkipFailedSpyUnitCreation",
         "registers": ["r3"],
@@ -507,6 +520,11 @@ EXPECTED_HOOKS = [
         "name": "SkipFailedSpyUnitCreation",
         "registers": ["r3"],
         "jump_address_on_true": 0x82CF7354,
+    },
+    {
+        "address": 0x82CC16B0,
+        "name": "ChooseAiSpyMission",
+        "registers": ["r14", "r29", "r5"],
     },
     {
         "address": 0x82D11250,
@@ -1963,6 +1981,121 @@ class HookContractTests(unittest.TestCase):
             r"// bl 0x82d11ad8\s+ctx\.lr = 0x82CF7360;\s+"
             r"sub_82D11AD8\(ctx, base\);\s+loc_82CF7360:",
         )
+
+    def test_ai_spy_mission_hook_changes_only_the_unit_filter_selector(self) -> None:
+        self.assertEqual(
+            read_hooks(ROOT / "config" / "spy_mission_ai_hooks.toml"),
+            [
+                {
+                    "address": 0x82CC16B0,
+                    "name": "ChooseAiSpyMission",
+                    "registers": ["r14", "r29", "r5"],
+                }
+            ],
+        )
+        manifest = MANIFEST.read_text(encoding="ascii")
+        self.assertEqual(manifest.count('"config/spy_mission_ai_hooks.toml"'), 1)
+        # The human menu packs its mission at 0x82CF4290..0x82CF4298, reaches the
+        # effect through command 28 at 0x82CDF4DC and enters it at 0x82CF6800.
+        configured = {hook["address"] for hook in all_configured_hooks()}
+        human_path = {
+            *range(0x82CF4290, 0x82CF42A4, 4),
+            *range(0x82CDF4D0, 0x82CDF4E4, 4),
+            0x82CF6800,
+        }
+        self.assertTrue(configured.isdisjoint(human_path))
+
+        header, model, hooks = (
+            path.read_text(encoding="utf-8") for path in SPY_MISSION_AI_SOURCES
+        )
+        # Kidnap (4) and Bribe (6) have uncapped native rejection loops, so they
+        # are offered only for a victim in the sampled slots under the image RNG.
+        missions = dict(
+            re.findall(
+                r"constexpr int32_t (k(?:Disrupt|Sabotage|Demolish|Steal|Kidnap|Bribe)\w*)"
+                r"\s*=\s*(\d+);",
+                header,
+            )
+        )
+        self.assertEqual(
+            missions,
+            {
+                "kDisruptDefenders": "0",
+                "kSabotageProduction": "1",
+                "kDemolishBuilding": "3",
+                "kKidnapGreatPerson": "4",
+                "kStealGold": "5",
+                "kBribeGreatGeneral": "6",
+            },
+        )
+        # The proof covers the guest RNG record 0x82F7AD00 with modulus
+        # 0xFFFFCFEF (+8) and normalization 0x3DF0000301109066 (+16), a 256-slot
+        # bank per owner at 0x830F2BF0 + 0x5400 * owner with 0x54-byte records.
+        flat_header, flat_hooks = (" ".join(text.split()) for text in (header, hooks))
+        self.assertIn("kRngModulus = 0xFFFFCFEF;", flat_header)
+        self.assertIn("kRngNormalization = 0x3DF0000301109066;", flat_header)
+        self.assertIn("kBankSlots = 256;", flat_header)
+        for fragment in (
+            "kRng = 0x82F7AD00;",
+            "kUnitBanks = 0x830F2BF0;",
+            "kBankStride = 0x5400;",
+            "kUnitStride = 0x54;",
+            "kRng + 8",
+            "kRng + 16",
+            "kRng + 20",
+        ):
+            self.assertIn(fragment, flat_hooks)
+        # Keep selection deterministic: no native RNG, host randomness or clock.
+        for text in (header, model, hooks):
+            self.assertNotRegex(
+                text, r"822DE0E8|std::random|rand\s*\(|random_device|chrono|time\s*\("
+            )
+        body = hooks.split("void ChooseAiSpyMission", 1)[1]
+        self.assertEqual(body.count("selector.s64 ="), 1)
+        self.assertNotRegex(
+            body, r"(?:actor|unit|selector)\.(?:[su](?:8|16|32)|f32|f64)\s*=[^=]"
+        )
+        self.assertNotRegex(body, r"(?:actor|unit)\.[su]64\s*=[^=]")
+        self.assertIn("GameplayFix: spy mission", body)
+
+    def test_generated_ai_spy_mission_hook_when_available(self) -> None:
+        def scan(paths: list[Path]) -> dict[str, str]:
+            windows = WindowCollector()
+            for lines in chunk_lines(paths):
+                for line in lines:
+                    windows.advance(line)
+                    if line.strip() == "ctx.lr = 0x82CC16A8;":
+                        windows.start(f"edge{len(windows.windows)}", [line], 16)
+                windows.end_chunk()
+            return windows.windows
+
+        paths, windows = scan_once("ai_spy_mission_hook", scan)
+        if not paths:
+            self.skipTest("generated sources are not available")
+        self.assertEqual(len(windows), 1)
+        # After the nearest-city result becomes r5 and the Spy slot r4, before the
+        # player argument and the effect call.
+        self.assertRegex(
+            next(iter(windows.values())),
+            r"ctx\.lr = 0x82CC16A8;\s+sub_82CFF528\(ctx, base\);\s+"
+            r"// mr r5,r3\s+ctx\.r5\.u64 = ctx\.r3\.u64;\s+"
+            r"// mr r4,r29\s+ctx\.r4\.u64 = ctx\.r29\.u64;\s+"
+            r"// mr r3,r14\s+ChooseAiSpyMission\(ctx\.r14, ctx\.r29, ctx\.r5\);\s+"
+            r"ctx\.r3\.u64 = ctx\.r14\.u64;\s+"
+            r"// bl 0x82cf6800\s+ctx\.lr = 0x82CC16B8;\s+sub_82CF6800\(ctx, base\);",
+        )
+        self.assertEqual(
+            count_per_chunk("ChooseAiSpyMission(ctx.r14, ctx.r29, ctx.r5);"), 1
+        )
+        self.assertEqual(
+            count_per_chunk(
+                "extern void ChooseAiSpyMission("
+                "PPCRegister& r14, PPCRegister& r29, PPCRegister& r5);"
+            ),
+            1,
+        )
+        # The only other direct caller, command 28, keeps its native argument.
+        self.assertEqual(count_per_chunk("sub_82CF6800(ctx, base);"), 2)
 
     def test_generated_combat_speed_hook_when_available(self) -> None:
         paths, generated = generated_text()

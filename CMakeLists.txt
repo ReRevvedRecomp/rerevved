@@ -295,6 +295,9 @@ set(REREVVED_SOURCES
     src/gameplay_fixes.cpp
     src/gameplay_fixes.h
     src/gameplay_fixes_hooks.cpp
+    src/spy_mission_ai.cpp
+    src/spy_mission_ai.h
+    src/spy_mission_ai_hooks.cpp
     src/overlay_settings.cpp
     src/overlay_skin.cpp
     src/retail_ui_art.cpp

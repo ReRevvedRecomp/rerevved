@@ -63,6 +63,8 @@ add_executable(rerevved_tests
     src/great_general_attachment.cpp
     src/gameplay_fixes.cpp
     src/gameplay_fixes_hooks.cpp
+    src/spy_mission_ai.cpp
+    src/spy_mission_ai_hooks.cpp
     src/host_settings.cpp
     src/gameplay_session_settings.cpp
     src/main_menu_logo_asset.cpp
@@ -113,6 +115,7 @@ add_executable(rerevved_tests
     tests/display_aspect_test.cpp
     tests/city_founding_unit_rules_test.cpp
     tests/gameplay_fixes_test.cpp
+    tests/spy_mission_ai_test.cpp
     tests/gotw_settings_test.cpp
     tests/great_general_attachment_test.cpp
     tests/host_settings_test.cpp
