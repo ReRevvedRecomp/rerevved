@@ -57,6 +57,7 @@ HOOK_SOURCES = [
     ROOT / "src" / "gameplay_fixes_hooks.cpp",
     ROOT / "src" / "ai_economy_hooks.cpp",
     ROOT / "src" / "spy_mission_ai_hooks.cpp",
+    ROOT / "src" / "button_icons_hooks.cpp",
 ]
 SPY_MISSION_AI_SOURCES = [
     ROOT / "src" / "spy_mission_ai.h",
@@ -99,6 +100,7 @@ def compat_hooks() -> list[dict]:
         "system_link_trace_hooks.toml",
         "ai_economy_hooks.toml",
         "spy_mission_ai_hooks.toml",
+        "button_icons_hooks.toml",
     )
     hooks = []
     for path in paths:
@@ -525,6 +527,21 @@ EXPECTED_HOOKS = [
         "address": 0x82CC16B0,
         "name": "ChooseAiSpyMission",
         "registers": ["r14", "r29", "r5"],
+    },
+    {
+        "address": 0x821E3018,
+        "name": "SwapButtonIconImage",
+        "registers": ["r4"],
+    },
+    {
+        "address": 0x82D3A6C8,
+        "name": "SwapButtonIconLabel",
+        "registers": ["r4"],
+    },
+    {
+        "address": 0x82E81F58,
+        "name": "SwapButtonIconTipImage",
+        "registers": ["r3", "r4", "r5"],
     },
     {
         "address": 0x82D11250,

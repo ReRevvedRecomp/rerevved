@@ -331,6 +331,27 @@ viewport clipping, content-generation bumps for resolve-written and scaled
 frontbuffers, resize and fullscreen surface-size updates, Direct3D 12 and
 Vulkan parity, and label, cursor and picking alignment.
 
+## Button icons
+
+The `button_icons` setting accepts `xbox` or `playstation`, defaults to
+`xbox` and requires a restart. The retail movies and loading tips already carry
+both controller families. With `playstation`, three hooks in
+`config/button_icons_hooks.toml` swap the Xbox names the game requests;
+`src/button_icons.cpp` holds the tables.
+
+- The external image open at `0x821E3018` swaps 17 equal-size basenames, such
+  as `A.dds` to `PS3X.dds`, keeping any prefix and the extension. The Xbox
+  shoulder and trigger images are 2:1 or 1:2 and are not swapped here.
+- The narrow-string constructor at `0x82D3A6C8` swaps 17 exact whole-string
+  control labels, such as `LB` to `PS3L1`. Face letters and the `blank`, `XBOX`
+  and `PS3` markers are left alone.
+- The loading-tip image builder at `0x82E81F58` swaps its eight image names,
+  such as `XBOXVERTICAL` to `PS3VERTICAL`, and shrinks shoulder and trigger
+  boxes to a square of their smaller side. The vspace and tip text are kept.
+
+Replacement strings are allocated once on the system heap and kept for the
+process. With `xbox` every hook returns without reading guest memory.
+
 ## Combat settings
 
 The `combat_speed` setting accepts `normal` or `fast` and defaults to `normal`.

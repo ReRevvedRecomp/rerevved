@@ -14,7 +14,9 @@ Close ReRevved before editing the file directly.
 - **Online**: connection status, player name, relay invite, and Discord options.
   See [Online play](online-play.md).
 - **Controls**: keyboard/controller bindings, mouse sensitivity, vibration,
-  controller input in the background, and overlay hotkeys.
+  controller input in the background, Button Icons, and overlay hotkeys.
+  **Button Icons** chooses which button icons the game shows, after a
+  restart.
 - **Display**: window and presentation options, described below.
 - **Audio**: Volume, Mute, and Play Sound in Background.
 

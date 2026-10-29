@@ -298,6 +298,9 @@ set(REREVVED_SOURCES
     src/spy_mission_ai.cpp
     src/spy_mission_ai.h
     src/spy_mission_ai_hooks.cpp
+    src/button_icons.cpp
+    src/button_icons.h
+    src/button_icons_hooks.cpp
     src/overlay_settings.cpp
     src/overlay_skin.cpp
     src/retail_ui_art.cpp

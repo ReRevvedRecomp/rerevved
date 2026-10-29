@@ -22,6 +22,7 @@ includes = [
     "config/ai_civilizations_hooks.toml",
     "config/ai_economy_hooks.toml",
     "config/spy_mission_ai_hooks.toml",
+    "config/button_icons_hooks.toml",
     "config/occ_hooks.toml",
     "config/raging_barbarians_hooks.toml",
     "config/capital_grace_hooks.toml",
