@@ -89,6 +89,36 @@ TEST_CASE("custom aspects parse strictly and reduce", "[ctest][display-aspect][l
     CHECK(da::ParseAspect("4294967295:4294967295").value() == da::Aspect{ 1, 1 });
 }
 
+TEST_CASE("display_aspect values parse and fixed presets resolve to exact ratios", "[ctest][display-aspect][local-fast]")
+{
+    CHECK(da::ParseMode("original") == da::Mode::Original);
+    CHECK(da::ParseMode("auto") == da::Mode::Auto);
+    CHECK(da::ParseMode("custom") == da::Mode::Custom);
+    CHECK(da::ParseMode("21:9") == da::Mode::Custom);
+    CHECK(da::ParseMode("32:9") == da::Mode::Custom);
+    for (const char* unknown : { "", "22:9", "16:9", "21:9 ", "Auto" })
+    {
+        INFO(unknown);
+        CHECK(da::ParseMode(unknown) == da::Mode::Original);
+        CHECK(da::FixedPresetAspect(unknown).empty());
+    }
+    CHECK(da::FixedPresetAspect("original").empty());
+    CHECK(da::FixedPresetAspect("auto").empty());
+    CHECK(da::FixedPresetAspect("custom").empty());
+
+    const auto r21 = da::ResolveRequestedAspect(da::Mode::Custom, da::FixedPresetAspect("21:9"), {});
+    REQUIRE(r21.wide);
+    CHECK(r21.aspect == da::Aspect{ 7, 3 });
+    CHECK(static_cast<double>(r21.aspect.x) / r21.aspect.y == 7.0 / 3.0);
+    CHECK(r21.k == static_cast<float>(16.0 / 21.0));
+
+    const auto r32 = da::ResolveRequestedAspect(da::Mode::Custom, da::FixedPresetAspect("32:9"), {});
+    REQUIRE(r32.wide);
+    CHECK(r32.aspect == da::Aspect{ 32, 9 });
+    CHECK(static_cast<double>(r32.aspect.x) / r32.aspect.y == 32.0 / 9.0);
+    CHECK(r32.k == 0.5f);
+}
+
 TEST_CASE("requests at or below 16:9 and unknown surfaces stay original", "[ctest][display-aspect][local-fast]")
 {
     const auto expectOriginal = [](const da::Request& request, da::Reason reason)
@@ -511,6 +541,16 @@ TEST_CASE("the feature is inert by default and no frame is wide without owner ac
     CHECK(unavailable.reason == da::Reason::TransportUnavailable);
     rex::cvar::SetFlagByName("display_aspect", "original");
     rex::cvar::SetFlagByName("display_aspect_custom", "");
+    da::Shutdown();
+    da::ResetForTesting();
+
+    // A fixed preset requests its own aspect without a custom value.
+    da::Initialize("title", "sdk");
+    rex::cvar::SetFlagByName("display_aspect", "32:9");
+    const auto preset = da::LatchFrame(inputs);
+    CHECK_FALSE(preset.wide);
+    CHECK(preset.reason == da::Reason::TransportUnavailable);
+    rex::cvar::SetFlagByName("display_aspect", "original");
     da::Shutdown();
     da::ResetForTesting();
 

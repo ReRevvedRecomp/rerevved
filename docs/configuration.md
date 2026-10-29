@@ -14,7 +14,9 @@ Close ReRevved before editing the file directly.
 - **Online**: connection status, player name, relay invite, and Discord options.
   See [Online play](online-play.md).
 - **Controls**: keyboard/controller bindings, mouse sensitivity, vibration,
-  controller input in the background, and overlay hotkeys.
+  controller input in the background, Button Icons, and overlay hotkeys.
+  **Button Icons** chooses which button icons the game shows, after a
+  restart.
 - **Display**: window and presentation options, described below.
 - **Audio**: Volume, Mute, and Play Sound in Background.
 
@@ -37,23 +39,23 @@ Loaded saves keep the default.
 ## Display and audio
 
 ReRevved renders with Xenos. **Render Resolution** defaults to **Auto (Match
-Display)**, which chooses the render resolution at startup to cover the image
-height in your window or fullscreen monitor. It uses multiples of 1280x720,
-for example 2560x1440 on a 1440p or 3440x1440 display. You can also choose
-1280x720, 2560x1440 or 3840x2160. **Window Size** sets the window dimensions
-used by Auto at startup.
+Display)**, which chooses at startup the largest multiple of 1280x720 that fits
+your window or fullscreen monitor, for example 1280x720 on a 1080p display or
+2560x1440 on a 1440p display. You can also choose 1280x720, 2560x1440 or
+3840x2160. **Window Size** sets the window dimensions used by Auto at startup.
 **Monitor** selects a display. **Fullscreen** fills that monitor
 and applies immediately.
 
 **Aspect Ratio** defaults to **16:9**. **Ultrawide** widens supported gameplay
-views to match the window or monitor shape and keeps the interface centered
-in a 16:9 region. The game's base resolution remains 1280x720.
+views to match the window or monitor shape; **21:9** and **32:9** widen them to
+that fixed shape regardless of the window. Wide views keep the interface
+centered in a 16:9 region. The game's base resolution remains 1280x720.
 **Render Resolution** controls the rendered detail.
 
 With **Ultrawide** selected, you can set `display_aspect_custom` in
-`rerevved.toml` to a fixed shape, such as `"21:9"` or `"3440:1440"`. This
-option is config-only. An invalid value or a shape no wider than 16:9 keeps
-16:9. With no custom value, an unknown window size also keeps 16:9.
+`rerevved.toml` to another fixed shape, such as `"3440:1440"`. This option is
+config-only and is ignored while **21:9** or **32:9** is selected. An invalid
+value or a shape no wider than 16:9 keeps 16:9. With no custom value, an unknown window size also keeps 16:9.
 
 Ultrawide defaults `present_letterbox` to on and both safe areas to 100 to
 preserve the shape of 16:9 frames. Conflicting explicit values keep gameplay

@@ -58,6 +58,7 @@ LOCAL_FAST_CASES = frozenset(
         "unique_era_abilities_contract",
         "unique_era_abilities_c_header",
         "custom aspects parse strictly and reduce",
+        "display_aspect values parse and fixed presets resolve to exact ratios",
         "requests at or below 16:9 and unknown surfaces stay original",
         "horizontal scale follows the reduced target aspect",
         "the frustum widens about its own horizontal center",

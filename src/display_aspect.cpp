@@ -19,8 +19,8 @@
 
 #include "gpu/renderer_backend.h"
 
-REXCVAR_DEFINE_STRING(display_aspect, "original", "ReRevved", "Ultrawide presentation: original keeps 16:9, auto matches the window or display_aspect_custom")
-    .allowed({ "original", "auto" });
+REXCVAR_DEFINE_STRING(display_aspect, "original", "ReRevved", "Ultrawide presentation: original keeps 16:9, auto matches the window or display_aspect_custom, 21:9 and 32:9 fix the shape")
+    .allowed({ "original", "auto", "21:9", "32:9" });
 REXCVAR_DEFINE_STRING(display_aspect_custom, "", "ReRevved", "Optional aspect for display_aspect=auto as numerator:denominator, for example 21:9 or 3440:1440; empty matches the window");
 REXCVAR_DEFINE_BOOL(display_aspect_debug_scissor, true, "ReRevved", "Diagnostic: false skips ultrawide scissor compression while retaining viewport or affine correction")
     .audience(rex::cvar::Audience::kHidden);
@@ -136,9 +136,16 @@ Mode ParseMode(std::string_view text) noexcept
 {
     if (text == "auto")
         return Mode::Auto;
-    if (text == "custom")
+    if (text == "custom" || !FixedPresetAspect(text).empty())
         return Mode::Custom;
     return Mode::Original;
+}
+
+std::string_view FixedPresetAspect(std::string_view text) noexcept
+{
+    if (text == "21:9" || text == "32:9")
+        return text;
+    return {};
 }
 
 std::string_view ModeToken(Mode mode) noexcept
@@ -798,12 +805,16 @@ std::atomic<bool> gProbe{ false };
 
 Settings readSettings()
 {
-    Settings settings;
-    settings.mode   = ParseMode(rex::cvar::Query<std::string>("display_aspect"));
+    Settings   settings;
+    const auto text = rex::cvar::Query<std::string>("display_aspect");
+    settings.mode   = ParseMode(text);
     settings.custom = rex::cvar::Query<std::string>("display_aspect_custom");
     settings.probe  = rex::cvar::Query<bool>("display_aspect_probe");
+    // A fixed preset overrides the config-only custom value.
+    if (const auto preset = FixedPresetAspect(text); !preset.empty())
+        settings.custom = preset;
     // The config-only override turns Ultrawide into a fixed aspect.
-    if (settings.mode == Mode::Auto && !settings.custom.empty())
+    else if (settings.mode == Mode::Auto && !settings.custom.empty())
         settings.mode = Mode::Custom;
     return settings;
 }

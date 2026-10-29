@@ -1,3 +1,4 @@
+#include "ai_civilizations.h"
 #include "gameplay_fixes.h"
 #include "gameplay_session_settings.h"
 
@@ -58,6 +59,18 @@ std::atomic<int64_t> dominationLastKey{ -1 };
 constexpr int32_t kDominationPlayerSlots = 8;
 
 std::array<std::atomic<int64_t>, kDominationPlayerSlots> dominationCapitalsLastKey{ { -1, -1, -1, -1, -1, -1, -1, -1 } };
+
+// One bit per player/opponent pair, so each admission logs once per process.
+std::atomic<uint64_t> nuclearPairsLogged{ 0 };
+
+bool ordinaryAiPlayer(int32_t player)
+{
+    namespace ai   = rerevved::ai_civilizations;
+    uint32_t count = 0, barbarian = 0, humans = 0;
+    return readGuestU32(ai::kPlayerCountGlobal, count) && readGuestU32(ai::kBarbarianPlayerGlobal, barbarian) &&
+           readGuestU32(ai::kHumanMaskGlobal, humans) &&
+           ai::IsOrdinaryAi(static_cast<int32_t>(count), static_cast<int32_t>(barbarian), humans, player);
+}
 
 } // namespace
 
@@ -174,6 +187,24 @@ bool AdmitSpaceshipArrivalYear(PPCRegister& r31)
         result,
         admitted ? 1 : 0,
         result > 0 ? 1 : 0);
+    return admitted;
+}
+
+// AI arm 0x82CBF570: bypass beq cr6,0x82CBF670 at 0x82CBF668 to 0x82CBF66C.
+// r14 is the acting player, r11 the opponent, r5 reverse history masked to 0x20.
+// Jumping keeps the opponent; every other native gate still applies.
+bool AdmitAiNuclearOpponent(PPCRegister& player, PPCRegister& opponent, PPCRegister& history)
+{
+    const bool admitted = rerevved::gameplay_fixes::AdmitAiNuclearOpponent(
+        history.u32 == 0 && ordinaryAiPlayer(player.s32), history.u32);
+    if (admitted && player.u32 < 8 && opponent.u32 < 8)
+    {
+        const uint64_t bit = uint64_t{ 1 } << (8 * player.u32 + opponent.u32);
+        if ((nuclearPairsLogged.fetch_or(bit, std::memory_order_relaxed) & bit) == 0)
+        {
+            REXLOG_INFO("GameplayFix: AI nuclear opponent player={} opponent={}", player.s32, opponent.s32);
+        }
+    }
     return admitted;
 }
 

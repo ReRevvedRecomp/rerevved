@@ -1049,7 +1049,7 @@ bool App::SetupPresentation()
         {
             rex::cvar::SetFlagAsApplicationDefault("render_target_path_d3d12", "rov");
         }
-        // Auto picks the smallest scale that covers the fitted image height.
+        // Auto picks the largest whole multiple of 1280x720 that fits the display, at least 1x.
         rex::cvar::SetFlagAsApplicationDefault("resolution_scale", "0");
         rerevved::display_aspect::Initialize(REREVVED_GIT_COMMIT " " REREVVED_GIT_DIRTY, REXGLUE_GIT_REVISION " " REXGLUE_GIT_DIRTY);
     }

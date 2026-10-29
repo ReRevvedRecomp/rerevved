@@ -187,8 +187,9 @@ a restart.
 
 Civilization Revolution renders a fixed 1280x720 guest image. The
 `resolution_scale` setting scales that image. ReRevved defaults it to 0
-(auto), which chooses the scale once at startup from the window or fullscreen
-monitor size and logs a `Display:` line. With a fixed scale, `window_size` controls the host
+(auto), which chooses once at startup the largest whole-number scale whose
+image fits the window or fullscreen monitor, at least 1, and logs a `Display:`
+line. With a fixed scale, `window_size` controls the host
 window without changing render resolution. Explicit `window_width` and
 `window_height` values in the config file or command line override Window Size.
 ReRevved 0.5 renders with Xenos.
@@ -202,8 +203,10 @@ command line or in the console, subject to their persistence policy.
 
 ## Ultrawide display aspect
 
-`display_aspect` accepts `original` and `auto`, shown in F1 as **Aspect Ratio**
-choices **16:9** and **Ultrawide**. It defaults to `original`.
+`display_aspect` accepts `original`, `auto`, `21:9` and `32:9`, shown in F1 as
+**Aspect Ratio** choices **16:9**, **Ultrawide**, **21:9** and **32:9**. It
+defaults to `original`. `21:9` and `32:9` request that fixed aspect through the
+custom-aspect path and ignore `display_aspect_custom`.
 `display_aspect_custom` is config-only and empty by default. It holds a
 `numerator:denominator` that `auto` uses instead of the window shape.
 `display_aspect_probe` defaults to `false`. Starting with `original` and the
@@ -327,6 +330,27 @@ in the extra width, camera-family coverage, GFx scope selection and partial
 viewport clipping, content-generation bumps for resolve-written and scaled
 frontbuffers, resize and fullscreen surface-size updates, Direct3D 12 and
 Vulkan parity, and label, cursor and picking alignment.
+
+## Button icons
+
+The `button_icons` setting accepts `xbox` or `playstation`, defaults to
+`xbox` and requires a restart. The retail movies and loading tips already carry
+both controller families. With `playstation`, three hooks in
+`config/button_icons_hooks.toml` swap the Xbox names the game requests;
+`src/button_icons.cpp` holds the tables.
+
+- The external image open at `0x821E3018` swaps 17 equal-size basenames, such
+  as `A.dds` to `PS3X.dds`, keeping any prefix and the extension. The Xbox
+  shoulder and trigger images are 2:1 or 1:2 and are not swapped here.
+- The narrow-string constructor at `0x82D3A6C8` swaps 17 exact whole-string
+  control labels, such as `LB` to `PS3L1`. Face letters and the `blank`, `XBOX`
+  and `PS3` markers are left alone.
+- The loading-tip image builder at `0x82E81F58` swaps its eight image names,
+  such as `XBOXVERTICAL` to `PS3VERTICAL`, and shrinks shoulder and trigger
+  boxes to a square of their smaller side. The vspace and tip text are kept.
+
+Replacement strings are allocated once on the system heap and kept for the
+process. With `xbox` every hook returns without reading guest memory.
 
 ## Combat settings
 
@@ -888,6 +912,13 @@ holds their selection and arithmetic. Static evidence is in rerevved-research ma
   accepts only results above zero, rejecting BC and year-zero arrivals.
   The hook at `0x82D2A084` admits every result except -1 and leaves the
   payload and every other gate unchanged.
+- **AI nuclear launch.** The only ICBM comes from the Manhattan Project. The
+  AI nuclear arm `sub_82CBF570` targets a warring opponent only when reverse
+  pair-history bit 0x20 is set. Its known writer chain needs a nuclear threat,
+  a matching reply and a city lost to that opponent. The hook at `0x82CBF668`
+  skips that bit for ordinary AI players. The Democracy, war, self, Barbarian,
+  visible-city and population-above-6 gates, target choice, SDI and dispatch
+  are unchanged. Evidence: `ai-nuclear-weapon-gates.json`.
 - **Domination minimum turns.** See below.
 - **Ceremonial Burial's free Temple.** The native recipient score for a
   Temple equals city population, but its recipient gate requires a score
@@ -931,6 +962,26 @@ holds their selection and arithmetic. Static evidence is in rerevved-research ma
   hook reports UEA8 inactive at its threshold call (return PC `0x82CF10FC`) when
   `B` in r31 is 0 through 19 unsigned, so those baselines stay `B`. Larger
   baselines keep the native discount and negative baselines stay native.
+- **AI Spy missions.** `config/spy_mission_ai_hooks.toml` holds this hook.
+  The AI unit filter sends a newly created Spy at the nearest city with a bare
+  city number, which the Spy effect reads as mission 0, Disrupt defensive
+  units. The hook at `0x82CC16B0` replaces that argument with a mission the
+  city qualifies for under the human menu's conditions: Disrupt defensive units
+  (always), Sabotage current production (the city is building something),
+  Demolish a building (the city has one of the 22 demolishable buildings) and
+  Steal Gold (the native amount is above 1 and no more than the owner holds).
+  Kidnap a Great Person and Bribe a Great General are added only when the city
+  passes the human menu's gate and a Great Person (or Great General) of the
+  owner stands at the city's coordinates in the 256 unit slots the native search
+  samples, because those searches resample random slots with no attempt cap. The
+  hook also requires the title's random generator to have its shipped constants,
+  the only ones proven to reach every slot, and otherwise never offers them. A
+  Spy targeting its own city keeps the native mission. The choice depends on
+  the turn, the acting player, the city and the Spy's unit slot, so it uses no
+  random numbers.
+  The human menu, the command path and the effects are unchanged. The unit
+  filter creates this Spy only without a network session, so online play is
+  unaffected.
 
 The research, launch-year and Domination hooks log at INFO with the prefix
 `GameplayFix:` to show when they run: `research scan base=<hex> count=<N> first=<tech> alphabet=<0|1>`
@@ -942,7 +993,10 @@ The research, launch-year and Domination hooks log at INFO with the prefix
 change of elapsed and minimum), and
 `domination capitals player=<p> owned=<n> required=<n> total=<n>` (per player,
 on a change of owned, required or total, only for players owning at least one
-original capital, since the native arm skips zero). The domination hook runs
+original capital, since the native arm skips zero), and
+`spy mission actor=<p> city=<c> owner=<o> unit=<slot> turn=<t> eligible=<ids> chosen=<id>`
+(each AI Spy choice with more than Disrupt eligible; `chosen=0` keeps the
+native mission). The domination hook runs
 only once a player's capital count meets the domination requirement, so a new
 game also logs
 `new game domination minimum=<n>`, the minimum in effect for that game.

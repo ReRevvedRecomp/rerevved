@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(rerevved VERSION 0.6.0 LANGUAGES C CXX)
+project(rerevved VERSION 0.6.1 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -295,6 +295,12 @@ set(REREVVED_SOURCES
     src/gameplay_fixes.cpp
     src/gameplay_fixes.h
     src/gameplay_fixes_hooks.cpp
+    src/spy_mission_ai.cpp
+    src/spy_mission_ai.h
+    src/spy_mission_ai_hooks.cpp
+    src/button_icons.cpp
+    src/button_icons.h
+    src/button_icons_hooks.cpp
     src/overlay_settings.cpp
     src/overlay_skin.cpp
     src/retail_ui_art.cpp
