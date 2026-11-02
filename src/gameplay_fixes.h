@@ -210,31 +210,38 @@ bool ParseStartingEra(std::string_view text, int32_t& era) noexcept;
 void    RestoreStartingEra(int32_t era) noexcept;
 int32_t StartingEraForGame() noexcept;
 
-// Rival Spaceship Scenes: the world part-rocket actor (type 24) that the pending-part
+// Network setup writes S32[0x82FFE7C8] = 2 at 0x82D221EC
+constexpr int32_t kMultiplayerAiDifficultyNative = 2;
+constexpr int32_t kMultiplayerAiDifficultyDeity  = 4;
+
+constexpr bool IsValidMultiplayerAiDifficulty(int32_t difficulty) noexcept
+{
+    return difficulty >= kMultiplayerAiDifficultyNative && difficulty <= kMultiplayerAiDifficultyDeity;
+}
+
+// Accepts only the offered choices "king", "emperor" and "deity".
+bool ParseMultiplayerAiDifficulty(std::string_view text, int32_t& difficulty) noexcept;
+
+void    RestoreMultiplayerAiDifficulty(int32_t difficulty) noexcept;
+int32_t MultiplayerAiDifficultyForGame() noexcept;
+
+// Spaceship Scenes: the world part-rocket actor (type 24) that the pending-part
 // request at 0x82D1DED8 creates. The index is the native actor key 256 * owner + slot.
-constexpr int32_t RivalSpaceshipActorIndex(int32_t owner, int32_t slot) noexcept
+constexpr int32_t SpaceshipActorIndex(int32_t owner, int32_t slot) noexcept
 {
     return owner * 256 + slot;
 }
 
-// Only a single-player game tags, and only a part whose owner is not the local observer.
-// An unknown observer (the resolver's -1) stays native.
-constexpr bool TagsRivalSpaceshipActor(bool skip, bool singlePlayer, int32_t owner, int32_t observer) noexcept
+constexpr bool MatchesSpaceshipTag(int32_t tag, int32_t owner, int32_t slot) noexcept
 {
-    return skip && singlePlayer && observer >= 0 && owner != observer;
+    return tag >= 0 && tag == SpaceshipActorIndex(owner, slot);
 }
 
-constexpr bool MatchesRivalSpaceshipTag(int32_t tag, int32_t owner, int32_t slot) noexcept
-{
-    return tag >= 0 && tag == RivalSpaceshipActorIndex(owner, slot);
-}
+constexpr int32_t kSpaceshipFinishCorridor = 1000;
 
-// A tagged actor finishes early when its previous time is at most this value.
-constexpr int32_t kRivalSpaceshipFinishCorridor = 1000;
-
-constexpr bool FinishesRivalSpaceshipEarly(int32_t previousTime) noexcept
+constexpr bool FinishesSpaceshipEarly(int32_t previousTime) noexcept
 {
-    return previousTime <= kRivalSpaceshipFinishCorridor;
+    return previousTime <= kSpaceshipFinishCorridor;
 }
 
 // Domination needs currentTurn - startTurn >= 10 in the native palace-count arm.

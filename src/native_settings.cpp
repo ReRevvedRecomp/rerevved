@@ -63,7 +63,7 @@ constexpr std::array<std::string_view, 7> kCategoryNames{ "General", "Gameplay",
 // The ordinary settings by name. Category and order come from the F1 layout.
 constexpr auto kSpecs = std::to_array<Spec>({
     { "combat_speed", Kind::kEnum, Applies::kLive, {}, {} },
-    { "skip_rival_spaceship_scenes", Kind::kBool, Applies::kLive, {}, {} },
+    { "skip_spaceship_scenes", Kind::kBool, Applies::kLive, {}, {} },
     { "resources", Kind::kLabeledInt, Applies::kNextGame, {}, {} },
     { "raging_barbarians", Kind::kBool, Applies::kNextGame, {}, {} },
     { "one_city_challenge", Kind::kBool, Applies::kNextGame, {}, {} },
@@ -71,6 +71,7 @@ constexpr auto kSpecs = std::to_array<Spec>({
     { "turn_limit", Kind::kEnum, Applies::kNextGame, {}, {} },
     { "starting_era", Kind::kEnum, Applies::kNextGame, {}, {} },
     { "ai_civilizations", Kind::kLabeledInt, Applies::kNextGame, {}, {} },
+    { "multiplayer_ai_difficulty", Kind::kEnum, Applies::kNextGame, {}, {} },
     { "ai_research_bonus_percent", Kind::kPresetInt, Applies::kNextGame, {}, kBonusPresets },
     { "ai_production_bonus_percent", Kind::kPresetInt, Applies::kNextGame, {}, kBonusPresets },
     { "ai_gold_bonus_percent", Kind::kPresetInt, Applies::kNextGame, {}, kBonusPresets },

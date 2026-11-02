@@ -580,6 +580,11 @@ EXPECTED_HOOKS = [
         "registers": ["r31"],
     },
     {
+        "address": 0x82D221EC,
+        "name": "ApplyMultiplayerAiDifficulty",
+        "registers": ["r11"],
+    },
+    {
         "address": 0x82D11304,
         "name": "SkipUnlimitedTurnDeadline",
         "jump_address_on_true": 0x82D1143C,
@@ -605,71 +610,66 @@ EXPECTED_HOOKS = [
         "jump_address_on_true": 0x82D1143C,
     },
     {
-        "address": 0x82D1DE14,
-        "name": "ObserveSpaceshipObserver",
-        "registers": ["r3"],
-    },
-    {
         "address": 0x82D1DEE8,
-        "name": "TagRivalSpaceshipActor",
-        "registers": ["r21", "r29", "r31"],
+        "name": "TagSpaceshipActor",
+        "registers": ["r21", "r29"],
     },
     {
         "address": 0x82D1DF5C,
-        "name": "UntagRivalSpaceshipActor",
+        "name": "UntagSpaceshipActor",
         "registers": ["r21", "r29"],
     },
     {
         "address": 0x82D5E748,
-        "name": "SkipRivalSpaceshipFirstStore",
+        "name": "SkipSpaceshipFirstStore",
         "registers": ["r28", "r26"],
         "jump_address_on_true": 0x82D5E74C,
     },
     {
         "address": 0x82D5E778,
-        "name": "SkipRivalSpaceshipFocusStore",
+        "name": "SkipSpaceshipFocusStore",
         "registers": ["r28", "r26"],
         "jump_address_on_true": 0x82D5E77C,
     },
     {
         "address": 0x82D5E780,
-        "name": "SkipRivalSpaceshipFocusStore",
+        "name": "SkipSpaceshipFocusStore",
         "registers": ["r28", "r26"],
         "jump_address_on_true": 0x82D5E784,
     },
     {
         "address": 0x82D5E788,
-        "name": "SkipRivalSpaceshipFocusStore",
+        "name": "SkipSpaceshipFocusStore",
         "registers": ["r28", "r26"],
         "jump_address_on_true": 0x82D5E78C,
     },
     {
         "address": 0x82D5E790,
-        "name": "SkipRivalSpaceshipFocusStore",
+        "name": "SkipSpaceshipFocusStore",
         "registers": ["r28", "r26"],
         "jump_address_on_true": 0x82D5E794,
     },
     {
         "address": 0x82D5E798,
-        "name": "SkipRivalSpaceshipFocusStore",
+        "name": "SkipSpaceshipFocusStore",
         "registers": ["r28", "r26"],
         "jump_address_on_true": 0x82D5E79C,
     },
     {
         "address": 0x82D5E7B8,
-        "name": "SkipRivalSpaceshipFocusStore",
+        "name": "SkipSpaceshipFocusStore",
         "registers": ["r28", "r26"],
         "jump_address_on_true": 0x82D5E7BC,
     },
     {
         "address": 0x82D5E7C0,
-        "name": "SkipRivalSpaceshipFocusStore",
+        "name": "SkipSpaceshipFocusStore",
         "registers": ["r28", "r26"],
         "jump_address_on_true": 0x82D5E7C4,
     },
     {
         "address": 0x82D5E868,
-        "name": "FinishRivalSpaceshipEarly",
+        "name": "FinishSpaceshipEarly",
         "registers": ["r28", "r26", "r11"],
         "jump_address_on_true": 0x82D5E888,
     },
@@ -1559,24 +1559,21 @@ class HookContractTests(unittest.TestCase):
         ):
             self.assertEqual(count_per_chunk(expected), 1, expected)
 
-    def test_rival_spaceship_hooks_precede_their_native_instructions(self) -> None:
+    def test_spaceship_hooks_precede_their_native_instructions(self) -> None:
         if not chunk_paths():
             self.skipTest("generated sources are not available")
 
         def hook(call: str, target: str) -> str:
             return f"\tif ({call}) {{\n\t\tgoto {target};\n\t}}\n\telse {{\n\t}}\n"
 
-        store = "SkipRivalSpaceshipFocusStore(ctx.r28, ctx.r26)"
+        store = "SkipSpaceshipFocusStore(ctx.r28, ctx.r26)"
         for expected in (
-            # The observer is read right after the resolver call returns.
-            "\tctx.lr = 0x82D1DE14;\n\tsub_82D8A3A0(ctx, base);\n"
-            "\t// lbz r9,-124(r31)\n\tObserveSpaceshipObserver(ctx.r3);\n",
             # Past the -1 bypass, so only a successful request tags.
             "\t// beq cr6,0x82d1df60\n\tif (ctx.cr6.eq) goto loc_82D1DF60;\n"
-            "\t// lis r28,-32000\n\tTagRivalSpaceshipActor(ctx.r21, ctx.r29, ctx.r31);\n",
-            "\t// bl 0x82d02390\n\tUntagRivalSpaceshipActor(ctx.r21, ctx.r29);\n",
+            "\t// lis r28,-32000\n\tTagSpaceshipActor(ctx.r21, ctx.r29);\n",
+            "\t// bl 0x82d02390\n\tUntagSpaceshipActor(ctx.r21, ctx.r29);\n",
             "\t// stw r8,17848(r24)\n"
-            + hook("SkipRivalSpaceshipFirstStore(ctx.r28, ctx.r26)", "loc_82D5E74C"),
+            + hook("SkipSpaceshipFirstStore(ctx.r28, ctx.r26)", "loc_82D5E74C"),
             "\t// stfs f13,29392(r27)\n" + hook(store, "loc_82D5E77C"),
             "\t// stfs f0,29124(r3)\n" + hook(store, "loc_82D5E784"),
             "\t// stw r7,17844(r5)\n" + hook(store, "loc_82D5E78C"),
@@ -1585,9 +1582,7 @@ class HookContractTests(unittest.TestCase):
             "\t// stfs f0,-3672(r23)\n" + hook(store, "loc_82D5E7BC"),
             "\t// stfs f12,284(r11)\n" + hook(store, "loc_82D5E7C4"),
             "\t// bge cr6,0x82d5e888\n"
-            + hook(
-                "FinishRivalSpaceshipEarly(ctx.r28, ctx.r26, ctx.r11)", "loc_82D5E888"
-            )
+            + hook("FinishSpaceshipEarly(ctx.r28, ctx.r26, ctx.r11)", "loc_82D5E888")
             + "\tif (!ctx.cr6.lt) goto loc_82D5E888;\n",
         ):
             self.assertEqual(count_per_chunk(expected), 1, expected)
@@ -1620,6 +1615,36 @@ class HookContractTests(unittest.TestCase):
             "\t// lhz r11,62(r11)\n\tctx.r11.u64 = REX_LOAD_U16(ctx.r11.u32 + 62);\n"
         )
         for expected in (hooked, saved, reload, start_year):
+            self.assertEqual(count_per_chunk(expected), 1, expected)
+
+    def test_multiplayer_ai_difficulty_hook_precedes_the_network_store(self) -> None:
+        if not chunk_paths():
+            self.skipTest("generated sources are not available")
+
+        # Only the nonzero network byte reaches li r11,2: the hook replaces r11 before the network-arm store (r24 = 0x83000000).
+        network_arm = (
+            "loc_82D221D0:\n\t// lis r11,-31979\n\tctx.r11.s64 = -2095775744;\n"
+            "\t// lbz r11,-3829(r11)\n\tctx.r11.u64 = REX_LOAD_U8(ctx.r11.u32 + -3829);\n"
+            "\t// cmplwi cr6,r11,0\n\tctx.cr6.compare<uint32_t>(ctx.r11.u32, 0, ctx.xer);\n"
+            "\t// beq cr6,0x82d2264c\n\tif (ctx.cr6.eq) goto loc_82D2264C;\n"
+            "\t// lis r9,-31986\n\tctx.r9.s64 = -2096234496;\n"
+            "\t// li r11,2\n\tctx.r11.s64 = 2;\n"
+            "\t// mr r10,r17\n\tctx.r10.u64 = ctx.r17.u64;\n"
+            "\t// stw r11,-6200(r24)\n\tApplyMultiplayerAiDifficulty(ctx.r11);\n"
+            "\tREX_STORE_U32(ctx.r24.u32 + -6200, ctx.r11.u32);\n"
+        )
+        after_store = (
+            "\t// lis r31,-31979\n\tctx.r31.s64 = -2095775744;\n"
+            "\t// stw r10,17880(r9)\n\tREX_STORE_U32(ctx.r9.u32 + 17880, ctx.r10.u32);\n"
+            "\t// lwz r3,-4128(r31)\n\tctx.r3.u64 = REX_LOAD_U32(ctx.r31.u32 + -4128);\n"
+            "\t// bl 0x82d8aa60\n\tctx.lr = 0x82D22200;\n\tsub_82D8AA60(ctx, base);\n"
+            "\t// clrlwi r8,r3,24\n\tctx.r8.u64 = ctx.r3.u32 & 0xFF;\n"
+            "\t// cmplwi cr6,r8,0\n\tctx.cr6.compare<uint32_t>(ctx.r8.u32, 0, ctx.xer);\n"
+            "\t// beq cr6,0x82d22464\n\tif (ctx.cr6.eq) goto loc_82D22464;\n"
+            "\t// lwz r11,0(r14)\n\tctx.r11.u64 = REX_LOAD_U32(ctx.r14.u32 + 0);\n"
+        )
+        reload_wait = "loc_82D22464:\n\t// lwz r11,-4128(r31)\n\tctx.r11.u64 = REX_LOAD_U32(ctx.r31.u32 + -4128);\n"
+        for expected in (network_arm, after_store, reload_wait):
             self.assertEqual(count_per_chunk(expected), 1, expected)
 
     def test_vertex_selection_observer_precedes_restore_when_available(self) -> None:
@@ -3194,7 +3219,7 @@ class HookContractTests(unittest.TestCase):
         )
         self.assertRegex(
             settings,
-            r'\{ "", \{ [^}]*"turn_limit", "starting_era", "ai_civilizations" \} \}',
+            r'\{ "", \{ [^}]*"turn_limit", "starting_era", "ai_civilizations", "multiplayer_ai_difficulty" \} \}',
         )
         self.assertIn('{ "ai_civilizations", Audience::kPlayer }', settings)
         self.assertEqual(settings.count('"ai_civilizations"'), 5)

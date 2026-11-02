@@ -17,10 +17,10 @@ namespace
 {
 
 // Gate built-in gameplay semantics as well as the serialized field layout.
-constexpr uint8_t kFormatVersion    = 5;
+constexpr uint8_t kFormatVersion    = 7;
 constexpr uint8_t kTruncatedFlag    = 0x01;
 constexpr uint8_t kCapitalGraceFlag = 0x20;
-constexpr size_t  kHeaderSize       = 23;
+constexpr size_t  kHeaderSize       = 25;
 constexpr size_t  kMaxFieldLength   = 255;
 constexpr size_t  kMaxModCount      = 255;
 constexpr size_t  kMaxListedIssues  = 4;
@@ -111,6 +111,10 @@ HostSettings Normalize(HostSettings settings, bool networkGame)
     if (!gameplay_fixes::IsValidStartingEra(settings.startingEra))
     {
         settings.startingEra = gameplay_fixes::kStartingEraNative;
+    }
+    if (!gameplay_fixes::IsValidMultiplayerAiDifficulty(settings.multiplayerAiDifficulty))
+    {
+        settings.multiplayerAiDifficulty = gameplay_fixes::kMultiplayerAiDifficultyNative;
     }
     if (!settings.gotwCustomWeek || !gotw::IsValidWeek(settings.gotwWeek))
     {
@@ -228,6 +232,8 @@ std::vector<uint8_t> Encode(const HostSettings& settings)
     }
     out.push_back(static_cast<uint8_t>(normalized.turnLimit));
     out.push_back(static_cast<uint8_t>(normalized.startingEra));
+    out.push_back(static_cast<uint8_t>(normalized.multiplayerAiDifficulty));
+    out.push_back(normalized.skipSpaceshipScenes ? 1 : 0);
     if (normalized.rulesDigestPresent)
     {
         out.insert(out.end(), normalized.rulesDigest.begin(), normalized.rulesDigest.end());
@@ -249,7 +255,7 @@ std::optional<HostSettings> Decode(std::span<const uint8_t> bytes)
         (bytes[5] != 0 && bytes[5] != 1 && bytes[5] != 3) || bytes[6] > ai_economy::kMaxBonusPercent || bytes[7] > ai_economy::kMaxBonusPercent ||
         bytes[8] > ai_economy::kMaxBonusPercent || bytes[9] > ai_economy::kMaxBonusPercent || bytes[10] > ai_economy::kMaxBonusPercent ||
         (bytes[11] != 5 && bytes[11] != 10) || bytes[12] > 1 || !gameplay_fixes::IsValidTurnLimit(bytes[21]) ||
-        !gameplay_fixes::IsValidStartingEra(bytes[22]))
+        !gameplay_fixes::IsValidStartingEra(bytes[22]) || !gameplay_fixes::IsValidMultiplayerAiDifficulty(bytes[23]) || bytes[24] > 1)
     {
         return std::nullopt;
     }
@@ -272,6 +278,8 @@ std::optional<HostSettings> Decode(std::span<const uint8_t> bytes)
     settings.combatSpeed              = bytes[12];
     settings.turnLimit                = bytes[21];
     settings.startingEra              = bytes[22];
+    settings.multiplayerAiDifficulty  = bytes[23];
+    settings.skipSpaceshipScenes      = bytes[24] != 0;
     for (unsigned index = 0; index < 4; ++index)
     {
         settings.gotwWeek |= uint32_t{ bytes[13 + index] } << (index * 8);

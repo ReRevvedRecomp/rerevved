@@ -29,6 +29,7 @@ bool SkipTurnLimitWarning();
 bool AdmitExtendedTurnLimitWarning();
 bool SkipExtendedTurnLimitDeadline();
 void ApplyStartingEra(PPCRegister& r31);
+void ApplyMultiplayerAiDifficulty(PPCRegister& r11);
 REX_EXTERN(sub_82CF0CB0);
 
 namespace gf = rerevved::gameplay_fixes;
@@ -472,26 +473,17 @@ TEST_CASE("turn_limit_hooks_pass_native_and_decide_extended_games", "[ctest][gam
     gf::RestoreTurnLimit(restore);
 }
 
-TEST_CASE("rival_spaceship_tags_only_a_single_player_rival_part", "[ctest][gameplay-fixes]")
+TEST_CASE("spaceship_tag_matches_only_its_actor_and_finishes_in_the_corridor", "[ctest][gameplay-fixes]")
 {
-    CHECK(gf::TagsRivalSpaceshipActor(true, true, 2, 0));
-    // The observer's own part, a network game and the Show preference stay native.
-    CHECK(!gf::TagsRivalSpaceshipActor(true, true, 0, 0));
-    CHECK(!gf::TagsRivalSpaceshipActor(true, false, 2, 0));
-    CHECK(!gf::TagsRivalSpaceshipActor(false, true, 2, 0));
-    // An unknown observer stays native.
-    CHECK(!gf::TagsRivalSpaceshipActor(true, true, 2, -1));
-
-    // A tag matches only the actor index 256 * owner + slot it recorded.
-    const int32_t tag = gf::RivalSpaceshipActorIndex(2, 7);
+    const int32_t tag = gf::SpaceshipActorIndex(2, 7);
     CHECK(tag == 519);
-    CHECK(gf::MatchesRivalSpaceshipTag(tag, 2, 7));
-    CHECK(!gf::MatchesRivalSpaceshipTag(tag, 2, 6));
-    CHECK(!gf::MatchesRivalSpaceshipTag(tag, 3, 7));
-    CHECK(!gf::MatchesRivalSpaceshipTag(-1, 0, 0));
+    CHECK(gf::MatchesSpaceshipTag(tag, 2, 7));
+    CHECK(!gf::MatchesSpaceshipTag(tag, 2, 6));
+    CHECK(!gf::MatchesSpaceshipTag(tag, 3, 7));
+    CHECK(!gf::MatchesSpaceshipTag(-1, 0, 0));
 
-    CHECK(gf::FinishesRivalSpaceshipEarly(1000));
-    CHECK(!gf::FinishesRivalSpaceshipEarly(1001));
+    CHECK(gf::FinishesSpaceshipEarly(1000));
+    CHECK(!gf::FinishesSpaceshipEarly(1001));
 }
 
 TEST_CASE("starting_era_choices_map_to_native_values", "[ctest][gameplay-fixes]")
@@ -583,6 +575,46 @@ TEST_CASE("starting_era_hook_writes_only_the_admitted_ordinary_halfword", "[ctes
         CHECK(field() == 7);
     }
     gf::RestoreStartingEra(restore);
+}
+
+TEST_CASE("multiplayer_ai_difficulty_choices_map_to_native_values", "[ctest][gameplay-fixes]")
+{
+    int32_t difficulty = 9;
+    for (const auto& [text, value] : std::array<std::pair<const char*, int32_t>, 3>{ { { "king", 2 }, { "emperor", 3 }, { "deity", 4 } } })
+    {
+        UNSCOPED_INFO("text=" << text);
+        CHECK((gf::ParseMultiplayerAiDifficulty(text, difficulty) && difficulty == value && gf::IsValidMultiplayerAiDifficulty(difficulty)));
+    }
+    difficulty = 9;
+    for (const char* bad : { "", "King", "prince", "2", " deity" })
+    {
+        UNSCOPED_INFO("text=" << bad);
+        CHECK(!gf::ParseMultiplayerAiDifficulty(bad, difficulty));
+        CHECK(difficulty == 9);
+    }
+    CHECK(!gf::IsValidMultiplayerAiDifficulty(1));
+    CHECK(!gf::IsValidMultiplayerAiDifficulty(5));
+}
+
+TEST_CASE("multiplayer_ai_difficulty_hook_replaces_the_literal_only_during_setup", "[ctest][gameplay-fixes]")
+{
+    const auto restore = gf::MultiplayerAiDifficultyForGame();
+    const auto run     = [](bool admitted, bool newGame, int32_t difficulty)
+    {
+        gf::RestoreMultiplayerAiDifficulty(difficulty);
+        rerevved::gameplay_session::SetupGate gate(admitted, newGame);
+        PPCRegister                           r11;
+        r11.u64 = 2;
+        ApplyMultiplayerAiDifficulty(r11);
+        return r11.s64;
+    };
+    for (const int32_t difficulty : { 2, 3, 4 })
+    {
+        CHECK(run(true, true, difficulty) == difficulty);
+    }
+    CHECK(run(true, false, 4) == 2);
+    CHECK(run(false, true, 4) == 2);
+    gf::RestoreMultiplayerAiDifficulty(restore);
 }
 
 TEST_CASE("domination_elapsed_rebase_matches_threshold", "[ctest][gameplay-fixes]")

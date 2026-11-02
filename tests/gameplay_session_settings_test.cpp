@@ -42,14 +42,15 @@ host::GameSnapshot capturePrepared(bool)
 
 struct RestorePolicies
 {
-    const std::shared_ptr<const host::HostSettings> network   = session::ForNetworkGame();
-    const rerevved::ai_economy::Policy              economy   = rerevved::ai_economy::ForGame();
-    const rerevved::occ::Policy                     occ       = *rerevved::occ::ForGame();
-    const bool                                      raging    = rerevved::raging_barbarians::Evaluate(0).enabled;
-    const bool                                      standard  = rerevved::gotw::StandardRulesForGame();
-    const bool                                      shortened = rerevved::gameplay_fixes::ShortenedMinimumAllowed();
-    const int32_t                                   turnLimit = rerevved::gameplay_fixes::TurnLimitForGame();
-    const int32_t                                   era       = rerevved::gameplay_fixes::StartingEraForGame();
+    const std::shared_ptr<const host::HostSettings> network    = session::ForNetworkGame();
+    const rerevved::ai_economy::Policy              economy    = rerevved::ai_economy::ForGame();
+    const rerevved::occ::Policy                     occ        = *rerevved::occ::ForGame();
+    const bool                                      raging     = rerevved::raging_barbarians::Evaluate(0).enabled;
+    const bool                                      standard   = rerevved::gotw::StandardRulesForGame();
+    const bool                                      shortened  = rerevved::gameplay_fixes::ShortenedMinimumAllowed();
+    const int32_t                                   turnLimit  = rerevved::gameplay_fixes::TurnLimitForGame();
+    const int32_t                                   era        = rerevved::gameplay_fixes::StartingEraForGame();
+    const int32_t                                   difficulty = rerevved::gameplay_fixes::MultiplayerAiDifficultyForGame();
 
     ~RestorePolicies()
     {
@@ -66,6 +67,7 @@ struct RestorePolicies
             rerevved::gameplay_fixes::NoteGameLoad();
         rerevved::gameplay_fixes::RestoreTurnLimit(turnLimit);
         rerevved::gameplay_fixes::RestoreStartingEra(era);
+        rerevved::gameplay_fixes::RestoreMultiplayerAiDifficulty(difficulty);
     }
 };
 
@@ -106,6 +108,8 @@ TEST_CASE("host gameplay policy precedes title freezes", "[ctest][host-settings]
     settings.dominationMinimumTurns   = 5;
     settings.turnLimit                = 3;
     settings.startingEra              = 2;
+    settings.multiplayerAiDifficulty  = 4;
+    settings.skipSpaceshipScenes      = true;
     settings.gotwStandardRules        = true;
     const auto snapshot               = host::ResolveForGame(true, { rex::session_data::State::kReceived, host::Encode(settings), true }, {});
     REQUIRE(snapshot.settings);
@@ -116,6 +120,9 @@ TEST_CASE("host gameplay policy precedes title freezes", "[ctest][host-settings]
     CHECK(session::ForNetworkGame()->dominationMinimumTurns == 5);
     CHECK(rerevved::gameplay_fixes::TurnLimitForGame() == 3);
     CHECK(rerevved::gameplay_fixes::StartingEraForGame() == 2);
+    CHECK(rerevved::gameplay_fixes::MultiplayerAiDifficultyForGame() == 4);
+    // Every peer skips or shows spaceship scenes by the host's value.
+    CHECK(session::ForNetworkGame()->skipSpaceshipScenes);
     CHECK((rerevved::ai_economy::ForGame() == rerevved::ai_economy::Policy{ 50, 40, 25, 75, 200 }));
     CHECK(rerevved::occ::ForGame()->enabled);
     CHECK(rerevved::raging_barbarians::Evaluate(0).enabled);
@@ -132,6 +139,8 @@ TEST_CASE("host gameplay policy precedes title freezes", "[ctest][host-settings]
     CHECK_FALSE(session::ApplyNewGame(local, false, 1));
     CHECK(rerevved::gameplay_fixes::TurnLimitForGame() == 3);
     CHECK(rerevved::gameplay_fixes::StartingEraForGame() == 2);
+    // A local game never reaches the network arm, so it keeps the native King.
+    CHECK(rerevved::gameplay_fixes::MultiplayerAiDifficultyForGame() == 2);
 
     const auto weekly = host::ResolveForGame(false, {}, settings);
     CHECK(session::ApplyNewGame(weekly, false, 2));

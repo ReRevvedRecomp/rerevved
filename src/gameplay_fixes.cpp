@@ -16,7 +16,10 @@ REXCVAR_DEFINE_STRING(turn_limit, "2100", "ReRevved", "Year the game can end by 
 REXCVAR_DEFINE_STRING(starting_era, "ancient", "ReRevved", "Era every civilization starts in for the next new game: ancient (default), medieval, industrial or modern. Scenarios and Game of the Week keep their own era")
     .allowed({ "ancient", "medieval", "industrial", "modern" });
 
-REXCVAR_DEFINE_BOOL(skip_rival_spaceship_scenes, false, "ReRevved", "Skip the in-world rocket scene when a rival completes a spaceship part in a single-player game. Applies to each new part");
+REXCVAR_DEFINE_STRING(multiplayer_ai_difficulty, "king", "ReRevved", "Difficulty of every AI in the next multiplayer game you host: king (default), emperor or deity. Single player keeps the difficulty chosen at game setup")
+    .allowed({ "king", "emperor", "deity" });
+
+REXCVAR_DEFINE_BOOL(skip_spaceship_scenes, false, "ReRevved", "Skip the in-world rocket scene when a spaceship part is completed. Applies to each new part; a network game plays the host's value");
 
 namespace rerevved::gameplay_fixes
 {
@@ -27,6 +30,7 @@ std::atomic<bool>    shortenedAllowed{ false };
 std::atomic<int32_t> restoredMinimum{ 0 };
 std::atomic<int32_t> turnLimit{ kTurnLimitNative };
 std::atomic<int32_t> startingEra{ kStartingEraNative };
+std::atomic<int32_t> multiplayerAiDifficulty{ kMultiplayerAiDifficultyNative };
 
 } // namespace
 
@@ -94,6 +98,28 @@ bool ParseStartingEra(std::string_view text, int32_t& era) noexcept
         return false;
     }
     era = static_cast<int32_t>(found - names.begin());
+    return true;
+}
+
+void RestoreMultiplayerAiDifficulty(int32_t difficulty) noexcept
+{
+    multiplayerAiDifficulty.store(difficulty, std::memory_order_relaxed);
+}
+
+int32_t MultiplayerAiDifficultyForGame() noexcept
+{
+    return multiplayerAiDifficulty.load(std::memory_order_relaxed);
+}
+
+bool ParseMultiplayerAiDifficulty(std::string_view text, int32_t& difficulty) noexcept
+{
+    constexpr std::array<std::string_view, 3> names = { "king", "emperor", "deity" };
+    const auto                                found = std::ranges::find(names, text);
+    if (found == names.end())
+    {
+        return false;
+    }
+    difficulty = kMultiplayerAiDifficultyNative + static_cast<int32_t>(found - names.begin());
     return true;
 }
 

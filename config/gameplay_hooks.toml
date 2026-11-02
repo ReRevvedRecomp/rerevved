@@ -137,10 +137,14 @@ address = 0x82D22A78
 name = "ApplyStartingEra"
 registers = ["r31"]
 
-# Turn Limit, in the native deadline of the victory evaluator 0x82D10FD8. The
-# frozen limit leaves the native 2100 option and Game of the Week unchanged.
-# See rerevved-research manifests/game-turn-limit-boundary.json.
-# Unlimited skips the warning and the deadline, continuing with the other victory checks.
+# Replaces network setup's literal 2 at 0x82FFE7C8 (r24 = 0x83000000) with the frozen host value, admitted new games only.
+# See rerevved-research evidence mp-ai-difficulty.md, section 2.
+[[midasm_hook]]
+address = 0x82D221EC
+name = "ApplyMultiplayerAiDifficulty"
+registers = ["r11"]
+
+# Unlimited skips the native deadline check at 0x82D10FD8 and its warning, native 2100 and Game of the Week stay unchanged.
 [[midasm_hook]]
 address = 0x82D11304
 name = "SkipUnlimitedTurnDeadline"
@@ -169,77 +173,69 @@ address = 0x82D11378
 name = "SkipExtendedTurnLimitDeadline"
 jump_address_on_true = 0x82D1143C
 
-# Rival Spaceship Scenes (single-player, default off). See rerevved-research
-# evidence spaceship-cutscene-skip. The pending-part caller records the resolver's
-# local observer at 0x82D1DE14 and tags a successful type 24 request after the -1
-# bypass at 0x82D1DEE4; the removal request at 0x82D1DF5C untags it.
-[[midasm_hook]]
-address = 0x82D1DE14
-name = "ObserveSpaceshipObserver"
-registers = ["r3"]
-
+# Spaceship Scenes: tag successful type 24 requests after the -1 bypass at 0x82D1DEE4, removal at 0x82D1DF5C untags.
 [[midasm_hook]]
 address = 0x82D1DEE8
-name = "TagRivalSpaceshipActor"
-registers = ["r21", "r29", "r31"]
+name = "TagSpaceshipActor"
+registers = ["r21", "r29"]
 
 [[midasm_hook]]
 address = 0x82D1DF5C
-name = "UntagRivalSpaceshipActor"
+name = "UntagSpaceshipActor"
 registers = ["r21", "r29"]
 
 # Type 24 updater 0x82D5E660 (r28 owner, r26 slot): tagged actors skip only active focus/view stores.
 [[midasm_hook]]
 address = 0x82D5E748
-name = "SkipRivalSpaceshipFirstStore"
+name = "SkipSpaceshipFirstStore"
 registers = ["r28", "r26"]
 jump_address_on_true = 0x82D5E74C
 
 [[midasm_hook]]
 address = 0x82D5E778
-name = "SkipRivalSpaceshipFocusStore"
+name = "SkipSpaceshipFocusStore"
 registers = ["r28", "r26"]
 jump_address_on_true = 0x82D5E77C
 
 [[midasm_hook]]
 address = 0x82D5E780
-name = "SkipRivalSpaceshipFocusStore"
+name = "SkipSpaceshipFocusStore"
 registers = ["r28", "r26"]
 jump_address_on_true = 0x82D5E784
 
 [[midasm_hook]]
 address = 0x82D5E788
-name = "SkipRivalSpaceshipFocusStore"
+name = "SkipSpaceshipFocusStore"
 registers = ["r28", "r26"]
 jump_address_on_true = 0x82D5E78C
 
 [[midasm_hook]]
 address = 0x82D5E790
-name = "SkipRivalSpaceshipFocusStore"
+name = "SkipSpaceshipFocusStore"
 registers = ["r28", "r26"]
 jump_address_on_true = 0x82D5E794
 
 [[midasm_hook]]
 address = 0x82D5E798
-name = "SkipRivalSpaceshipFocusStore"
+name = "SkipSpaceshipFocusStore"
 registers = ["r28", "r26"]
 jump_address_on_true = 0x82D5E79C
 
 [[midasm_hook]]
 address = 0x82D5E7B8
-name = "SkipRivalSpaceshipFocusStore"
+name = "SkipSpaceshipFocusStore"
 registers = ["r28", "r26"]
 jump_address_on_true = 0x82D5E7BC
 
 [[midasm_hook]]
 address = 0x82D5E7C0
-name = "SkipRivalSpaceshipFocusStore"
+name = "SkipSpaceshipFocusStore"
 registers = ["r28", "r26"]
 jump_address_on_true = 0x82D5E7C4
 
 # Tagged actors with previous time at most 1000 take native finish 0x82D5E888 without waiting.
 [[midasm_hook]]
 address = 0x82D5E868
-name = "FinishRivalSpaceshipEarly"
+name = "FinishSpaceshipEarly"
 registers = ["r28", "r26", "r11"]
 jump_address_on_true = 0x82D5E888

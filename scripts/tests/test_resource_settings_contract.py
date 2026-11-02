@@ -273,7 +273,7 @@ class ResourceSettingsContractTests(unittest.TestCase):
             [("0", "Normal"), ("1", "Balanced"), ("3", "Legendary")],
         )
         self.assertIn(
-            '{ "", { "combat_speed", "resources", "raging_barbarians", "one_city_challenge", "domination_min_turns", "turn_limit", "starting_era", "ai_civilizations" } }',
+            '{ "", { "combat_speed", "resources", "raging_barbarians", "one_city_challenge", "domination_min_turns", "turn_limit", "starting_era", "ai_civilizations", "multiplayer_ai_difficulty" } }',
             overlay,
         )
         self.assertIn('{ "resources", Audience::kPlayer }', overlay)

@@ -18,7 +18,8 @@ driver never modifies that checkout.
   [One City Challenge](#gameplay-one-city-challenge),
   [gameplay fixes](#gameplay-fixes), [Turn Limit](#gameplay-turn-limit),
   [Starting Era](#gameplay-starting-era),
-  [Rival Spaceship Scenes](#gameplay-rival-spaceship-scenes) and
+  [Multiplayer AI Difficulty](#gameplay-multiplayer-ai-difficulty),
+  [Spaceship Scenes](#gameplay-spaceship-scenes) and
   [Game of the Week](#gameplay-game-of-the-week): gameplay integration limits.
 - [Custom achievements](#custom-achievements): the title-defined achievements
   and their award rules.
@@ -2011,25 +2012,48 @@ frozen value on every peer; it is frozen before any grant draw. A load never
 writes the field and keeps the era and ownership bits the native save carries. The setting
 is not saved in the sidecar.
 
-## Gameplay Rival Spaceship Scenes
+## Gameplay Multiplayer AI Difficulty
 
-`skip_rival_spaceship_scenes` is a live bool setting, off by default, shown as
-F1 **Notifications > Skip Rival Spaceship Scenes**. It is a prototype: a single-player
-run skipped a rival's scene, while camera, input, save and peer effects remain
-unproved. The preference is sampled once per part request, so a change never
-affects an actor already running.
+Native setup `sub_82D217C8` writes the global difficulty `S32[0x82FFE7C8]`
+(`stw r11,-6200(r24)`, r24 = `0x83000000`) in two arms. When the network byte
+`0x8314F10B` is nonzero, `0x82D221D0` falls through to `li r11,2` at `0x82D221E4`
+and the store at `0x82D221EC`, so a multiplayer game is always King. Zero branches
+to the single-player path at `0x82D2264C`, which this feature leaves alone. Later
+readers, such as `0x82D2293C`, read the stored word, so the chosen value reaches
+them natively.
+
+`multiplayer_ai_difficulty` is a string setting with the choices `king` (default),
+`emperor` and `deity`, which are the native values 2, 3 and 4. F1
+**Gameplay > AI Difficulty (Multiplayer)** shows them. One hook in
+[gameplay_hooks.toml](../config/gameplay_hooks.toml) sits before `0x82D221EC` and
+takes r11. It replaces the literal 2 with the frozen value while `SetupActive` is
+true, and leaves it otherwise. r11 is dead after the store: the call to
+`sub_82D8AA60` reads only r3, and both continuations reload r11 before using it.
+
+The value is frozen at `ApplyNewGame`, before native setup, from the accepted
+snapshot of a network game; a local game freezes King. Every peer applies the
+host's value, and a later edit changes only the next game. A load never applies
+the frozen value. The
+setting is not saved in the sidecar, and single player is unchanged.
+
+## Gameplay Spaceship Scenes
+
+`skip_spaceship_scenes` is a bool setting, off by default, shown as the first row
+of F1 **Notifications**, **Disable Spaceship Scenes**. It skips the rocket scene of
+every spaceship part, including the player's own. A network game plays the host's
+value, carried in the host settings and frozen at `ApplyNewGame`; single player and
+Game of the Week use the live preference. The preference is sampled once per part
+request, so a change never affects an actor already running.
 
 The pending-part caller in `sub_82D1D1C0` requests a type 24 actor with
 `sub_82D11750(owner, 24, x, y)` at `0x82D1DED8` and removes it with
 `sub_82D02390(owner, slot, 0)` at `0x82D1DF5C` after a synchronous wait. The
 hooks in [gameplay_hooks.toml](../config/gameplay_hooks.toml) work as follows.
 
-- `0x82D1DE14` records the resolver `sub_82D8A3A0` return (r3), the local observer.
 - `0x82D1DEE8`, past the `-1` bypass at `0x82D1DEE4`, tags the actor index
-  `256 * owner + slot` (r21 owner, r29 slot) when the preference is on, the network
-  byte `0x8314F10B` is zero and the owner is not the observer. The log line also
-  shows the byte at r31-124 that the native equality test compared. A failed
-  request is never tagged. `0x82D1DF5C` clears the tag before the removal request.
+  `256 * owner + slot` (r21 owner, r29 slot) when the effective preference is on.
+  A failed request is never tagged. `0x82D1DF5C` clears the tag before the removal
+  request.
 - In `sub_82D5E660` (r28 owner, r26 slot), an actor matching the tag skips only
   the individual active stores at `0x82D5E748`, `778`, `780`, `788`, `790`, `798`,
   `7B8` and `7C0`, each by a jump to the next instruction. Selector 37, the timing
@@ -2038,9 +2062,8 @@ hooks in [gameplay_hooks.toml](../config/gameplay_hooks.toml) work as follows.
   most 1000 jumps to the native finish at `0x82D5E888`; r25, r21, r24 and r23 are
   already set on that path. Any other case runs the native branch.
 
-Game of the Week is a single-player game and is included; network games stay
-native. The creator result, busy bit, global timing, retirement, the shared-screen
-and launch results, and Wonder and other type 24 paths are untouched. Each step logs
+The creator result, busy bit, global timing, retirement, the shared-screen and
+launch results, and Wonder and other type 24 paths are untouched. Each step logs
 one `[spaceship]` line: tag, the first suppressed frame, the finish redirect or its
 native fallback with the previous time, and the untag with the suppressed frame
 count.
@@ -2048,21 +2071,22 @@ count.
 ## Multiplayer gameplay snapshots
 
 [Online play](online-play.md#gameplay-settings-and-mods) describes the player
-settings and compatibility requirements. The version-5 title payload in
+settings and compatibility requirements. The version-7 title payload in
 [host_settings.cpp](../src/host_settings.cpp) carries AI count capped at 4,
 Resources, Raging Barbarians, OCC, the AI research, production, gold, food and
 culture bonus percentages (0 to 200), Domination minimum turns (5 or 10), combat
-speed, the Turn Limit index (0 to 4), the Starting Era index (0 to 3) in the last
-header byte, and Game of the Week selections. Peers reject any other version,
-including versions 2 and 4. The override applies to that game
-and leaves local CVars unchanged.
+speed, the Turn Limit index (0 to 4), the Starting Era index (0 to 3), the
+multiplayer AI difficulty (2, 3 or 4), the spaceship scene skip (0 or 1) in the
+last header byte, and Game of the Week selections. Peers reject any other version,
+including versions 2, 4, 5 and 6.
+The override applies to that game and leaves local CVars unchanged.
 
 Before gameplay settings are frozen for a new game,
 [`gameplay_session::Prepare`](../src/gameplay_session_settings.cpp) calls SDK
 `PrepareForGame` and waits up to 15 seconds for a ready authenticated snapshot.
 Lobby bytes do not satisfy this requirement. The host captures its current
 provider for each game. Joiners request that game's fresh snapshot.
-`ResolveForGame` requires ready host or received status, a valid version-5
+`ResolveForGame` requires ready host or received status, a valid version-7
 payload, complete matching package IDs and versions, and matching verified Lua
 digests when mod content is present. Old, missing, malformed, truncated or
 unverified data rejects setup without a local gameplay fallback.
