@@ -2038,8 +2038,8 @@ setting is not saved in the sidecar, and single player is unchanged.
 
 ## Gameplay Spaceship Scenes
 
-`skip_spaceship_scenes` is a bool setting, off by default, shown as the first row
-of F1 **Notifications**, **Disable Spaceship Scenes**. It skips the rocket scene of
+`spaceship_scenes` is a bool setting, on by default, shown as the first row
+of F1 **Notifications**, **Spaceship Scenes**. Turning it off skips the rocket scene of
 every spaceship part, including the player's own. A network game plays the host's
 value, carried in the host settings and frozen at `ApplyNewGame`; single player and
 Game of the Week use the live preference. The preference is sampled once per part
@@ -2051,7 +2051,7 @@ The pending-part caller in `sub_82D1D1C0` requests a type 24 actor with
 hooks in [gameplay_hooks.toml](../config/gameplay_hooks.toml) work as follows.
 
 - `0x82D1DEE8`, past the `-1` bypass at `0x82D1DEE4`, tags the actor index
-  `256 * owner + slot` (r21 owner, r29 slot) when the effective preference is on.
+  `256 * owner + slot` (r21 owner, r29 slot) when the effective `spaceship_scenes` setting is off.
   A failed request is never tagged. `0x82D1DF5C` clears the tag before the removal
   request.
 - In `sub_82D5E660` (r28 owner, r26 slot), an actor matching the tag skips only
@@ -2118,7 +2118,7 @@ When no research is set, the game opens the technology prompt at the start of
 each turn and after the local player visits a village, whatever the village
 gives. A technology reward when a city changes hands can open it too.
 Dismissing it leaves research unset, so the prompt returns.
-`hide_research_prompt` defaults to `false`. When `true`, each of those
+`show_research_prompt` defaults to `true`. When `false`, each of those
 automatic prompts is skipped as if it had been dismissed: research stays unset
 until the player chooses it from the technology window, and no technology is
 chosen automatically. Special Powers > Research a New Technology, which the
@@ -2126,20 +2126,20 @@ player opens, is unchanged.
 
 ## Advisor pop-ups
 
-F1 **Notifications** also lists 15 `hide_popup_*` settings, each default `false`.
-Each one skips one group of advisor notices, for example rival war and peace
+F1 **Notifications** also lists 15 `show_popup_*` settings, each default `true`.
+Turning one off skips one group of advisor notices, for example rival war and peace
 news, combat reports or village outcomes. A skipped notice is not shown and
 the game continues as if it had been closed. Three of them answer a question:
-`hide_popup_save_reminder` does not save, `hide_popup_trophy_room` does not
-open the Trophy Room, and `hide_popup_government_available` keeps the current
-government. `src/advisor_popups.h` lists the call sites in each group. Other
+turning off `show_popup_save_reminder` does not save, `show_popup_trophy_room`
+does not open the Trophy Room, and `show_popup_government_available` keeps the
+current government. `src/advisor_popups.h` lists the call sites in each group. Other
 advisor screens, including the Special Functions menu, are unchanged.
 
-Two more default-`false` settings skip the Barbarian leader message.
-`hide_barbarian_messages` skips the message shown on first contact with a
+Two more default-`true` settings control the Barbarian leader message.
+Turning off `show_barbarian_messages` skips the message shown on first contact with a
 Barbarian tribe; the game treats that tribe as not yet introduced, so the
-message can appear at a later contact once the setting is off.
-`hide_village_barbarian_messages` skips the message shown after capturing a
+message can appear at a later contact once the setting is turned back on.
+Turning off `show_village_barbarian_messages` skips the message shown after capturing a
 Barbarian village, which names the reward; the reward is still granted.
 `src/barbarian_messages.h` lists the village call sites.
 

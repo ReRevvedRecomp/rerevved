@@ -206,24 +206,24 @@ bool NativeScriptActive()
 
 REXCVAR_DEFINE_STRING(combat_speed, "normal", "ReRevved", "Combat presentation speed")
     .allowed({ "normal", "fast" });
-REXCVAR_DEFINE_BOOL(hide_research_prompt, false, "ReRevved", "Do not open the technology prompt at turn start or after a village; choose research from the technology window");
-REXCVAR_DEFINE_BOOL(hide_popup_rival_war_peace, false, "ReRevved", "Do not show reports of wars declared and peace signed between other civilizations");
-REXCVAR_DEFINE_BOOL(hide_popup_rival_government, false, "ReRevved", "Do not show reports of other civilizations changing government");
-REXCVAR_DEFINE_BOOL(hide_popup_city_captures, false, "ReRevved", "Do not show reports of cities taken or recaptured");
-REXCVAR_DEFINE_BOOL(hide_popup_victory_warnings, false, "ReRevved", "Do not show warnings that a rival is close to a victory or that the game is ending");
-REXCVAR_DEFINE_BOOL(hide_popup_rival_great_people, false, "ReRevved", "Do not show reports of rival Great People and completed Wonders");
-REXCVAR_DEFINE_BOOL(hide_popup_rankings, false, "ReRevved", "Do not show strongest economy, greatest city and culture conversion reports");
-REXCVAR_DEFINE_BOOL(hide_popup_artifacts, false, "ReRevved", "Do not show artifact rumors and ancient site discoveries");
-REXCVAR_DEFINE_BOOL(hide_popup_combat_reports, false, "ReRevved", "Do not show Great General, capture, promotion and SDI reports");
-REXCVAR_DEFINE_BOOL(hide_popup_spy_reports, false, "ReRevved", "Do not show reports of stolen gold and kidnapped Great People");
-REXCVAR_DEFINE_BOOL(hide_popup_city_status, false, "ReRevved", "Do not show disorder, celebration, culture and blockade reports");
-REXCVAR_DEFINE_BOOL(hide_popup_discoveries, false, "ReRevved", "Do not show new technology, era, milestone, trade and road reports");
-REXCVAR_DEFINE_BOOL(hide_popup_villages, false, "ReRevved", "Do not show the result of entering a village");
-REXCVAR_DEFINE_BOOL(hide_popup_save_reminder, false, "ReRevved", "Hide the save reminder. This does not save the game.");
-REXCVAR_DEFINE_BOOL(hide_popup_trophy_room, false, "ReRevved", "Do not offer to visit the Trophy Room");
-REXCVAR_DEFINE_BOOL(hide_popup_government_available, false, "ReRevved", "Do not ask to change government when a new one becomes available; keep the current one");
-REXCVAR_DEFINE_BOOL(hide_barbarian_messages, false, "ReRevved", "Do not show the Barbarian leader message on first contact with a Barbarian tribe");
-REXCVAR_DEFINE_BOOL(hide_village_barbarian_messages, false, "ReRevved", "Do not show the Barbarian leader message that names the reward for capturing a Barbarian village; the reward is still granted");
+REXCVAR_DEFINE_BOOL(show_research_prompt, true, "ReRevved", "Open the technology prompt at turn start and after a village; when off, choose research from the technology window");
+REXCVAR_DEFINE_BOOL(show_popup_rival_war_peace, true, "ReRevved", "Show reports of wars declared and peace signed between other civilizations");
+REXCVAR_DEFINE_BOOL(show_popup_rival_government, true, "ReRevved", "Show reports of other civilizations changing government");
+REXCVAR_DEFINE_BOOL(show_popup_city_captures, true, "ReRevved", "Show reports of cities taken or recaptured");
+REXCVAR_DEFINE_BOOL(show_popup_victory_warnings, true, "ReRevved", "Show warnings that a rival is close to a victory or that the game is ending");
+REXCVAR_DEFINE_BOOL(show_popup_rival_great_people, true, "ReRevved", "Show reports of rival Great People and completed Wonders");
+REXCVAR_DEFINE_BOOL(show_popup_rankings, true, "ReRevved", "Show strongest economy, greatest city and culture conversion reports");
+REXCVAR_DEFINE_BOOL(show_popup_artifacts, true, "ReRevved", "Show artifact rumors and ancient site discoveries");
+REXCVAR_DEFINE_BOOL(show_popup_combat_reports, true, "ReRevved", "Show Great General, capture, promotion and SDI reports");
+REXCVAR_DEFINE_BOOL(show_popup_spy_reports, true, "ReRevved", "Show reports of stolen gold and kidnapped Great People");
+REXCVAR_DEFINE_BOOL(show_popup_city_status, true, "ReRevved", "Show disorder, celebration, culture and blockade reports");
+REXCVAR_DEFINE_BOOL(show_popup_discoveries, true, "ReRevved", "Show new technology, era, milestone, trade and road reports");
+REXCVAR_DEFINE_BOOL(show_popup_villages, true, "ReRevved", "Show the result of entering a village");
+REXCVAR_DEFINE_BOOL(show_popup_save_reminder, true, "ReRevved", "Show the save reminder. Turning it off does not save the game.");
+REXCVAR_DEFINE_BOOL(show_popup_trophy_room, true, "ReRevved", "Offer to visit the Trophy Room");
+REXCVAR_DEFINE_BOOL(show_popup_government_available, true, "ReRevved", "Ask to change government when a new one becomes available; when off, keep the current one");
+REXCVAR_DEFINE_BOOL(show_barbarian_messages, true, "ReRevved", "Show the Barbarian leader message on first contact with a Barbarian tribe");
+REXCVAR_DEFINE_BOOL(show_village_barbarian_messages, true, "ReRevved", "Show the Barbarian leader message that names the reward for capturing a Barbarian village; the reward is granted either way");
 REXCVAR_DEFINE_INT32(ai_civilizations, 4, "ReRevved", "Number of AI civilizations in a new game. A game with one human keeps at least one AI civilization. Five or six AI apply to single-player. Multiplayer uses the host's value up to four for all players")
     .range(0, 6);
 REXCVAR_DEFINE_COMMAND(open_log_folder, openLogFolder, "ReRevved", "Open the folder that holds the log file and crash dumps");

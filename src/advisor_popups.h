@@ -11,21 +11,21 @@ namespace rerevved::advisor_popups
 {
 
 inline constexpr std::array<std::string_view, 15> kGroupCvars{
-    "hide_popup_rival_war_peace",
-    "hide_popup_rival_government",
-    "hide_popup_city_captures",
-    "hide_popup_victory_warnings",
-    "hide_popup_rival_great_people",
-    "hide_popup_rankings",
-    "hide_popup_artifacts",
-    "hide_popup_combat_reports",
-    "hide_popup_spy_reports",
-    "hide_popup_city_status",
-    "hide_popup_discoveries",
-    "hide_popup_villages",
-    "hide_popup_save_reminder",
-    "hide_popup_trophy_room",
-    "hide_popup_government_available",
+    "show_popup_rival_war_peace",
+    "show_popup_rival_government",
+    "show_popup_city_captures",
+    "show_popup_victory_warnings",
+    "show_popup_rival_great_people",
+    "show_popup_rankings",
+    "show_popup_artifacts",
+    "show_popup_combat_reports",
+    "show_popup_spy_reports",
+    "show_popup_city_status",
+    "show_popup_discoveries",
+    "show_popup_villages",
+    "show_popup_save_reminder",
+    "show_popup_trophy_room",
+    "show_popup_government_available",
 };
 
 struct Site

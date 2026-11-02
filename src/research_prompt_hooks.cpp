@@ -1,4 +1,4 @@
-// hide_research_prompt suppresses automatic prompts until research is chosen;
+// With show_research_prompt off, suppress automatic prompts until research is chosen;
 // sub_82D259E8 is never armed.
 
 #include "research_prompt.h"
@@ -6,7 +6,7 @@
 #include <rex/cvar.h>
 #include <rex/ppc.h>
 
-REXCVAR_DECLARE(bool, hide_research_prompt);
+REXCVAR_DECLARE(bool, show_research_prompt);
 
 namespace
 {
@@ -27,7 +27,7 @@ void DisarmAutomaticResearchPrompt()
 
 void HideAutomaticResearchPrompt(PPCRegister& stack)
 {
-    gate.BeginShow(REXCVAR_GET(hide_research_prompt), stack.u32);
+    gate.BeginShow(!REXCVAR_GET(show_research_prompt), stack.u32);
 }
 
 bool SuppressResearchPromptShow(PPCRegister& stack)

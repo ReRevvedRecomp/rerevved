@@ -3016,12 +3016,12 @@ class HookContractTests(unittest.TestCase):
         self.assertEqual(manifest.count('"config/advisor_hooks.toml"'), 1)
 
         app = APP_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("REXCVAR_DEFINE_BOOL(hide_research_prompt, false,", app)
+        self.assertIn("REXCVAR_DEFINE_BOOL(show_research_prompt, true,", app)
         source = RESEARCH_PROMPT_SOURCE.read_text(encoding="utf-8")
         for hook in hooks:
             self.assertIn(hook["name"] + "(", source)
         self.assertIn(
-            "gate.BeginShow(REXCVAR_GET(hide_research_prompt), stack.u32)", source
+            "gate.BeginShow(!REXCVAR_GET(show_research_prompt), stack.u32)", source
         )
 
     def test_generated_research_prompt_hooks_when_available(self) -> None:
@@ -3072,14 +3072,14 @@ class HookContractTests(unittest.TestCase):
         self.assertEqual(manifest.count('"config/advisor_hooks.toml"'), 1)
 
         table = ADVISOR_POPUP_TABLE.read_text(encoding="utf-8")
-        cvars = re.findall(r'"(hide_popup_[a-z_]+)"', table)
+        cvars = re.findall(r'"(show_popup_[a-z_]+)"', table)
         self.assertEqual(len(cvars), 15)
         app = APP_SOURCE.read_text(encoding="utf-8")
         source = ADVISOR_POPUP_SOURCE.read_text(encoding="utf-8")
         self.assertIn("SuppressAdvisorPopupShow(", source)
         for index, cvar in enumerate(cvars):
-            self.assertIn(f"REXCVAR_DEFINE_BOOL({cvar}, false,", app)
-            self.assertRegex(source, rf"case {index}:\s+return REXCVAR_GET\({cvar}\);")
+            self.assertIn(f"REXCVAR_DEFINE_BOOL({cvar}, true,", app)
+            self.assertRegex(source, rf"case {index}:\s+return !REXCVAR_GET\({cvar}\);")
 
     def test_generated_advisor_popup_hook_when_available(self) -> None:
         paths, generated = generated_text()
@@ -3138,15 +3138,13 @@ class HookContractTests(unittest.TestCase):
         self.assertEqual(manifest.count('"config/advisor_hooks.toml"'), 1)
 
         app = APP_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("REXCVAR_DEFINE_BOOL(hide_barbarian_messages, false,", app)
-        self.assertIn(
-            "REXCVAR_DEFINE_BOOL(hide_village_barbarian_messages, false,", app
-        )
+        self.assertIn("REXCVAR_DEFINE_BOOL(show_barbarian_messages, true,", app)
+        self.assertIn("REXCVAR_DEFINE_BOOL(show_village_barbarian_messages, true,", app)
         source = BARBARIAN_MESSAGE_SOURCE.read_text(encoding="utf-8")
         for hook in hooks:
             self.assertIn(hook["name"] + "(", source)
-        self.assertIn("return REXCVAR_GET(hide_barbarian_messages);", source)
-        self.assertIn("REXCVAR_GET(hide_village_barbarian_messages) &&", source)
+        self.assertIn("return !REXCVAR_GET(show_barbarian_messages);", source)
+        self.assertIn("!REXCVAR_GET(show_village_barbarian_messages) &&", source)
         table = BARBARIAN_MESSAGE_TABLE.read_text(encoding="utf-8")
         sites = re.search(r"kVillageSites\[\] = \{(.*?)\};", table, re.S)
         self.assertIsNotNone(sites)

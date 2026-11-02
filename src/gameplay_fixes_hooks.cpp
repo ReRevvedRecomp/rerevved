@@ -15,7 +15,7 @@
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
 
-REXCVAR_DECLARE(bool, skip_spaceship_scenes);
+REXCVAR_DECLARE(bool, spaceship_scenes);
 
 namespace
 {
@@ -286,17 +286,12 @@ void ApplyMultiplayerAiDifficulty(PPCRegister& r11)
     }
 }
 
-// Spaceship Scenes hooks. See the pending-part caller at 0x82D1DE04..0x82D1DF60
-// and the type 24 actor updater 0x82D5E660.
-//
-// At 0x82D1DEE8, past the beq on a failed (-1) request: r21 is the part owner and
-// r29 the returned slot. Tags the actor when the preference is on: a network game
-// plays the host's frozen value, any other game the live preference.
+// Network games use the frozen host value, otherwise the live preference.
 void TagSpaceshipActor(PPCRegister& owner, PPCRegister& slot)
 {
     namespace gf    = rerevved::gameplay_fixes;
     const auto host = rerevved::gameplay_session::ForNetworkGame();
-    const bool skip = host ? host->skipSpaceshipScenes : REXCVAR_GET(skip_spaceship_scenes);
+    const bool skip = host ? host->skipSpaceshipScenes : !REXCVAR_GET(spaceship_scenes);
     if (!skip)
     {
         return;

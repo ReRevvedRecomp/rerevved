@@ -38,7 +38,7 @@ HostSettings LocalSettings()
     settings.turnLimit               = gameplay_fixes::ParseTurnLimit(rex::cvar::Query<std::string>("turn_limit"));
     settings.startingEra             = gameplay_fixes::ParseStartingEra(rex::cvar::Query<std::string>("starting_era"));
     settings.multiplayerAiDifficulty = gameplay_fixes::ParseMultiplayerAiDifficulty(rex::cvar::Query<std::string>("multiplayer_ai_difficulty"));
-    settings.skipSpaceshipScenes     = rex::cvar::Query<bool>("skip_spaceship_scenes");
+    settings.skipSpaceshipScenes     = !rex::cvar::Query<bool>("spaceship_scenes");
     settings.gotwCustomWeek          = rex::cvar::Query<bool>("gotw_custom_week");
     settings.gotwStandardRules       = rex::cvar::Query<bool>("gotw_standard_rules");
     settings.gotwAllowSaving         = rex::cvar::Query<bool>("gotw_allow_saving");

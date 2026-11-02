@@ -11,8 +11,8 @@ Close ReRevved before editing the file directly.
 - **Gameplay**: combat speed, resources, Raging Barbarians, One City
   Challenge, Earliest Domination, Turn Limit, Starting Era, AI civilizations, AI Handicaps,
   and Game of the Week.
-- **Notifications**: Disable Spaceship Scenes, research prompts, advisor pop-ups, and Barbarian messages.
-  **Disable Save Reminder** suppresses a prompt; it does not save the game.
+- **Notifications**: Spaceship Scenes, research prompts, advisor pop-ups, and Barbarian messages. Each is on by default; turn a row off to hide it.
+  Turning off **Save Reminder** hides the prompt; it does not save the game.
 - **Online**: AI Difficulty (Multiplayer), connection status, player name, relay invite, and Discord options.
   See [Online play](online-play.md).
 - **Controls**: keyboard/controller bindings, mouse sensitivity, vibration,
@@ -65,8 +65,8 @@ Emperor or Deity. Every player in that game plays the host's value. A later
 change applies only to the next new game. Single player keeps the difficulty
 chosen at game setup, and a loaded save never applies the host's value.
 
-**Disable Spaceship Scenes** (Notifications, off by default) skips the rocket
-scene of every spaceship part, yours included. In a multiplayer game every player
+**Spaceship Scenes** (Notifications, on by default) shows the rocket
+scene of every spaceship part, yours included; turn it off to skip them. In a multiplayer game every player
 uses the host's value; otherwise your own setting applies, also to a Game of the
 Week. Part scenes already running are not affected by a change.
 

@@ -19,7 +19,7 @@ REXCVAR_DEFINE_STRING(starting_era, "ancient", "ReRevved", "Era every civilizati
 REXCVAR_DEFINE_STRING(multiplayer_ai_difficulty, "king", "ReRevved", "Difficulty of every AI in the next multiplayer game you host: king (default), emperor or deity. Single player keeps the difficulty chosen at game setup")
     .allowed({ "king", "emperor", "deity" });
 
-REXCVAR_DEFINE_BOOL(skip_spaceship_scenes, false, "ReRevved", "Skip the in-world rocket scene when a spaceship part is completed. Applies to each new part; a network game plays the host's value");
+REXCVAR_DEFINE_BOOL(spaceship_scenes, true, "ReRevved", "Show the in-world rocket scene when a spaceship part is completed. Applies to each new part; a network game plays the host's value");
 
 namespace rerevved::gameplay_fixes
 {

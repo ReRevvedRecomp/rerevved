@@ -286,9 +286,9 @@ TEST_CASE("native_settings_rows_keep_the_f1_order_and_captions", "[ctest][native
 
     const auto notifications = captionsOf(model, "Notifications");
     CHECK(notifications.size() == 19);
-    CHECK(notifications.front() == "Disable Spaceship Scenes: Off");
-    CHECK(notifications[1] == "Disable Research Advisor Prompt: Off");
-    CHECK(notifications.back() == "Disable Trophy Room Offer: Off");
+    CHECK(notifications.front() == "Spaceship Scenes: Off");
+    CHECK(notifications[1] == "Research Advisor Prompt: Off");
+    CHECK(notifications.back() == "Trophy Room Offer: Off");
 
     CHECK(captionsOf(model, "Online") == std::vector<std::string>{ "AI Difficulty (Multiplayer): King",
                                                                    "Connection Status: Off",
@@ -845,14 +845,14 @@ TEST_CASE("options_model_orders_a_bool_off_then_on", "[ctest][native-settings]")
 {
     FakeServices     services;
     ns::OptionsModel model(services);
-    const auto&      row = selectRow(model, "hide_research_prompt");
+    const auto&      row = selectRow(model, "show_research_prompt");
     REQUIRE(row.choices.size() == 2);
     CHECK(row.choices[0].caption == "Off");
     CHECK(row.choices[1].caption == "On");
     CHECK(row.current == 0);
 
     CHECK(model.Step(1));
-    CHECK(services.applied.back() == std::pair<std::string, std::string>{ "hide_research_prompt", "true" });
+    CHECK(services.applied.back() == std::pair<std::string, std::string>{ "show_research_prompt", "true" });
     CHECK(model.Row(model.Highlight())->Caption() == "On");
     CHECK_FALSE(model.Step(1));
 }
@@ -862,7 +862,7 @@ TEST_CASE("options_model_activate_toggles_a_bool_and_cycles_a_short_list", "[cte
     FakeServices     services;
     ns::OptionsModel model(services);
 
-    selectRow(model, "hide_research_prompt");
+    selectRow(model, "show_research_prompt");
     CHECK(model.Activate() == ns::OptionsModel::Press::kApplied);
     CHECK(services.applied.back().second == "true");
     CHECK(model.Activate() == ns::OptionsModel::Press::kApplied);
@@ -1221,7 +1221,7 @@ TEST_CASE("options_model_maps_the_apply_outcome_to_a_note", "[ctest][native-sett
 
     FakeServices     services;
     ns::OptionsModel model(services);
-    selectRow(model, "hide_research_prompt");
+    selectRow(model, "show_research_prompt");
     CHECK(model.Note().empty());
 
     services.status = ns::ApplyStatus::kUnsaved;
@@ -1233,7 +1233,7 @@ TEST_CASE("options_model_maps_the_apply_outcome_to_a_note", "[ctest][native-sett
     CHECK(model.Note().empty());
 
     services.status = ns::ApplyStatus::kRejected;
-    selectRow(model, "hide_popup_city_status");
+    selectRow(model, "show_popup_city_status");
     CHECK(model.Step(1));
     CHECK(model.Note() == ns::kNoteRejected);
     CHECK(model.Row(model.Highlight())->Caption() == "Off");
@@ -1295,12 +1295,12 @@ TEST_CASE("options_model_reload_reads_values_again", "[ctest][native-settings]")
 {
     FakeServices     services;
     ns::OptionsModel model(services);
-    selectRow(model, "hide_research_prompt");
-    services.flags["hide_research_prompt"].value = "true";
+    selectRow(model, "show_research_prompt");
+    services.flags["show_research_prompt"].value = "true";
     CHECK(model.Row(model.Highlight())->Caption() == "Off");
     model.Reload();
     CHECK(model.Row(model.Highlight())->Caption() == "On");
-    CHECK(model.Row(model.Highlight())->key == "hide_research_prompt");
+    CHECK(model.Row(model.Highlight())->key == "show_research_prompt");
 }
 
 namespace
