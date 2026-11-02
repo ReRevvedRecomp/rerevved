@@ -252,7 +252,7 @@ jobs:
       - name: Package archive
         shell: pwsh
         run: |
-          python scripts/package.py --platform windows --arch x64 --mods-dir out/bundled-mods
+          python scripts/package.py --platform windows --arch x64 --mods-dir out/bundled-mods --maps-dir out/bundled-maps
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Validate archive allowlist
@@ -484,7 +484,7 @@ jobs:
 
       - name: Package archive
         shell: bash
-        run: python scripts/package.py --platform linux --arch x64 --mods-dir out/bundled-mods
+        run: python scripts/package.py --platform linux --arch x64 --mods-dir out/bundled-mods --maps-dir out/bundled-maps
 
       - name: Validate archive allowlist
         shell: bash
@@ -775,7 +775,7 @@ jobs:
         shell: bash
         run: |
           python scripts/package.py --platform macos --arch arm64 \
-            --mods-dir out/bundled-mods --macos-licenses "$RUNNER_TEMP/macos-licenses"
+            --mods-dir out/bundled-mods --maps-dir out/bundled-maps --macos-licenses "$RUNNER_TEMP/macos-licenses"
 
       - name: Validate archive contents, dependencies and signatures
         shell: bash

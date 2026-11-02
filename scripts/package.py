@@ -67,6 +67,18 @@ BUNDLED_MODS = (
 # Bundled mods are declarations only; a mod that needs assets must extend this.
 MOD_FILES = ("mod.toml", "main.lua")
 
+BUNDLED_MAPS = (
+    "rerevved-landmasses",
+    "rerevved-islands",
+    "rerevved-inland-water",
+    "rerevved-matchups",
+    "rerevved-climates",
+    "rerevved-real-world",
+)
+MAP_MANIFEST = "asset-pack.toml"
+MAP_ARCHIVE = "assets/map-pack/dlc.fpk"
+MAP_FILES = (MAP_MANIFEST, MAP_ARCHIVE)
+
 
 def expected_entries(platform):
     """Return the (directories, files) an archive holds, relative to its root."""
@@ -87,6 +99,8 @@ def expected_entries(platform):
     files |= {f"licenses/xelu-prompts-{name}" for name in XELU_NOTICES}
     for package_id in BUNDLED_MODS:
         files |= {f"mods/{package_id}/{name}" for name in MOD_FILES}
+    for map_id in BUNDLED_MAPS:
+        files |= {f"maps/{map_id}/{name}" for name in MAP_FILES}
     directories = {"game"}
     for name in files:
         directories |= {str(parent) for parent in pathlib.PurePosixPath(name).parents}
@@ -130,6 +144,12 @@ def parse_args():
         type=pathlib.Path,
         required=True,
         help="assembled bundled mods from scripts/assemble_mods.py",
+    )
+    parser.add_argument(
+        "--maps-dir",
+        type=pathlib.Path,
+        required=True,
+        help="bundled map packs assembled by scripts/assemble_mods.py",
     )
     args = parser.parse_args()
     args.arch = args.arch or ("arm64" if args.platform == "macos" else "x64")
@@ -237,6 +257,41 @@ def check_mods(mods_dir):
         )
     for package_id in BUNDLED_MODS:
         check_mod(mods_dir / package_id, package_id)
+
+
+def check_map(source, map_id):
+    """Reject anything but the manifest and DLC archive of a map pack."""
+    layout = {
+        "": ("asset-pack.toml", "assets"),
+        "assets": ("map-pack",),
+        "assets/map-pack": ("dlc.fpk",),
+    }
+    for relative, names in layout.items():
+        directory = source / relative
+        if (
+            not directory.is_dir()
+            or is_link(directory)
+            or sorted(path.name for path in directory.iterdir()) != sorted(names)
+        ):
+            raise SystemExit(f"error: bundled map {map_id} has unexpected entries")
+    for name in MAP_FILES:
+        if not (source / name).is_file() or is_link(source / name):
+            raise SystemExit(f"error: bundled map {map_id} lacks plain file {name}")
+    if not (source / MAP_ARCHIVE).stat().st_size:
+        raise SystemExit(f"error: bundled map {map_id} {MAP_ARCHIVE} is empty")
+
+
+def check_maps(maps_dir):
+    if not maps_dir.exists() or is_link(maps_dir) or not maps_dir.is_dir():
+        raise SystemExit(f"error: --maps-dir is not a directory: {maps_dir}")
+    found = sorted(path.name for path in maps_dir.iterdir())
+    if found != sorted(BUNDLED_MAPS):
+        raise SystemExit(
+            "error: --maps-dir must contain exactly the bundled maps: "
+            + ", ".join(BUNDLED_MAPS)
+        )
+    for map_id in BUNDLED_MAPS:
+        check_map(maps_dir / map_id, map_id)
 
 
 def macos_tool(*command):
@@ -352,6 +407,7 @@ def main():
     if online:
         rexglue = find_rexglue(args.build_dir, args.sdk_bin)
     check_mods(args.mods_dir)
+    check_maps(args.maps_dir)
 
     stage = args.out_dir / "pkg" / name
     if stage.exists():
@@ -427,6 +483,10 @@ def main():
     # No mod_order.txt ships, so every bundled mod starts disabled.
     for package_id in BUNDLED_MODS:
         shutil.copytree(args.mods_dir / package_id, stage / "mods" / package_id)
+
+    # Omit map_order.txt so bundled map packs start disabled.
+    for map_id in BUNDLED_MAPS:
+        shutil.copytree(args.maps_dir / map_id, stage / "maps" / map_id)
 
     for staged in stage.rglob("*"):
         if staged.suffix.lower() in FORBIDDEN_SUFFIXES:

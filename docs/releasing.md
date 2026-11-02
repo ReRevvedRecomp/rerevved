@@ -27,24 +27,25 @@ renderer work uses `native-rendering` with pull requests into `develop`.
    Release candidate from a fresh `out/build/win-amd64-release/` directory and
    run its checks and tests.
 
-2. Assemble the bundled mods from a `rerevved-mods` checkout at the commit in
-   [`rerevved-mods.lock.json`](../rerevved-mods.lock.json), then create the
-   release archive:
+2. Assemble the bundled mods and map packs from a `rerevved-mods` checkout at
+   the commit in [`rerevved-mods.lock.json`](../rerevved-mods.lock.json), then
+   create the release archive:
 
    ```powershell
    python .\scripts\assemble_mods.py --mods-checkout ..\rerevved-mods
-   python .\scripts\package.py --mods-dir out\bundled-mods
+   python .\scripts\package.py --mods-dir out\bundled-mods --maps-dir out\bundled-maps
    ```
 
    Assembly rejects a checkout at another commit or with local changes, and a
    mods title lock that is not an ancestor of the release commit. The assembly
-   output directory must not already exist; choose a fresh `--out` path and
-   pass that same path to `package.py --mods-dir` when preserving prior output.
+   output directories must not exist; choose new `--out` and
+   `--maps-out` paths and pass the same paths to `package.py --mods-dir` and
+   `--maps-dir` when preserving prior output.
 
 3. Inspect `out/rerevved-v<version>-windows-x64.zip`. Confirm that it contains
    the executable, runtime libraries, the selected license files, player
    README, the bundled default logo asset pack, the bundled mods under
-   `mods/`, and an empty `game/`
+   `mods/`, map packs under `maps/`, and an empty `game/`
    directory, with no retail content, user files, or `mod_order.txt`. The
    Windows archive also contains the relay CLI `rexglue.exe`, `host-online.cmd`,
    `host-online.ps1`, `host-manual.cmd` and `ONLINE.txt` for online
@@ -62,9 +63,9 @@ dependency licenses. The ICD JSON uses a relative library path. Packaging
 rewrites library paths before ad hoc signing. CI checks architecture, minimum
 OS, library paths and signatures after extraction. The archive is not notarized.
 
-For local packaging, supply `--platform macos --arch arm64 --macos-licenses <dir>`
-and `--mods-dir <assembled-mods>`. The license directory holds the pinned
-dependency notices assembled by the macOS job in
+For local packaging, supply `--platform macos --arch arm64 --macos-licenses <dir>`,
+`--mods-dir <assembled-mods>` and `--maps-dir <assembled-maps>`. The license
+directory holds the pinned dependency notices assembled by the macOS job in
 [`build.yml`](../.github/workflows/build.yml). Validate the archive with
 `scripts/check_package_inventory.py --platform macos <archive> --macos-root <extracted-bundle>`.
 
