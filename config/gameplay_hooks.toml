@@ -130,3 +130,41 @@ registers = ["r27", "r9", "r10", "r11"]
 address = 0x82D11264
 name = "ApplyDominationMinimumTurns"
 registers = ["r9"]
+
+# Starting Era: freeze STARTERA at Q+0x1C (r31) before setup grants, new games only.
+[[midasm_hook]]
+address = 0x82D22A78
+name = "ApplyStartingEra"
+registers = ["r31"]
+
+# Turn Limit, in the native deadline of the victory evaluator 0x82D10FD8. The
+# frozen limit leaves the native 2100 option and Game of the Week unchanged.
+# See rerevved-research manifests/game-turn-limit-boundary.json.
+# Unlimited skips the warning and the deadline, continuing with the other victory checks.
+[[midasm_hook]]
+address = 0x82D11304
+name = "SkipUnlimitedTurnDeadline"
+jump_address_on_true = 0x82D1143C
+
+# Skip both warnings to the extended deadline unless its warning is due (five turns before the deadline turn).
+[[midasm_hook]]
+address = 0x82D11318
+name = "SkipTurnLimitWarning"
+jump_address_on_true = 0x82D11378
+
+# Skip native year-2090 and elapsed-195 inequalities to scenario tests 0x82D11328 and 0x82D11344.
+[[midasm_hook]]
+address = 0x82D11324
+name = "AdmitExtendedTurnLimitWarning"
+jump_address_on_true = 0x82D11328
+
+[[midasm_hook]]
+address = 0x82D11340
+name = "AdmitExtendedTurnLimitWarning"
+jump_address_on_true = 0x82D11344
+
+# Before the extended cap skip the deadline, from the cap on native 2100, rank and elapsed-200 tests apply.
+[[midasm_hook]]
+address = 0x82D11378
+name = "SkipExtendedTurnLimitDeadline"
+jump_address_on_true = 0x82D1143C

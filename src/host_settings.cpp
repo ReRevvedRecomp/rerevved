@@ -1,6 +1,7 @@
 #include "host_settings.h"
 
 #include "ai_economy_settings.h"
+#include "gameplay_fixes.h"
 #include "gotw_settings.h"
 
 #include <algorithm>
@@ -16,10 +17,10 @@ namespace
 {
 
 // Gate built-in gameplay semantics as well as the serialized field layout.
-constexpr uint8_t kFormatVersion    = 2;
+constexpr uint8_t kFormatVersion    = 5;
 constexpr uint8_t kTruncatedFlag    = 0x01;
 constexpr uint8_t kCapitalGraceFlag = 0x20;
-constexpr size_t  kHeaderSize       = 21;
+constexpr size_t  kHeaderSize       = 23;
 constexpr size_t  kMaxFieldLength   = 255;
 constexpr size_t  kMaxModCount      = 255;
 constexpr size_t  kMaxListedIssues  = 4;
@@ -103,6 +104,14 @@ HostSettings Normalize(HostSettings settings, bool networkGame)
         settings.dominationMinimumTurns = 10;
     }
     settings.combatSpeed = settings.combatSpeed == 1 ? 1 : 0;
+    if (!gameplay_fixes::IsValidTurnLimit(settings.turnLimit))
+    {
+        settings.turnLimit = gameplay_fixes::kTurnLimitNative;
+    }
+    if (!gameplay_fixes::IsValidStartingEra(settings.startingEra))
+    {
+        settings.startingEra = gameplay_fixes::kStartingEraNative;
+    }
     if (!settings.gotwCustomWeek || !gotw::IsValidWeek(settings.gotwWeek))
     {
         settings.gotwCustomWeek = false;
@@ -217,6 +226,8 @@ std::vector<uint8_t> Encode(const HostSettings& settings)
             out.push_back(static_cast<uint8_t>(value >> shift));
         }
     }
+    out.push_back(static_cast<uint8_t>(normalized.turnLimit));
+    out.push_back(static_cast<uint8_t>(normalized.startingEra));
     if (normalized.rulesDigestPresent)
     {
         out.insert(out.end(), normalized.rulesDigest.begin(), normalized.rulesDigest.end());
@@ -237,7 +248,8 @@ std::optional<HostSettings> Decode(std::span<const uint8_t> bytes)
         ((bytes[4] & kCapitalGraceFlag) != 0) != ((bytes[4] & 1) != 0) ||
         (bytes[5] != 0 && bytes[5] != 1 && bytes[5] != 3) || bytes[6] > ai_economy::kMaxBonusPercent || bytes[7] > ai_economy::kMaxBonusPercent ||
         bytes[8] > ai_economy::kMaxBonusPercent || bytes[9] > ai_economy::kMaxBonusPercent || bytes[10] > ai_economy::kMaxBonusPercent ||
-        (bytes[11] != 5 && bytes[11] != 10) || bytes[12] > 1)
+        (bytes[11] != 5 && bytes[11] != 10) || bytes[12] > 1 || !gameplay_fixes::IsValidTurnLimit(bytes[21]) ||
+        !gameplay_fixes::IsValidStartingEra(bytes[22]))
     {
         return std::nullopt;
     }
@@ -258,6 +270,8 @@ std::optional<HostSettings> Decode(std::span<const uint8_t> bytes)
     settings.aiCultureBonusPercent    = bytes[10];
     settings.dominationMinimumTurns   = bytes[11];
     settings.combatSpeed              = bytes[12];
+    settings.turnLimit                = bytes[21];
+    settings.startingEra              = bytes[22];
     for (unsigned index = 0; index < 4; ++index)
     {
         settings.gotwWeek |= uint32_t{ bytes[13 + index] } << (index * 8);

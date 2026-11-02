@@ -205,6 +205,17 @@ class SaveSidecarContractTests(unittest.TestCase):
         self.assertNotIn("militia", self.hooks.lower())
         self.assertNotIn("militia", header.lower())
 
+    def test_turn_limit_restores_with_the_ordinary_policy(self):
+        restore = self.hooks.split("void RestoreAfterLoadReset() noexcept", 1)[1]
+        self.assertLess(
+            restore.index("if (!active->enabled)"),
+            restore.index("gameplay_fixes::RestoreTurnLimit(state->turnLimit)"),
+        )
+        self.assertIn(
+            "rerevved::gameplay_fixes::TurnLimitForGame() };",
+            self.hooks.split("sidecar::State captureState", 1)[1],
+        )
+
     def test_sidecar_validation_precedes_native_hash(self):
         payload = (ROOT / "src/save_sidecar.cpp").read_text(encoding="utf-8")
         reader = payload.split("std::optional<State> Read(", 1)[1].split(

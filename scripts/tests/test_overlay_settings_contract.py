@@ -56,6 +56,8 @@ class OverlaySettingsContractTests(unittest.TestCase):
                         "raging_barbarians",
                         "one_city_challenge",
                         "domination_min_turns",
+                        "turn_limit",
+                        "starting_era",
                         "ai_civilizations",
                     ],
                 ),

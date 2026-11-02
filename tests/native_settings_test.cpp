@@ -83,6 +83,8 @@ std::map<std::string, ns::FlagState> defaultFlags()
     flags["combat_speed"]         = enumState("normal", { "normal", "fast" });
     flags["resources"]            = intState("0", 0, 3);
     flags["domination_min_turns"] = enumState("10", { "10", "5" });
+    flags["turn_limit"]           = enumState("2100", { "2100", "2200", "2300", "2500", "unlimited" });
+    flags["starting_era"]         = enumState("ancient", { "ancient", "medieval", "industrial", "modern" });
     flags["ai_civilizations"]     = intState("4", 0, 6);
     for (const char* key : { "ai_research_bonus_percent", "ai_production_bonus_percent", "ai_gold_bonus_percent", "ai_food_bonus_percent", "ai_culture_bonus_percent" })
         flags[key] = intState("0", 0, 200);
@@ -270,6 +272,8 @@ TEST_CASE("native_settings_rows_keep_the_f1_order_and_captions", "[ctest][native
                                                                      "Raging Barbarians: Off",
                                                                      "One City Challenge: Off",
                                                                      "Earliest Domination: 10 Turns (3000 BC)",
+                                                                     "Turn Limit: 2100 AD",
+                                                                     "Starting Era: Ancient",
                                                                      "AI Civilizations: 4 (Default)",
                                                                      "AI Research Bonus: 0",
                                                                      "AI Production Bonus: 0",

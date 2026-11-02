@@ -172,7 +172,8 @@ sidecar::State captureState(bool manual)
              progress.firstFoundingTurn,
              progress.initialAiOpponents,
              std::move(block),
-             marker };
+             marker,
+             rerevved::gameplay_fixes::TurnLimitForGame() };
 }
 
 } // namespace
@@ -364,6 +365,7 @@ void RestoreAfterLoadReset() noexcept
             occ::RestoreForGame({ state->occEnabled, state->occPopulation });
             start_resources::RestoreForGame(state->resources);
             ai_economy::RestoreForGame(state->aiEconomy);
+            gameplay_fixes::RestoreTurnLimit(state->turnLimit);
             custom_achievements::RestoreProgress({ .occFromSetup       = state->occFromSetup,
                                                    .barbarianDefeats   = state->barbarianDefeats,
                                                    .historyKnown       = state->historyKnown,

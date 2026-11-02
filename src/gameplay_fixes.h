@@ -3,6 +3,7 @@
 // Selection and arithmetic for the gameplay fixes in gameplay_fixes_hooks.cpp,
 // kept free of guest memory so it can be tested on the host.
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <string_view>
@@ -129,6 +130,85 @@ constexpr bool SuppressBonusLookupResult(
     return ability == kGrowthBonusAbility && returnAddress == kGrowthThresholdReturn &&
            growthBaseline < kGrowthThresholdFloor;
 }
+
+// Unlimited bypasses native warning and deadline at 0x82D11378.
+constexpr int32_t                kTurnLimitNative    = 0;
+constexpr int32_t                kTurnLimitUnlimited = 4;
+constexpr std::array<int32_t, 4> kTurnLimitYears     = { 2100, 2200, 2300, 2500 };
+
+constexpr bool IsValidTurnLimit(int32_t limit) noexcept
+{
+    return limit >= kTurnLimitNative && limit <= kTurnLimitUnlimited;
+}
+
+constexpr bool ExtendsTurnLimit(int32_t limit) noexcept
+{
+    return limit > kTurnLimitNative && limit < kTurnLimitUnlimited;
+}
+
+// Accepts only the offered choices "2100", "2200", "2300", "2500" and "unlimited".
+bool ParseTurnLimit(std::string_view text, int32_t& limit) noexcept;
+
+void    RestoreTurnLimit(int32_t limit) noexcept;
+int32_t TurnLimitForGame() noexcept;
+
+// From turn 118 the calendar year is 2 * turn + 1714, so the first turn at a
+// year cap is (cap - 1714) / 2 (turn 193 is 2100 AD).
+constexpr int64_t TurnLimitCapTurn(int32_t limit) noexcept
+{
+    return (kTurnLimitYears[static_cast<size_t>(limit)] - 1714) / 2;
+}
+
+// The first turn an extended limit can end the game. Outside the scenario
+// sentinel -1 the native deadline also needs 200 turns after the start turn.
+constexpr int64_t TurnLimitDeadlineTurn(int32_t limit, int32_t scenario, int32_t startTurn) noexcept
+{
+    const int64_t cap = TurnLimitCapTurn(limit);
+    return scenario == -1 ? cap : std::max(cap, int64_t{ startTurn } + 200);
+}
+
+constexpr bool TurnLimitWarningDue(int32_t limit, int32_t scenario, int32_t startTurn, int32_t turn) noexcept
+{
+    return turn == TurnLimitDeadlineTurn(limit, scenario, startTurn) - 5;
+}
+
+constexpr bool BeforeTurnLimitYear(int32_t limit, int32_t year) noexcept
+{
+    return year < kTurnLimitYears[static_cast<size_t>(limit)];
+}
+
+// Starting Era: the native STARTERA input at Q+0x1C of the active scenario, which
+// makes the setup grant loop at 0x82D22A78 give each player 5, 14 or 24 extra
+// technologies. The index is the native value: Ancient (no override), Medieval,
+// Industrial and Modern. A game freezes one value at setup, only while native setup
+// runs; a load never applies it.
+constexpr int32_t kStartingEraNative = 0;
+constexpr int32_t kStartingEraModern = 3;
+
+constexpr bool IsValidStartingEra(int32_t era) noexcept
+{
+    return era >= kStartingEraNative && era <= kStartingEraModern;
+}
+
+// Only scenario sentinel -1 permits a new-game era override.
+constexpr bool AppliesStartingEra(int32_t era, int32_t scenario) noexcept
+{
+    return era != kStartingEraNative && scenario == -1;
+}
+
+// STARTYEAR (Q+0x3E) that the retail presets pair with each STARTERA: 1000, 1500 and
+// 1800 AD. The setup search at 0x82D24F20 advances the first turn to that year.
+constexpr int32_t StartingEraYear(int32_t era) noexcept
+{
+    constexpr int32_t kYears[] = { 0, 1000, 1500, 1800 };
+    return kYears[era];
+}
+
+// Accepts only the offered choices "ancient", "medieval", "industrial" and "modern".
+bool ParseStartingEra(std::string_view text, int32_t& era) noexcept;
+
+void    RestoreStartingEra(int32_t era) noexcept;
+int32_t StartingEraForGame() noexcept;
 
 // Domination needs currentTurn - startTurn >= 10 in the native palace-count arm.
 constexpr int32_t kNativeDominationMinimumTurns = 10;

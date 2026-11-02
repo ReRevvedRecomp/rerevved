@@ -1,6 +1,7 @@
 #include "save_sidecar.h"
 
 #include "custom_achievements.h"
+#include "gameplay_fixes.h"
 
 #include <algorithm>
 #include <array>
@@ -26,7 +27,7 @@ namespace
 {
 
 constexpr std::array<uint8_t, 4> kMagic{ 'R', 'R', 'G', 'S' };
-constexpr size_t                 kMaximumPayload = 4 + 1 + 1 + 42 + 4 + 64 + 18 + gotw::kPracticeBlockSize + 3 + 32 * 32 * 3;
+constexpr size_t                 kMaximumPayload = 4 + 1 + 1 + 42 + 4 + 64 + 19 + gotw::kPracticeBlockSize + 3 + 32 * 32 * 3;
 
 bool validIdentity(const Identity& identity)
 {
@@ -48,7 +49,7 @@ bool validState(const State& state)
            state.barbarianDefeats >= 0 && state.barbarianDefeats <= 50 && (!state.occFromSetup || state.occEnabled) &&
            state.firstFoundingTurn >= -1 && state.firstFoundingTurn <= custom_achievements::kMaximumRecordedTurn &&
            state.initialAiOpponents >= -1 && state.initialAiOpponents <= custom_achievements::kMaximumAiOpponents &&
-           (!state.practice || gotw::IsValid(*state.practice));
+           (!state.practice || gotw::IsValid(*state.practice)) && gameplay_fixes::IsValidTurnLimit(state.turnLimit);
 }
 
 } // namespace
@@ -62,7 +63,7 @@ std::vector<uint8_t> Serialize(const State& state, const Identity& identity)
     }
     std::vector<uint8_t> bytes(kMagic.begin(), kMagic.end());
     bytes.push_back(state.practice ? uint8_t{ 3 } : state.practiceMarker ? uint8_t{ 4 }
-                                                                         : uint8_t{ 2 });
+                                                                         : uint8_t{ 5 });
     bytes.push_back(static_cast<uint8_t>(identity.slot.size()));
     bytes.insert(bytes.end(), identity.slot.begin(), identity.slot.end());
     for (int shift : { 24, 16, 8, 0 })
@@ -89,6 +90,10 @@ std::vector<uint8_t> Serialize(const State& state, const Identity& identity)
     bytes.push_back(static_cast<uint8_t>(turn >> 8));
     bytes.push_back(static_cast<uint8_t>(turn));
     bytes.push_back(static_cast<uint8_t>(state.initialAiOpponents));
+    if (!state.practice && !state.practiceMarker)
+    {
+        bytes.push_back(static_cast<uint8_t>(state.turnLimit));
+    }
     if (state.practice)
     {
         gotw::AppendPracticeBlock(bytes, *state.practice);
@@ -108,8 +113,10 @@ std::optional<State> Deserialize(std::span<const uint8_t> bytes, const Identity&
     // Schema 1 has only the four setting bytes. Schema 2 adds five AI bonuses, the
     // occ-from-setup flag, Barbarian defeat count, whole-game history flags, first
     // founding turn and initial AI count. Schema 3 adds the practice block; schema 4
-    // is schema 2 plus the isolation-only practice marker, with no block.
-    const size_t stateSize = bytes[4] == 1 ? 4 : 18;
+    // is schema 2 plus the isolation-only practice marker, with no block. Schema 5
+    // is schema 2 plus the turn limit byte.
+    const size_t stateSize = bytes[4] == 1 ? 4 : bytes[4] == 5 ? 19
+                                                               : 18;
     if (slotSize != identity.slot.size() || bytes.size() < 6 + slotSize + 4 + 64 + stateSize + 3 ||
         !std::equal(identity.slot.begin(), identity.slot.end(), bytes.begin() + 6))
     {
@@ -148,6 +155,10 @@ std::optional<State> Deserialize(std::span<const uint8_t> bytes, const Identity&
         state.deepOceanEntered   = bytes[offset + 14] != 0;
         state.firstFoundingTurn  = turn == 0xFFFF ? -1 : turn;
         state.initialAiOpponents = bytes[offset + 17] == 0xFF ? -1 : bytes[offset + 17];
+    }
+    if (bytes[4] == 5)
+    {
+        state.turnLimit = bytes[offset + 18];
     }
     size_t recordsOffset = offset + stateSize;
     if (bytes[4] == 3)
@@ -205,8 +216,8 @@ std::optional<State> Read(const std::filesystem::path& nativeFile, std::string_v
     {
         return fail(ReadFailure::Unreadable);
     }
-    // A schema 3 file asserts a practice origin even if it is rejected below.
-    if (claimsPractice && bytes.size() > 4 && std::equal(kMagic.begin(), kMagic.end(), bytes.begin()) && bytes[4] >= 3)
+    // Schema 3 or 4 claims practice origin even when rejected.
+    if (claimsPractice && bytes.size() > 4 && std::equal(kMagic.begin(), kMagic.end(), bytes.begin()) && (bytes[4] == 3 || bytes[4] == 4))
     {
         *claimsPractice = true;
     }

@@ -48,6 +48,8 @@ struct RestorePolicies
     const bool                                      raging    = rerevved::raging_barbarians::Evaluate(0).enabled;
     const bool                                      standard  = rerevved::gotw::StandardRulesForGame();
     const bool                                      shortened = rerevved::gameplay_fixes::ShortenedMinimumAllowed();
+    const int32_t                                   turnLimit = rerevved::gameplay_fixes::TurnLimitForGame();
+    const int32_t                                   era       = rerevved::gameplay_fixes::StartingEraForGame();
 
     ~RestorePolicies()
     {
@@ -62,6 +64,8 @@ struct RestorePolicies
             rerevved::gameplay_fixes::NoteNewGame();
         else
             rerevved::gameplay_fixes::NoteGameLoad();
+        rerevved::gameplay_fixes::RestoreTurnLimit(turnLimit);
+        rerevved::gameplay_fixes::RestoreStartingEra(era);
     }
 };
 
@@ -100,6 +104,8 @@ TEST_CASE("host gameplay policy precedes title freezes", "[ctest][host-settings]
     settings.aiFoodBonusPercent       = 75;
     settings.aiCultureBonusPercent    = 200;
     settings.dominationMinimumTurns   = 5;
+    settings.turnLimit                = 3;
+    settings.startingEra              = 2;
     settings.gotwStandardRules        = true;
     const auto snapshot               = host::ResolveForGame(true, { rex::session_data::State::kReceived, host::Encode(settings), true }, {});
     REQUIRE(snapshot.settings);
@@ -108,6 +114,8 @@ TEST_CASE("host gameplay policy precedes title freezes", "[ctest][host-settings]
     CHECK(session::ForNetworkGame()->aiCivilizations == 2);
     CHECK(session::ForNetworkGame()->resources == 3);
     CHECK(session::ForNetworkGame()->dominationMinimumTurns == 5);
+    CHECK(rerevved::gameplay_fixes::TurnLimitForGame() == 3);
+    CHECK(rerevved::gameplay_fixes::StartingEraForGame() == 2);
     CHECK((rerevved::ai_economy::ForGame() == rerevved::ai_economy::Policy{ 50, 40, 25, 75, 200 }));
     CHECK(rerevved::occ::ForGame()->enabled);
     CHECK(rerevved::raging_barbarians::Evaluate(0).enabled);
@@ -119,8 +127,16 @@ TEST_CASE("host gameplay policy precedes title freezes", "[ctest][host-settings]
     CHECK(REXCVAR_GET(ai_food_bonus_percent) == 0);
     CHECK(REXCVAR_GET(ai_culture_bonus_percent) == 0);
 
+    const auto local = host::ResolveForGame(false, {}, settings);
+    rerevved::gameplay_fixes::RestoreStartingEra(0);
+    CHECK_FALSE(session::ApplyNewGame(local, false, 1));
+    CHECK(rerevved::gameplay_fixes::TurnLimitForGame() == 3);
+    CHECK(rerevved::gameplay_fixes::StartingEraForGame() == 2);
+
     const auto weekly = host::ResolveForGame(false, {}, settings);
     CHECK(session::ApplyNewGame(weekly, false, 2));
+    CHECK(rerevved::gameplay_fixes::TurnLimitForGame() == 0);
+    CHECK(rerevved::gameplay_fixes::StartingEraForGame() == 0);
     CHECK((rerevved::ai_economy::ForGame() == rerevved::ai_economy::Policy{}));
     CHECK_FALSE(rerevved::occ::ForGame()->enabled);
     CHECK_FALSE(rerevved::raging_barbarians::Evaluate(0).enabled);
@@ -128,8 +144,10 @@ TEST_CASE("host gameplay policy precedes title freezes", "[ctest][host-settings]
     CHECK(rerevved::gameplay_fixes::ShortenedMinimumAllowed());
 
     session::ResetOnLoad();
+    rerevved::gameplay_fixes::RestoreTurnLimit(2);
     rerevved::gameplay_fixes::NoteGameLoad();
     CHECK_FALSE(rerevved::gameplay_fixes::ShortenedMinimumAllowed());
+    CHECK(rerevved::gameplay_fixes::TurnLimitForGame() == 0);
 
     session::ResetOnLoad();
     CHECK_FALSE(session::ForNetworkGame());

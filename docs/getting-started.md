@@ -59,6 +59,10 @@ menu you came from. The settings are in tabs (General, Gameplay,
 Notifications, Online, Controls, Display and Audio); LB and RB (or PageUp and
 PageDown) switch tabs. A change applies and saves at once; the footer says
 when a setting takes effect only after a restart or in the next game.
+Gameplay also has **Turn Limit** (2100 AD by default, up to Unlimited), which
+applies to the next new game and is saved with each game, and **Starting Era**
+(Ancient by default, up to Modern), which gives every civilization extra
+technologies in the next new game.
 Game of the Week has **Allow Saving** under Gameplay, off by default; a game
 started with it on is practice and can use Save and Load.
 The Audio section also has Music, Effects, Advisor Speech and Leader Speech

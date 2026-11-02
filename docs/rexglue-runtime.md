@@ -16,7 +16,8 @@ driver never modifies that checkout.
 - [Gameplay resources](#gameplay-resources), [save sidecar](#save-sidecar),
   [Raging Barbarians](#gameplay-raging-barbarians),
   [One City Challenge](#gameplay-one-city-challenge),
-  [gameplay fixes](#gameplay-fixes) and
+  [gameplay fixes](#gameplay-fixes), [Turn Limit](#gameplay-turn-limit),
+  [Starting Era](#gameplay-starting-era) and
   [Game of the Week](#gameplay-game-of-the-week): gameplay integration limits.
 - [Custom achievements](#custom-achievements): the title-defined achievements
   and their award rules.
@@ -1273,17 +1274,19 @@ fallback, a following Normal game and GOTW Standard Rules with Legendary selecte
 ## Save sidecar
 
 `save_sidecar` (default `true`) controls whether the host stores gameplay
-state separately for each save. The payload stores schema version 2, or 3 for a Game of the Week practice save, the frozen
+state separately for each save. The payload stores schema version 5, or 3 for a Game of the Week practice save, the frozen
 Resources selection, sorted unique Balanced or Legendary identity overrides, the frozen Raging
 Barbarians boolean, the fixed One City Challenge enabled state and minimum
 population, the effective AI research, production, gold, food and culture bonus
-percentages, and custom achievement progress: whether One
+percentages, the frozen Turn Limit index (0 to 4, schema 5 only), and custom achievement progress: whether One
 City Challenge was enabled at game setup (only possible while it is enabled), the Barbarian defeat count, 0 to
 50, and the whole-game history (tracked flag, unit built, battle fought, deep
 Ocean entered, first founding turn and initial AI opponent count). Schema 1
 stores only the Resources selection, Raging Barbarians, One City Challenge and
 the identity overrides. It uses native AI values and gives no progress: One
-City Challenge not from setup, a count of 0 and untracked history. Schema 3 is
+City Challenge not from setup, a count of 0 and untracked history. Schema 2 is
+the payload before the Turn Limit and schema 5 adds its byte after the initial AI
+count; schemas 1 to 4 load the native 2100 limit. Schema 3 is
 schema 2 with one Game of the Week block inserted after the fixed state and
 before the resource identity records, written only for a manual save in a
 practice game. Schema 3 itself means a block is present: one flag byte
@@ -1297,7 +1300,7 @@ isolation-only marker, written by any save of a practice game, or of a game that
 loaded as isolated, that carries no block (an automatic save, a manual one whose
 block is unavailable, or a resave of an isolated load). It holds no week, seed,
 civilization or rules; a load that finds it claims the origin and is isolated,
-never resumed. Other games stay schema 2, and their autosaves are unchanged.
+never resumed. Other games write schema 5, and their autosaves are unchanged.
 New games freeze the effective gameplay selections, including standard GOTW
 values.
 
@@ -1930,14 +1933,93 @@ Standard Rules, where it is the one gameplay setting Standard Rules leaves in
 force. Every loaded save keeps the native 10, because saves do not record the
 setting. A network peer rejects a host payload that carries any other value.
 
+## Gameplay Turn Limit
+
+The victory evaluator `sub_82D10FD8` ends a game at the native deadline
+`0x82D11378`: the current year (`0x8312B8E0`) must reach 2100, the player's
+ranking halfword at `0x830E9200 + 32 * player` must be zero, and outside the
+scenario sentinel -1 (`0x8312B8D4`) the current turn (`0x8312B8DC`) must be 200
+or more past the start turn (`0x8312B8D8`). A five-turn warning precedes it at
+`0x82D11308`: year 2090 in an ordinary game, or elapsed turn 195 in a scenario,
+for the local player only. `turn_limit` is a string setting with the choices
+`2100` (default, native), `2200`, `2300`, `2500` and `unlimited`. F1
+**Gameplay > Turn Limit** shows them as AD years and Unlimited. It applies to the
+next new game; the game's value is frozen at `ApplyNewGame`, from the accepted
+snapshot before native setup, and a later edit changes only the next game.
+
+Five hooks in [gameplay_hooks.toml](../config/gameplay_hooks.toml) read the frozen
+value and leave every other native test, the rank gate, the scenario elapsed gate
+and the calendar conversion in place:
+
+| Address | Jumps to | Jumps when |
+|---|---|---|
+| `0x82D11304` | `0x82D1143C` | The game is Unlimited: no warning and no deadline. |
+| `0x82D11318` | `0x82D11378` | The limit is 2200, 2300 or 2500 and its warning is not due: skip both native warning tests. |
+| `0x82D11324` | `0x82D11328` | The limit is extended: skip the year-2090 inequality for the native scenario test. |
+| `0x82D11340` | `0x82D11344` | The limit is extended: skip the elapsed-195 inequality for the native scenario test. |
+| `0x82D11378` | `0x82D1143C` | The limit is extended and the year is before its cap. |
+
+The hooks read no register and write none, and each one only decides a jump
+before its native instruction, so condition registers are unchanged. With 2100
+or in Game of the Week every hook returns false and the native tests run as
+retail. The calendar gives year `2 * turn + 1714` from turn 118, so the cap turns
+are 193, 243, 293 and 393 for 2100, 2200, 2300 and 2500. An extended game's
+deadline turn is the cap turn, or in a scenario the later of the cap turn and
+the start turn plus 200; the warning is due five turns before it. In the
+sentinel scenario that is ten years before the cap. Past the cap the native
+2100 compare passes, so the rank and elapsed-200 gates still decide.
+
+Game of the Week, fresh or practice, always freezes the native limit, whatever
+the setting and Standard Rules. A new network game uses the host's frozen value
+on every peer. Loaded saves restore the limit their sidecar recorded; a save with
+no sidecar, a rejected or disabled sidecar, or one without a recorded limit
+loads with 2100, never the previous game's limit or the current setting. The
+limit is not a calendar change: dates and the turn counter use the native
+conversion, and Unlimited relies on it past 2100.
+
+## Gameplay Starting Era
+
+The setup grant loop in `sub_82D217C8` reads the active scenario Q (`0x830E8FD0`,
+in r31) halfword STARTERA at Q+0x1C (`0x830E8FEC`). The first read is `lhz r8,28(r31)`
+at `0x82D22A78`; the values 1, 2 and 3 replace each player's grant count with 5, 14
+and 24, and the grant stores the era and ownership bits natively. After a player's
+grants the loop reloads the halfword at `0x82D22BFC` through the Q pointer saved at
+frame+0x68, so a later player and the value-4 bulk path read the same field.
+`starting_era` is a string setting with the choices `ancient` (default, no
+override), `medieval`, `industrial` and `modern`, which are the native values
+0 to 3 in that order. F1 **Gameplay > Starting Era** shows them. The count is
+additional successful grants, not a fixed list or a final era; the native chooser
+still classifies eras from the acquisition tally.
+
+The value is frozen at `ApplyNewGame` from the accepted snapshot, before native
+setup, and a later edit changes only the next game. One hook in
+[gameplay_hooks.toml](../config/gameplay_hooks.toml) sits before `0x82D22A78`,
+after the join label, and takes r31. It stores the frozen value in Q+0x1C when
+the setup is an admitted new game (`SetupActive`), the scenario word `0x8312B8D4`
+is the ordinary-game sentinel -1 and the era is not Ancient. It also stores the
+start year the retail presets pair with that era in STARTYEAR, Q+0x3E: 1000 AD for
+Medieval, 1500 AD for Industrial and 1800 AD for Modern. The same setup reads it at
+`0x82D24F20`, after the grants, and advances the first turn to that year (turns 60,
+80 and 98). It writes only those halfwords and no register or condition register,
+so the native grant order and random draws are unchanged. The frozen value is cleared when native setup
+returns, successful or not, so it never applies outside that setup.
+
+A scenario keeps its authored era. Game of the Week, fresh or practice, always
+freezes the native era, whatever the setting. A new network game uses the host's
+frozen value on every peer; it is frozen before any grant draw. A load never
+writes the field and keeps the era and ownership bits the native save carries. The setting
+is not saved in the sidecar.
+
 ## Multiplayer gameplay snapshots
 
 [Online play](online-play.md#gameplay-settings-and-mods) describes the player
-settings and compatibility requirements. The version-2 title payload in
+settings and compatibility requirements. The version-5 title payload in
 [host_settings.cpp](../src/host_settings.cpp) carries AI count capped at 4,
 Resources, Raging Barbarians, OCC, the AI research, production, gold, food and
-culture bonus percentages (0 to 200), Domination minimum turns (5 or 10), Game
-of the Week selections and combat speed. The override applies to that game
+culture bonus percentages (0 to 200), Domination minimum turns (5 or 10), combat
+speed, the Turn Limit index (0 to 4), the Starting Era index (0 to 3) in the last
+header byte, and Game of the Week selections. Peers reject any other version,
+including versions 2 and 4. The override applies to that game
 and leaves local CVars unchanged.
 
 Before gameplay settings are frozen for a new game,
@@ -1945,7 +2027,7 @@ Before gameplay settings are frozen for a new game,
 `PrepareForGame` and waits up to 15 seconds for a ready authenticated snapshot.
 Lobby bytes do not satisfy this requirement. The host captures its current
 provider for each game. Joiners request that game's fresh snapshot.
-`ResolveForGame` requires ready host or received status, a valid version-2
+`ResolveForGame` requires ready host or received status, a valid version-5
 payload, complete matching package IDs and versions, and matching verified Lua
 digests when mod content is present. Old, missing, malformed, truncated or
 unverified data rejects setup without a local gameplay fallback.
@@ -2112,7 +2194,7 @@ latch followed this setup's weekly preparation, so a latch left by an earlier
 launch with the same setup address never supplies it.
 The week and the Game of the Week flag are not saved. A load clears them, and a
 practice game never sets the flag, so it earns no Game of the Week achievements. A rejected setup and a load reset
-every field to unknown (history untracked, AI count -1), and a valid schema 2 sidecar restores the saved
+every field to unknown (history untracked, AI count -1), and a valid schema 2 or 5 sidecar restores the saved
 fields. A game loaded from a schema 1 sidecar or without a sidecar never
 qualifies for a whole-game achievement. The first founding turn keeps only the
 first city.

@@ -15,10 +15,11 @@
 namespace rerevved::save_sidecar
 {
 
-// Schema 2 is the ordinary payload. Schema 3 appends a practice block, written
-// only for a Game of the Week practice save. Schema 4 is the ordinary payload
-// marked isolation-only, written for a practice or isolated game's other saves.
-constexpr uint8_t kSchemaVersion = 4;
+// Schema 2 is the ordinary payload and schema 5 adds the turn limit to it. Schema 3
+// appends a practice block, written only for a Game of the Week practice save.
+// Schema 4 is the ordinary payload marked isolation-only, written for a practice or
+// isolated game's other saves. Schemas 1 to 4 carry no turn limit and load the native one.
+constexpr uint8_t kSchemaVersion = 5;
 
 struct State
 {
@@ -37,11 +38,10 @@ struct State
     int32_t                               firstFoundingTurn  = -1;
     int32_t                               initialAiOpponents = -1;
     std::optional<gotw::PracticeBlock>    practice;
-    // Schema 4: a save made during a practice game, or a game loaded as isolated,
-    // that is not a resumable practice save. It carries no practice policy; it only
-    // claims the origin so the load is isolated. Not set together with a block.
-    bool practiceMarker                 = false;
-    bool operator==(const State&) const = default;
+    // Schema 4 isolates non-resumable practice/isolated saves by origin only; exclusive with a practice block.
+    bool    practiceMarker                 = false;
+    int32_t turnLimit                      = 0; // gameplay_fixes turn limit index, schema 5 only.
+    bool    operator==(const State&) const = default;
 };
 
 struct Identity
@@ -64,8 +64,7 @@ enum class ReadFailure
 std::vector<uint8_t>  Serialize(const State& state, const Identity& identity);
 std::optional<State>  Deserialize(std::span<const uint8_t> bytes, const Identity& identity);
 std::filesystem::path SidecarPath(const std::filesystem::path& nativeFile);
-// claimsPractice is set when the sidecar file is schema 3 or later, whether or not
-// it validates or matches the native file: it still asserts a Game of the Week origin.
+// claimsPractice marks a schema 3 or 4 Game of the Week origin even if invalid or mismatched.
 std::optional<State> Read(const std::filesystem::path& nativeFile, std::string_view slot, uint32_t device, ReadFailure* failure = nullptr, bool* claimsPractice = nullptr);
 bool                 Save(bool nativeSuccess, const std::filesystem::path& nativeFile, std::string_view slot, uint32_t device, const State& state);
 

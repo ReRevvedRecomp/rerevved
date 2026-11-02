@@ -180,7 +180,7 @@ class OccContractTests(unittest.TestCase):
     def test_title_checkbox_and_ingress(self):
         overlay = (ROOT / "src/overlay_settings.cpp").read_text(encoding="utf-8")
         for entry in (
-            '{ "", { "combat_speed", "resources", "raging_barbarians", "one_city_challenge", "domination_min_turns", "ai_civilizations" } }',
+            '{ "", { "combat_speed", "resources", "raging_barbarians", "one_city_challenge", "domination_min_turns", "turn_limit", "starting_era", "ai_civilizations" } }',
             '{ "one_city_challenge", Audience::kPlayer }',
             '{ "one_city_challenge", "One City Challenge" }',
         ):

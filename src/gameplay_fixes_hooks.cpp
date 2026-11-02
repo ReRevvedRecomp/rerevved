@@ -60,6 +60,19 @@ constexpr int32_t kDominationPlayerSlots = 8;
 
 std::array<std::atomic<int64_t>, kDominationPlayerSlots> dominationCapitalsLastKey{ { -1, -1, -1, -1, -1, -1, -1, -1 } };
 
+// Calendar globals read by the native deadline code.
+constexpr uint32_t kScenario    = 0x8312B8D4;
+constexpr uint32_t kStartTurn   = 0x8312B8D8;
+constexpr uint32_t kCurrentTurn = 0x8312B8DC;
+constexpr uint32_t kCurrentYear = 0x8312B8E0;
+
+int32_t calendarWord(uint32_t address)
+{
+    uint32_t value = 0;
+    readGuestU32(address, value);
+    return static_cast<int32_t>(value);
+}
+
 // One bit per player/opponent pair, so each admission logs once per process.
 std::atomic<uint64_t> nuclearPairsLogged{ 0 };
 
@@ -206,6 +219,51 @@ bool AdmitAiNuclearOpponent(PPCRegister& player, PPCRegister& opponent, PPCRegis
         }
     }
     return admitted;
+}
+
+bool SkipUnlimitedTurnDeadline()
+{
+    return rerevved::gameplay_fixes::TurnLimitForGame() == rerevved::gameplay_fixes::kTurnLimitUnlimited;
+}
+
+bool SkipTurnLimitWarning()
+{
+    namespace gf        = rerevved::gameplay_fixes;
+    const int32_t limit = gf::TurnLimitForGame();
+    return gf::ExtendsTurnLimit(limit) &&
+           !gf::TurnLimitWarningDue(limit, calendarWord(kScenario), calendarWord(kStartTurn), calendarWord(kCurrentTurn));
+}
+
+// Bypasses the year 2090 and elapsed 195 tests; scenario tests still apply.
+bool AdmitExtendedTurnLimitWarning()
+{
+    return rerevved::gameplay_fixes::ExtendsTurnLimit(rerevved::gameplay_fixes::TurnLimitForGame());
+}
+
+// From the extended cap on, the native 2100 test, rank gate and scenario 200-turn test apply.
+bool SkipExtendedTurnLimitDeadline()
+{
+    namespace gf        = rerevved::gameplay_fixes;
+    const int32_t limit = gf::TurnLimitForGame();
+    return gf::ExtendsTurnLimit(limit) && gf::BeforeTurnLimitYear(limit, calendarWord(kCurrentYear));
+}
+
+// r31 is scenario Q: Q+0x1C is STARTERA, Q+0x3E STARTYEAR (setup reads it after grants).
+// Only new-game scenario -1 takes the frozen era.
+void ApplyStartingEra(PPCRegister& r31)
+{
+    namespace gf      = rerevved::gameplay_fixes;
+    const int32_t era = gf::StartingEraForGame();
+    if (rerevved::gameplay_session::SetupActive() && gf::AppliesStartingEra(era, calendarWord(kScenario)))
+    {
+        auto* field         = REX_KERNEL_MEMORY()->TranslateVirtual<uint8_t*>(r31.u32 + 0x1C);
+        field[0]            = static_cast<uint8_t>(era >> 8);
+        field[1]            = static_cast<uint8_t>(era);
+        const int32_t year  = gf::StartingEraYear(era);
+        auto*         start = REX_KERNEL_MEMORY()->TranslateVirtual<uint8_t*>(r31.u32 + 0x3E);
+        start[0]            = static_cast<uint8_t>(year >> 8);
+        start[1]            = static_cast<uint8_t>(year);
+    }
 }
 
 // Before cmpwi cr6,r9,10 at 0x82D11264; r9 is the elapsed turn count and is
