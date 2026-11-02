@@ -1,17 +1,15 @@
 #pragma once
 
-// The Mods page's Maps tab edits the map packs in <exe>/maps with the same
-// model as the Assets tab (mods_list::Model). The runtime keeps no maps
-// catalog, so this module scans the folder and reads and writes the profile's
-// map_order.txt itself through the SDK's order-file functions. Pure apart from
-// the file system; the page owns the model and the timing.
+// Uses mods_list::Model for <exe>/maps; SDK I/O owns profile map_order.txt, the page owns the model and timing.
 
 #include <filesystem>
+#include <functional>
 #include <span>
 #include <string>
 #include <vector>
 
 #include <rex/system/asset_overlay_loadout.h>
+#include <rex/ui/overlay/asset_overlay_manager.h>
 
 #include "mods_list.h"
 
@@ -43,5 +41,8 @@ rex::system::AssetOverlayLoadoutSelection Validate(const rex::system::AssetOverl
 
 // Writes map_order.txt (never asset_order.txt).
 rex::system::AssetOverlayLoadoutApplyResult Apply(const rex::system::AssetOverlayCatalog& catalog, const std::filesystem::path& profileRoot, std::span<const std::string> ids, bool replaceInvalidCurrent);
+
+// Shares F2's Read, Validate, Apply and restart rules; discover scans at creation and each Rescan.
+rex::ui::AssetOverlayLoadoutSource MakeLoadoutSource(std::filesystem::path profileRoot, std::vector<std::string> startupOrder, std::function<rex::system::AssetOverlayCatalog()> discover);
 
 } // namespace rerevved::maps_tab

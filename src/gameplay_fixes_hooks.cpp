@@ -80,7 +80,6 @@ std::atomic<uint64_t> nuclearPairsLogged{ 0 };
 
 std::atomic<int32_t>  spaceshipTag{ -1 };
 std::atomic<uint32_t> spaceshipFrames{ 0 };
-std::atomic<bool>     spaceshipRedirected{ false };
 std::atomic<bool>     spaceshipFallbackLogged{ false };
 
 bool tagsActor(PPCRegister& owner, PPCRegister& slot)
@@ -292,14 +291,12 @@ void ApplyMultiplayerAiDifficulty(PPCRegister& r11)
 //
 // At 0x82D1DEE8, past the beq on a failed (-1) request: r21 is the part owner and
 // r29 the returned slot. Tags the actor when the preference is on: a network game
-// plays the host's frozen value, any other game the live preference. A network game
-// without a host snapshot (a loaded multiplayer save) stays native on every peer.
+// plays the host's frozen value, any other game the live preference.
 void TagSpaceshipActor(PPCRegister& owner, PPCRegister& slot)
 {
-    namespace gf       = rerevved::gameplay_fixes;
-    const auto host    = rerevved::gameplay_session::ForNetworkGame();
-    const bool network = *REX_KERNEL_MEMORY()->TranslateVirtual<uint8_t*>(rerevved::ai_civilizations::kNetworkGameByte) != 0;
-    const bool skip    = host ? host->skipSpaceshipScenes : !network && REXCVAR_GET(skip_spaceship_scenes);
+    namespace gf    = rerevved::gameplay_fixes;
+    const auto host = rerevved::gameplay_session::ForNetworkGame();
+    const bool skip = host ? host->skipSpaceshipScenes : REXCVAR_GET(skip_spaceship_scenes);
     if (!skip)
     {
         return;
@@ -307,9 +304,8 @@ void TagSpaceshipActor(PPCRegister& owner, PPCRegister& slot)
     const int32_t index = gf::SpaceshipActorIndex(owner.s32, slot.s32);
     spaceshipTag.store(index, std::memory_order_relaxed);
     spaceshipFrames.store(0, std::memory_order_relaxed);
-    spaceshipRedirected.store(false, std::memory_order_relaxed);
     spaceshipFallbackLogged.store(false, std::memory_order_relaxed);
-    REXLOG_INFO("[spaceship] tag owner={} slot={} index={} network={}", owner.s32, slot.s32, index, host ? 1 : 0);
+    REXLOG_INFO("[spaceship] tag owner={} slot={} index={}", owner.s32, slot.s32, index);
 }
 
 void UntagSpaceshipActor(PPCRegister& owner, PPCRegister& slot)
@@ -317,11 +313,10 @@ void UntagSpaceshipActor(PPCRegister& owner, PPCRegister& slot)
     if (tagsActor(owner, slot))
     {
         REXLOG_INFO(
-            "[spaceship] untag owner={} slot={} suppressed_frames={} finish_redirected={}",
+            "[spaceship] untag owner={} slot={} suppressed_frames={}",
             owner.s32,
             slot.s32,
-            spaceshipFrames.load(std::memory_order_relaxed),
-            spaceshipRedirected.load(std::memory_order_relaxed) ? 1 : 0);
+            spaceshipFrames.load(std::memory_order_relaxed));
         spaceshipTag.store(-1, std::memory_order_relaxed);
     }
 }
@@ -354,7 +349,6 @@ bool FinishSpaceshipEarly(PPCRegister& owner, PPCRegister& slot, PPCRegister& pr
     const bool finish = rerevved::gameplay_fixes::FinishesSpaceshipEarly(previousTime.s32);
     if (finish)
     {
-        spaceshipRedirected.store(true, std::memory_order_relaxed);
         REXLOG_INFO("[spaceship] finish redirect previous_time={} frames={}", previousTime.s32, spaceshipFrames.load(std::memory_order_relaxed));
     }
     else if (!spaceshipFallbackLogged.exchange(true, std::memory_order_relaxed))

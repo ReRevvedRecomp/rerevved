@@ -45,10 +45,10 @@ To use a code instead:
 2. Paste the complete RXR1-... code into Invite Code. Click outside the field
    or press Enter to apply it. Keep Direct LAN off when using an invite.
 3. Select Save at the bottom, exit the game, and start it again.
-4. Check Status at the top of F1 > Online. After a few seconds it should read
+4. Check Connection Status in F1 > Online. After a few seconds it should read
    "Relay: connected as 198.18.x.y".
 
-Optional settings: Player Name accepts 1-15 characters: letters, digits,
+Optional settings: Profile Name accepts 1-15 characters: letters, digits,
 spaces, hyphens, underscores, or periods. Empty gives Player-XXXX.
 Peer-to-Peer lets two players who enable it try a direct connection with
 relay fallback. A random player identity is created and saved automatically
@@ -109,7 +109,7 @@ WHAT TO REPORT
 
 Report exact Status text, approximate time, what you tried, what happened,
 package version, and whether you hosted or joined.
-F1 > Gameplay > Support > Open Log Folder opens game logs. The second copy's
+F1 > General > Open Log Folder opens game logs. The second copy's
 logs are in profiles\second\logs. Hosts can also provide relay.log from the
 relay folder above. Never share relay-secret.txt or invite codes publicly.
 Check screenshots and attachments for codes before sharing.

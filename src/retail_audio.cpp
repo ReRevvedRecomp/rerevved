@@ -17,16 +17,6 @@ REXCVAR_DEFINE_INT32(retail_leader_volume, -1, "ReRevved", "Leader speech volume
 namespace rerevved::retail_audio
 {
 
-std::optional<size_t> ChannelOfCvar(std::string_view name)
-{
-    for (size_t i = 0; i < kChannels.size(); ++i)
-    {
-        if (kChannels[i].cvar == name)
-            return i;
-    }
-    return std::nullopt;
-}
-
 bool IsPosition(int value)
 {
     return value >= kMinPosition && value <= kMaxPosition;
@@ -236,6 +226,33 @@ LiveStore& Live()
 {
     static LiveStore store;
     return store;
+}
+
+namespace
+{
+
+void onOverrideChanged(size_t channel)
+{
+    PublishOverrides();
+    const int position = OverrideOf(channel);
+    if (position != kNoOverride)
+    {
+        Queue().Post(channel, position);
+        Live().RequestRefresh();
+    }
+}
+
+} // namespace
+
+void RegisterChangeCallbacks()
+{
+    for (size_t i = 0; i < kChannels.size(); ++i)
+    {
+        rex::cvar::RegisterChangeCallback(kChannels[i].cvar, [i](std::string_view, std::string_view)
+                                          {
+                                              onOverrideChanged(i);
+                                          });
+    }
 }
 
 } // namespace rerevved::retail_audio

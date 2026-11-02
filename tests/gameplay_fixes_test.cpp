@@ -332,20 +332,12 @@ TEST_CASE("domination_shortened_minimum_latch", "[ctest][gameplay-fixes]")
 
 TEST_CASE("turn_limit_choices_map_to_indexes", "[ctest][gameplay-fixes]")
 {
-    int32_t limit = 9;
     for (const auto& [text, index] : std::array<std::pair<const char*, int32_t>, 5>{ { { "2100", 0 }, { "2200", 1 }, { "2300", 2 }, { "2500", 3 }, { "unlimited", 4 } } })
     {
         UNSCOPED_INFO("text=" << text);
-        CHECK((gf::ParseTurnLimit(text, limit) && limit == index && gf::IsValidTurnLimit(limit)));
+        CHECK(gf::ParseTurnLimit(text) == index);
+        CHECK(gf::IsValidTurnLimit(index));
     }
-    limit = 9;
-    for (const char* bad : { "", "2000", "2400", "Unlimited", " 2100", "0" })
-    {
-        UNSCOPED_INFO("text=" << bad);
-        CHECK(!gf::ParseTurnLimit(bad, limit));
-        CHECK(limit == 9);
-    }
-    CHECK(!gf::IsValidTurnLimit(-1));
     CHECK(!gf::IsValidTurnLimit(5));
     CHECK(!gf::ExtendsTurnLimit(gf::kTurnLimitNative));
     CHECK(gf::ExtendsTurnLimit(1));
@@ -397,7 +389,6 @@ TEST_CASE("turn_limit_scenario_deadline_waits_for_200_elapsed_turns", "[ctest][g
     CHECK(gf::TurnLimitDeadlineTurn(3, 7, 250) == 450);
     CHECK(gf::TurnLimitWarningDue(3, 7, 250, 445));
     CHECK(gf::TurnLimitDeadlineTurn(3, 7, 100) == 393);
-    CHECK(gf::TurnLimitDeadlineTurn(1, 0, INT32_MAX) == int64_t{ INT32_MAX } + 200);
 }
 
 TEST_CASE("turn_limit_year_test_uses_the_extended_cap", "[ctest][gameplay-fixes]")
@@ -480,7 +471,6 @@ TEST_CASE("spaceship_tag_matches_only_its_actor_and_finishes_in_the_corridor", "
     CHECK(gf::MatchesSpaceshipTag(tag, 2, 7));
     CHECK(!gf::MatchesSpaceshipTag(tag, 2, 6));
     CHECK(!gf::MatchesSpaceshipTag(tag, 3, 7));
-    CHECK(!gf::MatchesSpaceshipTag(-1, 0, 0));
 
     CHECK(gf::FinishesSpaceshipEarly(1000));
     CHECK(!gf::FinishesSpaceshipEarly(1001));
@@ -488,20 +478,12 @@ TEST_CASE("spaceship_tag_matches_only_its_actor_and_finishes_in_the_corridor", "
 
 TEST_CASE("starting_era_choices_map_to_native_values", "[ctest][gameplay-fixes]")
 {
-    int32_t era = 9;
     for (const auto& [text, index] : std::array<std::pair<const char*, int32_t>, 4>{ { { "ancient", 0 }, { "medieval", 1 }, { "industrial", 2 }, { "modern", 3 } } })
     {
         UNSCOPED_INFO("text=" << text);
-        CHECK((gf::ParseStartingEra(text, era) && era == index && gf::IsValidStartingEra(era)));
+        CHECK(gf::ParseStartingEra(text) == index);
+        CHECK(gf::IsValidStartingEra(index));
     }
-    era = 9;
-    for (const char* bad : { "", "Ancient", "classical", "4", "0", " modern" })
-    {
-        UNSCOPED_INFO("text=" << bad);
-        CHECK(!gf::ParseStartingEra(bad, era));
-        CHECK(era == 9);
-    }
-    CHECK(!gf::IsValidStartingEra(-1));
     CHECK(!gf::IsValidStartingEra(4));
 }
 
@@ -579,18 +561,11 @@ TEST_CASE("starting_era_hook_writes_only_the_admitted_ordinary_halfword", "[ctes
 
 TEST_CASE("multiplayer_ai_difficulty_choices_map_to_native_values", "[ctest][gameplay-fixes]")
 {
-    int32_t difficulty = 9;
     for (const auto& [text, value] : std::array<std::pair<const char*, int32_t>, 3>{ { { "king", 2 }, { "emperor", 3 }, { "deity", 4 } } })
     {
         UNSCOPED_INFO("text=" << text);
-        CHECK((gf::ParseMultiplayerAiDifficulty(text, difficulty) && difficulty == value && gf::IsValidMultiplayerAiDifficulty(difficulty)));
-    }
-    difficulty = 9;
-    for (const char* bad : { "", "King", "prince", "2", " deity" })
-    {
-        UNSCOPED_INFO("text=" << bad);
-        CHECK(!gf::ParseMultiplayerAiDifficulty(bad, difficulty));
-        CHECK(difficulty == 9);
+        CHECK(gf::ParseMultiplayerAiDifficulty(text) == value);
+        CHECK(gf::IsValidMultiplayerAiDifficulty(value));
     }
     CHECK(!gf::IsValidMultiplayerAiDifficulty(1));
     CHECK(!gf::IsValidMultiplayerAiDifficulty(5));

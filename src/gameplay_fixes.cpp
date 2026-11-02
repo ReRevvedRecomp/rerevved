@@ -29,8 +29,15 @@ namespace
 std::atomic<bool>    shortenedAllowed{ false };
 std::atomic<int32_t> restoredMinimum{ 0 };
 std::atomic<int32_t> turnLimit{ kTurnLimitNative };
-std::atomic<int32_t> startingEra{ kStartingEraNative };
-std::atomic<int32_t> multiplayerAiDifficulty{ kMultiplayerAiDifficultyNative };
+// Written and read on the single setup thread.
+int32_t startingEra             = kStartingEraNative;
+int32_t multiplayerAiDifficulty = kMultiplayerAiDifficultyNative;
+
+template <size_t N>
+int32_t indexOf(const std::array<std::string_view, N>& names, std::string_view text) noexcept
+{
+    return static_cast<int32_t>(std::ranges::find(names, text) - names.begin());
+}
 
 } // namespace
 
@@ -67,60 +74,42 @@ int32_t TurnLimitForGame() noexcept
     return turnLimit.load(std::memory_order_relaxed);
 }
 
-bool ParseTurnLimit(std::string_view text, int32_t& limit) noexcept
+int32_t ParseTurnLimit(std::string_view text) noexcept
 {
     constexpr std::array<std::string_view, 5> names = { "2100", "2200", "2300", "2500", "unlimited" };
-    const auto                                found = std::ranges::find(names, text);
-    if (found == names.end())
-    {
-        return false;
-    }
-    limit = static_cast<int32_t>(found - names.begin());
-    return true;
+    return indexOf(names, text);
 }
 
 void RestoreStartingEra(int32_t era) noexcept
 {
-    startingEra.store(era, std::memory_order_relaxed);
+    startingEra = era;
 }
 
 int32_t StartingEraForGame() noexcept
 {
-    return startingEra.load(std::memory_order_relaxed);
+    return startingEra;
 }
 
-bool ParseStartingEra(std::string_view text, int32_t& era) noexcept
+int32_t ParseStartingEra(std::string_view text) noexcept
 {
     constexpr std::array<std::string_view, 4> names = { "ancient", "medieval", "industrial", "modern" };
-    const auto                                found = std::ranges::find(names, text);
-    if (found == names.end())
-    {
-        return false;
-    }
-    era = static_cast<int32_t>(found - names.begin());
-    return true;
+    return indexOf(names, text);
 }
 
 void RestoreMultiplayerAiDifficulty(int32_t difficulty) noexcept
 {
-    multiplayerAiDifficulty.store(difficulty, std::memory_order_relaxed);
+    multiplayerAiDifficulty = difficulty;
 }
 
 int32_t MultiplayerAiDifficultyForGame() noexcept
 {
-    return multiplayerAiDifficulty.load(std::memory_order_relaxed);
+    return multiplayerAiDifficulty;
 }
 
-bool ParseMultiplayerAiDifficulty(std::string_view text, int32_t& difficulty) noexcept
+int32_t ParseMultiplayerAiDifficulty(std::string_view text) noexcept
 {
     constexpr std::array<std::string_view, 3> names = { "king", "emperor", "deity" };
-    const auto                                found = std::ranges::find(names, text);
-    if (found == names.end())
-    {
-        return false;
-    }
-    difficulty = kMultiplayerAiDifficultyNative + static_cast<int32_t>(found - names.begin());
-    return true;
+    return kMultiplayerAiDifficultyNative + indexOf(names, text);
 }
 
 bool ShortenedMinimumAllowed() noexcept

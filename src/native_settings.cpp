@@ -42,10 +42,7 @@ struct Spec
     Applies                           applies;
     std::string_view                  label;
     std::span<const std::string_view> presets;
-    // The page's tab for the row when it differs from the F1 layout's (the row
-    // follows the last of that tab's rows); empty: the layout's tab.
-    std::string_view  tab;
-    text_entry::Rules rules;
+    text_entry::Rules                 rules;
 };
 
 namespace
@@ -60,7 +57,6 @@ constexpr size_t kInviteMaxLength = 1024;
 
 constexpr std::array<std::string_view, 7> kCategoryNames{ "General", "Gameplay", "Notifications", "Online", "Controls", "Display", "Audio" };
 
-// The ordinary settings by name. Category and order come from the F1 layout.
 constexpr auto kSpecs = std::to_array<Spec>({
     { "combat_speed", Kind::kEnum, Applies::kLive, {}, {} },
     { "skip_spaceship_scenes", Kind::kBool, Applies::kLive, {}, {} },
@@ -103,10 +99,9 @@ constexpr auto kSpecs = std::to_array<Spec>({
     { "hide_barbarian_messages", Kind::kBool, Applies::kLive, {}, {} },
     { "hide_popup_trophy_room", Kind::kBool, Applies::kLive, {}, {} },
 
-    // F1 words these "Status" and "Player Name"; the combined screen is clearer.
-    { "system_link_status", Kind::kStatus, Applies::kLive, "Connection Status", {} },
-    { "system_link_profile_name", Kind::kText, Applies::kLive, "Profile Name", {}, {}, { 15, text_entry::Charset::kName } },
-    { "system_link_invite", Kind::kSecret, Applies::kLive, {}, {}, {}, { kInviteMaxLength, text_entry::Charset::kInvite } },
+    { "system_link_status", Kind::kStatus, Applies::kLive, {}, {} },
+    { "system_link_profile_name", Kind::kText, Applies::kLive, {}, {}, { 15, text_entry::Charset::kName } },
+    { "system_link_invite", Kind::kSecret, Applies::kLive, {}, {}, { kInviteMaxLength, text_entry::Charset::kInvite } },
     { "system_link_lan_enabled", Kind::kBool, Applies::kLive, {}, {} },
     { "system_link_direct", Kind::kBool, Applies::kLive, {}, {} },
     { "live_sessions", Kind::kBool, Applies::kLive, {}, {} },
@@ -131,8 +126,7 @@ constexpr auto kSpecs = std::to_array<Spec>({
     { "show_fps_counter", Kind::kBool, Applies::kLive, {}, {} },
     { "skip_intro_movie", Kind::kBool, Applies::kLive, {}, {} },
     { "game_language", Kind::kLabeledInt, Applies::kLive, {}, {} },
-    // F1 lists this under Gameplay > Support.
-    { "open_log_folder", Kind::kAction, Applies::kLive, {}, {}, "General" },
+    { "open_log_folder", Kind::kAction, Applies::kLive, {}, {} },
 
     { "audio_volume", Kind::kPresetInt, Applies::kLive, {}, kVolumePresets },
     { "audio_mute", Kind::kBool, Applies::kLive, {}, {} },
@@ -677,11 +671,7 @@ void appendBinds(Services& services, OptionSection& section, Language language)
     }
 }
 
-// The four retail volumes, after the Audio rows the
-// layout lists. They are not in the F1 layout, which stays as it is; the text
-// comes from its labels and tooltips. A volume shows its override when one is
-// set, else the live game value, else it is unavailable. A volume cvar the
-// registry does not report leaves its row out.
+// Each volume: override, else live value, else unavailable; missing cvars are omitted.
 void appendRetailAudio(Services& services, const LiveVolumes& live, OptionSection& section, Language language)
 {
     const auto& layout = services.Layout();
@@ -814,22 +804,12 @@ void OptionsModel::rebuild()
             {
                 for (const auto& source : group.sources)
                 {
-                    // A row with a home tab of its own appears only there.
-                    const Spec* spec = findSpec(source);
-                    if (spec && !spec->tab.empty() && spec->tab != name)
-                        continue;
                     addRow(source, group.title);
                 }
             }
         }
         if (name == "Controls")
             appendBinds(services_, section, language_);
-        // Rows the layout keeps in another tab come last in theirs.
-        for (const auto& spec : kSpecs)
-        {
-            if (spec.tab == name)
-                addRow(std::string(spec.key), std::string());
-        }
         if (name == "Audio")
             appendRetailAudio(services_, live, section, language_);
         if (!section.rows.empty())

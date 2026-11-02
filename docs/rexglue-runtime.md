@@ -609,11 +609,11 @@ leaves out Week while Custom Week is off and Civilization while Custom
 Civilization is off. Keybinds and developer entries stay in F1.
 
 Four rows are not choices. They are curated in `src/native_settings.cpp` like
-the rest, with kinds of their own, and F1's layout is unchanged:
+the rest, with kinds of their own; F1 and this page read one layout:
 
 | Tab | Row | Setting | Kind |
 |---|---|---|---|
-| General (last) | Open Log Folder | `open_log_folder` | Action: the value column holds an Open button (A glyph); A, or a click on the button, runs the command once, and nothing is saved. F1 keeps it under Gameplay > Support; the combined screen places it in General (`Spec::tab`). |
+| General (last) | Open Log Folder | `open_log_folder` | Action: the value column holds an Open button (A glyph); A, or a click on the button, runs the command once, and nothing is saved. F1 lists it in General too. |
 | Online (top) | Connection Status | `system_link_status` | Read-only text, read again about twice a second while the page is shown. The words are the SDK's own (English). A does nothing. |
 | Online (top) | Profile Name | `system_link_profile_name` | Text: A opens the text entry. Up to 15 letters, digits, spaces, `-`, `_` or `.`. Restart-only. An empty name reads "Default". |
 | Online > Connection | Invite Code | `system_link_invite` | Text: A opens the text entry. Letters, digits, `-` and spaces (the SDK ignores separators inside a code), up to 1024 characters; a canonical code is at most 580. Restart-only. The row reads only "Set" or "Not set", beside a Paste button (X, Ctrl+V) and a Copy button (Y, Ctrl+C); the footer lists both while the row is highlighted. |
@@ -904,8 +904,9 @@ Layout is in multiples of the font size, which follows the window height
 **Retail audio rows.** The Audio section ends with Music Volume, Effects
 Volume, Advisor Speech Volume and Leader Speech Volume (positions shown as the
 digits 0 to 9, as the retail dots). Their labels and tooltips sit in
-`ConfigureSettingsLayout` with the others, but they are not in the F1 layout, so
-F1 is unchanged. Each volume is a persistent integer cvar (`retail_music_volume`,
+`ConfigureSettingsLayout` with the others, and F1 lists the same four rows as
+choices (Game Default, then 0 to 9; F1 cannot show the live game value, and a
+cvar change callback applies its edits). Each volume is a persistent integer cvar (`retail_music_volume`,
 `retail_effects_volume`, `retail_advisor_volume`, `retail_leader_volume`; range
 -1..9, default -1) saved to `rerevved.toml` through `ApplyAndSave`, so the
 footer notes are the usual applied and unsaved ones. -1 means no override: the
@@ -2003,8 +2004,7 @@ start year the retail presets pair with that era in STARTYEAR, Q+0x3E: 1000 AD f
 Medieval, 1500 AD for Industrial and 1800 AD for Modern. The same setup reads it at
 `0x82D24F20`, after the grants, and advances the first turn to that year (turns 60,
 80 and 98). It writes only those halfwords and no register or condition register,
-so the native grant order and random draws are unchanged. The frozen value is cleared when native setup
-returns, successful or not, so it never applies outside that setup.
+so the native grant order and random draws are unchanged.
 
 A scenario keeps its authored era. Game of the Week, fresh or practice, always
 freezes the native era, whatever the setting. A new network game uses the host's
@@ -2024,7 +2024,7 @@ them natively.
 
 `multiplayer_ai_difficulty` is a string setting with the choices `king` (default),
 `emperor` and `deity`, which are the native values 2, 3 and 4. F1
-**Gameplay > AI Difficulty (Multiplayer)** shows them. One hook in
+**Online > AI Difficulty (Multiplayer)** shows them. One hook in
 [gameplay_hooks.toml](../config/gameplay_hooks.toml) sits before `0x82D221EC` and
 takes r11. It replaces the literal 2 with the frozen value while `SetupActive` is
 true, and leaves it otherwise. r11 is dead after the store: the call to
@@ -2077,8 +2077,7 @@ Resources, Raging Barbarians, OCC, the AI research, production, gold, food and
 culture bonus percentages (0 to 200), Domination minimum turns (5 or 10), combat
 speed, the Turn Limit index (0 to 4), the Starting Era index (0 to 3), the
 multiplayer AI difficulty (2, 3 or 4), the spaceship scene skip (0 or 1) in the
-last header byte, and Game of the Week selections. Peers reject any other version,
-including versions 2, 4, 5 and 6.
+last header byte, and Game of the Week selections. Peers reject any other version.
 The override applies to that game and leaves local CVars unchanged.
 
 Before gameplay settings are frozen for a new game,
@@ -2449,8 +2448,8 @@ startup, so edits made in a running session apply at the next launch.
 
 | Group | Row | Setting | Meaning |
 |---|---|---|---|
-| (top) | Status | `system_link_status` | Read-only connection status for this session |
-| (top) | Player Name | `system_link_profile_name` | Optional player name, up to 15 letters, digits, spaces, `-`, `_` or `.` |
+| (top) | Connection Status | `system_link_status` | Read-only connection status for this session |
+| (top) | Profile Name | `system_link_profile_name` | Optional player name, up to 15 letters, digits, spaces, `-`, `_` or `.` |
 | Connection | Invite Code | `system_link_invite` | Invite code from the relay host; a nonempty code selects relay mode |
 | Connection | Direct LAN | `system_link_lan_enabled` | Direct LAN mode; cannot be combined with an invite |
 | Connection | Peer-to-Peer | `system_link_direct` | Direct UDP to other relay players, with the relay as fallback; off by default, relay mode only |

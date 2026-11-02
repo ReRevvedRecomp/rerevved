@@ -104,18 +104,6 @@ HostSettings Normalize(HostSettings settings, bool networkGame)
         settings.dominationMinimumTurns = 10;
     }
     settings.combatSpeed = settings.combatSpeed == 1 ? 1 : 0;
-    if (!gameplay_fixes::IsValidTurnLimit(settings.turnLimit))
-    {
-        settings.turnLimit = gameplay_fixes::kTurnLimitNative;
-    }
-    if (!gameplay_fixes::IsValidStartingEra(settings.startingEra))
-    {
-        settings.startingEra = gameplay_fixes::kStartingEraNative;
-    }
-    if (!gameplay_fixes::IsValidMultiplayerAiDifficulty(settings.multiplayerAiDifficulty))
-    {
-        settings.multiplayerAiDifficulty = gameplay_fixes::kMultiplayerAiDifficultyNative;
-    }
     if (!settings.gotwCustomWeek || !gotw::IsValidWeek(settings.gotwWeek))
     {
         settings.gotwCustomWeek = false;

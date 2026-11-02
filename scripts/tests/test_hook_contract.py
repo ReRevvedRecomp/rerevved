@@ -3219,7 +3219,7 @@ class HookContractTests(unittest.TestCase):
         )
         self.assertRegex(
             settings,
-            r'\{ "", \{ [^}]*"turn_limit", "starting_era", "ai_civilizations", "multiplayer_ai_difficulty" \} \}',
+            r'\{ "", \{ [^}]*"turn_limit", "starting_era", "ai_civilizations" \} \}',
         )
         self.assertIn('{ "ai_civilizations", Audience::kPlayer }', settings)
         self.assertEqual(settings.count('"ai_civilizations"'), 5)

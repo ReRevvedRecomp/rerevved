@@ -264,8 +264,6 @@ TEST_CASE("native_settings_rows_keep_the_f1_order_and_captions", "[ctest][native
     FakeServices     services;
     ns::OptionsModel model(services);
 
-    // The game language row needs its flag; the other three General rows do not.
-    // The log folder action follows the F1 General rows (F1 keeps it under Gameplay).
     CHECK(captionsOf(model, "General") == std::vector<std::string>{ "FPS Counter: Off", "Skip Intro: Off", "Open Log Folder: Open" });
 
     CHECK(captionsOf(model, "Gameplay") == std::vector<std::string>{ "Combat Speed: Normal",
@@ -276,7 +274,6 @@ TEST_CASE("native_settings_rows_keep_the_f1_order_and_captions", "[ctest][native
                                                                      "Turn Limit: 2100 AD",
                                                                      "Starting Era: Ancient",
                                                                      "AI Civilizations: 4 (Default)",
-                                                                     "AI Difficulty (Multiplayer): King",
                                                                      "AI Research Bonus: 0",
                                                                      "AI Production Bonus: 0",
                                                                      "AI Gold Bonus: 0",
@@ -293,7 +290,8 @@ TEST_CASE("native_settings_rows_keep_the_f1_order_and_captions", "[ctest][native
     CHECK(notifications[1] == "Disable Research Advisor Prompt: Off");
     CHECK(notifications.back() == "Disable Trophy Room Offer: Off");
 
-    CHECK(captionsOf(model, "Online") == std::vector<std::string>{ "Connection Status: Off",
+    CHECK(captionsOf(model, "Online") == std::vector<std::string>{ "AI Difficulty (Multiplayer): King",
+                                                                   "Connection Status: Off",
                                                                    "Profile Name: Default",
                                                                    "Invite Code: Not set",
                                                                    "Direct LAN: Off",
@@ -366,45 +364,58 @@ TEST_CASE("native_settings_excludes_keybinds_and_developer_rows", "[ctest][nativ
     }
 }
 
-TEST_CASE("options_model_keeps_the_log_folder_in_general_not_gameplay", "[ctest][native-settings]")
+// Controls appends keybinds; Game of the Week toggles use "Custom ..." instead of F1's inline form.
+TEST_CASE("options_model_matches_the_f1_layout_rows_groups_labels_and_tips", "[ctest][native-settings]")
 {
-    FakeServices     services;
-    ns::OptionsModel model(services);
-    for (const auto& row : model.Sections()[1].rows)
-    {
-        CAPTURE(row.key);
-        CHECK(row.key != "open_log_folder");
-    }
-    const auto& general = model.Sections()[0];
-    REQUIRE(general.title == "General");
-    CHECK(general.rows.back().key == "open_log_folder");
-    CHECK(general.rows.back().group.empty());
-
-    // F1's layout is unchanged: the action stays under Gameplay > Support there.
+    FakeServices  services;
+    ns::FlagState language;
+    language.kind                   = ns::FlagKind::kInteger;
+    language.value                  = "1";
+    services.flags["game_language"] = language;
+    for (const auto& channel : rerevved::retail_audio::kChannels)
+        services.flags[std::string(channel.cvar)] = intState("-1", -1, 9);
     rex::ui::SettingsLayout layout;
     rerevved::ConfigureSettingsLayout(layout);
-    bool found = false;
-    for (const auto& tab : layout.tabs)
+    const std::set<std::string>              inlineRows{ "gotw_week", "gotw_civilization" };
+    const std::map<std::string, std::string> pageLabels{ { "gotw_custom_week", "Custom Week" }, { "gotw_custom_civilization", "Custom Civilization" } };
+    ns::OptionsModel                         model(services);
+
+    size_t compared = 0;
+    for (const auto& section : model.Sections())
     {
-        for (const auto& section : tab.sections)
+        size_t                      next = 0;
+        const rex::ui::SettingsTab* tab  = nullptr;
+        for (const auto& candidate : layout.tabs)
         {
-            for (const auto& source : section.sources)
+            if (candidate.title == section.title)
+                tab = &candidate;
+        }
+        REQUIRE(tab != nullptr);
+        for (const auto& group : tab->sections)
+        {
+            for (const auto& source : group.sources)
             {
-                if (source == "open_log_folder")
-                {
-                    CHECK(tab.title == "Gameplay");
-                    CHECK(section.title == "Support");
-                    found = true;
-                }
+                if (source.starts_with('@') || inlineRows.contains(source))
+                    continue;
+                CAPTURE(section.title, source);
+                REQUIRE(next < section.rows.size());
+                const auto& row = section.rows[next++];
+                CHECK(row.key == source);
+                CHECK(row.group == group.title);
+                const auto label = pageLabels.find(source);
+                CHECK(row.label == (label != pageLabels.end() ? label->second : layout.labels.at(source)));
+                const auto tip = layout.tooltips.find(source);
+                CHECK(row.description == (tip != layout.tooltips.end() ? tip->second : std::string()));
+                ++compared;
             }
         }
+        for (; next < section.rows.size(); ++next)
+        {
+            CAPTURE(section.title, section.rows[next].key);
+            CHECK(section.title == "Controls");
+        }
     }
-    CHECK(found);
-
-    // Without the command the row is left out.
-    services.flags.erase("open_log_folder");
-    ns::OptionsModel without(services);
-    CHECK(without.Sections()[0].rows.back().key == "skip_intro_movie");
+    CHECK(compared > 50);
 }
 
 TEST_CASE("native_settings_skips_sections_and_rows_without_qualifying_settings", "[ctest][native-settings]")
@@ -1326,20 +1337,14 @@ TEST_CASE("options_model_lists_the_retail_volumes_after_the_audio_rows", "[ctest
     CHECK(audio.rows[3].timing == ns::Timing::kLive);
 }
 
-TEST_CASE("options_model_keeps_the_retail_volumes_out_of_f1", "[ctest][native-settings]")
+TEST_CASE("options_model_the_f1_retail_volumes_offer_game_default_and_ten_positions", "[ctest][native-settings]")
 {
     rex::ui::SettingsLayout layout;
     rerevved::ConfigureSettingsLayout(layout);
-    for (const auto& tab : layout.tabs)
+    for (const auto& channel : ra::kChannels)
     {
-        for (const auto& section : tab.sections)
-        {
-            for (const auto& source : section.sources)
-            {
-                CAPTURE(source);
-                CHECK_FALSE(ra::ChannelOfCvar(source));
-            }
-        }
+        // Game Default, then the positions 0 to 9.
+        CHECK(layout.choice_labels.at(std::string(channel.cvar)).size() == 11);
     }
 }
 
@@ -1482,10 +1487,11 @@ TEST_CASE("native_settings_applies_a_retail_volume_and_posts_the_live_request", 
         std::ofstream file(path);
         file << "# keep\n";
     }
+    ra::RegisterChangeCallbacks();
     ra::Queue().Advance();
     ra::Live().ConsumeRefresh();
 
-    CHECK(ns::ApplyAndSaveVolume("retail_advisor_volume", "4", path) == ns::ApplyStatus::kSaved);
+    CHECK(ns::ApplyAndSave("retail_advisor_volume", "4", path) == ns::ApplyStatus::kSaved);
     CHECK(rex::cvar::GetFlagByName("retail_advisor_volume") == "4");
     CHECK(ra::OverrideOf(2) == 4);
     CHECK(ra::Live().RefreshRequested());
@@ -1501,17 +1507,14 @@ TEST_CASE("native_settings_applies_a_retail_volume_and_posts_the_live_request", 
         CHECK(text.find("retail_advisor_volume = 4") != std::string::npos);
     }
 
-    // An unsaved edit still applies live.
-    CHECK(ns::ApplyAndSaveVolume("retail_advisor_volume", "5", path / "x.toml") == ns::ApplyStatus::kUnsaved);
+    CHECK(ns::ApplyAndSave("retail_advisor_volume", "5", path / "x.toml") == ns::ApplyStatus::kUnsaved);
     CHECK(ra::Queue().Take().size() == 1);
 
-    // A rejected value posts nothing and changes nothing.
-    CHECK(ns::ApplyAndSaveVolume("retail_advisor_volume", "10", path) == ns::ApplyStatus::kRejected);
+    CHECK(ns::ApplyAndSave("retail_advisor_volume", "10", path) == ns::ApplyStatus::kRejected);
     CHECK(ra::OverrideOf(2) == 5);
     CHECK_FALSE(ra::Queue().HasPending());
 
-    // Other names behave as ApplyAndSave.
-    CHECK(ns::ApplyAndSaveVolume("native_settings_test_int", "6", path) == ns::ApplyStatus::kSaved);
+    CHECK(ns::ApplyAndSave("native_settings_test_int", "6", path) == ns::ApplyStatus::kSaved);
     CHECK_FALSE(ra::Queue().HasPending());
     REQUIRE(rex::cvar::SetFlagByName("native_settings_test_int", "3"));
 
@@ -1899,25 +1902,16 @@ TEST_CASE("options_model_a_status_row_is_read_only_and_follows_the_registry", "[
     CHECK(selectRow(model, "system_link_status").Caption() == "-");
 }
 
-TEST_CASE("options_model_the_online_rows_follow_the_f1_order_with_the_status_first", "[ctest][native-settings]")
+TEST_CASE("options_model_the_online_rows_label_and_time_the_text_rows", "[ctest][native-settings]")
 {
     FakeServices     services;
     ns::OptionsModel model(services);
     const auto&      online = model.Sections()[3];
     REQUIRE(online.title == "Online");
-    std::vector<std::string> keys;
-    for (const auto& row : online.rows)
-        keys.push_back(row.key);
-    CHECK(keys == std::vector<std::string>{ "system_link_status", "system_link_profile_name", "system_link_invite", "system_link_lan_enabled", "system_link_direct", "live_sessions", "discord_activity", "discord_invites" });
-    CHECK(online.rows[0].group.empty());
-    CHECK(online.rows[1].group.empty());
-    CHECK(online.rows[2].group == "Connection");
-    CHECK(online.rows[3].group == "Connection");
-    CHECK(online.rows[1].label == "Profile Name");
-    CHECK(online.rows[2].label == "Invite Code");
-    // Both text rows take effect after a restart.
-    CHECK(online.rows[1].timing == ns::Timing::kRestart);
+    CHECK(online.rows[2].label == "Profile Name");
+    CHECK(online.rows[3].label == "Invite Code");
     CHECK(online.rows[2].timing == ns::Timing::kRestart);
+    CHECK(online.rows[3].timing == ns::Timing::kRestart);
 }
 
 TEST_CASE("options_model_a_text_row_opens_an_entry_and_applies_the_text", "[ctest][native-settings]")

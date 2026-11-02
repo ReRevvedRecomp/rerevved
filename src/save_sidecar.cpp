@@ -49,7 +49,7 @@ bool validState(const State& state)
            state.barbarianDefeats >= 0 && state.barbarianDefeats <= 50 && (!state.occFromSetup || state.occEnabled) &&
            state.firstFoundingTurn >= -1 && state.firstFoundingTurn <= custom_achievements::kMaximumRecordedTurn &&
            state.initialAiOpponents >= -1 && state.initialAiOpponents <= custom_achievements::kMaximumAiOpponents &&
-           (!state.practice || gotw::IsValid(*state.practice)) && gameplay_fixes::IsValidTurnLimit(state.turnLimit);
+           (!state.practice || gotw::IsValid(*state.practice));
 }
 
 } // namespace
@@ -175,7 +175,7 @@ std::optional<State> Deserialize(std::span<const uint8_t> bytes, const Identity&
         return std::nullopt;
     }
     state.overrides = *records;
-    return validState(state) ? std::optional<State>(std::move(state)) : std::nullopt;
+    return validState(state) && gameplay_fixes::IsValidTurnLimit(state.turnLimit) ? std::optional<State>(std::move(state)) : std::nullopt;
 }
 
 std::filesystem::path SidecarPath(const std::filesystem::path& nativeFile)

@@ -68,12 +68,6 @@ TEST_CASE("retail_audio_channels_are_in_the_retail_order", "[ctest][retail-audio
     CHECK(ra::kChannels[1].catalogKey == 0x821234B4); // USER_VOLUME_SFX
     CHECK(ra::kChannels[2].catalogKey == 0x821234C4); // USER_VOLUME_ADVISORS
     CHECK(ra::kChannels[3].catalogKey == 0x821234DC); // USER_VOLUME_LEADERS
-    for (size_t i = 0; i < ra::kChannels.size(); ++i)
-    {
-        CAPTURE(i);
-        CHECK(ra::ChannelOfCvar(ra::kChannels[i].cvar) == i);
-    }
-    CHECK_FALSE(ra::ChannelOfCvar("audio_volume"));
 }
 
 TEST_CASE("retail_audio_overrides_default_to_none_and_accept_minus_one_to_nine", "[ctest][retail-audio]")

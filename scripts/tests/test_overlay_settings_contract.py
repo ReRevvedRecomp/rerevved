@@ -60,7 +60,6 @@ class OverlaySettingsContractTests(unittest.TestCase):
                         "turn_limit",
                         "starting_era",
                         "ai_civilizations",
-                        "multiplayer_ai_difficulty",
                     ],
                 ),
                 (
@@ -84,9 +83,51 @@ class OverlaySettingsContractTests(unittest.TestCase):
                         "gotw_civilization",
                     ],
                 ),
-                ("Support", ["open_log_folder"]),
             ],
         )
+
+    def test_general_ends_with_the_log_folder(self):
+        self.assertEqual(
+            tab_groups("General"),
+            [
+                (
+                    "",
+                    [
+                        "game_language",
+                        "show_fps_counter",
+                        "skip_intro_movie",
+                        "open_log_folder",
+                    ],
+                )
+            ],
+        )
+
+    def test_online_starts_with_the_multiplayer_ai_difficulty(self):
+        groups = tab_groups("Online")
+        self.assertEqual(
+            groups[0],
+            (
+                "",
+                [
+                    "multiplayer_ai_difficulty",
+                    "system_link_status",
+                    "system_link_profile_name",
+                ],
+            ),
+        )
+
+    def test_owner_tooltips(self):
+        for key, text in (
+            ("skip_intro_movie", "Enable to skip the opening scenes at startup."),
+            ("turn_limit", "Set the year a game ends by turn limit."),
+            ("starting_era", "Set the era a new game begins in."),
+            ("ai_civilizations", "Set the number of AI opponents."),
+            (
+                "multiplayer_ai_difficulty",
+                "Set the difficulty of AI in multiplayer games you host.",
+            ),
+        ):
+            self.assertIn(f'{{ "{key}", "{text}" }}', OVERLAY)
 
     def test_notifications_run_from_most_to_least_frequent(self):
         self.assertEqual(tab_groups("Notifications"), [("", NOTIFICATION_ORDER)])

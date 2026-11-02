@@ -7,6 +7,7 @@
 #include <cctype>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 
 #include <rex/ui/overlay/settings_layout.h>
 
@@ -52,18 +53,26 @@ std::string titleCase(std::string_view text)
     return result;
 }
 
+// -1 keeps the volume the game loaded; 0 to 9 are the retail Options steps.
+std::unordered_map<std::string, std::string> retailVolumeChoices()
+{
+    std::unordered_map<std::string, std::string> choices{ { "-1", "Game Default" } };
+    for (int position = 0; position <= 9; ++position)
+        choices.emplace(std::to_string(position), std::to_string(position));
+    return choices;
+}
+
 } // namespace
 
 void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
 {
     layout.tabs = {
-        { "General", { { "", { "game_language", "show_fps_counter", "skip_intro_movie" } } } },
+        { "General", { { "", { "game_language", "show_fps_counter", "skip_intro_movie", "open_log_folder" } } } },
         { "Gameplay",
           {
-              { "", { "combat_speed", "resources", "raging_barbarians", "one_city_challenge", "domination_min_turns", "turn_limit", "starting_era", "ai_civilizations", "multiplayer_ai_difficulty" } },
+              { "", { "combat_speed", "resources", "raging_barbarians", "one_city_challenge", "domination_min_turns", "turn_limit", "starting_era", "ai_civilizations" } },
               { "AI Handicaps", { "ai_research_bonus_percent", "ai_production_bonus_percent", "ai_gold_bonus_percent", "ai_food_bonus_percent", "ai_culture_bonus_percent" } },
               { "Game of the Week", { "gotw_standard_rules", "gotw_allow_saving", "gotw_custom_week", "gotw_week", "gotw_custom_civilization", "gotw_civilization" } },
-              { "Support", { "open_log_folder" } },
           } },
         { "Notifications",
           {
@@ -71,7 +80,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
           } },
         { "Online",
           {
-              { "", { "system_link_status", "system_link_profile_name" } },
+              { "", { "multiplayer_ai_difficulty", "system_link_status", "system_link_profile_name" } },
               { "Connection", { "system_link_invite", "system_link_lan_enabled", "system_link_direct" } },
               { "Matchmaking", { "live_sessions" } },
               { "Discord", { "discord_activity", "discord_invites" } },
@@ -86,7 +95,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
           {
               { "", { "fullscreen", "monitor", "window_size", "display_aspect", "resolution_scale", "vsync", "present_effect", "swap_post_effect" } },
           } },
-        { "Audio", { { "", { "audio_volume", "audio_mute", "audio_play_in_background" } } } },
+        { "Audio", { { "", { "audio_volume", "audio_mute", "audio_play_in_background", "retail_music_volume", "retail_effects_volume", "retail_advisor_volume", "retail_leader_volume" } } } },
         { "Developer",
           {
               { "Renderer", { "renderer", "@Graphics" } },
@@ -112,6 +121,10 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "audio_volume", Audience::kPlayer },
         { "audio_mute", Audience::kPlayer },
         { "audio_play_in_background", Audience::kPlayer },
+        { "retail_music_volume", Audience::kPlayer },
+        { "retail_effects_volume", Audience::kPlayer },
+        { "retail_advisor_volume", Audience::kPlayer },
+        { "retail_leader_volume", Audience::kPlayer },
         { "mnk_mode", Audience::kPlayer },
         { "mnk_mouse", Audience::kPlayer },
         { "mnk_sensitivity", Audience::kPlayer },
@@ -174,8 +187,8 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         // Gameplay.
         { "combat_speed", "Choose how quickly battle animations play." },
         { "skip_spaceship_scenes", "Enable to skip the spaceship part rocket scenes." },
-        { "ai_civilizations", "Set the number of AI opponents. Single Player uses 1 to 6. Multiplayer and Game of the Week use up to 4, and multiplayer can have none." },
-        { "multiplayer_ai_difficulty", "Set the difficulty of every AI in multiplayer games you host. Single player keeps the difficulty chosen at game setup." },
+        { "ai_civilizations", "Set the number of AI opponents." },
+        { "multiplayer_ai_difficulty", "Set the difficulty of AI in multiplayer games you host." },
         { "ai_research_bonus_percent", "Increase AI research speed by this percentage." },
         { "ai_production_bonus_percent", "Increase AI production speed by this percentage." },
         { "ai_gold_bonus_percent", "Increase gold from AI cities by this percentage." },
@@ -185,8 +198,8 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "raging_barbarians", "Enable for more aggressive Barbarians. Barbarians cannot capture a civilization's capital before 3000 BC." },
         { "one_city_challenge", "Enable to block Settler production." },
         { "domination_min_turns", "Set the minimum turns before a Domination victory in new games." },
-        { "turn_limit", "Set the year a new game can end by turn limit. Saves keep their own limit, and Game of the Week always uses 2100 AD." },
-        { "starting_era", "Give every civilization extra technologies when a new game starts: 5 for Medieval, 14 for Industrial and 24 for Modern. Scenarios and Game of the Week keep their own era." },
+        { "turn_limit", "Set the year a game ends by turn limit." },
+        { "starting_era", "Set the era a new game begins in." },
         { "gotw_custom_week", "Enable to play a different week's game instead of this week's." },
         { "gotw_custom_civilization", "Enable to play Game of the Week as the civilization you choose." },
         { "gotw_standard_rules", "Enable to play Game of the Week without mods or gameplay changes other than Earliest Domination." },
@@ -237,13 +250,12 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "present_effect", "Choose how the image is scaled and sharpened for your display." },
         { "swap_post_effect", "Choose how jagged edges are smoothed." },
         { "show_fps_counter", "Enable to show frames per second in the corner." },
-        { "skip_intro_movie", "Enable to skip the legal screens and the opening movie at startup." },
+        { "skip_intro_movie", "Enable to skip the opening scenes at startup." },
         { "game_language", "Choose the game's language." },
         // Audio.
         { "audio_volume", "Adjust how loudly the game plays." },
         { "audio_mute", "Enable to silence all game audio." },
         { "audio_play_in_background", "Enable to keep hearing the game while another window is active." },
-        // Options page only: these are not in the F1 layout.
         { "retail_music_volume", "Set the music volume from 0 to 9. The game applies your choice each time a profile loads." },
         { "retail_effects_volume", "Set the sound effects volume from 0 to 9. The game applies your choice each time a profile loads." },
         { "retail_advisor_volume", "Set the advisor speech volume from 0 to 9. The game applies your choice each time a profile loads." },
@@ -266,6 +278,10 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "turn_limit", { { "2100", "2100 AD" }, { "2200", "2200 AD" }, { "2300", "2300 AD" }, { "2500", "2500 AD" }, { "unlimited", "Unlimited" } } },
         { "starting_era", { { "ancient", "Ancient" }, { "medieval", "Medieval" }, { "industrial", "Industrial" }, { "modern", "Modern" } } },
         { "resources", { { "0", "Normal" }, { "1", "Balanced" }, { "3", "Legendary" } } },
+        { "retail_music_volume", retailVolumeChoices() },
+        { "retail_effects_volume", retailVolumeChoices() },
+        { "retail_advisor_volume", retailVolumeChoices() },
+        { "retail_leader_volume", retailVolumeChoices() },
         { "swap_post_effect", { { "none", "Off" }, { "fxaa", "FXAA" }, { "fxaa_extreme", "FXAA (Extreme)" } } },
         { "game_language", { { "1", "English" }, { "3", "Deutsch" }, { "4", "Fran\u00e7ais" }, { "5", "Espa\u00f1ol" }, { "6", "Italiano" } } },
         { "present_effect", { { "cas", "CAS" }, { "fsr", "FSR" }, { "fsr2", "FSR 2" }, { "fsr3", "FSR 3" } } },
@@ -334,8 +350,8 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "gotw_standard_rules", "Standard Rules" },
         { "gotw_allow_saving", "Allow Saving" },
         { "open_log_folder", "Open Log Folder" },
-        { "system_link_status", "Status" },
-        { "system_link_profile_name", "Player Name" },
+        { "system_link_status", "Connection Status" },
+        { "system_link_profile_name", "Profile Name" },
         { "system_link_invite", "Invite Code" },
         { "system_link_lan_enabled", "Direct LAN" },
         { "system_link_direct", "Peer-to-Peer" },

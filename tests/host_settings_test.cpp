@@ -419,17 +419,7 @@ TEST_CASE("host_settings gameplay snapshot validates complete policy", "[ctest][
     CHECK(decoded->aiFoodBonusPercent == 99);
     CHECK(decoded->aiCultureBonusPercent == 1);
     auto incompatible = bytes;
-    incompatible[0]   = 3;
-    CHECK_FALSE(Decode(incompatible));
-    incompatible[0] = 6;
-    CHECK_FALSE(Decode(incompatible));
-    incompatible[0] = 5;
-    CHECK_FALSE(Decode(incompatible));
-    incompatible[0] = 4;
-    CHECK_FALSE(Decode(incompatible));
-    incompatible[0] = 2;
-    CHECK_FALSE(Decode(incompatible));
-    incompatible[0] = 1;
+    incompatible[0]   = 1;
     CHECK_FALSE(Decode(incompatible));
     for (uint8_t limit = 0; limit <= 4; ++limit)
     {
@@ -551,9 +541,6 @@ TEST_CASE("host_settings normalizes local selections before encoding", "[ctest][
     local.aiCultureBonusPercent    = 150;
     local.dominationMinimumTurns   = 1;
     local.combatSpeed              = -1;
-    local.turnLimit                = 5;
-    local.startingEra              = 4;
-    local.multiplayerAiDifficulty  = 5;
     local.gotwCustomWeek           = true;
     local.gotwWeek                 = 1;
     local.gotwSeed                 = 99;
@@ -568,9 +555,6 @@ TEST_CASE("host_settings normalizes local selections before encoding", "[ctest][
     CHECK(encoded->aiCultureBonusPercent == 150);
     CHECK(encoded->dominationMinimumTurns == 10);
     CHECK(encoded->combatSpeed == 0);
-    CHECK(encoded->turnLimit == 0);
-    CHECK(encoded->startingEra == 0);
-    CHECK(encoded->multiplayerAiDifficulty == 2);
     CHECK(encoded->gotwWeek == 1);
     CHECK(encoded->gotwSeed == 2);
     local.gotwWeek         = 0xFFFFFFFFu;

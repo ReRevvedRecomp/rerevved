@@ -24,7 +24,7 @@ Bundled Lua mods start disabled. Enable them in F2 and restart.
 
 User files use $XDG_DATA_HOME/rerevved, or ~/.local/share/rerevved if unset.
 Exit before backing up that folder. Use --profile=<id> for separate saves
-and settings. F1 > Gameplay > Support > Open Log Folder finds the active log.
+and settings. F1 > General > Open Log Folder finds the active log.
 
 Report problems with the release version, macOS version, Mac model, GPU,
 reproduction steps, and a reviewed log. Do not share retail files or secrets.

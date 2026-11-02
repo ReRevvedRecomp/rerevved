@@ -194,3 +194,44 @@ TEST_CASE("maps tab hides only the map_pack table warning", "[ctest][maps-tab]")
     CHECK(loaded.packs[0].messages[1].error);
     CHECK(loaded.packs[0].messages[1].text == "invalid manifest");
 }
+
+TEST_CASE("maps tab F2 source edits the same map_order.txt and rescans", "[ctest][maps-tab]")
+{
+    TempProfile profile;
+    auto        catalog = catalogOf({ "alpha", "beta" });
+    catalog.packages[0].diagnostics.push_back({ false, "unknown manifest field 'map_pack'", {} });
+    int scans = 0;
+
+    auto source = mt::MakeLoadoutSource(profile.root, {}, [&]
+                                        {
+                                            ++scans;
+                                            return catalog;
+                                        });
+    CHECK(source.title == "Maps");
+    CHECK(source.order_file == "map_order.txt");
+    CHECK(scans == 1);
+    CHECK(source.catalog().packages.size() == 2);
+    CHECK(source.catalog().packages[0].diagnostics.empty());
+    CHECK(source.order_ids().empty());
+    CHECK_FALSE(source.file_exists());
+    CHECK(source.restart_required() == false);
+
+    const std::vector<std::string> ids = { "beta", "alpha" };
+    CHECK(source.validate(ids).IsValid());
+    REQUIRE(source.apply(ids, false).succeeded());
+    CHECK(profile.read("map_order.txt").find("beta") < profile.read("map_order.txt").find("alpha"));
+    CHECK_FALSE(fs::exists(profile.root / "asset_order.txt"));
+    CHECK(source.order_ids() == ids);
+    CHECK(source.file_exists());
+    CHECK_FALSE(source.file_invalid());
+    CHECK(source.restart_required());
+
+    profile.write("map_order.txt", "missing\n");
+    source.rescan();
+    CHECK(scans == 2);
+    CHECK(source.file_invalid());
+    CHECK_FALSE(source.diagnostics().empty());
+    const std::vector<std::string> one = { "alpha" };
+    CHECK(source.apply(one, false).status == rex::system::AssetOverlayLoadoutApplyStatus::kInvalidCurrent);
+    CHECK(source.apply(one, true).succeeded());
+}

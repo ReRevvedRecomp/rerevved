@@ -89,6 +89,7 @@
 #include "keyboard_icons.h"
 #include "main_menu_logo_asset.h"
 #include "map_packs.h"
+#include "maps_tab.h"
 #include "mod_script_rules.h"
 #include "native_settings.h"
 #include "options_page.h"
@@ -726,6 +727,19 @@ void App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
     rerevved::ConfigureSettingsLayout(layout);
 }
 
+void App::OnConfigureModManager(std::vector<rex::ui::AssetOverlayLoadoutSource>& tabs)
+{
+    if (!runtime())
+        return;
+    tabs.push_back(rerevved::maps_tab::MakeLoadoutSource(
+        std::filesystem::path(runtime()->user_data_root()),
+        rerevved::map_packs::StartupOrder(),
+        []
+        {
+            return rex::system::DiscoverAssetOverlayCatalog(rex::filesystem::GetExecutableFolder() / rerevved::map_packs::kMapsDirectory);
+        }));
+}
+
 std::optional<rex::system::ProfileCopySpecification> App::GetProfileCopySpecification() const
 {
     return rex::system::ProfileCopySpecification{
@@ -1227,6 +1241,7 @@ void App::OnPostSetup()
     });
 
     rerevved::retail_audio::PublishOverrides();
+    rerevved::retail_audio::RegisterChangeCallbacks();
 
     {
         auto layout = std::make_shared<rex::ui::SettingsLayout>();
