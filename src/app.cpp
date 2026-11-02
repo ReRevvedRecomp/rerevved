@@ -206,6 +206,8 @@ bool NativeScriptActive()
 
 REXCVAR_DEFINE_STRING(combat_speed, "normal", "ReRevved", "Combat presentation speed")
     .allowed({ "normal", "fast" });
+REXCVAR_DEFINE_STRING(unit_movement, "normal", "ReRevved", "Unit movement presentation speed. A network game uses the host's value")
+    .allowed({ "normal", "fast", "instant" });
 REXCVAR_DEFINE_BOOL(show_research_prompt, true, "ReRevved", "Open the technology prompt at turn start and after a village; when off, choose research from the technology window");
 REXCVAR_DEFINE_BOOL(show_popup_rival_war_peace, true, "ReRevved", "Show reports of wars declared and peace signed between other civilizations");
 REXCVAR_DEFINE_BOOL(show_popup_rival_government, true, "ReRevved", "Show reports of other civilizations changing government");

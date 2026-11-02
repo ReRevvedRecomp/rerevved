@@ -51,6 +51,7 @@ struct RestorePolicies
     const int32_t                                   turnLimit  = rerevved::gameplay_fixes::TurnLimitForGame();
     const int32_t                                   era        = rerevved::gameplay_fixes::StartingEraForGame();
     const int32_t                                   difficulty = rerevved::gameplay_fixes::MultiplayerAiDifficultyForGame();
+    const bool                                      atWar      = rerevved::gameplay_fixes::AlwaysAtWarForGame();
 
     ~RestorePolicies()
     {
@@ -68,6 +69,7 @@ struct RestorePolicies
         rerevved::gameplay_fixes::RestoreTurnLimit(turnLimit);
         rerevved::gameplay_fixes::RestoreStartingEra(era);
         rerevved::gameplay_fixes::RestoreMultiplayerAiDifficulty(difficulty);
+        rerevved::gameplay_fixes::RestoreAlwaysAtWar(atWar);
     }
 };
 
@@ -110,6 +112,8 @@ TEST_CASE("host gameplay policy precedes title freezes", "[ctest][host-settings]
     settings.startingEra              = 2;
     settings.multiplayerAiDifficulty  = 4;
     settings.skipSpaceshipScenes      = true;
+    settings.unitMovement             = 1;
+    settings.alwaysAtWar              = true;
     settings.gotwStandardRules        = true;
     const auto snapshot               = host::ResolveForGame(true, { rex::session_data::State::kReceived, host::Encode(settings), true }, {});
     REQUIRE(snapshot.settings);
@@ -121,8 +125,9 @@ TEST_CASE("host gameplay policy precedes title freezes", "[ctest][host-settings]
     CHECK(rerevved::gameplay_fixes::TurnLimitForGame() == 3);
     CHECK(rerevved::gameplay_fixes::StartingEraForGame() == 2);
     CHECK(rerevved::gameplay_fixes::MultiplayerAiDifficultyForGame() == 4);
-    // Every peer skips or shows spaceship scenes by the host's value.
+    CHECK_FALSE(rerevved::gameplay_fixes::AlwaysAtWarForGame());
     CHECK(session::ForNetworkGame()->skipSpaceshipScenes);
+    CHECK(session::ForNetworkGame()->unitMovement == 1);
     CHECK((rerevved::ai_economy::ForGame() == rerevved::ai_economy::Policy{ 50, 40, 25, 75, 200 }));
     CHECK(rerevved::occ::ForGame()->enabled);
     CHECK(rerevved::raging_barbarians::Evaluate(0).enabled);
@@ -139,11 +144,13 @@ TEST_CASE("host gameplay policy precedes title freezes", "[ctest][host-settings]
     CHECK_FALSE(session::ApplyNewGame(local, false, 1));
     CHECK(rerevved::gameplay_fixes::TurnLimitForGame() == 3);
     CHECK(rerevved::gameplay_fixes::StartingEraForGame() == 2);
+    CHECK(rerevved::gameplay_fixes::AlwaysAtWarForGame());
 
     const auto weekly = host::ResolveForGame(false, {}, settings);
     CHECK(session::ApplyNewGame(weekly, false, 2));
     CHECK(rerevved::gameplay_fixes::TurnLimitForGame() == 0);
     CHECK(rerevved::gameplay_fixes::StartingEraForGame() == 0);
+    CHECK_FALSE(rerevved::gameplay_fixes::AlwaysAtWarForGame());
     CHECK((rerevved::ai_economy::ForGame() == rerevved::ai_economy::Policy{}));
     CHECK_FALSE(rerevved::occ::ForGame()->enabled);
     CHECK_FALSE(rerevved::raging_barbarians::Evaluate(0).enabled);
@@ -155,6 +162,9 @@ TEST_CASE("host gameplay policy precedes title freezes", "[ctest][host-settings]
     rerevved::gameplay_fixes::NoteGameLoad();
     CHECK_FALSE(rerevved::gameplay_fixes::ShortenedMinimumAllowed());
     CHECK(rerevved::gameplay_fixes::TurnLimitForGame() == 0);
+    rerevved::gameplay_fixes::RestoreAlwaysAtWar(true);
+    rerevved::gameplay_fixes::NoteGameLoad();
+    CHECK_FALSE(rerevved::gameplay_fixes::AlwaysAtWarForGame());
 
     session::ResetOnLoad();
     CHECK_FALSE(session::ForNetworkGame());

@@ -5,6 +5,7 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <mutex>
 #include <string>
 
 #include <rex/cvar.h>
@@ -351,6 +352,74 @@ bool FinishSpaceshipEarly(PPCRegister& owner, PPCRegister& slot, PPCRegister& pr
         REXLOG_INFO("[spaceship] finish native fallback previous_time={} frames={}", previousTime.s32, spaceshipFrames.load(std::memory_order_relaxed));
     }
     return finish;
+}
+
+namespace
+{
+
+std::atomic<bool>                                   unitMovementLogged{ false };
+std::atomic<rerevved::gameplay_fixes::UnitMovement> unitMovementSetting{ rerevved::gameplay_fixes::UnitMovement::Normal };
+std::once_flag                                      unitMovementWatch;
+
+// Cache the setting via change callback: the updater runs per unit per frame.
+rerevved::gameplay_fixes::UnitMovement unitMovementSettingValue()
+{
+    namespace gf = rerevved::gameplay_fixes;
+    std::call_once(unitMovementWatch, []
+                   {
+                       rex::cvar::RegisterChangeCallback("unit_movement", [](std::string_view, std::string_view value)
+                                                         {
+                                                             unitMovementSetting.store(gf::ParseUnitMovement(value), std::memory_order_relaxed);
+                                                         });
+                       unitMovementSetting.store(gf::ParseUnitMovement(rex::cvar::Query<std::string>("unit_movement")), std::memory_order_relaxed);
+                   });
+    return unitMovementSetting.load(std::memory_order_relaxed);
+}
+
+// Network games use the host value so peers move alike.
+// Unit type is byte 1 of the 84-byte record at [r1+112] + r24.
+rerevved::gameplay_fixes::UnitMovement unitMovementFor(PPCRegister& sp, PPCRegister& recordOffset)
+{
+    namespace gf     = rerevved::gameplay_fixes;
+    uint32_t table   = 0;
+    uint8_t  type    = 0;
+    uint8_t  network = 0;
+    if (!readGuestU8(rerevved::ai_civilizations::kNetworkGameByte, network))
+    {
+        return gf::UnitMovement::Normal;
+    }
+    // No snapshot means native movement.
+    const auto host = network != 0 ? rerevved::gameplay_session::ForNetworkGame() : nullptr;
+    const auto mode = network == 0 ? unitMovementSettingValue()
+                      : host       ? static_cast<gf::UnitMovement>(host->unitMovement)
+                                   : gf::UnitMovement::Normal;
+    if (mode == gf::UnitMovement::Normal ||
+        !readGuestU32(sp.u32 + 112, table) ||
+        !readGuestU8(table + recordOffset.u32 + 1, type) || !gf::AcceleratesMovingUnit(static_cast<int8_t>(type)))
+    {
+        return gf::UnitMovement::Normal;
+    }
+    if (!unitMovementLogged.exchange(true, std::memory_order_relaxed))
+    {
+        REXLOG_INFO("UnitMovement: {} applies", mode == gf::UnitMovement::Fast ? "fast" : "instant");
+    }
+    return mode;
+}
+
+} // namespace
+
+void ScaleUnitMovementQuantum(PPCRegister& sp, PPCRegister& recordOffset, PPCRegister& quantum)
+{
+    namespace gf = rerevved::gameplay_fixes;
+    if (unitMovementFor(sp, recordOffset) == gf::UnitMovement::Fast)
+    {
+        quantum.u64 = static_cast<uint32_t>(gf::ScaleMovementQuantum(quantum.s32));
+    }
+}
+
+bool SnapUnitMovement(PPCRegister& sp, PPCRegister& recordOffset)
+{
+    return unitMovementFor(sp, recordOffset) == rerevved::gameplay_fixes::UnitMovement::Instant;
 }
 
 // Before cmpwi cr6,r9,10 at 0x82D11264; r9 is the elapsed turn count and is

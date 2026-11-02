@@ -81,10 +81,11 @@ std::map<std::string, ns::FlagState> defaultFlags()
     for (const auto key : ns::CuratedKeys())
         flags[std::string(key)] = boolState(false);
     flags["combat_speed"]              = enumState("normal", { "normal", "fast" });
+    flags["unit_movement"]             = enumState("normal", { "normal", "fast", "instant" });
     flags["resources"]                 = intState("0", 0, 3);
     flags["domination_min_turns"]      = enumState("10", { "10", "5" });
     flags["turn_limit"]                = enumState("2100", { "2100", "2200", "2300", "2500", "unlimited" });
-    flags["starting_era"]              = enumState("ancient", { "ancient", "medieval", "industrial", "modern" });
+    flags["starting_era"]              = enumState("ancient", { "ancient", "medieval", "industrial", "modern", "future" });
     flags["ai_civilizations"]          = intState("4", 0, 6);
     flags["multiplayer_ai_difficulty"] = enumState("king", { "king", "emperor", "deity" });
     for (const char* key : { "ai_research_bonus_percent", "ai_production_bonus_percent", "ai_gold_bonus_percent", "ai_food_bonus_percent", "ai_culture_bonus_percent" })
@@ -267,6 +268,7 @@ TEST_CASE("native_settings_rows_keep_the_f1_order_and_captions", "[ctest][native
     CHECK(captionsOf(model, "General") == std::vector<std::string>{ "FPS Counter: Off", "Skip Intro: Off", "Open Log Folder: Open" });
 
     CHECK(captionsOf(model, "Gameplay") == std::vector<std::string>{ "Combat Speed: Normal",
+                                                                     "Unit Movement: Normal",
                                                                      "Resources: Normal",
                                                                      "Raging Barbarians: Off",
                                                                      "One City Challenge: Off",
@@ -274,6 +276,7 @@ TEST_CASE("native_settings_rows_keep_the_f1_order_and_captions", "[ctest][native
                                                                      "Turn Limit: 2100 AD",
                                                                      "Starting Era: Ancient",
                                                                      "AI Civilizations: 4 (Default)",
+                                                                     "Always At War: Off",
                                                                      "AI Research Bonus: 0",
                                                                      "AI Production Bonus: 0",
                                                                      "AI Gold Bonus: 0",
@@ -1637,6 +1640,7 @@ void addEveryRow(FakeServices& services)
     services.flags["gotw_custom_civilization"] = boolState(true);
     services.flags["gotw_week"]                = enumState("1", {});
     services.flags["combat_speed"]             = enumState("normal", { "normal", "fast" });
+    services.flags["unit_movement"]            = enumState("normal", { "normal", "fast", "instant" });
 }
 
 bool needsTranslation(const std::string& caption)

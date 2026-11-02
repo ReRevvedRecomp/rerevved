@@ -3,9 +3,12 @@
 // Selection and arithmetic for the gameplay fixes in gameplay_fixes_hooks.cpp,
 // kept free of guest memory so it can be tested on the host.
 
+#include "ai_civilizations.h"
+
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <span>
 #include <string_view>
 
 namespace rerevved::gameplay_fixes
@@ -174,17 +177,14 @@ constexpr bool BeforeTurnLimitYear(int32_t limit, int32_t year) noexcept
     return year < kTurnLimitYears[static_cast<size_t>(limit)];
 }
 
-// Starting Era: the native STARTERA input at Q+0x1C of the active scenario, which
-// makes the setup grant loop at 0x82D22A78 give each player 5, 14 or 24 extra
-// technologies. The index is the native value: Ancient (no override), Medieval,
-// Industrial and Modern. A game freezes one value at setup, only while native setup
-// runs; a load never applies it.
+// STARTERA at Q+0x1C drives grants of 5, 14 or 24 technologies at 0x82D22A78 (Future grants 1 to 46).
+// Freeze for new-game setup only; never apply on load.
 constexpr int32_t kStartingEraNative = 0;
-constexpr int32_t kStartingEraModern = 3;
+constexpr int32_t kStartingEraFuture = 4;
 
 constexpr bool IsValidStartingEra(int32_t era) noexcept
 {
-    return era <= kStartingEraModern;
+    return era <= kStartingEraFuture;
 }
 
 // Only scenario sentinel -1 permits a new-game era override.
@@ -193,16 +193,13 @@ constexpr bool AppliesStartingEra(int32_t era, int32_t scenario) noexcept
     return era != kStartingEraNative && scenario == -1;
 }
 
-// STARTYEAR (Q+0x3E) that the retail presets pair with each STARTERA: 1000, 1500 and
-// 1800 AD. The setup search at 0x82D24F20 advances the first turn to that year.
+// Retail STARTYEAR (Q+0x3E) pairs with STARTERA
 constexpr int32_t StartingEraYear(int32_t era) noexcept
 {
-    constexpr int32_t kYears[] = { 0, 1000, 1500, 1800 };
+    constexpr int32_t kYears[] = { 0, 1000, 1500, 1800, 2025 };
     return kYears[era];
 }
 
-// The index of one of the offered choices "ancient", "medieval", "industrial" and
-// "modern"; the CVar's allowed list admits nothing else.
 int32_t ParseStartingEra(std::string_view text) noexcept;
 
 void    RestoreStartingEra(int32_t era) noexcept;
@@ -222,8 +219,63 @@ int32_t ParseMultiplayerAiDifficulty(std::string_view text) noexcept;
 void    RestoreMultiplayerAiDifficulty(int32_t difficulty) noexcept;
 int32_t MultiplayerAiDifficultyForGame() noexcept;
 
-// Spaceship Scenes: the world part-rocket actor (type 24) that the pending-part
-// request at 0x82D1DED8 creates. The index is the native actor key 256 * owner + slot.
+// U32[0x830ED2D8 + 4 * (8 * p + q)] is war 0, peace 1, no contact -1.
+constexpr uint32_t kRelationMatrix  = 0x830ED2D8;
+constexpr int32_t  kRelationPlayers = 8;
+constexpr uint32_t kRelationWar     = 0;
+
+constexpr bool IsPairOf(uint32_t mask, int32_t p, int32_t q) noexcept
+{
+    return p != q && p >= 0 && q >= 0 && p < kRelationPlayers && q < kRelationPlayers &&
+           (mask >> p & 1) != 0 && (mask >> q & 1) != 0;
+}
+
+inline uint32_t IntendedCivilizations(int32_t count, int32_t barbarian, uint32_t humans, int32_t maxAi) noexcept
+{
+    return ai_civilizations::CivilizationMask(count, barbarian) &
+           ~ai_civilizations::RemovableMask(count, barbarian, humans, maxAi);
+}
+
+// Live means an owned populated city or an occupied, non-dead unit.
+inline uint32_t LiveCivilizations(int32_t count, int32_t barbarian, uint32_t cityOwners, uint32_t unitOwners) noexcept
+{
+    return ai_civilizations::CivilizationMask(count, barbarian) & (cityOwners | unitOwners);
+}
+
+inline int32_t ProjectWar(std::span<uint32_t, 64> relation, uint32_t mask) noexcept
+{
+    int32_t changed = 0;
+    for (int32_t p = 0; p < kRelationPlayers; ++p)
+    {
+        for (int32_t q = 0; q < kRelationPlayers; ++q)
+        {
+            uint32_t& cell = relation[static_cast<size_t>(kRelationPlayers * p + q)];
+            if (IsPairOf(mask, p, q) && cell != kRelationWar)
+            {
+                cell = kRelationWar;
+                ++changed;
+            }
+        }
+    }
+    return changed;
+}
+
+constexpr bool ForbidsPeace(bool active, uint32_t live, int32_t p, int32_t q) noexcept
+{
+    return active && IsPairOf(live, p, q);
+}
+
+// Includes shared requests at 0x82D03388 and delivered command 39.
+constexpr bool ForbidsRelationWrite(bool active, uint32_t live, int32_t p, int32_t q, uint32_t current, uint32_t value) noexcept
+{
+    return ForbidsPeace(active, live, p, q) && current == kRelationWar && value != kRelationWar;
+}
+
+// Freeze on new game; clear on load until sidecar restoration.
+void RestoreAlwaysAtWar(bool enabled) noexcept;
+bool AlwaysAtWarForGame() noexcept;
+
+// Type 24 part-rocket actors from 0x82D1DED8 use key 256 * owner + slot.
 constexpr int32_t SpaceshipActorIndex(int32_t owner, int32_t slot) noexcept
 {
     return owner * 256 + slot;
@@ -260,5 +312,32 @@ int32_t DominationMinimumTurns(std::string_view setting, bool shortenedAllowed) 
 // Rebase the elapsed turns so the native compare against 10 tests the chosen
 // minimum. The native value is unchanged at 10.
 int32_t RebaseDominationElapsed(int32_t elapsed, int32_t minimumTurns) noexcept;
+
+enum class UnitMovement
+{
+    Normal,
+    Fast,
+    Instant,
+};
+
+constexpr UnitMovement ParseUnitMovement(std::string_view text) noexcept
+{
+    return text == "fast" ? UnitMovement::Fast : text == "instant" ? UnitMovement::Instant
+                                                                   : UnitMovement::Normal;
+}
+
+constexpr int32_t kFastMovementFactor = 3;
+// Largest quantum with quantum + quantum / 2 fitting a signed 32-bit word.
+constexpr int32_t kMaxMovementQuantum = 1431655765;
+
+constexpr int32_t ScaleMovementQuantum(int32_t quantum) noexcept
+{
+    return quantum > 0 ? static_cast<int32_t>(std::min<int64_t>(int64_t{ quantum } * kFastMovementFactor, kMaxMovementQuantum)) : quantum;
+}
+
+constexpr bool AcceleratesMovingUnit(int32_t unitType) noexcept
+{
+    return unitType != 24 && unitType != 27;
+}
 
 } // namespace rerevved::gameplay_fixes

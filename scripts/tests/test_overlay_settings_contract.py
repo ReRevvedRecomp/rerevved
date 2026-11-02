@@ -53,6 +53,7 @@ class OverlaySettingsContractTests(unittest.TestCase):
                     "",
                     [
                         "combat_speed",
+                        "unit_movement",
                         "resources",
                         "raging_barbarians",
                         "one_city_challenge",
@@ -60,6 +61,7 @@ class OverlaySettingsContractTests(unittest.TestCase):
                         "turn_limit",
                         "starting_era",
                         "ai_civilizations",
+                        "always_at_war",
                     ],
                 ),
                 (
@@ -122,6 +124,7 @@ class OverlaySettingsContractTests(unittest.TestCase):
             ("turn_limit", "Set the year a game ends by turn limit."),
             ("starting_era", "Set the era a new game begins in."),
             ("ai_civilizations", "Set the number of AI opponents."),
+            ("always_at_war", "Enable to keep every civilization at war."),
             (
                 "multiplayer_ai_difficulty",
                 "Set the difficulty of AI in multiplayer games you host.",

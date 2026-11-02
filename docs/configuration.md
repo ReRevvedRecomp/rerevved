@@ -8,8 +8,8 @@ Close ReRevved before editing the file directly.
 
 - **General**: Language (English, Deutsch, Francais, Espanol or Italiano, after a
   restart), FPS Counter, Skip Intro and Open Log Folder.
-- **Gameplay**: combat speed, resources, Raging Barbarians, One City
-  Challenge, Earliest Domination, Turn Limit, Starting Era, AI civilizations, AI Handicaps,
+- **Gameplay**: combat speed, unit movement, resources, Raging Barbarians, One City
+  Challenge, Earliest Domination, Turn Limit, Starting Era, AI civilizations, Always At War, AI Handicaps,
   and Game of the Week.
 - **Notifications**: Spaceship Scenes, research prompts, advisor pop-ups, and Barbarian messages. Each is on by default; turn a row off to hide it.
   Turning off **Save Reminder** hides the prompt; it does not save the game.
@@ -53,11 +53,25 @@ Unlimited removes the turn limit and its warning; the other victories still end
 the game.
 
 **Starting Era** gives every civilization extra technologies when a new
-game starts: Ancient (the default) adds none, Medieval adds 5, Industrial 14 and
-Modern 24, through the game's own starting-technology grant. The game uses the
+game starts: Ancient (the default) adds none, Medieval adds 5, Industrial 14,
+Modern 24 and Future all 46 ordinary technologies, through the game's own starting-technology grant. The game uses the
 value it started with, so a later change applies only to the next new game. A new
 multiplayer game uses the host's value for every player. A scenario and Game of
 the Week keep their own era, and a loaded save never grants technologies again.
+
+**Always At War** (off by default) keeps every civilization at war with every
+other one for the whole game; peace can never be made. The game keeps the value it
+started with and each save records it, so a later change applies only to the next
+new game. It is for single player only: network games and Game of the Week ignore
+it. A loaded save restores its own value. A save without a recorded Always At War
+value, or whose sidecar is missing or rejected, loads with it off.
+
+**Apollo Discovery Bonuses** is an always-on fix, not a setting. When a
+civilization completes Apollo, every technology first-discovery bonus nobody has
+claimed is granted; otherwise technologies 1 to 46 count as owned and the bonuses
+are unreachable. A bonus any civilization already claimed is never repeated. It
+applies in single player and multiplayer and skips Game of the Week. A save made
+after Apollo completes but before the bonuses arrive can lose them.
 
 **AI Difficulty (Multiplayer)** sets the difficulty of every AI in a multiplayer
 game you host: King (the default and the game's native multiplayer value),
@@ -80,6 +94,30 @@ from the main menu. Every save made during a practice game writes its gameplay
 sidecar, even with the save sidecar setting off. Automatic saves are not
 resumable: they load without practice rules and never count toward the weekly
 results. A practice save whose sidecar is later lost loads as an ordinary game.
+
+### AI handicaps
+
+The Gameplay settings include **AI Research Bonus**, **AI Production Bonus**,
+**AI Gold Bonus**, **AI Food Bonus**, and **AI Culture Bonus**. Each runs from 0
+to 200 and defaults to 0, which keeps native behavior. Humans and Barbarians
+keep native values. These options change the economy, not leader personality
+or the number of AI civilizations.
+
+Research and production costs are divided by `1 + bonus/100`. A bonus of 100
+halves the cost and 200 divides it by three. Positive city Gold, Food, and
+Culture contributions are multiplied by `1 + bonus/100`. The
+[runtime contract](rexglue-runtime.md#ai-handicaps) describes rounding and limits.
+
+Changes apply to the next new game. Multiplayer uses the host's values; see
+[Online play](online-play.md#gameplay-settings-and-mods).
+
+The gameplay sidecar saves all five bonuses with the native save. Loading a
+single-player save restores them. Saves without a valid sidecar, sidecars from
+earlier releases, and loads with sidecars disabled use 0 for all five. Keep the
+`.rerevved-gameplay` file beside its native save when copying saves.
+
+Game of the Week with **Standard Rules** uses 0 for all five bonuses.
+Multiplayer loads use native behavior, whatever the save recorded.
 
 ## Display and audio
 

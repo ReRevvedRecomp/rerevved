@@ -24,6 +24,8 @@ namespace rerevved::gotw
 {
 
 bool CurrentSetupIsSinglePlayer() noexcept;
+// False for readable mode 2, latched practice/isolated Game of the Week, or no setup object.
+bool CurrentSetupIsNotGameOfTheWeek() noexcept;
 
 } // namespace rerevved::gotw
 

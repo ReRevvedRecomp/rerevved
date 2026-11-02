@@ -27,7 +27,7 @@ namespace
 {
 
 constexpr std::array<uint8_t, 4> kMagic{ 'R', 'R', 'G', 'S' };
-constexpr size_t                 kMaximumPayload = 4 + 1 + 1 + 42 + 4 + 64 + 19 + gotw::kPracticeBlockSize + 3 + 32 * 32 * 3;
+constexpr size_t                 kMaximumPayload = 4 + 1 + 1 + 42 + 4 + 64 + 20 + gotw::kPracticeBlockSize + 3 + 32 * 32 * 3;
 
 bool validIdentity(const Identity& identity)
 {
@@ -63,7 +63,7 @@ std::vector<uint8_t> Serialize(const State& state, const Identity& identity)
     }
     std::vector<uint8_t> bytes(kMagic.begin(), kMagic.end());
     bytes.push_back(state.practice ? uint8_t{ 3 } : state.practiceMarker ? uint8_t{ 4 }
-                                                                         : uint8_t{ 5 });
+                                                                         : uint8_t{ 6 });
     bytes.push_back(static_cast<uint8_t>(identity.slot.size()));
     bytes.insert(bytes.end(), identity.slot.begin(), identity.slot.end());
     for (int shift : { 24, 16, 8, 0 })
@@ -93,6 +93,7 @@ std::vector<uint8_t> Serialize(const State& state, const Identity& identity)
     if (!state.practice && !state.practiceMarker)
     {
         bytes.push_back(static_cast<uint8_t>(state.turnLimit));
+        bytes.push_back(state.alwaysAtWar);
     }
     if (state.practice)
     {
@@ -112,10 +113,10 @@ std::optional<State> Deserialize(std::span<const uint8_t> bytes, const Identity&
     const size_t slotSize = bytes[5];
     // Schema 1 has only the four setting bytes. Schema 2 adds five AI bonuses, the
     // occ-from-setup flag, Barbarian defeat count, whole-game history flags, first
-    // founding turn and initial AI count. Schema 3 adds the practice block; schema 4
-    // is schema 2 plus the isolation-only practice marker, with no block. Schema 5
-    // is schema 2 plus the turn limit byte.
+    // founding turn and initial AI count.
+    // Schema 3 adds a practice block, 4 an isolation marker, 5 the turn limit byte, 6 the Always At War byte.
     const size_t stateSize = bytes[4] == 1 ? 4 : bytes[4] == 5 ? 19
+                                             : bytes[4] == 6   ? 20
                                                                : 18;
     if (slotSize != identity.slot.size() || bytes.size() < 6 + slotSize + 4 + 64 + stateSize + 3 ||
         !std::equal(identity.slot.begin(), identity.slot.end(), bytes.begin() + 6))
@@ -156,9 +157,17 @@ std::optional<State> Deserialize(std::span<const uint8_t> bytes, const Identity&
         state.firstFoundingTurn  = turn == 0xFFFF ? -1 : turn;
         state.initialAiOpponents = bytes[offset + 17] == 0xFF ? -1 : bytes[offset + 17];
     }
-    if (bytes[4] == 5)
+    if (bytes[4] >= 5)
     {
         state.turnLimit = bytes[offset + 18];
+    }
+    if (bytes[4] == 6)
+    {
+        if (bytes[offset + 19] > 1)
+        {
+            return std::nullopt;
+        }
+        state.alwaysAtWar = bytes[offset + 19] != 0;
     }
     size_t recordsOffset = offset + stateSize;
     if (bytes[4] == 3)

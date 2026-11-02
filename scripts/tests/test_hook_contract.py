@@ -674,6 +674,17 @@ EXPECTED_HOOKS = [
         "jump_address_on_true": 0x82D5E888,
     },
     {
+        "address": 0x82D619AC,
+        "name": "ScaleUnitMovementQuantum",
+        "registers": ["r1", "r24", "r27"],
+    },
+    {
+        "address": 0x82D619BC,
+        "name": "SnapUnitMovement",
+        "registers": ["r1", "r24"],
+        "jump_address_on_true": 0x82D619C0,
+    },
+    {
         "address": 0x82D17A9C,
         "name": "FixRushCostApply",
         "registers": [
@@ -2147,6 +2158,65 @@ class HookContractTests(unittest.TestCase):
         self.assertEqual(override.count("writeGuestU32Safely("), 1)
         self.assertNotIn("REXLOG_", override)
 
+    def test_unit_movement_contract(self) -> None:
+        hooks = (ROOT / "src" / "gameplay_fixes_hooks.cpp").read_text(encoding="utf-8")
+        app_source = APP_SOURCE.read_text(encoding="utf-8")
+        helpers = (ROOT / "src" / "gameplay_fixes.h").read_text(encoding="utf-8")
+        self.assertEqual(
+            len(
+                re.findall(
+                    r'REXCVAR_DEFINE_STRING\(unit_movement,\s*"normal",\s*'
+                    r'"ReRevved",\s*"[^"]+"\)\s*'
+                    r'\.allowed\(\{\s*"normal",\s*"fast",\s*"instant"\s*\}\);',
+                    app_source,
+                )
+            ),
+            1,
+        )
+        for name in ("ScaleUnitMovementQuantum", "SnapUnitMovement"):
+            self.assertEqual(len(re.findall(rf"^\w+ {name}\(", hooks, re.M)), 1)
+        scale = hooks.split("void ScaleUnitMovementQuantum", 1)[1].split(
+            "bool Snap", 1
+        )[0]
+        snap = hooks.split("bool SnapUnitMovement", 1)[1].split("\n}\n", 1)[0]
+        self.assertEqual(scale.count("quantum.u64 ="), 1)
+        self.assertNotIn("quantum.", snap)
+        movement = hooks[
+            hooks.index("unitMovementLogged") : hooks.index("// Before cmpwi cr6,r9,10")
+        ]
+        for forbidden in ("writeGuest", "store_and_swap", "REX_STORE"):
+            self.assertNotIn(forbidden, movement)
+        self.assertEqual(movement.count("REXLOG_INFO"), 1)
+        self.assertIn("kNetworkGameByte", movement)
+        self.assertIn('RegisterChangeCallback("unit_movement"', movement)
+        self.assertIn("AcceleratesMovingUnit", movement)
+        self.assertIn("unitType != 24 && unitType != 27", helpers)
+
+    def test_generated_unit_movement_hooks_when_available(self) -> None:
+        if not chunk_paths():
+            self.skipTest("generated sources are not available")
+
+        # Scale after native divw, before threshold srawi. Snap tests before bgt to the near-target arm at 0x82D619C0.
+        scale = (
+            "\t// divw r27,r6,r10\n"
+            "\tctx.r27.u64 = uint32_t((ctx.r10.s32 && !(ctx.r6.s32 == INT32_MIN && ctx.r10.s32 == -1)) ? ctx.r6.s32 / ctx.r10.s32 : 0);\n"
+            "\t// srawi r5,r27,1\n"
+            "\tScaleUnitMovementQuantum(ctx.r1, ctx.r24, ctx.r27);\n"
+        )
+        snap = (
+            "\t// bgt cr6,0x82d619dc\n"
+            "\tif (SnapUnitMovement(ctx.r1, ctx.r24)) {\n"
+            "\t\tgoto loc_82D619C0;\n"
+            "\t}\n"
+            "\telse {\n"
+            "\t}\n"
+            "\tif (ctx.cr6.gt) goto loc_82D619DC;\n"
+            "loc_82D619C0:\n"
+            "\t// stwx r20,r23,r22\n"
+        )
+        for expected in (scale, snap):
+            self.assertEqual(count_per_chunk(expected), 1, expected)
+
     def test_generated_spy_kidnapping_failure_guard_when_available(self) -> None:
         def scan(paths: list[Path]) -> dict[str, str]:
             windows = WindowCollector()
@@ -3217,7 +3287,7 @@ class HookContractTests(unittest.TestCase):
         )
         self.assertRegex(
             settings,
-            r'\{ "", \{ [^}]*"turn_limit", "starting_era", "ai_civilizations" \} \}',
+            r'\{ "", \{ [^}]*"turn_limit", "starting_era", "ai_civilizations", "always_at_war" \} \}',
         )
         self.assertIn('{ "ai_civilizations", Audience::kPlayer }', settings)
         self.assertEqual(settings.count('"ai_civilizations"'), 5)
@@ -5300,6 +5370,195 @@ class RingAndVideoReplacementBoundaryTests(unittest.TestCase):
             "REX_HOOK_RAW", 1
         )[0]
         self.assertEqual(publish.count("__imp__sub_8269C400(ctx, base)"), 1)
+
+
+ALWAYS_AT_WAR_CONFIG = ROOT / "config" / "always_at_war_hooks.toml"
+ALWAYS_AT_WAR_SOURCE = ROOT / "src" / "always_at_war_hooks.cpp"
+
+
+class AlwaysAtWarHookContractTests(unittest.TestCase):
+    def hooks(self) -> list[dict]:
+        with ALWAYS_AT_WAR_CONFIG.open("rb") as stream:
+            return tomllib.load(stream)["midasm_hook"]
+
+    def test_hook_table(self) -> None:
+        hooks = self.hooks()
+        self.assertEqual(len(hooks), 18)
+        addresses = [hook["address"] for hook in hooks]
+        self.assertEqual(len(set(addresses)), len(addresses))
+        by_address = {hook["address"]: hook for hook in hooks}
+        self.assertEqual(
+            {a: by_address[a]["name"] for a in addresses[:3]},
+            {
+                0x82D22940: "ProjectAlwaysAtWarEarly",
+                0x82D1AAE8: "ProjectAlwaysAtWarGroups",
+                0x82D2582C: "ProjectAlwaysAtWarOnLoad",
+            },
+        )
+        jumps = {
+            0x82CC90EC: 0x82CC91DC,
+            0x82CCFB94: 0x82CCFBA8,
+            0x82CD0EE0: 0x82CD4374,
+            0x82CD1330: 0x82CD4374,
+            0x82D18508: 0x82D1859C,
+            0x82D18AB8: 0x82D18B50,
+            0x82D033C8: 0x82D03498,
+            0x82CE0068: 0x82CE16AC,
+            0x82D25580: 0x82D255B0,
+        }
+        for address, target in jumps.items():
+            self.assertEqual(by_address[address]["jump_address_on_true"], target)
+        self.assertEqual(
+            sum("jump_address_on_true" in hook for hook in hooks), len(jumps)
+        )
+        for address in (0x82CCA61C, 0x82CCAB9C, 0x82CCAFBC):
+            self.assertEqual(by_address[address]["name"], "RefuseContactChoice")
+            self.assertEqual(by_address[address]["registers"], ["r3", "r28", "r19"])
+        self.assertEqual(by_address[0x82D033C8]["registers"], ["r31", "r30", "r29"])
+        self.assertEqual(by_address[0x82D25580]["name"], "SilenceAiContact")
+        self.assertEqual(by_address[0x82D25580]["registers"], ["r31", "r29"])
+        others = {hook["address"] for hook in compat_hooks()} & set(addresses)
+        self.assertFalse(others)
+
+    def test_every_hook_is_defined_once(self) -> None:
+        source = ALWAYS_AT_WAR_SOURCE.read_text(encoding="utf-8")
+        for name in {hook["name"] for hook in self.hooks()}:
+            self.assertEqual(len(re.findall(rf"^\w+ {name}\(", source, re.M)), 1)
+
+    def test_registration_and_final_projection_order(self) -> None:
+        self.assertEqual(
+            MANIFEST.read_text(encoding="ascii").count(
+                '"config/always_at_war_hooks.toml"'
+            ),
+            1,
+        )
+        cmake = CMAKE_LISTS.read_text(encoding="utf-8")
+        self.assertEqual(cmake.count("src/always_at_war_hooks.cpp"), 1)
+        override = AI_CIV_SOURCE.read_text(encoding="utf-8").split(
+            "REX_HOOK_RAW(sub_82D11AD8)", 1
+        )[1]
+        self.assertLess(
+            override.index("OnNewGameSetup("),
+            override.index("ProjectAlwaysAtWarFinal();"),
+        )
+        self.assertLess(
+            override.index("ProjectAlwaysAtWarFinal();"),
+            override.index("__imp__sub_82D11AD8"),
+        )
+
+    def test_generated_hooks_when_available(self) -> None:
+        paths, generated = generated_text()
+        if not paths:
+            self.skipTest("generated sources are not available")
+        for hook in self.hooks():
+            registers = ", ".join(f"ctx.{r}" for r in hook.get("registers", []))
+            call = f"{hook['name']}({registers})"
+            if "jump_address_on_true" in hook:
+                target = f"loc_{hook['jump_address_on_true']:08X}"
+                pattern = rf"if \({re.escape(call)}\) \{{\s*goto {target};"
+            else:
+                pattern = rf"	{re.escape(call)};"
+            self.assertRegex(generated, pattern)
+        for name in {hook["name"] for hook in self.hooks()}:
+            expected = sum(hook["name"] == name for hook in self.hooks())
+            self.assertEqual(
+                len(re.findall(rf"(?:\t|if \(){name}\(", generated)),
+                expected,
+                name,
+            )
+
+
+APOLLO_CONFIG = ROOT / "config" / "apollo_discovery_hooks.toml"
+APOLLO_SOURCE = ROOT / "src" / "apollo_discovery_hooks.cpp"
+
+
+class ApolloDiscoveryHookContractTests(unittest.TestCase):
+    def hooks(self) -> list[dict]:
+        return read_hooks(APOLLO_CONFIG)
+
+    def test_hook_table(self) -> None:
+        self.assertEqual(
+            self.hooks(),
+            [
+                {
+                    "address": 0x82D16348,
+                    "name": "RecordApolloCompletion",
+                    "registers": ["r23", "r27"],
+                },
+                {
+                    "address": 0x82C7DF5C,
+                    "name": "DrainApolloDiscoveryBonuses",
+                    "registers": ["r1"],
+                },
+            ],
+        )
+        # Each address occurs once across included files.
+        addresses = [hook["address"] for hook in all_configured_hooks()]
+        self.assertEqual(len(set(addresses)), len(addresses))
+        self.assertIn(0x82D16344, addresses)
+        self.assertIn(0x82C7DF58, addresses)
+
+    def test_every_hook_is_defined_once(self) -> None:
+        source = APOLLO_SOURCE.read_text(encoding="utf-8")
+        for name in {hook["name"] for hook in self.hooks()}:
+            self.assertEqual(len(re.findall(rf"^void {name}\(", source, re.M)), 1)
+
+    def test_registration(self) -> None:
+        self.assertEqual(
+            MANIFEST.read_text(encoding="ascii").count(
+                '"config/apollo_discovery_hooks.toml"'
+            ),
+            1,
+        )
+        cmake = CMAKE_LISTS.read_text(encoding="utf-8")
+        self.assertEqual(cmake.count("src/apollo_discovery_hooks.cpp"), 1)
+        resets = AI_CIV_SOURCE.read_text(encoding="utf-8")
+        self.assertEqual(resets.count("ResetApolloDiscovery();"), 2)
+
+    def test_record_then_drain_through_native_acquisition(self) -> None:
+        source = APOLLO_SOURCE.read_text(encoding="utf-8")
+        record = source.split("void RecordApolloCompletion", 1)[1].split(
+            "// The application frame driver", 1
+        )[0]
+        self.assertNotIn("ExecuteTrap", record)
+        self.assertIn("CurrentSetupIsNotGameOfTheWeek()", record)
+        drain = source.split("void DrainApolloDiscoveryBonuses", 1)[1]
+        self.assertIn("&thread->context()->r1 != &sp", drain)
+        self.assertIn("draining.exchange(true)", drain)
+        self.assertIn("constexpr uint32_t kAcquire          = 0x82D09208;", source)
+        self.assertIn(
+            "uint64_t arguments[] = { player, static_cast<uint64_t>(technology), "
+            "city, 0, phase };",
+            source,
+        )
+        self.assertIn("for (const uint64_t phase : { 1ull, 2ull })", source)
+        # The raw word is rechecked immediately before the pair.
+        self.assertLess(
+            source.index("ad::IsUnclaimed(word("), source.index("ExecuteTrap")
+        )
+
+    def test_generated_hooks_when_available(self) -> None:
+        paths, generated = generated_text()
+        if not paths:
+            self.skipTest("generated sources are not available")
+        record = (
+            "\tctx.r11.s64 = -2095775744;\n"
+            "\t// lbz r11,-3829(r11)\n"
+            "\tRecordApolloCompletion(ctx.r23, ctx.r27);\n"
+            "\tctx.r11.u64 = REX_LOAD_U8(ctx.r11.u32 + -3829);\n"
+        )
+        self.assertEqual(generated.count(record), 1)
+        function = generated.split("DEFINE_REX_FUNC(sub_82C7DF58)", 1)[1].split(
+            "DEFINE_REX_FUNC", 1
+        )[0]
+        self.assertIn(
+            "\tctx.r12.u64 = ctx.lr;\n"
+            "\t// bl 0x827f7c88\n"
+            "\tDrainApolloDiscoveryBonuses(ctx.r1);\n",
+            function,
+        )
+        for name in ("RecordApolloCompletion", "DrainApolloDiscoveryBonuses"):
+            self.assertEqual(len(re.findall(rf"\t{name}\(ctx\.", generated)), 1)
 
 
 if __name__ == "__main__":

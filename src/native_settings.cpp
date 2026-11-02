@@ -59,6 +59,7 @@ constexpr std::array<std::string_view, 7> kCategoryNames{ "General", "Gameplay",
 
 constexpr auto kSpecs = std::to_array<Spec>({
     { "combat_speed", Kind::kEnum, Applies::kLive, {}, {} },
+    { "unit_movement", Kind::kEnum, Applies::kLive, {}, {} },
     { "spaceship_scenes", Kind::kBool, Applies::kLive, {}, {} },
     { "resources", Kind::kLabeledInt, Applies::kNextGame, {}, {} },
     { "raging_barbarians", Kind::kBool, Applies::kNextGame, {}, {} },
@@ -67,6 +68,7 @@ constexpr auto kSpecs = std::to_array<Spec>({
     { "turn_limit", Kind::kEnum, Applies::kNextGame, {}, {} },
     { "starting_era", Kind::kEnum, Applies::kNextGame, {}, {} },
     { "ai_civilizations", Kind::kLabeledInt, Applies::kNextGame, {}, {} },
+    { "always_at_war", Kind::kBool, Applies::kNextGame, {}, {} },
     { "multiplayer_ai_difficulty", Kind::kEnum, Applies::kNextGame, {}, {} },
     { "ai_research_bonus_percent", Kind::kPresetInt, Applies::kNextGame, {}, kBonusPresets },
     { "ai_production_bonus_percent", Kind::kPresetInt, Applies::kNextGame, {}, kBonusPresets },

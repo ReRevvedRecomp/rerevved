@@ -1,0 +1,110 @@
+# Single-player only, off by default; hooks require the frozen setting.
+
+# After late count and Barbarian publication (join 0x82D2293C), before city placement.
+[[midasm_hook]]
+address = 0x82D22940
+name = "ProjectAlwaysAtWarEarly"
+
+# After 0x82D1A6C0 group stores, before recount at 0x82D1AAF0.
+[[midasm_hook]]
+address = 0x82D1AAE8
+name = "ProjectAlwaysAtWarGroups"
+
+# Must precede the load path's single ranking call.
+[[midasm_hook]]
+address = 0x82D2582C
+name = "ProjectAlwaysAtWarOnLoad"
+
+# 0x82CC9FF8 chooser compares: r28 and r19 are the pair, -1 is native refusal.
+[[midasm_hook]]
+address = 0x82CCA61C
+name = "RefuseContactChoice"
+registers = ["r3", "r28", "r19"]
+
+[[midasm_hook]]
+address = 0x82CCAB9C
+name = "RefuseContactChoice"
+registers = ["r3", "r28", "r19"]
+
+[[midasm_hook]]
+address = 0x82CCAFBC
+name = "RefuseContactChoice"
+registers = ["r3", "r28", "r19"]
+
+# 0x82CC9078: return native 0 after clock/flag tests, before notification.
+[[midasm_hook]]
+address = 0x82CC90EC
+name = "RefuseContactNotice"
+registers = ["r30", "r31"]
+jump_address_on_true = 0x82CC91DC
+
+# 0x82CCEFA8: skip first-contact stores to both orientations (r17, r18).
+[[midasm_hook]]
+address = 0x82CCFB94
+name = "RefuseFirstContact"
+registers = ["r17", "r18"]
+jump_address_on_true = 0x82CCFBA8
+
+# 0x82CCEFA8 retained contact: skip two ignored notifications via 0x82CD4374.
+[[midasm_hook]]
+address = 0x82CD0EE0
+name = "RefuseRetainedContact"
+registers = ["r1"]
+jump_address_on_true = 0x82CD4374
+
+[[midasm_hook]]
+address = 0x82CD1330
+name = "RefuseRetainedContact"
+registers = ["r1"]
+jump_address_on_true = 0x82CD4374
+
+# 0x82CCEFA8 Gold chooser: nonzero takes native war write at 0x82CD206C.
+[[midasm_hook]]
+address = 0x82CD1ED8
+name = "RefuseGoldContact"
+registers = ["r3", "r26", "r23"]
+
+# 0x82CCBED0 (r28, r26): Democracy response and consumed choice 1 take the native war write.
+[[midasm_hook]]
+address = 0x82CCC930
+name = "RefuseDemocracyResponse"
+registers = ["r6", "r28", "r26"]
+
+[[midasm_hook]]
+address = 0x82CCC9CC
+name = "RefuseConsumedResponse"
+registers = ["r29", "r28", "r26"]
+
+# 0x82D17AE0 Tower (selector 7) and Tesla (11): skip coupled stores to the loop tail.
+[[midasm_hook]]
+address = 0x82D18508
+name = "RefuseTowerPair"
+registers = ["r3", "r31"]
+jump_address_on_true = 0x82D1859C
+
+[[midasm_hook]]
+address = 0x82D18AB8
+name = "RefuseTeslaPair"
+registers = ["r3", "r31"]
+jump_address_on_true = 0x82D18B50
+
+# 0x82D03388 after the same-value test: r31 and r30 are the pair, r29 the value.
+[[midasm_hook]]
+address = 0x82D033C8
+name = "RefuseRelationRequest"
+registers = ["r31", "r30", "r29"]
+jump_address_on_true = 0x82D03498
+
+# 0x82CDDF08 command 39 (r31, r15, value r29); 0x82CE16AC balances dispatch depth.
+[[midasm_hook]]
+address = 0x82CE0068
+name = "RefuseDeliveredRelation"
+registers = ["r31", "r15", "r29"]
+jump_address_on_true = 0x82CE16AC
+
+# 0x82D253B8 no-contact gate: r31 is the human, r29 the AI; true takes 0x82D255B0.
+[[midasm_hook]]
+address = 0x82D25580
+name = "SilenceAiContact"
+registers = ["r31", "r29"]
+jump_address_on_true = 0x82D255B0

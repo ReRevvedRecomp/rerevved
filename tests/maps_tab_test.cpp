@@ -44,7 +44,8 @@ struct TempProfile
     TempProfile()
     {
         const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
-        root             = fs::temp_directory_path() / ("rerevved_maps_tab_test_" + std::to_string(stamp));
+        // The SDK refuses order files under a link, macOS temp is under the /var link.
+        root = fs::canonical(fs::temp_directory_path()) / ("rerevved_maps_tab_test_" + std::to_string(stamp));
         fs::create_directories(root);
     }
 

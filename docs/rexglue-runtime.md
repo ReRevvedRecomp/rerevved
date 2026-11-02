@@ -18,6 +18,8 @@ driver never modifies that checkout.
   [One City Challenge](#gameplay-one-city-challenge),
   [gameplay fixes](#gameplay-fixes), [Turn Limit](#gameplay-turn-limit),
   [Starting Era](#gameplay-starting-era),
+  [Always At War](#gameplay-always-at-war),
+  [Apollo Discovery Bonuses](#gameplay-apollo-discovery-bonuses),
   [Multiplayer AI Difficulty](#gameplay-multiplayer-ai-difficulty),
   [Spaceship Scenes](#gameplay-spaceship-scenes) and
   [Game of the Week](#gameplay-game-of-the-week): gameplay integration limits.
@@ -1093,6 +1095,27 @@ The `combat_speed` setting accepts `normal` or `fast` and defaults to `normal`.
 `fast` uses the guest's native faster combat presentation pace while preserving
 resolution and completion.
 
+## Unit movement setting
+
+The live `unit_movement` setting (Gameplay, after Combat Speed) accepts `normal`,
+`fast` or `instant` and defaults to `normal`. It is a presentation
+preference. A network game uses the host's value, carried in the host
+settings and frozen at `ApplyNewGame`, so every peer moves units the same way; single
+player uses the live setting. Two hooks in the coordinate updater `0x82D5FFC8` read the
+setting each update. Both leave the shared frame time, cooldowns, game-state flags,
+movement budget, tile position, destination, lifecycle and busy flags to the native
+code.
+
+| Address | Hook | Effect |
+|---|---|---|
+| `0x82D619AC` | `ScaleUnitMovementQuantum` | Fast: after the native quotient at `0x82D619A8`, multiply a positive quantum in `r27` by 3, clamped so `quantum + quantum / 2` fits 32 bits. |
+| `0x82D619BC` | `SnapUnitMovement` | Instant: before the `bgt` to the long arm, jump to the native near-target snap at `0x82D619C0`. |
+
+The unit is the 84-byte record at `[r1+112] + r24`; its type is byte 1. Types 24 and 27
+stay native. Instant moves the displayed position to the target on the first update;
+it does not skip skeletal animation or change when the command returns. The first
+update that takes effect logs `UnitMovement:` once.
+
 ## Gameplay Resources
 
 F1 **Gameplay > Resources** offers **Normal**, **Balanced** and **Legendary**.
@@ -1277,19 +1300,21 @@ fallback, a following Normal game and GOTW Standard Rules with Legendary selecte
 ## Save sidecar
 
 `save_sidecar` (default `true`) controls whether the host stores gameplay
-state separately for each save. The payload stores schema version 5, or 3 for a Game of the Week practice save, the frozen
+state separately for each save. The payload stores schema version 6, or 3 for a Game of the Week practice save, the frozen
 Resources selection, sorted unique Balanced or Legendary identity overrides, the frozen Raging
 Barbarians boolean, the fixed One City Challenge enabled state and minimum
 population, the effective AI research, production, gold, food and culture bonus
-percentages, the frozen Turn Limit index (0 to 4, schema 5 only), and custom achievement progress: whether One
+percentages, the frozen Turn Limit index (0 to 4, schema 5 and later), the frozen Always At War boolean (schema 6 only), and custom achievement progress: whether One
 City Challenge was enabled at game setup (only possible while it is enabled), the Barbarian defeat count, 0 to
 50, and the whole-game history (tracked flag, unit built, battle fought, deep
 Ocean entered, first founding turn and initial AI opponent count). Schema 1
 stores only the Resources selection, Raging Barbarians, One City Challenge and
 the identity overrides. It uses native AI values and gives no progress: One
 City Challenge not from setup, a count of 0 and untracked history. Schema 2 is
-the payload before the Turn Limit and schema 5 adds its byte after the initial AI
-count; schemas 1 to 4 load the native 2100 limit. Schema 3 is
+a payload without Turn Limit; schema 5 stores its byte after the initial AI
+count; schema 6 adds the Always At War byte (0 or 1, any other value rejects the
+sidecar) after it. Schemas 1 to 4 load the native 2100 limit, and schemas 1 to 5
+load with Always At War off. Schema 3 is
 schema 2 with one Game of the Week block inserted after the fixed state and
 before the resource identity records, written only for a manual save in a
 practice game. Schema 3 itself means a block is present: one flag byte
@@ -1303,7 +1328,7 @@ isolation-only marker, written by any save of a practice game, or of a game that
 loaded as isolated, that carries no block (an automatic save, a manual one whose
 block is unavailable, or a resave of an isolated load). It holds no week, seed,
 civilization or rules; a load that finds it claims the origin and is isolated,
-never resumed. Other games write schema 5, and their autosaves are unchanged.
+never resumed. Other games write schema 6, and their autosaves are unchanged.
 New games freeze the effective gameplay selections, including standard GOTW
 values.
 
@@ -1767,7 +1792,8 @@ locations in [gotw_hooks.toml](../config/gotw_hooks.toml).
 
 ## Gameplay fixes
 
-The midasm hooks in `config/gameplay_hooks.toml` repair native behavior.
+The midasm hooks in `config/gameplay_hooks.toml` repair native behavior; the
+Always At War hooks are in `config/always_at_war_hooks.toml`.
 The Domination minimum is controlled by a setting. `src/gameplay_fixes.h`
 holds their selection and arithmetic. Static evidence is in rerevved-research manifests `science-completion.json`,
 `technology-prompt-callers.json`, `spaceship-launch-arrival-year-boundary.json`,
@@ -1989,8 +2015,8 @@ and 24, and the grant stores the era and ownership bits natively. After a player
 grants the loop reloads the halfword at `0x82D22BFC` through the Q pointer saved at
 frame+0x68, so a later player and the value-4 bulk path read the same field.
 `starting_era` is a string setting with the choices `ancient` (default, no
-override), `medieval`, `industrial` and `modern`, which are the native values
-0 to 3 in that order. F1 **Gameplay > Starting Era** shows them. The count is
+override), `medieval`, `industrial`, `modern` and `future`, which are the native values
+0 to 4 in that order; `future` copies the Beta Centauri start. F1 **Gameplay > Starting Era** shows them. The count is
 additional successful grants, not a fixed list or a final era; the native chooser
 still classifies eras from the acquisition tally.
 
@@ -2001,16 +2027,101 @@ after the join label, and takes r31. It stores the frozen value in Q+0x1C when
 the setup is an admitted new game (`SetupActive`), the scenario word `0x8312B8D4`
 is the ordinary-game sentinel -1 and the era is not Ancient. It also stores the
 start year the retail presets pair with that era in STARTYEAR, Q+0x3E: 1000 AD for
-Medieval, 1500 AD for Industrial and 1800 AD for Modern. The same setup reads it at
+Medieval, 1500 AD for Industrial and 1800 AD for Modern. Future writes 2025, the Beta Centauri request, which the
+native calendar rounds to the first playable turn at or after it. The same setup reads it at
 `0x82D24F20`, after the grants, and advances the first turn to that year (turns 60,
-80 and 98). It writes only those halfwords and no register or condition register,
-so the native grant order and random draws are unchanged.
+80 and 98 for the first three). It writes only those halfwords and no register or condition register,
+so the native grant order and random draws are unchanged. Future also leaves the
+native random grant count and technology 47 alone; the native bulk arm grants
+technologies 1 to 46.
 
 A scenario keeps its authored era. Game of the Week, fresh or practice, always
 freezes the native era, whatever the setting. A new network game uses the host's
 frozen value on every peer; it is frozen before any grant draw. A load never
 writes the field and keeps the era and ownership bits the native save carries. The setting
 is not saved in the sidecar.
+
+## Gameplay Always At War
+
+`always_at_war` (bool, default off) keeps every pair of live civilizations at war.
+The relation matrix is `U32[0x830ED2D8 + 4 * (8 * p + q)]`: 0 is war, 1 peace and
+-1 no contact. The value is frozen at `ApplyNewGame` and is forced off in network
+games and Game of the Week, so it is single player only. The sidecar records it
+(schema 6), and a load restores the saved value, or off when none was saved. The
+pure decisions (pair, intended and live masks, projection, forbidden write) are in
+`src/gameplay_fixes.h`; the hooks in `src/always_at_war_hooks.cpp` and
+[always_at_war_hooks.toml](../config/always_at_war_hooks.toml) are thin. Intended
+civilizations are the configured ones less those the AI limit removes; live ones own
+a populated city or an occupied unit that is not dead. The Barbarians are neither.
+
+Projection sets both orientations of every pair of the mask to war and leaves the
+diagonal and every other cell native. Each logs `Always At War: projected` with its
+phase, mask and cells changed.
+
+| Address | Hook | Effect |
+|---|---|---|
+| `0x82D22940` | `ProjectAlwaysAtWarEarly` | Setup only: project after the late count and Barbarian publication. |
+| `0x82D1AAE8` | `ProjectAlwaysAtWarGroups` | Setup only: project after the group stores, before the recount at `0x82D1AAF0`. |
+| `sub_82D11AD8` wrapper | `ProjectAlwaysAtWarFinal` | Project after removal and start resources, immediately before the native recount (`LR == 0x82D25310`, `SetupActive`). |
+| `0x82D2582C` | `ProjectAlwaysAtWarOnLoad` | Load: project the live civilizations before the ranking call. |
+| `0x82CCA61C`, `0x82CCAB9C`, `0x82CCAFBC` | `RefuseContactChoice` | Contact dialog `0x82CC9FF8`: set the chooser result to the native -1 refusal. |
+| `0x82CC90EC` | `RefuseContactNotice` | `0x82CC9078`: return the native 0 at `0x82CC91DC` before its notification. |
+| `0x82CCFB94` | `RefuseFirstContact` | First-contact store of 1 in `0x82CCEFA8`: skip to `0x82CCFBA8`. |
+| `0x82CD0EE0`, `0x82CD1330` | `RefuseRetainedContact` | `0x82CCEFA8` retained contact: jump to the native completion `0x82CD4374`. |
+| `0x82CD1ED8` | `RefuseGoldContact` | Set the Gold chooser result to 1, the native war write at `0x82CD206C`. |
+| `0x82CCC930` | `RefuseDemocracyResponse` | `0x82CCBED0`: set the response to 1, the native refusal. |
+| `0x82CCC9CC` | `RefuseConsumedResponse` | `0x82CCBED0`: set the consumed choice to 1, the native war write. |
+| `0x82D18508` | `RefuseTowerPair` | Tower event pair body in `0x82D17AE0`: skip to `0x82D1859C`. |
+| `0x82D18AB8` | `RefuseTeslaPair` | Tesla event pair body in `0x82D17AE0`: skip to `0x82D18B50`. |
+| `0x82D033C8` | `RefuseRelationRequest` | Shared request `0x82D03388`: jump to its epilogue `0x82D03498`. |
+| `0x82CE0068` | `RefuseDeliveredRelation` | Delivered command 39 in `0x82CDDF08`: jump to the native completion `0x82CE16AC`. |
+| `0x82D25580` | `SilenceAiContact` | Automatic contact gate `0x82D253B8`: jump to its no-contact return `0x82D255B0` for a human and a live AI, so the AI opens no dialog (logs `Always At War: silenced contact`). |
+
+The two write hooks refuse only a write that would replace war, in either
+orientation, between live civilizations; a war write and every other pair stay
+native, as does the lifecycle cleanup of an eliminated player. Each refusal logs
+`Always At War: refused peace` with its site and the pair. The native diplomacy
+dialog still appears, and a refused answer resolves as a refusal. The cancel of a
+pending native request is not intercepted. A setup that fails to admit the expected
+civilizations is not rebuilt, a civilization admitted after its first city is not
+re-projected, and network peers are not enforced.
+
+## Gameplay Apollo Discovery Bonuses
+
+An always-on fix, with no setting, grants unclaimed first-discovery bonuses when a
+civilization completes Apollo (Wonder 17), after which technologies 1 to 46 query
+as owned and can never be acquired. It applies in single player and network games
+and skips Game of the Week (`gotw::CurrentSetupIsNotGameOfTheWeek`: setup mode other
+than 2 and no practice or isolated latch). Each peer drains on its own frame timing;
+there is no peer barrier. Nothing is saved in the sidecar. The
+pure decisions are in `src/apollo_discovery.h`; the hooks in
+`src/apollo_discovery_hooks.cpp` and
+[apollo_discovery_hooks.toml](../config/apollo_discovery_hooks.toml) are thin.
+
+| Address | Hook | Effect |
+|---|---|---|
+| `0x82D16348` | `RecordApolloCompletion` | After the claim helper `0x82D16BA0` of the city update, for `r27 == 17`: record (owner of city `r23`, city) when the native claim at `0x830E51D0`/`0x830E51D4` matches. Logs `Apollo Discovery Bonuses: queued`. |
+| `0x82C7DF5C` | `DrainApolloDiscoveryBonuses` | The application frame driver, on the guest main thread: drain the oldest record once ready. |
+
+The drain runs through the dispatcher's `ExecuteTrap`, which restores the interrupted
+register state, like the Stonehenge hook. A nested pump re-enters the frame driver;
+a flag turns that call into a no-op. A record is ready when every player's
+completion marker `0x830E3348[p]` and context `0x830E3328[p]` and the recursive
+marker `0x830E3430` are zero or -1, and no owned city has a pending Wonder
+(`0x1000`) or spaceship part (`0x100`) flag at city+0x24. A value left in any
+player's marker by an earlier presentation therefore delays the drain until the
+native reset. For each technology 1 to 46 in ascending
+order, with the raw word `U32[0x830EDC48 + 4 * t]` equal to zero, the player owning
+the city and still holding the claim, it calls `0x82D09208(p, t, c, 0, 1)` and
+then `(p, t, c, 0, 2)`, each to its full return, logging
+`Apollo Discovery Bonuses: granted`. If anything native is pending after a pair the
+drain stops and later restarts from the raw words. `Apollo Discovery Bonuses:
+finished` ends a record. A new game or a load empties the queue.
+
+Left out: a save transaction with prepared-commit metadata, persisting the queue in
+the save sidecar (a save between the completion and the drain loses the grant),
+multiplayer peer barriers and a per-reward ledger. Static evidence is in
+rerevved-research `apollo-technology-discovery-bonuses.json`.
 
 ## Gameplay Multiplayer AI Difficulty
 
@@ -2071,13 +2182,13 @@ count.
 ## Multiplayer gameplay snapshots
 
 [Online play](online-play.md#gameplay-settings-and-mods) describes the player
-settings and compatibility requirements. The version-7 title payload in
+settings and compatibility requirements. The version-8 title payload in
 [host_settings.cpp](../src/host_settings.cpp) carries AI count from 0 to 6,
 Resources, Raging Barbarians, OCC, the AI research, production, gold, food and
 culture bonus percentages (0 to 200), Domination minimum turns (5 or 10), combat
-speed, the Turn Limit index (0 to 4), the Starting Era index (0 to 3), the
-multiplayer AI difficulty (2, 3 or 4), the spaceship scene skip (0 or 1) in the
-last header byte, and Game of the Week selections. Peers reject any other version.
+speed, the Turn Limit index (0 to 4), the Starting Era index (0 to 4), the
+multiplayer AI difficulty (2, 3 or 4), the spaceship scene skip (0 or 1), unit movement (0 normal, 1 fast, 2 instant)
+in the last header byte, and Game of the Week selections. Peers reject any other version.
 The override applies to that game and leaves local CVars unchanged.
 
 Before gameplay settings are frozen for a new game,
@@ -2085,7 +2196,7 @@ Before gameplay settings are frozen for a new game,
 `PrepareForGame` and waits up to 15 seconds for a ready authenticated snapshot.
 Lobby bytes do not satisfy this requirement. The host captures its current
 provider for each game. Joiners request that game's fresh snapshot.
-`ResolveForGame` requires ready host or received status, a valid version-7
+`ResolveForGame` requires ready host or received status, a valid version-8
 payload, complete matching package IDs and versions, and matching verified Lua
 digests when mod content is present. Old, missing, malformed, truncated or
 unverified data rejects setup without a local gameplay fallback.
@@ -2145,14 +2256,34 @@ Barbarian village, which names the reward; the reward is still granted.
 
 ## AI handicaps
 
-[AI handicaps](ai-difficulty.md) describes the player settings, rounding and
+[AI handicaps](configuration.md#ai-handicaps) describes the player settings and
 save policy. The three cost hooks run after native research, unit scalar and
 non-unit cost composition. Units keep the existing identity rule before the
 AI scalar adjustment. Positive costs have a floor. Unsupported player layouts
-and unsupported item IDs retain native results. The gold, food and culture
-hooks sit inside `sub_82D13978` after native loads each completed city
-contribution and before it stores the halfword city cache. Each hook scales
-the register and the stack word the native code saved it to, so both agree.
+and unsupported item IDs retain native results.
+
+Cost scaling multiplies the native cost by 100, divides by 100 plus the bonus,
+and truncates, with a minimum of one for positive costs. Research scales the
+final native technology cost after existing modifiers and rounding. Units
+scale the native scalar after existing discounts and mod rules, then multiply
+by the unit's production factor and divide by two. Integer rounding can change
+the displayed reduction; an already positive cost stays positive. Buildings
+100-122 and Wonders 200-232 scale their final native cost, preserving native
+discounts. Other item IDs keep native costs.
+
+The gold, food and culture hooks sit inside `sub_82D13978` after native loads
+each completed city contribution and before it stores the halfword city cache.
+Each hook scales the register and the stack word the native code saved it to,
+so both agree.
+
+Positive contributions are multiplied by 100 plus the bonus, divided by 100,
+and truncated. Zero and negative values stay native. Scaled values cap at
+32767; native values already above that cap stay unchanged. Food is the
+completed growth contribution, not gross harvest, so starvation stays native.
+Gold and Culture scale the composed city values, not each source separately.
+City totals, nation credits, and native clearing of excluded owners follow
+the changed values.
+
 New network games use the prepared host bonuses. Network loads keep native
 behavior. Standard Rules freezes native values at setup.
 

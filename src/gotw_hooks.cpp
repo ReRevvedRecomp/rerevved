@@ -167,6 +167,13 @@ bool CurrentSetupIsSinglePlayer() noexcept
     return readWord(kSetupGlobal, setup) && setup != 0 && readWord(uint64_t{ setup } + 4, mode) && IsSinglePlayerSetupMode(static_cast<int32_t>(mode));
 }
 
+bool CurrentSetupIsNotGameOfTheWeek() noexcept
+{
+    uint32_t   setup = 0, mode = 0;
+    const bool weekly = readWord(kSetupGlobal, setup) && setup != 0 && readWord(uint64_t{ setup } + 4, mode) && mode == 2;
+    return !weekly && !ForGame().Isolates();
+}
+
 } // namespace rerevved::gotw
 
 void ApplyGotwSeed(PPCRegister& setup, PPCRegister& week, PPCRegister& seed) noexcept
