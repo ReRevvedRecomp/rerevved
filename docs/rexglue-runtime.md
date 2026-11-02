@@ -1273,7 +1273,7 @@ fallback, a following Normal game and GOTW Standard Rules with Legendary selecte
 ## Save sidecar
 
 `save_sidecar` (default `true`) controls whether the host stores gameplay
-state separately for each save. The payload stores schema version 2, the frozen
+state separately for each save. The payload stores schema version 2, or 3 for a Game of the Week practice save, the frozen
 Resources selection, sorted unique Balanced or Legendary identity overrides, the frozen Raging
 Barbarians boolean, the fixed One City Challenge enabled state and minimum
 population, the effective AI research, production, gold, food and culture bonus
@@ -1283,8 +1283,21 @@ City Challenge was enabled at game setup (only possible while it is enabled), th
 Ocean entered, first founding turn and initial AI opponent count). Schema 1
 stores only the Resources selection, Raging Barbarians, One City Challenge and
 the identity overrides. It uses native AI values and gives no progress: One
-City Challenge not from setup, a count of 0 and untracked history. Game of the
-Week seed state is excluded.
+City Challenge not from setup, a count of 0 and untracked history. Schema 3 is
+schema 2 with one Game of the Week block inserted after the fixed state and
+before the resource identity records, written only for a manual save in a
+practice game. Schema 3 itself means a block is present: one flag byte
+(standard rules, custom week, custom civilization), the effective week and
+nonzero seed as big endian words, the effective civilization byte (chosen or
+derived), and the Earliest Domination byte (5 or 10). Nonstandard rules record
+only the rules bit; a load uses the current mod bundle. A block that is short,
+has unknown flags or fails validation rejects the whole sidecar, so it is not a
+practice save. Schema 4 is schema 2 with no block and a version byte of 4: the
+isolation-only marker, written by any save of a practice game, or of a game that
+loaded as isolated, that carries no block (an automatic save, a manual one whose
+block is unavailable, or a resave of an isolated load). It holds no week, seed,
+civilization or rules; a load that finds it claims the origin and is isolated,
+never resumed. Other games stay schema 2, and their autosaves are unchanged.
 New games freeze the effective gameplay selections, including standard GOTW
 values.
 
@@ -1491,7 +1504,7 @@ together. Multiplayer is unverified.
 ## Gameplay Game of the Week
 
 F1 **Gameplay** has a **Game of the Week** section with **Week**,
-**Civilization** and **Standard Rules**. Week combines a checkbox
+**Civilization**, **Standard Rules** and **Allow Saving**. Week combines a checkbox
 (`gotw_custom_week`, default off) and a decimal field (`gotw_week`). Checking
 Week unlocks the field and replays the chosen week's game using
 `expanded_MapList[week % 277]` as its seed. Unchecked Week preserves native
@@ -1527,8 +1540,9 @@ from `0x82E76ED4` and `0x82D91A94`. The launch hooks arm it for one writer
 call, and it requires the armed setup pointer and launch to match. The chosen
 ID must be in `0..15` and below the live civilization count in r5, read from
 `(*0x8314EFCC)+60`. Otherwise the hook logs a warning and keeps the derived
-civilization. Other writer calls stay native, including the load writer at
-`0x82D8685C` and modes 1 and 3. A launch with only Civilization checked leaves
+civilization. Other writer calls stay native, including modes 1 and 3. The load
+writer at `0x82D8685C` changes only for a restored practice save, described under
+Allow Saving. A launch with only Civilization checked leaves
 the writer's r4 and r5 untouched. The info log records the derived and chosen
 civilizations.
 Standard Rules does not disable Civilization. AI civilization assignment stays
@@ -1589,8 +1603,7 @@ custom Week reapplies the same r4/r5 policy only when the live setup
 read through global `0x8314EFC8` has mode `+4 == 2`, matches the accepted
 setup pointer, and the incoming command carries the effective week. The
 command week need not equal the original native week. Unreadable or unrelated
-setups and ordinary new games in mode 1 retain their arguments. The load writer
-at `0x82D8685C` remains native.
+setups and ordinary new games in mode 1 retain their arguments.
 
 `gotw_trace` defaults off. When enabled it logs every entry to the setup writer at
 `0x82DADC88` and the point before cleanup `0x82DADD1C`, including LR, r3/r4/r5,
@@ -1603,7 +1616,7 @@ state. One increasing sequence spans all sites and launches in the process;
 the cap is 512 events, followed by a truncation marker. A truncated trace
 cannot establish complete ordering.
 
-Results for a custom week or civilization in mode 2 take the native branch
+Results for a practice game, or a custom week or civilization in mode 2, take the native branch
 for nonlocal results at `0x82D7DC90` before the outcome is classified. It
 writes outcome -1 and sets the completion
 byte required by native session cleanup. Native guards for null results and
@@ -1613,7 +1626,126 @@ submission helper at `0x82DBE69C`. Cache request completion continues.
 The submission guard also covers older replay weeks, which can pass the native
 check for unequal weeks at `0x82DBE6CC`. These guards cover the researched
 sites; complete local outcome/profile mutation coverage remains unproved.
-No custom save path or GOTW sidecar is supplied.
+A practice game (see Allow Saving) takes the same four guards in every setup
+mode and whatever the current settings, so its results never touch the shared
+weekly results.
+
+### Allow Saving
+
+**Allow Saving** is a plain checkbox (`gotw_allow_saving`, default off). Its
+tooltip is "Enable to save and load Game of the Week games." The combined Options screen
+shows it in the Game of the Week group with text in the five game languages.
+A change applies to the next Game of the Week.
+
+When it is on at the start of an attempt, the whole attempt is practice from
+turn 1. The accepted seed latch at `0x82E76ED4` snapshots the setting with the
+rest of the launch policy, so later changes to the checkbox cannot change that
+game. Only a single-player mode 2 launch can latch it; multiplayer snapshots
+never carry it. A practice game earns no Game of the Week achievements, and a
+new game that is not a Game of the Week ends the practice origin.
+
+The native pause menu builds its Save and Load rows from an eligibility Boolean
+that mode 2 clears at `0x82D06494`. A midasm hook at the branch `0x82D06490`
+(after the compare at `0x82D0648C`) skips that clear for a practice attempt in
+mode 2. The network byte `0x8314F10B`, restriction halfword `0x8314F1CC`, selected
+device and sign-in tests stay native, and the global setup mode is unchanged.
+The Save wrapper `0x82D00550` has no mode test. The automatic-save route
+`0x82D83E80` is untouched and keeps its native conditions.
+
+A manual save written during a practice game carries a Game of the Week block in
+the [save sidecar](#save-sidecar). The native file is unchanged. The block records the
+effective week, seed and civilization (the setup's own value, whether chosen or
+derived), the standard rules latch and the Earliest Domination in effect. Only the Save
+wrapper's call into the common writer (return address `0x82D005C4`) is manual;
+the automatic wrapper's call (`0x82D83FA4`) and any other caller during a
+practice game write the schema 4 isolation marker instead of a block, so an
+autosave during practice is not a resumable practice save and loads isolated.
+A game that loaded isolated writes the marker on its next save too, so the
+isolation survives another save and load. Native
+autosave cadence and naming are untouched, and an autosave outside a practice
+game stays ordinary.
+
+A valid sidecar bound to the native file's digest, whose week equals the saved
+week in the native header, is what marks a save as a practice save and restores
+its policy. The sidecar is the only origin marker. A schema 3 sidecar that was
+rejected, or a block that is week-mismatched, on the other load path or in a mode
+that is not single-player, loses its practice rules and seed and loads isolated.
+A schema 4 marker, written by an autosave during practice, claims the origin the
+same way and loads isolated. A save with neither loads as an ordinary game,
+including a practice save whose sidecar is missing, deleted or never written.
+
+No hook refuses a load, in a game, from the main menu or in multiplayer. The
+owner keeps its own content check: its refusal arm (`0x82D864F4`) stays
+reachable when the required-content mask does not match, and its cleanup
+`0x82D05D50` then wipes live game state. That is native behavior and no
+classification routes into it. A refusal before the owner would also skip state
+the pause-menu caller has already cleared. The sidecar is staged at the
+deserializer call `0x82D844C8` of the wrapper `0x82D84238`, ahead of the owner
+call, whatever `save_sidecar` says; that hook only stages and the native call
+always follows. Every load is then classified from the sidecar alone, by one
+hook at `0x82D86598`, where the owner's two successful paths rejoin after the
+content check (the refusal arm never reaches it) and setup modes 4 to 6 branch
+straight to it. It runs after the header input and before the reset at
+`0x82D86674`, and reads the saved week (frame offset 176) and the incoming r8
+(r29), which the generated code leaves unchanged on both paths. The native saved week is not an origin marker: ordinary games
+can carry a nonzero setup week (written at `0x82D21E50`, saved by the header at
+`0x82CC2B24`), so it only binds a block to its save.
+
+- A block whose week equals the native saved week, on the writer path (r8 zero)
+  in a proved single-player setup mode (1 to 3), is a validated practice save and
+  restores its policy. Mode 0, 4 to 6 and every other mode never resume.
+- Any other block, or a schema 3 sidecar that was rejected or digest-mismatched,
+  loads isolated without practice rules, and a warning says why.
+- A load with no block is an ordinary load, including inside a practice game and
+  with a nonzero native week.
+
+`save_sidecar` controls only the ordinary policy restore. The practice block is
+always read, and every save during a practice game writes its sidecar, with a log
+line, even with `save_sidecar` off: a block for a manual save, the marker
+otherwise. A write that fails logs an error: that save then loads as an ordinary
+game, a known limit.
+
+The classification never resumes a multiplayer or unknown setup mode, and the
+restore and the seed hook check the setup mode themselves.
+The load owner has no direct caller in the generated code; the wrapper reaches it
+through a table slot, so which ingresses pass a nonzero r8 is not established
+statically and the hooks cover the case at run time.
+
+Every load first clears the stale Game of the Week selection, the practice
+origin and the standard rules latch, at the same point as the other load
+resets. The classification arms the loaded game's isolation, which the reset
+keeps, so a failure later in the load cannot make the game result eligible. A
+validated practice save then restores, before any step that can fail, its own
+effective week, seed, civilization, custom selection, standard rules latch and
+Earliest Domination, and withdraws or republishes the Lua mod rules to match
+the rules bit.
+The loaded game keeps setup mode 3 with the practice origin; it is never
+restored to mode 2. It is still practice, so its results stay isolated and it
+earns no Game of the Week achievements. The load continues with the current
+mod bundle.
+
+Every result surface follows the latch alone: outcome, submission and the score and
+week cache stores. A weekly prefetch can complete while a game is torn down, so
+the caches stay isolated after the game ends. Only a new game or a load clears the
+latch, which means the weekly caches are not refreshed by prefetch after a
+practice game until then.
+
+The load writer call at `0x82D8685C` receives the saved nonzero seed in r5 for a
+validated practice save and keeps the saved week in r4. The hook runs after the
+sidecar restore at `0x82D86674` and before the writer. It supplies the seed only
+when r4 equals the restored week and the setup mode is single-player (1 to 3). It
+always arms the writer's civilization override with the saved effective
+civilization for that one call, so a derived civilization cannot differ. The
+retained player civilization table comes from the native body and is not touched.
+
+The ordering above is corroborated from narrow generated windows. These remain
+unproved without a game run: that a practice save and load round trips to the
+same map and start, that the native outcome path records no Game of the Week
+achievement of its own, and which ingresses pass a nonzero r8. The native
+outcome block at `0x82D7DC10` is entered only when the setup mode in r28 equals 2
+(the guard hook reads the same register), so a mode 3 game does not reach it
+natively; the score and week cache stores and the submission helper are not
+proved mode gated, which is why the latch isolates them in every mode.
 
 The MapList order follows `Pregame.FPK` member `ccglobaldefines.xml:228`.
 The native one-based ordinal is `(week % 277) + 1`: week 1084 selects seed
@@ -1978,8 +2110,8 @@ Game of the Week the week is the effective week of the seed latch
 (`0x82E76ED4`), which runs before the outer setup. It counts only when that
 latch followed this setup's weekly preparation, so a latch left by an earlier
 launch with the same setup address never supplies it.
-The week and the Game of the Week flag are not saved, because Game of the
-Week saving is disabled. A load clears them. A rejected setup and a load reset
+The week and the Game of the Week flag are not saved. A load clears them, and a
+practice game never sets the flag, so it earns no Game of the Week achievements. A rejected setup and a load reset
 every field to unknown (history untracked, AI count -1), and a valid schema 2 sidecar restores the saved
 fields. A game loaded from a schema 1 sidecar or without a sidecar never
 qualifies for a whole-game achievement. The first founding turn keeps only the

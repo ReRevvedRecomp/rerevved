@@ -124,6 +124,7 @@ class SaveSidecarContractTests(unittest.TestCase):
         reset = reset.split("void ResetAiCivilizationsOnLoad()", 1)[1].split("}", 1)[0]
         restore = "rerevved::save_sidecar::RestoreAfterLoadReset();"
         for call in (
+            "rerevved::gotw::ResetForLoad();",
             "rerevved::start_resources::ResetOnLoad();",
             "removedMask.store(0);",
             "FreezeRagingBarbariansForGame();",
@@ -131,8 +132,9 @@ class SaveSidecarContractTests(unittest.TestCase):
         ):
             self.assertLess(reset.index(call), reset.index(restore))
         self.assertTrue(reset.rstrip().endswith(restore))
-        publish = self.hooks.split("void RestoreAfterLoadReset() noexcept", 1)[1]
-        self.assertIn("!active || !active->enabled || !active->load", publish)
+        publish = self.hooks.split("void RestoreAfterLoadReset() noexcept", 1)[1].split(
+            "} // namespace rerevved::save_sidecar", 1
+        )[0]
         self.assertIn("active->pending.AfterReset()", publish)
         for call in (
             "resource_identity_overrides::Publish(state->overrides)",
@@ -146,10 +148,9 @@ class SaveSidecarContractTests(unittest.TestCase):
         self.assertIn("try", publish)
         self.assertIn("catch (...)", publish)
         self.assertIn("if (!active->restoreLogged)", publish)
-        self.assertEqual(publish.count("REXLOG_INFO("), 1)
-        capture = self.hooks.split("sidecar::State captureState()", 1)[1].split(
-            "} // namespace", 1
-        )[0]
+        capture = self.hooks.split("sidecar::State captureState(bool manual)", 1)[
+            1
+        ].split("} // namespace", 1)[0]
         self.assertNotIn("REXCVAR_GET", capture)
         for value in (
             "occ::ForGame()",
@@ -158,11 +159,28 @@ class SaveSidecarContractTests(unittest.TestCase):
         ):
             self.assertIn(value, capture)
 
+    def test_practice_isolation_fails_closed(self):
+        self.assertIn("ctx.lr == 0x82D005C4", self.hooks)
+        # Every save loads; classification never posts a refusal notice.
+        self.assertEqual(self.hooks.count("void ClassifyGotwLoad("), 1)
+        for text in ("RefusesLoad", "refuseLoadBeforeNative", "PostNotification"):
+            self.assertNotIn(text, self.hooks)
+        sidecar = (ROOT / "src/save_sidecar.cpp").read_text(encoding="utf-8")
+        read = sidecar.split("std::optional<State> Read(", 1)[1]
+        self.assertLess(
+            read.index("*claimsPractice = true"), read.index("Deserialize(bytes")
+        )
+        ai = (ROOT / "src/gotw_settings.cpp").read_text(encoding="utf-8")
+        reset = ai.split("void ResetForLoad() noexcept", 1)[1].split("catch (...)", 1)[
+            0
+        ]
+        self.assertIn("loadIsolation.exchange(false", reset)
+
     def test_fallback_and_exclusions(self):
         reader = self.hooks.split("void ReadGameplaySidecarBeforeDeserialize()", 1)[
             1
         ].split("void WriteGameplaySidecarAfterSave(", 1)[0]
-        self.assertIn("!active || !active->enabled || !active->load", reader)
+        self.assertNotIn("return true", reader)
         self.assertIn("active->pending.Stage(std::nullopt)", reader)
         self.assertNotIn("REXLOG_", reader)
         for reason in (
@@ -184,9 +202,8 @@ class SaveSidecarContractTests(unittest.TestCase):
         header = (ROOT / "src/save_sidecar.h").read_text(encoding="utf-8")
         self.assertNotIn("std::exchange", header)
         self.assertIn("const std::optional<State>& AfterReset() const noexcept", header)
-        for excluded in ("gotw", "militia"):
-            self.assertNotIn(excluded, self.hooks.lower())
-            self.assertNotIn(excluded, header.lower())
+        self.assertNotIn("militia", self.hooks.lower())
+        self.assertNotIn("militia", header.lower())
 
     def test_sidecar_validation_precedes_native_hash(self):
         payload = (ROOT / "src/save_sidecar.cpp").read_text(encoding="utf-8")
@@ -241,6 +258,7 @@ class SaveSidecarContractTests(unittest.TestCase):
             load.index("ReadGameplaySidecarBeforeDeserialize();"),
             load.index("REX_CALL_INDIRECT_FUNC(ctx.ctr.u32);"),
         )
+        self.assertNotIn("goto loc_82D844CC;", load)
         save = self.windows["save_result"]
         self.assertLess(
             save.index("loc_82D829E8:"),

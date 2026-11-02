@@ -73,6 +73,7 @@ class OverlaySettingsContractTests(unittest.TestCase):
                     "Game of the Week",
                     [
                         "gotw_standard_rules",
+                        "gotw_allow_saving",
                         "gotw_custom_week",
                         "gotw_week",
                         "gotw_custom_civilization",
@@ -98,7 +99,7 @@ class OverlaySettingsContractTests(unittest.TestCase):
         self.assertIn('.allowed({ "10", "5" })', source)
         self.assertIn(
             '{ "domination_min_turns", "Set the minimum turns before a Domination '
-            'victory in new games. Loaded saves keep 10." }',
+            'victory in new games." }',
             OVERLAY,
         )
 

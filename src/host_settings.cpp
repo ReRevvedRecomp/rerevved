@@ -119,6 +119,7 @@ HostSettings Normalize(HostSettings settings, bool networkGame)
         settings.gotwCustomCivilization = false;
         settings.gotwCivilization       = 0;
     }
+    settings.gotwAllowSaving = !networkGame && settings.gotwAllowSaving;
     if (!settings.rulesDigestPresent)
     {
         settings.rulesDigest.fill(0);

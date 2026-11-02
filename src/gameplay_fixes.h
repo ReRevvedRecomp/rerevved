@@ -136,11 +136,13 @@ constexpr int32_t kNativeDominationMinimumTurns = 10;
 // Accepts only the offered choices "10" and "5".
 bool ParseDominationMinimumTurns(std::string_view text, int32_t& turns) noexcept;
 
-// Applies only to a game started in this process, including a Game of the Week
-// with Standard Rules. Loaded saves do not record it and keep the native minimum.
+// Only a game started in this process may shorten it
 void NoteNewGame() noexcept;
 void NoteGameLoad() noexcept;
 bool ShortenedMinimumAllowed() noexcept;
+void RestoreDominationMinimum(int32_t turns) noexcept;
+// Zero when no practice save restored one.
+int32_t RestoredDominationMinimum() noexcept;
 
 int32_t DominationMinimumTurns(std::string_view setting, bool shortenedAllowed) noexcept;
 

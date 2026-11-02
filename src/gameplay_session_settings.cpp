@@ -37,6 +37,7 @@ HostSettings LocalSettings()
     settings.combatSpeed       = rex::cvar::Query<std::string>("combat_speed") == "fast";
     settings.gotwCustomWeek    = rex::cvar::Query<bool>("gotw_custom_week");
     settings.gotwStandardRules = rex::cvar::Query<bool>("gotw_standard_rules");
+    settings.gotwAllowSaving   = rex::cvar::Query<bool>("gotw_allow_saving");
     if (settings.gotwCustomWeek)
     {
         settings.gotwCustomWeek = gotw::ParseWeek(rex::cvar::Query<std::string>("gotw_week"), settings.gotwWeek);
@@ -240,7 +241,11 @@ bool ApplyNewGame(const host_settings::GameSnapshot& snapshot, bool networkGame,
     raging_barbarians::RestoreForGame(!standardRules && settings.ragingBarbarians);
     occ::RestoreForGame({ !standardRules && settings.oneCityChallenge, occ::kMinimumPopulation });
     // The effective AI count and latched week are recorded after native setup in RunNativeNewGameSetup.
-    custom_achievements::BeginNewGame(!standardRules && settings.oneCityChallenge, mode == 2);
+    if (mode != 2)
+    {
+        gotw::EndPractice();
+    }
+    custom_achievements::BeginNewGame(!standardRules && settings.oneCityChallenge, mode == 2 && !gotw::ForGame().practice);
     gameplay_fixes::NoteNewGame();
     SuspendModRulesForGame(standardRules);
     return standardRules;

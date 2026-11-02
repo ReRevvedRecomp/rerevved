@@ -18,6 +18,7 @@ REXCVAR_DEFINE_BOOL(gotw_custom_civilization, false, "ReRevved", "Choose your ci
 REXCVAR_DEFINE_INT32(gotw_civilization, 0, "ReRevved", "Civilization for Game of the Week: 0 Roman, 1 Egyptian, 2 Greek, 3 Spanish, 4 German, 5 Russian, 6 Chinese, 7 American, 8 Japanese, 9 French, 10 Indian, 11 Arabian, 12 Aztec, 13 Zulu, 14 Mongolian, 15 English")
     .range(0, 15);
 REXCVAR_DEFINE_BOOL(gotw_standard_rules, true, "ReRevved", "Use standard gameplay rules for Game of the Week");
+REXCVAR_DEFINE_BOOL(gotw_allow_saving, false, "ReRevved", "Allow saving and loading in the next Game of the Week; the game becomes practice and never counts toward weekly results");
 REXCVAR_DEFINE_BOOL(gotw_trace, false, "ReRevved", "Trace Game of the Week seed writers and map construction; capped at 512 events per process");
 REXCVAR_DEFINE_STRING(gotw_week, "1", "ReRevved", "Week number for Game of the Week: 1..2147483647")
     .validator([](std::string_view text)
@@ -41,6 +42,7 @@ constexpr std::array<uint32_t, 277> kMapList = {
 std::mutex                       selectionMutex;
 Selection                        selection;
 std::atomic<bool>                standardRules{ false };
+std::atomic<bool>                loadIsolation{ false };
 std::mutex                       dispatcherMutex;
 UiDispatcher                     seedDispatcher;
 std::weak_ptr<std::atomic<bool>> uiAlive;
@@ -173,6 +175,7 @@ try
             logRejected("week", REXCVAR_GET(gotw_week));
         }
     }
+    settings.gotwAllowSaving = REXCVAR_GET(gotw_allow_saving);
     if (REXCVAR_GET(gotw_custom_civilization))
     {
         const int32_t civilization      = REXCVAR_GET(gotw_civilization);
@@ -214,6 +217,7 @@ try
         next.customCivilization = true;
         next.civilization       = settings.gotwCivilization;
     }
+    next.practice = settings.gotwAllowSaving;
     std::lock_guard lock(selectionMutex);
     next.launch = selection.launch + 1;
     selection   = next;
@@ -295,7 +299,88 @@ bool ShouldTraceEvent(bool enabled, uint64_t sequence) noexcept
 
 bool IsolateWeeklyResult(int32_t mode) noexcept
 {
-    return mode == 2 && ForGame().IsCustom();
+    return IsolatesWeeklyResult(ForGame(), mode);
+}
+
+bool IsolatesWeeklyResult(const Selection& selection, int32_t mode) noexcept
+{
+    // The practice origin isolates in every mode; a custom selection only in mode 2.
+    return selection.Isolates() || (mode == 2 && selection.IsCustom());
+}
+
+bool AllowsPracticeMenu(const Selection& selection, int32_t mode) noexcept
+{
+    return mode == 2 && selection.practice;
+}
+
+void EndPractice() noexcept
+try
+{
+    std::lock_guard lock(selectionMutex);
+    selection.practice    = false;
+    selection.seedPending = false;
+    selection.isolated    = false;
+}
+catch (...)
+{
+    // Observations must not unwind through guest code.
+}
+
+void ArmLoadIsolation(bool isolate) noexcept
+{
+    loadIsolation.store(isolate, std::memory_order_relaxed);
+}
+
+void ResetForLoad() noexcept
+try
+{
+    std::lock_guard lock(selectionMutex);
+    Selection       next;
+    next.launch   = selection.launch + 1;
+    next.isolated = loadIsolation.exchange(false, std::memory_order_relaxed);
+    selection     = next;
+    standardRules.store(false, std::memory_order_relaxed);
+}
+catch (...)
+{
+    // Observations must not unwind through guest code.
+}
+
+void RestoreForLoad(const Selection& saved, bool standardRulesSaved) noexcept
+try
+{
+    std::lock_guard lock(selectionMutex);
+    Selection       next = saved;
+    next.launch          = selection.launch + 1;
+    next.practice        = true;
+    next.isolated        = false;
+    next.seedPending     = next.seed != 0;
+    selection            = next;
+    standardRules.store(standardRulesSaved, std::memory_order_relaxed);
+}
+catch (...)
+{
+    // Observations must not unwind through guest code.
+}
+
+std::optional<uint32_t> TakeResumeSeed(uint32_t week) noexcept
+try
+{
+    std::lock_guard lock(selectionMutex);
+    if (!selection.practice || !selection.seedPending)
+    {
+        return std::nullopt;
+    }
+    selection.seedPending = false;
+    if (selection.week != week || selection.seed == 0)
+    {
+        return std::nullopt;
+    }
+    return selection.seed;
+}
+catch (...)
+{
+    return std::nullopt;
 }
 
 } // namespace rerevved::gotw

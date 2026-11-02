@@ -56,6 +56,25 @@ address = 0x82DADD18
 name = "OverrideGotwCivilization"
 registers = ["r10", "r31", "r5"]
 
+# r11 holds the mode for 0x82D0648C; true skips the mode-2 Boolean clear.
+[[midasm_hook]]
+address = 0x82D06490
+name = "AllowGotwPracticeMenu"
+registers = ["r11"]
+jump_address_on_true = 0x82D06498
+
+# Load-origin writer call: r4 is the saved week and r5 is 0 or a restored practice seed.
+[[midasm_hook]]
+address = 0x82D8685C
+name = "ApplyGotwResumeSeed"
+registers = ["r3", "r4", "r5"]
+
+# r1 is the owner frame (saved week +176) and r29 is incoming r8, which skips the seed writer.
+[[midasm_hook]]
+address = 0x82D86598
+name = "ClassifyGotwLoad"
+registers = ["r1", "r29"]
+
 # Read-only observers enabled by gotw_trace.
 [[midasm_hook]]
 address = 0x82DADC88

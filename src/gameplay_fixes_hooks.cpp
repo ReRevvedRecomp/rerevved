@@ -212,13 +212,14 @@ bool AdmitAiNuclearOpponent(PPCRegister& player, PPCRegister& opponent, PPCRegis
 // dead after the compare.
 void ApplyDominationMinimumTurns(PPCRegister& r9)
 {
-    const auto    host    = rerevved::gameplay_session::ForNetworkGame();
-    const int32_t minimum = host && rerevved::gameplay_fixes::ShortenedMinimumAllowed()
-                                ? host->dominationMinimumTurns
-                                : rerevved::gameplay_fixes::DominationMinimumTurns(
-                                      rex::cvar::Query<std::string>("domination_min_turns"), rerevved::gameplay_fixes::ShortenedMinimumAllowed());
-    const int32_t elapsed = r9.s32;
-    r9.s32                = rerevved::gameplay_fixes::RebaseDominationElapsed(elapsed, minimum);
+    const auto    host     = rerevved::gameplay_session::ForNetworkGame();
+    const int32_t restored = rerevved::gameplay_fixes::RestoredDominationMinimum();
+    const int32_t minimum  = host && rerevved::gameplay_fixes::ShortenedMinimumAllowed() ? host->dominationMinimumTurns
+                             : restored                                                  ? restored
+                                                                                         : rerevved::gameplay_fixes::DominationMinimumTurns(
+                                                                                               rex::cvar::Query<std::string>("domination_min_turns"), rerevved::gameplay_fixes::ShortenedMinimumAllowed());
+    const int32_t elapsed  = r9.s32;
+    r9.s32                 = rerevved::gameplay_fixes::RebaseDominationElapsed(elapsed, minimum);
 
     const int32_t native        = rerevved::gameplay_fixes::kNativeDominationMinimumTurns;
     const bool    nativeAllowed = elapsed >= native;

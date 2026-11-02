@@ -277,6 +277,7 @@ TEST_CASE("native_settings_rows_keep_the_f1_order_and_captions", "[ctest][native
                                                                      "AI Food Bonus: 0",
                                                                      "AI Culture Bonus: 0",
                                                                      "Standard Rules: Off",
+                                                                     "Allow Saving: Off",
                                                                      "Custom Week: Off",
                                                                      "Custom Civilization: Off" });
 
