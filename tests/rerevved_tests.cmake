@@ -70,6 +70,7 @@ add_executable(rerevved_tests
     src/host_settings.cpp
     src/gameplay_session_settings.cpp
     src/main_menu_logo_asset.cpp
+    src/map_packs.cpp
     src/nation_select_text.cpp
     src/nation_select_text_hooks.cpp
     src/occ_hooks.cpp
@@ -127,6 +128,7 @@ add_executable(rerevved_tests
     tests/helper_commands_test.cpp
     tests/network_pause_test.cpp
     tests/main_menu_logo_asset_test.cpp
+    tests/map_packs_test.cpp
     tests/mod_script_rules_test.cpp
     tests/nation_select_text_test.cpp
     tests/occ_settings_test.cpp

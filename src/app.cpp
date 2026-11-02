@@ -83,6 +83,7 @@
 #endif
 #include "host_settings.h"
 #include "main_menu_logo_asset.h"
+#include "map_packs.h"
 #include "mod_script_rules.h"
 #include "portable_mode.h"
 #include "xenos_frame_counter.h"
@@ -712,8 +713,9 @@ void App::OnConfigurePaths(rex::PathConfig& paths)
 std::optional<rex::system::ProfileCopySpecification> App::GetProfileCopySpecification() const
 {
     return rex::system::ProfileCopySpecification{
-        .config_relative_path = "rerevved.toml",
-        .title_id             = rerevved::kTitleId,
+        .config_relative_path    = "rerevved.toml",
+        .title_id                = rerevved::kTitleId,
+        .optional_relative_files = { std::filesystem::path(rerevved::map_packs::kOrderFileName) },
     };
 }
 
@@ -1174,6 +1176,9 @@ void App::OnPostSetup()
     // before the guest main thread is resumed.
     (void)rerevved::main_menu_logo::ResolveSelectedLogo(
         runtime()->active_asset_overlays());
+    rerevved::map_packs::RegisterSelected(rerevved::map_packs::SelectEnabled(
+        runtime()->user_data_root(),
+        rex::filesystem::GetExecutableFolder() / rerevved::map_packs::kMapsDirectory));
 
     rerevved::StartPresence();
 
