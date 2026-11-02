@@ -503,6 +503,10 @@ class GotwContractTests(unittest.TestCase):
         self.assert_cpp('{ "input_vibration", "Vibration" }', overlay)
         self.assert_cpp('{ "button_icons", Audience::kPlayer }', overlay)
         self.assert_cpp('{ "button_icons", "Button Icons" }', overlay)
+        icons = (ROOT / "src/button_icons.cpp").read_text(encoding="utf-8")
+        self.assert_cpp(
+            'REXCVAR_DEFINE_STRING(button_icons, "auto", "ReRevved",', icons
+        )
         self.assert_cpp(
             'layout.float_decimals = { { "mnk_sensitivity", 2 } };', overlay
         )

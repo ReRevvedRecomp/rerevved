@@ -15,30 +15,41 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 import package  # noqa: E402
 from check_package_inventory import check  # noqa: E402
-from package import BUNDLED_MODS, reject_developer_build  # noqa: E402
+from package import (  # noqa: E402
+    BUNDLED_MODS,
+    KEYBOARD_ICON_DIR,
+    KEYBOARD_ICON_FILES,
+    reject_developer_build,
+)
 
 MOD_NAMES = {
     f"mods/{package_id}/{name}"
     for package_id in BUNDLED_MODS
     for name in ("mod.toml", "main.lua")
 }
-NORMAL_FILES = {
-    "rerevved.exe",
-    "rexglue.exe",
-    "rexruntime.dll",
-    "rexgpu-xenos.dll",
-    "README.txt",
-    "ONLINE.txt",
-    "host-online.cmd",
-    "host-online.ps1",
-    "host-manual.cmd",
-    "LICENSE.txt",
-    "licenses/REXGLUE-LICENSE.txt",
-    "game/",
-    "asset-overrides/default_asset_order.txt",
-    "asset-overrides/rerevved-logo/asset-pack.toml",
-    "asset-overrides/rerevved-logo/assets/file-data/GFX_MainMenu_logo.dds",
-} | MOD_NAMES
+NORMAL_FILES = (
+    {
+        "rerevved.exe",
+        "rexglue.exe",
+        "rexruntime.dll",
+        "rexgpu-xenos.dll",
+        "README.txt",
+        "ONLINE.txt",
+        "host-online.cmd",
+        "host-online.ps1",
+        "host-manual.cmd",
+        "LICENSE.txt",
+        "licenses/REXGLUE-LICENSE.txt",
+        "game/",
+        "asset-overrides/default_asset_order.txt",
+        "asset-overrides/rerevved-logo/asset-pack.toml",
+        "asset-overrides/rerevved-logo/assets/file-data/GFX_MainMenu_logo.dds",
+        "licenses/xelu-prompts-Readme.txt",
+        "licenses/xelu-prompts-PROVENANCE.md",
+    }
+    | MOD_NAMES
+    | {f"{KEYBOARD_ICON_DIR}/{name}" for name in KEYBOARD_ICON_FILES}
+)
 
 
 def write_mods(root, kind="lua"):
@@ -107,6 +118,22 @@ class PackageTests(unittest.TestCase):
                     .decode("ascii")
                     .strip(),
                     "rerevved-logo",
+                )
+            keyboard = f"{archive_root}/{KEYBOARD_ICON_DIR}/"
+            self.assertEqual(
+                {n for n in names if n.startswith(keyboard)},
+                {keyboard + name for name in KEYBOARD_ICON_FILES},
+            )
+            with zipfile.ZipFile(archive_path) as archive:
+                self.assertEqual(
+                    archive.read(keyboard + "Semicolon.dds"),
+                    (
+                        REPO / "assets" / KEYBOARD_ICON_DIR / "Semicolon.dds"
+                    ).read_bytes(),
+                )
+                self.assertIn(
+                    b"CC0",
+                    archive.read(f"{archive_root}/licenses/xelu-prompts-Readme.txt"),
                 )
             self.assertIn(prefix + "rerevved-logo/asset-pack.toml", names)
             self.assertIn(

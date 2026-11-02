@@ -46,6 +46,7 @@
 #include <rex/ui/windowed_app_context.h>
 
 #include "build_info.h"
+#include "button_icons.h"
 #include "discord_presence.h"
 #include "display_aspect.h"
 #include "game_content.h"
@@ -82,6 +83,7 @@
 #include "tools/presentation_fixture.h"
 #endif
 #include "host_settings.h"
+#include "keyboard_icons.h"
 #include "main_menu_logo_asset.h"
 #include "map_packs.h"
 #include "mod_script_rules.h"
@@ -1179,6 +1181,15 @@ void App::OnPostSetup()
     rerevved::map_packs::RegisterSelected(rerevved::map_packs::SelectEnabled(
         runtime()->user_data_root(),
         rex::filesystem::GetExecutableFolder() / rerevved::map_packs::kMapsDirectory));
+
+    // Latch the button-icon family now, with the SDK's window attached, so
+    // "auto" sees the pad state at launch. The keyboard A icon follows the
+    // first key bound to keybind_a at this moment.
+    if (rerevved::button_icons::ActiveFamily() == rerevved::button_icons::Family::kKeyboard)
+    {
+        (void)rerevved::keyboard_icons::Prepare(rex::filesystem::GetExecutableFolder() / "button-icons" / "xelu-light",
+                                                rex::cvar::Query<std::string>("keybind_a"));
+    }
 
     rerevved::StartPresence();
 

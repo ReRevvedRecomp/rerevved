@@ -21,10 +21,34 @@ namespace bp = rerevved::button_icons;
 
 TEST_CASE("button_icons_family_setting", "[ctest][button-icons]")
 {
+    using rex::input::GamepadFamily;
+    constexpr GamepadFamily kPads[] = { GamepadFamily::kPlayStation, GamepadFamily::kXbox, GamepadFamily::kOther };
+
+    for (const GamepadFamily pad : kPads)
+    {
+        for (const bool present : { true, false })
+        {
+            CHECK(bp::ParseFamily("playstation", pad, present) == bp::Family::kPlayStation);
+            CHECK(bp::ParseFamily("xbox", pad, present) == bp::Family::kXbox);
+            CHECK(bp::ParseFamily("keyboard", pad, present) == bp::Family::kKeyboard);
+            CHECK(bp::ParseFamily("", pad, present) == bp::Family::kXbox);
+            CHECK(bp::ParseFamily("PlayStation", pad, present) == bp::Family::kXbox);
+            CHECK(bp::ParseFamily("Keyboard", pad, present) == bp::Family::kXbox);
+        }
+    }
+
+    CHECK(bp::ParseFamily("auto", GamepadFamily::kPlayStation, true) == bp::Family::kPlayStation);
+    CHECK(bp::ParseFamily("auto", GamepadFamily::kXbox, true) == bp::Family::kXbox);
+    CHECK(bp::ParseFamily("auto", GamepadFamily::kOther, true) == bp::Family::kXbox);
+    for (const GamepadFamily pad : kPads)
+    {
+        CHECK(bp::ParseFamily("auto", pad, false) == bp::Family::kKeyboard);
+    }
+
+    // Callers without an input system keep the defaults: unknown pad, present.
+    CHECK(bp::ParseFamily("auto") == bp::Family::kXbox);
     CHECK(bp::ParseFamily("playstation") == bp::Family::kPlayStation);
-    CHECK(bp::ParseFamily("xbox") == bp::Family::kXbox);
-    CHECK(bp::ParseFamily("") == bp::Family::kXbox);
-    CHECK(bp::ParseFamily("PlayStation") == bp::Family::kXbox);
+    CHECK(bp::ParseFamily("keyboard") == bp::Family::kKeyboard);
 }
 
 TEST_CASE("button_icons_tables", "[ctest][button-icons]")

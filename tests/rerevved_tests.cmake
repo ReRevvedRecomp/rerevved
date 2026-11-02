@@ -67,6 +67,11 @@ add_executable(rerevved_tests
     src/spy_mission_ai_hooks.cpp
     src/button_icons.cpp
     src/button_icons_hooks.cpp
+    src/keyboard_icons.cpp
+    src/main_menu_logo_hooks.cpp
+    src/intro_movie_hooks.cpp
+    src/legal_screen_hooks.cpp
+    src/version_label_hooks.cpp
     src/host_settings.cpp
     src/gameplay_session_settings.cpp
     src/main_menu_logo_asset.cpp
@@ -120,6 +125,10 @@ add_executable(rerevved_tests
     tests/gameplay_fixes_test.cpp
     tests/spy_mission_ai_test.cpp
     tests/button_icons_test.cpp
+    tests/keyboard_icons_test.cpp
+    tests/intro_movie_test.cpp
+    tests/legal_screen_test.cpp
+    tests/version_label_test.cpp
     tests/gotw_settings_test.cpp
     tests/great_general_attachment_test.cpp
     tests/host_settings_test.cpp
@@ -179,6 +188,9 @@ set_source_files_properties(
     tests/rules_bundle_test.cpp
     tests/mod_script_rules_test.cpp
     PROPERTIES COMPILE_DEFINITIONS RULES_BUNDLE_TESTING)
+
+target_compile_definitions(rerevved_tests PRIVATE
+    REREVVED_KEYBOARD_ICONS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/button-icons/xelu-light")
 
 # The bundled_mods case loads the mods that scripts/assemble_mods.py writes to
 # its default output, with the same version the title reports to the SDK.

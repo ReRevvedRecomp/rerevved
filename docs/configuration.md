@@ -16,7 +16,11 @@ Close ReRevved before editing the file directly.
 - **Controls**: keyboard/controller bindings, mouse sensitivity, vibration,
   controller input in the background, Button Icons, and overlay hotkeys.
   **Button Icons** chooses which button icons the game shows, after a
-  restart.
+  restart. **Auto (Match Controller)** shows PlayStation icons if the
+  controller you last used, or else the first one connected, is a PlayStation
+  controller, and Xbox icons for any other controller. With no controller
+  connected at launch it shows keyboard icons. **Keyboard** always shows them;
+  so far they replace the A button with the first key bound to it.
 - **Display**: window and presentation options, described below.
 - **Audio**: Volume, Mute, and Play Sound in Background.
 
@@ -74,6 +78,9 @@ Monitor, Window Size, Render Resolution, Upscaling, and Anti-Aliasing require
 a restart. Select **Save**, exit, and launch again after changing them.
 Explicit `window_width` and `window_height` values in the config or command
 line override Window Size.
+
+**Skip Intro Movie** skips the opening movie, starting with the next launch.
+Other movies, including the attract movie, are unchanged.
 
 Volume and Mute apply immediately. Turn off **Play Sound in Background** to
 silence the game when its window is unfocused or minimized.

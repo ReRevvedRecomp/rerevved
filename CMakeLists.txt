@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Embed source-relative paths in __FILE__ and debug info, not the build host's.
 add_compile_options(-ffile-prefix-map=${CMAKE_CURRENT_SOURCE_DIR}/=)
 
-find_package(rexglue 0.11.0 REQUIRED CONFIG)
+find_package(rexglue 0.13.0 REQUIRED CONFIG)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/rexglue-sdk.lock.json" REREVVED_SDK_LOCK)
@@ -303,6 +303,14 @@ set(REREVVED_SOURCES
     src/button_icons.cpp
     src/button_icons.h
     src/button_icons_hooks.cpp
+    src/keyboard_icons.cpp
+    src/keyboard_icons.h
+    src/intro_movie.h
+    src/intro_movie_hooks.cpp
+    src/legal_screen.h
+    src/legal_screen_hooks.cpp
+    src/version_label.h
+    src/version_label_hooks.cpp
     src/overlay_settings.cpp
     src/overlay_skin.cpp
     src/retail_ui_art.cpp
@@ -670,6 +678,12 @@ add_custom_command(TARGET rerevved POST_BUILD
         "${REREVVED_BUNDLED_ASSET_ROOT}/rerevved-logo"
         "$<TARGET_FILE_DIR:rerevved>/asset-overrides/rerevved-logo"
     COMMENT "Staging bundled asset overrides"
+    VERBATIM)
+add_custom_command(TARGET rerevved POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets/button-icons/xelu-light"
+        "$<TARGET_FILE_DIR:rerevved>/button-icons/xelu-light"
+    COMMENT "Staging keyboard button icons"
     VERBATIM)
 set(REREVVED_NATIVE_PRESENT_CATALOG "" CACHE PATH "Admitted native presentation shader catalog")
 include(CTest)

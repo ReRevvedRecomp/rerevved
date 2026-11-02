@@ -343,11 +343,51 @@ Vulkan parity, and label, cursor and picking alignment.
 
 ## Button icons
 
-The `button_icons` setting accepts `xbox` or `playstation`, defaults to
-`xbox` and requires a restart. The retail movies and loading tips already carry
-both controller families. With `playstation`, three hooks in
-`config/button_icons_hooks.toml` swap the Xbox names the game requests;
-`src/button_icons.cpp` holds the tables.
+The `button_icons` setting accepts `auto`, `xbox`, `playstation` or `keyboard`,
+defaults to `auto` and requires a restart. The retail movies and loading tips
+already carry both controller families. With `playstation`, or `auto`
+resolving to it, three hooks in `config/button_icons_hooks.toml` swap the Xbox
+names the game requests; `src/button_icons.cpp` holds the tables.
+
+The family is resolved once, when startup finishes and before the guest runs.
+With `auto`, the SDK reports the family of the physical pad that last produced
+input, else the first connected pad, and whether any physical pad is connected.
+It publishes both when the window attaches and on each guest state poll;
+keyboard and mouse input never counts. A PlayStation pad selects
+`playstation`, any other pad keeps `xbox`, and no connected pad selects
+`keyboard`, even with keyboard and mouse mode off. If the SDK input system is
+unavailable, `auto` keeps `xbox`. Cached images, copied labels and the
+loading-tip table are not refreshed, so a controller change takes effect after
+a restart.
+
+### Keyboard icons
+
+With the `keyboard` family active, every A prompt shows the keycap of the
+first key bound to `keybind_a`; the A button is the only image covered so far.
+The binding is read once at startup. Only its first comma-separated
+alternative counts, with outer spaces trimmed, and a later alternative is never
+used. A chord such as `Shift+Space`, an empty binding, or a key without shipped
+art leaves the retail A icon and logs one line saying why. Key names match the
+SDK's names case-sensitively. Comma, Period, Backslash, F13 to F24, the numpad
+keys, Pause and ScrollLock have no art.
+
+The art is one 64x64 uncompressed DDS per key under
+`assets/button-icons/xelu-light`, staged next to the executable as
+`button-icons/xelu-light` and included in release packages.
+`scripts/build_keyboard_icons.py` builds the files from the keycap PNGs in
+`thirdparty/xelu-prompts` and its `--check` mode compares them byte for byte.
+`src/keyboard_icons.cpp` lists the shipped key names and validates each file.
+The File Data override hook `ApplyAssetFileOverride` at `0x82E87B90` serves the
+chosen file when the requested name is exactly `A.dds`, in any case, with no
+path; the main-menu logo uses the same hook with a separate guest buffer. Any
+failure leaves the retail image in place.
+
+The key art is "FREE Controller & Key Prompts" by Nicolae (Xelu) Berbece, in
+the public domain under CC0; `thirdparty/xelu-prompts/PROVENANCE.md` records
+the source and the imported files, and packages carry its notice under
+`licenses`.
+
+### PlayStation swaps
 
 - The external image open at `0x821E3018` swaps 17 equal-size basenames, such
   as `A.dds` to `PS3X.dds`, keeping any prefix and the extension. The Xbox
@@ -360,7 +400,40 @@ both controller families. With `playstation`, three hooks in
   boxes to a square of their smaller side. The vspace and tip text are kept.
 
 Replacement strings are allocated once on the system heap and kept for the
-process. With `xbox` every hook returns without reading guest memory.
+process. With `xbox` or `keyboard` every swap hook returns without reading
+guest memory.
+
+## Intro movie
+
+The `skip_intro_movie` setting defaults to `false` and requires a restart. The
+intro and attract movie states share the frontend state entry `0x82E551D8`,
+which tests frontend flag bit `0x1000` at `0x82E5522C` and, when it is clear,
+completes the state through its vtable slot `+0x18` without building the
+movie. With the setting on, the hook in `config/intro_movie_hooks.toml` clears
+`r9` there only when the state object's vtable is `0x82131A18`, the
+`IntroMovie.bik` state, so the game takes its own no-movie path. The attract
+movie and every other reader of the flag keep their native behavior.
+
+## Legal screens
+
+The `skip_legal_screens` setting defaults to `false` and requires a restart.
+Legal-screen update `0x82DEE860` compares the elapsed dwell in `r10` against
+5000 at `0x82DEE89C`; at or above it the owner completes natively. The same
+update dispatches main-menu preload `0x82E7EA60` once and sets owner byte
+`+0x434`. With the setting on, the hook in `config/legal_screen_hooks.toml`
+sets `r10` to 5000 only for the `GFX_LegalScreen.gfx` owner (vtable
+`0x82126EF4`) after that byte is set, so the preload is still dispatched
+exactly once before the screen completes. The hook does not wait for the
+preload to finish.
+
+## Main-menu version label
+
+The main menu shows `v` plus the ReRevved version, such as `v0.6.1`, instead
+of the retail `v1.30`. Main-menu initializer `0x82E516F0` sends the movie's
+`SetVersion` through `0x82C4E858` at `0x82E51818` with `r6` pointing at the
+retail literal `0x82139CA8`. The hook in `config/version_label_hooks.toml`
+replaces `r6` only when it holds that literal, with a string allocated once on
+the system heap and kept for the process. The label is always on.
 
 ## Combat settings
 

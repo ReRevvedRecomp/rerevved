@@ -84,7 +84,7 @@ uint32_t guestCopy(rex::memory::Memory& memory, const std::string& text)
 // bare basename such as "A.dds"; any directory prefix is kept. Only r4 changes.
 void SwapButtonIconImage(PPCRegister& name)
 {
-    if (bp::ActiveFamily() != bp::Family::kPlayStation)
+    if (!bp::MaySwap())
     {
         return;
     }
@@ -97,7 +97,7 @@ void SwapButtonIconImage(PPCRegister& name)
     const size_t           slash     = requested.find_last_of("/\\:");
     const size_t           start     = slash == std::string_view::npos ? 0 : slash + 1;
     const auto             stem      = bp::ImageStem(requested.substr(start));
-    if (!stem)
+    if (!stem || bp::ActiveFamily() != bp::Family::kPlayStation)
     {
         return;
     }
@@ -113,7 +113,7 @@ void SwapButtonIconImage(PPCRegister& name)
 // Replace whole control labels such as "LB"; write only r4.
 void SwapButtonIconLabel(PPCRegister& text)
 {
-    if (bp::ActiveFamily() != bp::Family::kPlayStation)
+    if (!bp::MaySwap())
     {
         return;
     }
@@ -128,7 +128,7 @@ void SwapButtonIconLabel(PPCRegister& text)
     {
         return;
     }
-    if (const auto swapped = bp::Label(label))
+    if (const auto swapped = bp::Label(label); swapped && bp::ActiveFamily() == bp::Family::kPlayStation)
     {
         if (const uint32_t guest = guestCopy(*memory, std::string(*swapped)))
         {
@@ -142,7 +142,7 @@ void SwapButtonIconLabel(PPCRegister& text)
 // The vspace in r6 and the tip text stay native.
 void SwapButtonIconTipImage(PPCRegister& name, PPCRegister& width, PPCRegister& height)
 {
-    if (bp::ActiveFamily() != bp::Family::kPlayStation)
+    if (!bp::MaySwap())
     {
         return;
     }
@@ -152,7 +152,7 @@ void SwapButtonIconTipImage(PPCRegister& name, PPCRegister& width, PPCRegister& 
         return;
     }
     const auto tip = bp::Tip(guestString(*memory, name.u32, 16));
-    if (!tip)
+    if (!tip || bp::ActiveFamily() != bp::Family::kPlayStation)
     {
         return;
     }

@@ -58,6 +58,9 @@ HOOK_SOURCES = [
     ROOT / "src" / "ai_economy_hooks.cpp",
     ROOT / "src" / "spy_mission_ai_hooks.cpp",
     ROOT / "src" / "button_icons_hooks.cpp",
+    ROOT / "src" / "intro_movie_hooks.cpp",
+    ROOT / "src" / "legal_screen_hooks.cpp",
+    ROOT / "src" / "version_label_hooks.cpp",
 ]
 SPY_MISSION_AI_SOURCES = [
     ROOT / "src" / "spy_mission_ai.h",
@@ -101,6 +104,9 @@ def compat_hooks() -> list[dict]:
         "ai_economy_hooks.toml",
         "spy_mission_ai_hooks.toml",
         "button_icons_hooks.toml",
+        "intro_movie_hooks.toml",
+        "legal_screen_hooks.toml",
+        "version_label_hooks.toml",
     )
     hooks = []
     for path in paths:
@@ -542,6 +548,21 @@ EXPECTED_HOOKS = [
         "address": 0x82E81F58,
         "name": "SwapButtonIconTipImage",
         "registers": ["r3", "r4", "r5"],
+    },
+    {
+        "address": 0x82E5522C,
+        "name": "SkipIntroMovie",
+        "registers": ["r9", "r31"],
+    },
+    {
+        "address": 0x82DEE89C,
+        "name": "SkipLegalScreen",
+        "registers": ["r10", "r31"],
+    },
+    {
+        "address": 0x82E51818,
+        "name": "ReplaceMainMenuVersion",
+        "registers": ["r6"],
     },
     {
         "address": 0x82D11250,

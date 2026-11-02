@@ -7,6 +7,8 @@
 #include <optional>
 #include <string_view>
 
+#include <rex/input/device.h>
+
 namespace rerevved::button_icons
 {
 
@@ -14,16 +16,37 @@ enum class Family
 {
     kXbox,
     kPlayStation,
+    kKeyboard,
 };
 
-// "playstation" selects PlayStation icons; anything else keeps Xbox.
-constexpr Family ParseFamily(std::string_view setting) noexcept
+// "auto" uses Keyboard without a pad, PlayStation for that pad, otherwise Xbox; unknown settings default to Xbox.
+constexpr Family ParseFamily(std::string_view          setting,
+                             rex::input::GamepadFamily detected         = rex::input::GamepadFamily::kOther,
+                             bool                      gamepadConnected = true) noexcept
 {
-    return setting == "playstation" ? Family::kPlayStation : Family::kXbox;
+    if (setting == "keyboard")
+    {
+        return Family::kKeyboard;
+    }
+    if (setting == "playstation")
+    {
+        return Family::kPlayStation;
+    }
+    if (setting == "auto")
+    {
+        if (!gamepadConnected)
+        {
+            return Family::kKeyboard;
+        }
+        return detected == rex::input::GamepadFamily::kPlayStation ? Family::kPlayStation : Family::kXbox;
+    }
+    return Family::kXbox;
 }
 
-// The button_icons setting as read at the first icon request. The family
-// stays fixed until restart: loading tips are built once per process.
+// False when PlayStation is impossible, letting hooks skip guest reads.
+bool MaySwap();
+
+// Latch after SDK window attachment so "auto" sees the launch pad; fixed until restart because tips build once.
 Family ActiveFamily();
 
 // Match .dds basenames at 0x821E3018 case-insensitively; return the native
