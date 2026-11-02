@@ -15,6 +15,8 @@
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
 
+REXCVAR_DECLARE(bool, skip_spaceship_scenes);
+
 namespace
 {
 
@@ -60,8 +62,31 @@ constexpr int32_t kDominationPlayerSlots = 8;
 
 std::array<std::atomic<int64_t>, kDominationPlayerSlots> dominationCapitalsLastKey{ { -1, -1, -1, -1, -1, -1, -1, -1 } };
 
+// Calendar globals read by the native deadline code.
+constexpr uint32_t kScenario    = 0x8312B8D4;
+constexpr uint32_t kStartTurn   = 0x8312B8D8;
+constexpr uint32_t kCurrentTurn = 0x8312B8DC;
+constexpr uint32_t kCurrentYear = 0x8312B8E0;
+
+int32_t calendarWord(uint32_t address)
+{
+    uint32_t value = 0;
+    readGuestU32(address, value);
+    return static_cast<int32_t>(value);
+}
+
 // One bit per player/opponent pair, so each admission logs once per process.
 std::atomic<uint64_t> nuclearPairsLogged{ 0 };
+
+std::atomic<int32_t>  spaceshipTag{ -1 };
+std::atomic<uint32_t> spaceshipFrames{ 0 };
+std::atomic<bool>     spaceshipRedirected{ false };
+std::atomic<bool>     spaceshipFallbackLogged{ false };
+
+bool tagsActor(PPCRegister& owner, PPCRegister& slot)
+{
+    return rerevved::gameplay_fixes::MatchesSpaceshipTag(spaceshipTag.load(std::memory_order_relaxed), owner.s32, slot.s32);
+}
 
 bool ordinaryAiPlayer(int32_t player)
 {
@@ -206,6 +231,137 @@ bool AdmitAiNuclearOpponent(PPCRegister& player, PPCRegister& opponent, PPCRegis
         }
     }
     return admitted;
+}
+
+bool SkipUnlimitedTurnDeadline()
+{
+    return rerevved::gameplay_fixes::TurnLimitForGame() == rerevved::gameplay_fixes::kTurnLimitUnlimited;
+}
+
+bool SkipTurnLimitWarning()
+{
+    namespace gf        = rerevved::gameplay_fixes;
+    const int32_t limit = gf::TurnLimitForGame();
+    return gf::ExtendsTurnLimit(limit) &&
+           !gf::TurnLimitWarningDue(limit, calendarWord(kScenario), calendarWord(kStartTurn), calendarWord(kCurrentTurn));
+}
+
+// Bypasses the year 2090 and elapsed 195 tests; scenario tests still apply.
+bool AdmitExtendedTurnLimitWarning()
+{
+    return rerevved::gameplay_fixes::ExtendsTurnLimit(rerevved::gameplay_fixes::TurnLimitForGame());
+}
+
+// From the extended cap on, the native 2100 test, rank gate and scenario 200-turn test apply.
+bool SkipExtendedTurnLimitDeadline()
+{
+    namespace gf        = rerevved::gameplay_fixes;
+    const int32_t limit = gf::TurnLimitForGame();
+    return gf::ExtendsTurnLimit(limit) && gf::BeforeTurnLimitYear(limit, calendarWord(kCurrentYear));
+}
+
+// r31 is scenario Q: Q+0x1C is STARTERA, Q+0x3E STARTYEAR (setup reads it after grants).
+// Only new-game scenario -1 takes the frozen era.
+void ApplyStartingEra(PPCRegister& r31)
+{
+    namespace gf      = rerevved::gameplay_fixes;
+    const int32_t era = gf::StartingEraForGame();
+    if (rerevved::gameplay_session::SetupActive() && gf::AppliesStartingEra(era, calendarWord(kScenario)))
+    {
+        auto* field         = REX_KERNEL_MEMORY()->TranslateVirtual<uint8_t*>(r31.u32 + 0x1C);
+        field[0]            = static_cast<uint8_t>(era >> 8);
+        field[1]            = static_cast<uint8_t>(era);
+        const int32_t year  = gf::StartingEraYear(era);
+        auto*         start = REX_KERNEL_MEMORY()->TranslateVirtual<uint8_t*>(r31.u32 + 0x3E);
+        start[0]            = static_cast<uint8_t>(year >> 8);
+        start[1]            = static_cast<uint8_t>(year);
+    }
+}
+
+// r11 holds the literal 2 and is dead after the store.
+void ApplyMultiplayerAiDifficulty(PPCRegister& r11)
+{
+    if (rerevved::gameplay_session::SetupActive())
+    {
+        r11.s64 = rerevved::gameplay_fixes::MultiplayerAiDifficultyForGame();
+    }
+}
+
+// Spaceship Scenes hooks. See the pending-part caller at 0x82D1DE04..0x82D1DF60
+// and the type 24 actor updater 0x82D5E660.
+//
+// At 0x82D1DEE8, past the beq on a failed (-1) request: r21 is the part owner and
+// r29 the returned slot. Tags the actor when the preference is on: a network game
+// plays the host's frozen value, any other game the live preference. A network game
+// without a host snapshot (a loaded multiplayer save) stays native on every peer.
+void TagSpaceshipActor(PPCRegister& owner, PPCRegister& slot)
+{
+    namespace gf       = rerevved::gameplay_fixes;
+    const auto host    = rerevved::gameplay_session::ForNetworkGame();
+    const bool network = *REX_KERNEL_MEMORY()->TranslateVirtual<uint8_t*>(rerevved::ai_civilizations::kNetworkGameByte) != 0;
+    const bool skip    = host ? host->skipSpaceshipScenes : !network && REXCVAR_GET(skip_spaceship_scenes);
+    if (!skip)
+    {
+        return;
+    }
+    const int32_t index = gf::SpaceshipActorIndex(owner.s32, slot.s32);
+    spaceshipTag.store(index, std::memory_order_relaxed);
+    spaceshipFrames.store(0, std::memory_order_relaxed);
+    spaceshipRedirected.store(false, std::memory_order_relaxed);
+    spaceshipFallbackLogged.store(false, std::memory_order_relaxed);
+    REXLOG_INFO("[spaceship] tag owner={} slot={} index={} network={}", owner.s32, slot.s32, index, host ? 1 : 0);
+}
+
+void UntagSpaceshipActor(PPCRegister& owner, PPCRegister& slot)
+{
+    if (tagsActor(owner, slot))
+    {
+        REXLOG_INFO(
+            "[spaceship] untag owner={} slot={} suppressed_frames={} finish_redirected={}",
+            owner.s32,
+            slot.s32,
+            spaceshipFrames.load(std::memory_order_relaxed),
+            spaceshipRedirected.load(std::memory_order_relaxed) ? 1 : 0);
+        spaceshipTag.store(-1, std::memory_order_relaxed);
+    }
+}
+
+bool SkipSpaceshipFirstStore(PPCRegister& owner, PPCRegister& slot)
+{
+    if (!tagsActor(owner, slot))
+    {
+        return false;
+    }
+    if (spaceshipFrames.fetch_add(1, std::memory_order_relaxed) == 0)
+    {
+        REXLOG_INFO("[spaceship] suppressing focus stores owner={} slot={} index={}", owner.s32, slot.s32, spaceshipTag.load(std::memory_order_relaxed));
+    }
+    return true;
+}
+
+bool SkipSpaceshipFocusStore(PPCRegister& owner, PPCRegister& slot)
+{
+    return tagsActor(owner, slot);
+}
+
+// r11 is the previous time; r25, r21, r24 and r23 already hold the finish state at the target.
+bool FinishSpaceshipEarly(PPCRegister& owner, PPCRegister& slot, PPCRegister& previousTime)
+{
+    if (!tagsActor(owner, slot))
+    {
+        return false;
+    }
+    const bool finish = rerevved::gameplay_fixes::FinishesSpaceshipEarly(previousTime.s32);
+    if (finish)
+    {
+        spaceshipRedirected.store(true, std::memory_order_relaxed);
+        REXLOG_INFO("[spaceship] finish redirect previous_time={} frames={}", previousTime.s32, spaceshipFrames.load(std::memory_order_relaxed));
+    }
+    else if (!spaceshipFallbackLogged.exchange(true, std::memory_order_relaxed))
+    {
+        REXLOG_INFO("[spaceship] finish native fallback previous_time={} frames={}", previousTime.s32, spaceshipFrames.load(std::memory_order_relaxed));
+    }
+    return finish;
 }
 
 // Before cmpwi cr6,r9,10 at 0x82D11264; r9 is the elapsed turn count and is

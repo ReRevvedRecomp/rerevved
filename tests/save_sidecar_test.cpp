@@ -27,12 +27,12 @@ namespace overrides = rerevved::resource_identity_overrides;
 const sidecar::State    kSaved{ true, true, 33, 1, { { 0, 0 }, { 402, 9 }, { 1271, 18 } } };
 const sidecar::Identity kIdentity{ "save0.sve", 7, std::string(64, 'a') };
 
-// Schema 1 is schema 2 with only its four policy bytes of state.
+// Schema 1 is the ordinary payload with only its four policy bytes of state.
 std::vector<uint8_t> schema1(std::vector<uint8_t> bytes)
 {
     const size_t stateOffset = 6 + kIdentity.slot.size() + 4 + 64;
     bytes[4]                 = 1;
-    bytes.erase(bytes.begin() + stateOffset + 4, bytes.begin() + stateOffset + 18);
+    bytes.erase(bytes.begin() + stateOffset + 4, bytes.begin() + stateOffset + 19);
     return bytes;
 }
 
@@ -77,12 +77,12 @@ void testPayload()
     CHECK(!sidecar::Deserialize(invalid, kIdentity));
     const size_t stateOffset = 6 + kIdentity.slot.size() + 4 + 64;
     invalid                  = bytes;
-    invalid.insert(invalid.begin() + stateOffset + 18, size_t{ 2 }, uint8_t{ 0 });
-    UNSCOPED_INFO("a longer schema 2 state is rejected");
+    invalid.insert(invalid.begin() + stateOffset + 19, size_t{ 2 }, uint8_t{ 0 });
+    UNSCOPED_INFO("a longer schema 5 state is rejected");
     CHECK(!sidecar::Deserialize(invalid, kIdentity));
     invalid = bytes;
-    invalid.erase(invalid.begin() + stateOffset + 16, invalid.begin() + stateOffset + 18);
-    UNSCOPED_INFO("a shorter schema 2 state is rejected");
+    invalid.erase(invalid.begin() + stateOffset + 17, invalid.begin() + stateOffset + 19);
+    UNSCOPED_INFO("a shorter schema 5 state is rejected");
     CHECK(!sidecar::Deserialize(invalid, kIdentity));
     for (size_t field : { size_t{ 0 }, size_t{ 1 } })
     {
@@ -110,7 +110,7 @@ void testPayload()
     UNSCOPED_INFO("duplicate tiles are rejected by the existing serializer");
     CHECK(sidecar::Serialize(state, kIdentity).empty());
     invalid                   = bytes;
-    invalid[stateOffset + 23] = 22;
+    invalid[stateOffset + 24] = 22;
     UNSCOPED_INFO("unsupported override ordinals are rejected by the existing deserializer");
     CHECK(!sidecar::Deserialize(invalid, kIdentity));
 }
@@ -329,7 +329,7 @@ TEST_CASE("save_sidecar_ai_economy", "[ctest][save-sidecar]")
     const auto   bytes       = sidecar::Serialize(saved, kIdentity);
     const size_t stateOffset = 6 + kIdentity.slot.size() + 4 + 64;
     REQUIRE(bytes.size() > stateOffset + 11);
-    CHECK(bytes[4] == 2);
+    CHECK(bytes[4] == 5);
     for (const auto [field, value] : std::vector<std::pair<size_t, uint8_t>>{ { 4, 0 }, { 5, 100 }, { 6, 25 }, { 7, 150 }, { 8, 200 } })
     {
         CHECK(bytes[stateOffset + field] == value);
@@ -368,7 +368,7 @@ TEST_CASE("save_sidecar_maximum_payload", "[ctest][save-sidecar]")
     }
     const sidecar::Identity longestSlot{ std::string(42, 's'), 7, std::string(64, 'a') };
     auto                    maximum = sidecar::Serialize(saved, longestSlot);
-    REQUIRE(maximum.size() == 3209);
+    REQUIRE(maximum.size() == 3210);
     CHECK(sidecar::Deserialize(maximum, longestSlot) == saved);
     maximum.push_back(0);
     CHECK_FALSE(sidecar::Deserialize(maximum, longestSlot));
@@ -382,7 +382,7 @@ TEST_CASE("save_sidecar_progress", "[ctest][save-sidecar]")
     saved.barbarianDefeats   = 37;
     const auto bytes         = sidecar::Serialize(saved, kIdentity);
     REQUIRE(bytes.size() > stateOffset + 11);
-    CHECK(bytes[4] == 2);
+    CHECK(bytes[4] == 5);
     CHECK(bytes[stateOffset + 9] == 1);
     CHECK(bytes[stateOffset + 10] == 37);
     CHECK(sidecar::Deserialize(bytes, kIdentity) == saved);
@@ -420,7 +420,7 @@ TEST_CASE("save_sidecar_history", "[ctest][save-sidecar]")
     saved.initialAiOpponents = 6;
     const auto bytes         = sidecar::Serialize(saved, kIdentity);
     REQUIRE(bytes.size() > stateOffset + 18);
-    CHECK(bytes[4] == 2);
+    CHECK(bytes[4] == 5);
     const std::array<uint8_t, 7> expectedBytes{ 1, 1, 0, 1, 0x12, 0x34, 6 };
     CHECK(std::equal(expectedBytes.begin(), expectedBytes.end(), bytes.begin() + stateOffset + 11));
     CHECK(sidecar::Deserialize(bytes, kIdentity) == saved);
@@ -514,10 +514,10 @@ TEST_CASE("save_sidecar_practice_block", "[ctest][save-sidecar]")
     CHECK(bytes[4] == 3);
     CHECK(sidecar::Deserialize(bytes, kIdentity) == practice);
 
-    UNSCOPED_INFO("an ordinary save stays schema 2 without a block");
+    UNSCOPED_INFO("an ordinary save is schema 5 without a block");
     const auto ordinary = sidecar::Serialize(kSaved, kIdentity);
-    CHECK(ordinary[4] == 2);
-    CHECK(ordinary.size() + rerevved::gotw::kPracticeBlockSize == bytes.size());
+    CHECK(ordinary[4] == 5);
+    CHECK(ordinary.size() - 1 + rerevved::gotw::kPracticeBlockSize == bytes.size());
     CHECK_FALSE(sidecar::Deserialize(ordinary, kIdentity)->practice);
 
     UNSCOPED_INFO("a schema 2 payload with a block-shaped tail is not a practice save");
@@ -576,7 +576,7 @@ TEST_CASE("save_sidecar_autosave_during_practice_classifies_as_isolated", "[ctes
     const auto bytes = sidecar::Serialize(marker, kIdentity);
     REQUIRE(!bytes.empty());
     CHECK(bytes[4] == 4);
-    CHECK(bytes.size() == sidecar::Serialize(kSaved, kIdentity).size());
+    CHECK(bytes.size() + 1 == sidecar::Serialize(kSaved, kIdentity).size());
     const auto decoded = sidecar::Deserialize(bytes, kIdentity);
     REQUIRE(decoded);
     CHECK_FALSE(decoded->practice);
@@ -605,4 +605,50 @@ TEST_CASE("save_sidecar_autosave_during_practice_classifies_as_isolated", "[ctes
     std::filesystem::remove(sidecar::SidecarPath(native));
     std::filesystem::remove(native);
     std::filesystem::remove(root);
+}
+
+TEST_CASE("save_sidecar_turn_limit", "[ctest][save-sidecar]")
+{
+    const size_t turnOffset = 6 + kIdentity.slot.size() + 4 + 64 + 18;
+
+    UNSCOPED_INFO("every turn limit round trips in the ordinary payload");
+    for (int32_t limit = 0; limit <= 4; ++limit)
+    {
+        auto saved       = kSaved;
+        saved.turnLimit  = limit;
+        const auto bytes = sidecar::Serialize(saved, kIdentity);
+        REQUIRE(bytes.size() > turnOffset);
+        CHECK(bytes[turnOffset] == limit);
+        CHECK(sidecar::Deserialize(bytes, kIdentity) == saved);
+    }
+
+    UNSCOPED_INFO("a schema 2 save made before the limit existed loads the native limit");
+    auto saved      = kSaved;
+    saved.turnLimit = 4;
+    auto old        = sidecar::Serialize(saved, kIdentity);
+    old[4]          = 2;
+    old.erase(old.begin() + turnOffset);
+    const auto restored = sidecar::Deserialize(old, kIdentity);
+    REQUIRE(restored);
+    CHECK(restored->turnLimit == 0);
+    CHECK(restored->overrides == kSaved.overrides);
+
+    UNSCOPED_INFO("practice and isolation saves carry no limit and load the native one");
+    auto practice      = kSaved;
+    practice.turnLimit = 4;
+    practice.practice  = rerevved::gotw::PracticeBlock{ true, true, true, 3, rerevved::gotw::SeedForWeek(3), 9 };
+    CHECK(sidecar::Deserialize(sidecar::Serialize(practice, kIdentity), kIdentity)->turnLimit == 0);
+    auto marker           = kSaved;
+    marker.turnLimit      = 4;
+    marker.practiceMarker = true;
+    CHECK(sidecar::Deserialize(sidecar::Serialize(marker, kIdentity), kIdentity)->turnLimit == 0);
+
+    UNSCOPED_INFO("an unknown limit is rejected on read and write");
+    auto invalid        = sidecar::Serialize(saved, kIdentity);
+    invalid[turnOffset] = 5;
+    CHECK_FALSE(sidecar::Deserialize(invalid, kIdentity));
+    saved.turnLimit = 5;
+    CHECK(sidecar::Serialize(saved, kIdentity).empty());
+    saved.turnLimit = -1;
+    CHECK(sidecar::Serialize(saved, kIdentity).empty());
 }

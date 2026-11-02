@@ -1,7 +1,9 @@
 #include "gameplay_fixes.h"
+#include "gameplay_session_settings.h"
 #include "guest_import_doubles.hpp"
 
 #include <algorithm>
+#include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <cstdint>
 #include <filesystem>
@@ -22,6 +24,12 @@ bool SuppressLiteracyCourthouseReward(PPCRegister& technology, PPCRegister& buil
 bool SuppressStaleFirstDiscoveryCaption(PPCRegister& savedCity, PPCRegister& cityTable, PPCRegister& acquirer);
 bool SkipFailedSpyUnitCreation(PPCRegister& returnedSlot);
 bool AdmitAiNuclearOpponent(PPCRegister& player, PPCRegister& opponent, PPCRegister& history);
+bool SkipUnlimitedTurnDeadline();
+bool SkipTurnLimitWarning();
+bool AdmitExtendedTurnLimitWarning();
+bool SkipExtendedTurnLimitDeadline();
+void ApplyStartingEra(PPCRegister& r31);
+void ApplyMultiplayerAiDifficulty(PPCRegister& r11);
 REX_EXTERN(sub_82CF0CB0);
 
 namespace gf = rerevved::gameplay_fixes;
@@ -320,6 +328,293 @@ TEST_CASE("domination_shortened_minimum_latch", "[ctest][gameplay-fixes]")
     CHECK(gf::ShortenedMinimumAllowed());
     gf::NoteGameLoad();
     CHECK(!gf::ShortenedMinimumAllowed());
+}
+
+TEST_CASE("turn_limit_choices_map_to_indexes", "[ctest][gameplay-fixes]")
+{
+    int32_t limit = 9;
+    for (const auto& [text, index] : std::array<std::pair<const char*, int32_t>, 5>{ { { "2100", 0 }, { "2200", 1 }, { "2300", 2 }, { "2500", 3 }, { "unlimited", 4 } } })
+    {
+        UNSCOPED_INFO("text=" << text);
+        CHECK((gf::ParseTurnLimit(text, limit) && limit == index && gf::IsValidTurnLimit(limit)));
+    }
+    limit = 9;
+    for (const char* bad : { "", "2000", "2400", "Unlimited", " 2100", "0" })
+    {
+        UNSCOPED_INFO("text=" << bad);
+        CHECK(!gf::ParseTurnLimit(bad, limit));
+        CHECK(limit == 9);
+    }
+    CHECK(!gf::IsValidTurnLimit(-1));
+    CHECK(!gf::IsValidTurnLimit(5));
+    CHECK(!gf::ExtendsTurnLimit(gf::kTurnLimitNative));
+    CHECK(gf::ExtendsTurnLimit(1));
+    CHECK(gf::ExtendsTurnLimit(3));
+    CHECK(!gf::ExtendsTurnLimit(gf::kTurnLimitUnlimited));
+}
+
+TEST_CASE("turn_limit_cap_turns_follow_the_calendar", "[ctest][gameplay-fixes]")
+{
+    // Year = 2 * turn + 1714 from turn 118; the native 2100 cap is turn 193.
+    CHECK(gf::TurnLimitCapTurn(0) == 193);
+    CHECK(gf::TurnLimitCapTurn(1) == 243);
+    CHECK(gf::TurnLimitCapTurn(2) == 293);
+    CHECK(gf::TurnLimitCapTurn(3) == 393);
+}
+
+TEST_CASE("turn_limit_warning_is_five_turns_before_the_deadline", "[ctest][gameplay-fixes]")
+{
+    for (const auto& [limit, warning] : std::array<std::pair<int32_t, int32_t>, 3>{ { { 1, 238 }, { 2, 288 }, { 3, 388 } } })
+    {
+        for (const int32_t start : { 0, 1, 40 })
+        {
+            CHECK(gf::TurnLimitDeadlineTurn(limit, -1, start) == gf::TurnLimitCapTurn(limit));
+            for (int32_t turn = warning - 3; turn <= warning + 3; ++turn)
+            {
+                UNSCOPED_INFO("limit=" << limit << " turn=" << turn << " start=" << start);
+                CHECK(gf::TurnLimitWarningDue(limit, -1, start, turn) == (turn == warning));
+            }
+        }
+    }
+}
+
+TEST_CASE("turn_limit_scenario_deadline_waits_for_200_elapsed_turns", "[ctest][gameplay-fixes]")
+{
+    // The native deadline needs the year at the cap and, outside the sentinel scenario, 200 elapsed turns.
+    for (const auto& [start, deadline] : std::array<std::pair<int32_t, int64_t>, 3>{ { { 44, 244 }, { 43, 243 }, { 42, 243 } } })
+    {
+        UNSCOPED_INFO("start=" << start);
+        CHECK(gf::TurnLimitDeadlineTurn(1, 7, start) == deadline);
+        int64_t first = 0;
+        while (!(2 * first + 1714 >= 2200 && first - start >= 200))
+        {
+            ++first;
+        }
+        CHECK(first == deadline);
+        CHECK(gf::TurnLimitWarningDue(1, 7, start, static_cast<int32_t>(deadline - 5)));
+        CHECK(!gf::TurnLimitWarningDue(1, 7, start, static_cast<int32_t>(deadline - 4)));
+    }
+    CHECK(gf::TurnLimitDeadlineTurn(3, 7, 250) == 450);
+    CHECK(gf::TurnLimitWarningDue(3, 7, 250, 445));
+    CHECK(gf::TurnLimitDeadlineTurn(3, 7, 100) == 393);
+    CHECK(gf::TurnLimitDeadlineTurn(1, 0, INT32_MAX) == int64_t{ INT32_MAX } + 200);
+}
+
+TEST_CASE("turn_limit_year_test_uses_the_extended_cap", "[ctest][gameplay-fixes]")
+{
+    CHECK(gf::BeforeTurnLimitYear(1, 2198));
+    CHECK(!gf::BeforeTurnLimitYear(1, 2200));
+    CHECK(!gf::BeforeTurnLimitYear(1, 2202));
+    CHECK(gf::BeforeTurnLimitYear(3, 2498));
+    CHECK(!gf::BeforeTurnLimitYear(3, 2500));
+}
+
+TEST_CASE("turn_limit_hooks_pass_native_and_decide_extended_games", "[ctest][gameplay-fixes]")
+{
+    rex::Runtime runtime(std::filesystem::path{});
+    REQUIRE(runtime.Setup(rex::RuntimeConfig{
+                .kernel_init = rex::kernel::InitializeKernel,
+                .tool_mode   = true,
+            }) == 0);
+    auto* memory = runtime.memory();
+    auto* heap   = memory->LookupHeap(0x83120000);
+    REQUIRE((heap && heap->AllocFixed(0x83120000, 0x10000, 0x10000, rex::memory::kMemoryAllocationReserve | rex::memory::kMemoryAllocationCommit, rex::memory::kMemoryProtectRead | rex::memory::kMemoryProtectWrite)));
+    const auto calendar = [&](int32_t scenario, int32_t start, int32_t turn)
+    {
+        rex::memory::store_and_swap<int32_t>(memory->TranslateVirtual(0x8312B8D4), scenario);
+        rex::memory::store_and_swap<int32_t>(memory->TranslateVirtual(0x8312B8D8), start);
+        rex::memory::store_and_swap<int32_t>(memory->TranslateVirtual(0x8312B8DC), turn);
+        rex::memory::store_and_swap<int32_t>(memory->TranslateVirtual(0x8312B8E0), 2 * turn + 1714);
+    };
+    const auto restore = gf::TurnLimitForGame();
+
+    gf::RestoreTurnLimit(gf::kTurnLimitNative);
+    for (const int32_t turn : { 188, 192, 193, 194, 238, 243 })
+    {
+        calendar(-1, 1, turn);
+        CHECK(!SkipUnlimitedTurnDeadline());
+        CHECK(!SkipTurnLimitWarning());
+        CHECK(!AdmitExtendedTurnLimitWarning());
+        CHECK(!SkipExtendedTurnLimitDeadline());
+    }
+
+    gf::RestoreTurnLimit(gf::kTurnLimitUnlimited);
+    calendar(-1, 1, 243);
+    CHECK(SkipUnlimitedTurnDeadline());
+    CHECK(!SkipTurnLimitWarning());
+    CHECK(!AdmitExtendedTurnLimitWarning());
+    CHECK(!SkipExtendedTurnLimitDeadline());
+
+    gf::RestoreTurnLimit(1);
+    CHECK(!SkipUnlimitedTurnDeadline());
+    CHECK(AdmitExtendedTurnLimitWarning());
+    for (const int32_t turn : { 188, 189, 237, 239, 242 })
+    {
+        calendar(-1, 1, turn);
+        CHECK(SkipTurnLimitWarning());
+    }
+    calendar(-1, 1, 238);
+    CHECK(!SkipTurnLimitWarning());
+    for (const int32_t turn : { 193, 242 })
+    {
+        calendar(-1, 1, turn);
+        CHECK(SkipExtendedTurnLimitDeadline());
+    }
+    for (const int32_t turn : { 243, 244, 400 })
+    {
+        calendar(-1, 1, turn);
+        CHECK(!SkipExtendedTurnLimitDeadline());
+    }
+    calendar(5, 100, 295);
+    CHECK(!SkipTurnLimitWarning());
+    calendar(5, 100, 238);
+    CHECK(SkipTurnLimitWarning());
+
+    gf::RestoreTurnLimit(restore);
+}
+
+TEST_CASE("spaceship_tag_matches_only_its_actor_and_finishes_in_the_corridor", "[ctest][gameplay-fixes]")
+{
+    const int32_t tag = gf::SpaceshipActorIndex(2, 7);
+    CHECK(tag == 519);
+    CHECK(gf::MatchesSpaceshipTag(tag, 2, 7));
+    CHECK(!gf::MatchesSpaceshipTag(tag, 2, 6));
+    CHECK(!gf::MatchesSpaceshipTag(tag, 3, 7));
+    CHECK(!gf::MatchesSpaceshipTag(-1, 0, 0));
+
+    CHECK(gf::FinishesSpaceshipEarly(1000));
+    CHECK(!gf::FinishesSpaceshipEarly(1001));
+}
+
+TEST_CASE("starting_era_choices_map_to_native_values", "[ctest][gameplay-fixes]")
+{
+    int32_t era = 9;
+    for (const auto& [text, index] : std::array<std::pair<const char*, int32_t>, 4>{ { { "ancient", 0 }, { "medieval", 1 }, { "industrial", 2 }, { "modern", 3 } } })
+    {
+        UNSCOPED_INFO("text=" << text);
+        CHECK((gf::ParseStartingEra(text, era) && era == index && gf::IsValidStartingEra(era)));
+    }
+    era = 9;
+    for (const char* bad : { "", "Ancient", "classical", "4", "0", " modern" })
+    {
+        UNSCOPED_INFO("text=" << bad);
+        CHECK(!gf::ParseStartingEra(bad, era));
+        CHECK(era == 9);
+    }
+    CHECK(!gf::IsValidStartingEra(-1));
+    CHECK(!gf::IsValidStartingEra(4));
+}
+
+TEST_CASE("starting_era_applies_only_to_ordinary_games", "[ctest][gameplay-fixes]")
+{
+    CHECK(!gf::AppliesStartingEra(gf::kStartingEraNative, -1));
+    for (const int32_t era : { 1, 2, 3 })
+    {
+        CHECK(gf::AppliesStartingEra(era, -1));
+        for (const int32_t scenario : { 0, 4, 7 })
+        {
+            CHECK(!gf::AppliesStartingEra(era, scenario));
+        }
+    }
+}
+
+TEST_CASE("starting_era_hook_writes_only_the_admitted_ordinary_halfword", "[ctest][gameplay-fixes]")
+{
+    rex::Runtime runtime(std::filesystem::path{});
+    REQUIRE(runtime.Setup(rex::RuntimeConfig{
+                .kernel_init = rex::kernel::InitializeKernel,
+                .tool_mode   = true,
+            }) == 0);
+    auto*              memory = runtime.memory();
+    constexpr uint32_t kQ     = 0x830E8FD0;
+    for (const uint32_t start : { 0x830E0000u, 0x83120000u })
+    {
+        auto* heap = memory->LookupHeap(start);
+        REQUIRE((heap && heap->AllocFixed(start, 0x10000, 0x10000, rex::memory::kMemoryAllocationReserve | rex::memory::kMemoryAllocationCommit, rex::memory::kMemoryProtectRead | rex::memory::kMemoryProtectWrite)));
+    }
+    const auto restore = gf::StartingEraForGame();
+    const auto field   = [&]
+    {
+        return rex::memory::load_and_swap<int16_t>(memory->TranslateVirtual(kQ + 0x1C));
+    };
+    const auto year = [&]
+    {
+        return rex::memory::load_and_swap<int16_t>(memory->TranslateVirtual(kQ + 0x3E));
+    };
+    const auto run = [&](bool admitted, int32_t era, int32_t scenario)
+    {
+        rex::memory::store_and_swap<int16_t>(memory->TranslateVirtual(kQ + 0x1C), 7);
+        rex::memory::store_and_swap<int16_t>(memory->TranslateVirtual(kQ + 0x3E), 7);
+        rex::memory::store_and_swap<int32_t>(memory->TranslateVirtual(0x8312B8D4), scenario);
+        gf::RestoreStartingEra(era);
+        rerevved::gameplay_session::SetupGate gate(admitted);
+        PPCRegister                           r31;
+        r31.u64 = kQ;
+        ApplyStartingEra(r31);
+        CHECK(r31.u64 == kQ);
+    };
+
+    // Each era takes the start year its retail preset pairs with it.
+    for (const auto [era, start] : std::array<std::pair<int32_t, int16_t>, 3>{ { { 1, 1000 }, { 2, 1500 }, { 3, 1800 } } })
+    {
+        run(true, era, -1);
+        CHECK(field() == era);
+        CHECK(year() == start);
+    }
+    run(true, 0, -1);
+    CHECK((field() == 7 && year() == 7));
+    run(true, 3, 4);
+    CHECK((field() == 7 && year() == 7));
+    {
+        rerevved::gameplay_session::SetupGate load(true, false);
+        rex::memory::store_and_swap<int32_t>(memory->TranslateVirtual(0x8312B8D4), -1);
+        gf::RestoreStartingEra(3);
+        PPCRegister r31;
+        r31.u64 = kQ;
+        ApplyStartingEra(r31);
+        CHECK(field() == 7);
+    }
+    gf::RestoreStartingEra(restore);
+}
+
+TEST_CASE("multiplayer_ai_difficulty_choices_map_to_native_values", "[ctest][gameplay-fixes]")
+{
+    int32_t difficulty = 9;
+    for (const auto& [text, value] : std::array<std::pair<const char*, int32_t>, 3>{ { { "king", 2 }, { "emperor", 3 }, { "deity", 4 } } })
+    {
+        UNSCOPED_INFO("text=" << text);
+        CHECK((gf::ParseMultiplayerAiDifficulty(text, difficulty) && difficulty == value && gf::IsValidMultiplayerAiDifficulty(difficulty)));
+    }
+    difficulty = 9;
+    for (const char* bad : { "", "King", "prince", "2", " deity" })
+    {
+        UNSCOPED_INFO("text=" << bad);
+        CHECK(!gf::ParseMultiplayerAiDifficulty(bad, difficulty));
+        CHECK(difficulty == 9);
+    }
+    CHECK(!gf::IsValidMultiplayerAiDifficulty(1));
+    CHECK(!gf::IsValidMultiplayerAiDifficulty(5));
+}
+
+TEST_CASE("multiplayer_ai_difficulty_hook_replaces_the_literal_only_during_setup", "[ctest][gameplay-fixes]")
+{
+    const auto restore = gf::MultiplayerAiDifficultyForGame();
+    const auto run     = [](bool admitted, bool newGame, int32_t difficulty)
+    {
+        gf::RestoreMultiplayerAiDifficulty(difficulty);
+        rerevved::gameplay_session::SetupGate gate(admitted, newGame);
+        PPCRegister                           r11;
+        r11.u64 = 2;
+        ApplyMultiplayerAiDifficulty(r11);
+        return r11.s64;
+    };
+    for (const int32_t difficulty : { 2, 3, 4 })
+    {
+        CHECK(run(true, true, difficulty) == difficulty);
+    }
+    CHECK(run(true, false, 4) == 2);
+    CHECK(run(false, true, 4) == 2);
+    gf::RestoreMultiplayerAiDifficulty(restore);
 }
 
 TEST_CASE("domination_elapsed_rebase_matches_threshold", "[ctest][gameplay-fixes]")

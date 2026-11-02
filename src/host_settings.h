@@ -51,6 +51,10 @@ struct HostSettings
     int32_t                 aiCultureBonusPercent    = 0;
     int32_t                 dominationMinimumTurns   = 10;
     int32_t                 combatSpeed              = 0; // 0 normal, 1 fast. Presentation only.
+    int32_t                 turnLimit                = 0;
+    int32_t                 startingEra              = 0;
+    int32_t                 multiplayerAiDifficulty  = 2; // Native difficulty: King 2, Emperor 3 or Deity 4.
+    bool                    skipSpaceshipScenes      = false;
     bool                    gotwCustomWeek           = false;
     uint32_t                gotwWeek                 = 0; // Zero when the native week applies.
     uint32_t                gotwSeed                 = 0; // Zero when the native seed applies.
@@ -62,12 +66,14 @@ struct HostSettings
     std::array<uint8_t, 32> rulesDigest{}; // SHA-256 of accepted normalized rule content.
 };
 
-// Format 2 has a fixed gameplay header and optional content digest, followed
+// Format 7 has a fixed gameplay header and optional content digest, followed
 // by sorted mods with length-prefixed id, version and display name fields.
 // Normalize local selections before publication. Decode rejects noncanonical values.
 // The local-only Game of the Week civilization is never serialized.
 // Gameplay bit 0x20 must equal Raging bit 0x01: peers must support capital grace.
-// Domination turns are 5 or 10.
+// Domination turns are 5 or 10. The turn limit is an index from 0 to 4 and the
+// starting era an index from 0 to 3. The multiplayer AI difficulty is 2, 3 or 4
+// and the spaceship scene skip is 0 or 1.
 std::vector<uint8_t> Encode(const HostSettings& settings);
 
 HostSettings Normalize(HostSettings settings, bool networkGame = true);

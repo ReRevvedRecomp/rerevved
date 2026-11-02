@@ -34,10 +34,14 @@ HostSettings LocalSettings()
     settings.aiFoodBonusPercent       = rex::cvar::Query<int32_t>("ai_food_bonus_percent");
     settings.aiCultureBonusPercent    = rex::cvar::Query<int32_t>("ai_culture_bonus_percent");
     gameplay_fixes::ParseDominationMinimumTurns(rex::cvar::Query<std::string>("domination_min_turns"), settings.dominationMinimumTurns);
-    settings.combatSpeed       = rex::cvar::Query<std::string>("combat_speed") == "fast";
-    settings.gotwCustomWeek    = rex::cvar::Query<bool>("gotw_custom_week");
-    settings.gotwStandardRules = rex::cvar::Query<bool>("gotw_standard_rules");
-    settings.gotwAllowSaving   = rex::cvar::Query<bool>("gotw_allow_saving");
+    settings.combatSpeed = rex::cvar::Query<std::string>("combat_speed") == "fast";
+    gameplay_fixes::ParseTurnLimit(rex::cvar::Query<std::string>("turn_limit"), settings.turnLimit);
+    gameplay_fixes::ParseStartingEra(rex::cvar::Query<std::string>("starting_era"), settings.startingEra);
+    gameplay_fixes::ParseMultiplayerAiDifficulty(rex::cvar::Query<std::string>("multiplayer_ai_difficulty"), settings.multiplayerAiDifficulty);
+    settings.skipSpaceshipScenes = rex::cvar::Query<bool>("skip_spaceship_scenes");
+    settings.gotwCustomWeek      = rex::cvar::Query<bool>("gotw_custom_week");
+    settings.gotwStandardRules   = rex::cvar::Query<bool>("gotw_standard_rules");
+    settings.gotwAllowSaving     = rex::cvar::Query<bool>("gotw_allow_saving");
     if (settings.gotwCustomWeek)
     {
         settings.gotwCustomWeek = gotw::ParseWeek(rex::cvar::Query<std::string>("gotw_week"), settings.gotwWeek);
@@ -247,6 +251,11 @@ bool ApplyNewGame(const host_settings::GameSnapshot& snapshot, bool networkGame,
     }
     custom_achievements::BeginNewGame(!standardRules && settings.oneCityChallenge, mode == 2 && !gotw::ForGame().practice);
     gameplay_fixes::NoteNewGame();
+    gameplay_fixes::RestoreTurnLimit(mode == 2 ? gameplay_fixes::kTurnLimitNative : settings.turnLimit);
+    // Game of the Week keeps its native era; the hook applies this only during native setup.
+    gameplay_fixes::RestoreStartingEra(mode == 2 ? gameplay_fixes::kStartingEraNative : settings.startingEra);
+    // Only the network arm of native setup reads this; every peer plays the host's value.
+    gameplay_fixes::RestoreMultiplayerAiDifficulty(networkGame ? settings.multiplayerAiDifficulty : gameplay_fixes::kMultiplayerAiDifficultyNative);
     SuspendModRulesForGame(standardRules);
     return standardRules;
 }

@@ -9,9 +9,9 @@ Close ReRevved before editing the file directly.
 - **General**: Language (English, Deutsch, Francais, Espanol or Italiano, after a
   restart), FPS Counter and Skip Intro.
 - **Gameplay**: combat speed, resources, Raging Barbarians, One City
-  Challenge, Earliest Domination, AI civilizations, AI Handicaps, Game of the
-  Week, and the Support section.
-- **Notifications**: research prompts, advisor pop-ups, and Barbarian messages.
+  Challenge, Earliest Domination, Turn Limit, Starting Era, AI civilizations, AI Difficulty (Multiplayer), AI Handicaps,
+  Game of the Week, and the Support section.
+- **Notifications**: Disable Spaceship Scenes, research prompts, advisor pop-ups, and Barbarian messages.
   **Disable Save Reminder** suppresses a prompt; it does not save the game.
 - **Online**: connection status, player name, relay invite, and Discord options.
   See [Online play](online-play.md).
@@ -42,6 +42,33 @@ victory can be declared: 10 turns (3000 BC, the default) or 5 turns
 the Week with Standard Rules. A new multiplayer game uses the host's value.
 Loaded saves keep the default, except a Game of the Week practice save, which
 restores the minimum it was saved with.
+
+**Turn Limit** chooses the year a new game can end by turn limit: 2100 AD (the
+default, as in the original game), 2200 AD, 2300 AD, 2500 AD or Unlimited. The
+game keeps the value it started with and each save records it, so a later change
+applies only to the next new game. A new multiplayer game uses the host's value
+for every player. Game of the Week always uses 2100 AD. A save without a recorded
+Turn Limit, or whose sidecar is missing or rejected, loads with 2100 AD.
+Unlimited removes the turn limit and its warning; the other victories still end
+the game.
+
+**Starting Era** gives every civilization extra technologies when a new
+game starts: Ancient (the default) adds none, Medieval adds 5, Industrial 14 and
+Modern 24, through the game's own starting-technology grant. The game uses the
+value it started with, so a later change applies only to the next new game. A new
+multiplayer game uses the host's value for every player. A scenario and Game of
+the Week keep their own era, and a loaded save never grants technologies again.
+
+**AI Difficulty (Multiplayer)** sets the difficulty of every AI in a multiplayer
+game you host: King (the default and the game's native multiplayer value),
+Emperor or Deity. Every player in that game plays the host's value. A later
+change applies only to the next new game. Single player keeps the difficulty
+chosen at game setup, and a loaded save never applies the host's value.
+
+**Disable Spaceship Scenes** (Notifications, off by default) skips the rocket
+scene of every spaceship part, yours included. In a multiplayer game every player
+uses the host's value; otherwise your own setting applies, also to a Game of the
+Week. Part scenes already running are not affected by a change.
 
 **Allow Saving** (Gameplay > Game of the Week, off by default) lets you save and
 load a Game of the Week. When it is on as the game starts, the whole game is

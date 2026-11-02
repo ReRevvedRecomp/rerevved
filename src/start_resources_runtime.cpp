@@ -395,6 +395,8 @@ void RunNativeNewGameSetup(PPCContext& context, uint8_t* base)
         REXLOG_INFO("Game of the Week: standard_rules={}", standardRules);
     }
     __imp__sub_82D25170(context, base);
+    // The era applies only to this setup, whether it succeeded or failed.
+    gameplay_fixes::RestoreStartingEra(gameplay_fixes::kStartingEraNative);
     ai_civilizations::CommitNewGame();
     // The AI count is final only after native setup. The week is bound to this accepted attempt.
     custom_achievements::RecordSetupOutcome(effectiveAiOpponents(base), weeklyWeek);
