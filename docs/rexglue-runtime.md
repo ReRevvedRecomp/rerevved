@@ -117,6 +117,16 @@ selection isolated between named profiles.
 Explicit `log_file` and `cache_root` overrides retain their existing meanings
 and may select locations outside `P`.
 
+Map packs live under `maps/` beside the executable, apart from asset
+overrides. Each is a `maps/<id>/asset-pack.toml` package whose only asset is
+`assets/map-pack/dlc.fpk`; a pack with other assets is refused. The profile's
+`P/map_order.txt` enables packs and orders them, one package ID per line. When
+two enabled packs claim the same archive entry, map name, or scenario ID, the
+earlier one wins. An optional `[map_pack]` manifest table with `slot` and
+`scenarios = [{ id, name }]` is display metadata only; the archive stays
+authoritative. Changes apply on the next launch; see
+[`map_packs.h`](../src/map_packs.h).
+
 F2 discovers packages installed under `mods/` beside the executable. Release
 archives include the first-party mods there. With no profile `mod_order.txt`,
 they start disabled. [Mods](mods.md#enable-or-change-mods) describes Apply
@@ -153,7 +163,7 @@ rerevved.exe --profile=alpha --profile_copy_from_default=true
 `--profile_copy_from_default=true` requests a single copy for this launch only. It
 requires a named profile and an absent target. The SDK copies config,
 ordinary title content and headers, title profile data, the title's
-achievement record, and both package order files when present. An empty
+achievement record, and the mod, asset and map pack order files when present. An empty
 saved order stays empty. It does not
 copy marketplace content, logs, cache, unrelated files, or another profile.
 After the copy succeeds, launch with `--profile=alpha` alone. An existing

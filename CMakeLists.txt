@@ -249,6 +249,8 @@ set(REREVVED_SOURCES
     src/nation_select_text_registry.h
     src/main_menu_logo_asset.cpp
     src/main_menu_logo_hooks.cpp
+    src/map_packs.cpp
+    src/map_packs_hooks.cpp
     src/gpu/renderer_backend.cpp
     src/gpu/renderer_backend.h
     src/unique_era_abilities.cpp
