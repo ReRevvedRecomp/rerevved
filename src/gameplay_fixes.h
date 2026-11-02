@@ -313,4 +313,31 @@ int32_t DominationMinimumTurns(std::string_view setting, bool shortenedAllowed) 
 // minimum. The native value is unchanged at 10.
 int32_t RebaseDominationElapsed(int32_t elapsed, int32_t minimumTurns) noexcept;
 
+enum class UnitMovement
+{
+    Normal,
+    Fast,
+    Instant,
+};
+
+constexpr UnitMovement ParseUnitMovement(std::string_view text) noexcept
+{
+    return text == "fast" ? UnitMovement::Fast : text == "instant" ? UnitMovement::Instant
+                                                                   : UnitMovement::Normal;
+}
+
+constexpr int32_t kFastMovementFactor = 3;
+// Largest quantum with quantum + quantum / 2 fitting a signed 32-bit word.
+constexpr int32_t kMaxMovementQuantum = 1431655765;
+
+constexpr int32_t ScaleMovementQuantum(int32_t quantum) noexcept
+{
+    return quantum > 0 ? static_cast<int32_t>(std::min<int64_t>(int64_t{ quantum } * kFastMovementFactor, kMaxMovementQuantum)) : quantum;
+}
+
+constexpr bool AcceleratesMovingUnit(int32_t unitType) noexcept
+{
+    return unitType != 24 && unitType != 27;
+}
+
 } // namespace rerevved::gameplay_fixes

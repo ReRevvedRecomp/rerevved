@@ -1095,6 +1095,27 @@ The `combat_speed` setting accepts `normal` or `fast` and defaults to `normal`.
 `fast` uses the guest's native faster combat presentation pace while preserving
 resolution and completion.
 
+## Unit movement setting
+
+The live `unit_movement` setting (Gameplay, after Combat Speed) accepts `normal`,
+`fast` or `instant` and defaults to `normal`. It is a presentation
+preference. A network game uses the host's value, carried in the host
+settings and frozen at `ApplyNewGame`, so every peer moves units the same way; single
+player uses the live setting. Two hooks in the coordinate updater `0x82D5FFC8` read the
+setting each update. Both leave the shared frame time, cooldowns, game-state flags,
+movement budget, tile position, destination, lifecycle and busy flags to the native
+code.
+
+| Address | Hook | Effect |
+|---|---|---|
+| `0x82D619AC` | `ScaleUnitMovementQuantum` | Fast: after the native quotient at `0x82D619A8`, multiply a positive quantum in `r27` by 3, clamped so `quantum + quantum / 2` fits 32 bits. |
+| `0x82D619BC` | `SnapUnitMovement` | Instant: before the `bgt` to the long arm, jump to the native near-target snap at `0x82D619C0`. |
+
+The unit is the 84-byte record at `[r1+112] + r24`; its type is byte 1. Types 24 and 27
+stay native. Instant moves the displayed position to the target on the first update;
+it does not skip skeletal animation or change when the command returns. The first
+update that takes effect logs `UnitMovement:` once.
+
 ## Gameplay Resources
 
 F1 **Gameplay > Resources** offers **Normal**, **Balanced** and **Legendary**.
@@ -2161,13 +2182,13 @@ count.
 ## Multiplayer gameplay snapshots
 
 [Online play](online-play.md#gameplay-settings-and-mods) describes the player
-settings and compatibility requirements. The version-7 title payload in
+settings and compatibility requirements. The version-8 title payload in
 [host_settings.cpp](../src/host_settings.cpp) carries AI count from 0 to 6,
 Resources, Raging Barbarians, OCC, the AI research, production, gold, food and
 culture bonus percentages (0 to 200), Domination minimum turns (5 or 10), combat
 speed, the Turn Limit index (0 to 4), the Starting Era index (0 to 4), the
-multiplayer AI difficulty (2, 3 or 4), the spaceship scene skip (0 or 1) in the
-last header byte, and Game of the Week selections. Peers reject any other version.
+multiplayer AI difficulty (2, 3 or 4), the spaceship scene skip (0 or 1), unit movement (0 normal, 1 fast, 2 instant)
+in the last header byte, and Game of the Week selections. Peers reject any other version.
 The override applies to that game and leaves local CVars unchanged.
 
 Before gameplay settings are frozen for a new game,
@@ -2175,7 +2196,7 @@ Before gameplay settings are frozen for a new game,
 `PrepareForGame` and waits up to 15 seconds for a ready authenticated snapshot.
 Lobby bytes do not satisfy this requirement. The host captures its current
 provider for each game. Joiners request that game's fresh snapshot.
-`ResolveForGame` requires ready host or received status, a valid version-7
+`ResolveForGame` requires ready host or received status, a valid version-8
 payload, complete matching package IDs and versions, and matching verified Lua
 digests when mod content is present. Old, missing, malformed, truncated or
 unverified data rejects setup without a local gameplay fallback.

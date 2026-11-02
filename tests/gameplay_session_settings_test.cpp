@@ -112,6 +112,7 @@ TEST_CASE("host gameplay policy precedes title freezes", "[ctest][host-settings]
     settings.startingEra              = 2;
     settings.multiplayerAiDifficulty  = 4;
     settings.skipSpaceshipScenes      = true;
+    settings.unitMovement             = 1;
     settings.alwaysAtWar              = true;
     settings.gotwStandardRules        = true;
     const auto snapshot               = host::ResolveForGame(true, { rex::session_data::State::kReceived, host::Encode(settings), true }, {});
@@ -126,6 +127,7 @@ TEST_CASE("host gameplay policy precedes title freezes", "[ctest][host-settings]
     CHECK(rerevved::gameplay_fixes::MultiplayerAiDifficultyForGame() == 4);
     CHECK_FALSE(rerevved::gameplay_fixes::AlwaysAtWarForGame());
     CHECK(session::ForNetworkGame()->skipSpaceshipScenes);
+    CHECK(session::ForNetworkGame()->unitMovement == 1);
     CHECK((rerevved::ai_economy::ForGame() == rerevved::ai_economy::Policy{ 50, 40, 25, 75, 200 }));
     CHECK(rerevved::occ::ForGame()->enabled);
     CHECK(rerevved::raging_barbarians::Evaluate(0).enabled);

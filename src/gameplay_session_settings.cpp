@@ -39,6 +39,7 @@ HostSettings LocalSettings()
     settings.startingEra             = gameplay_fixes::ParseStartingEra(rex::cvar::Query<std::string>("starting_era"));
     settings.multiplayerAiDifficulty = gameplay_fixes::ParseMultiplayerAiDifficulty(rex::cvar::Query<std::string>("multiplayer_ai_difficulty"));
     settings.skipSpaceshipScenes     = !rex::cvar::Query<bool>("spaceship_scenes");
+    settings.unitMovement            = static_cast<int32_t>(gameplay_fixes::ParseUnitMovement(rex::cvar::Query<std::string>("unit_movement")));
     settings.alwaysAtWar             = rex::cvar::Query<bool>("always_at_war");
     settings.gotwCustomWeek          = rex::cvar::Query<bool>("gotw_custom_week");
     settings.gotwStandardRules       = rex::cvar::Query<bool>("gotw_standard_rules");

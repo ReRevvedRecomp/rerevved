@@ -59,6 +59,7 @@ constexpr std::array<std::string_view, 7> kCategoryNames{ "General", "Gameplay",
 
 constexpr auto kSpecs = std::to_array<Spec>({
     { "combat_speed", Kind::kEnum, Applies::kLive, {}, {} },
+    { "unit_movement", Kind::kEnum, Applies::kLive, {}, {} },
     { "spaceship_scenes", Kind::kBool, Applies::kLive, {}, {} },
     { "resources", Kind::kLabeledInt, Applies::kNextGame, {}, {} },
     { "raging_barbarians", Kind::kBool, Applies::kNextGame, {}, {} },

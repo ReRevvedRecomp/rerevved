@@ -53,6 +53,7 @@ class OverlaySettingsContractTests(unittest.TestCase):
                     "",
                     [
                         "combat_speed",
+                        "unit_movement",
                         "resources",
                         "raging_barbarians",
                         "one_city_challenge",

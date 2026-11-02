@@ -238,3 +238,15 @@ address = 0x82D5E868
 name = "FinishSpaceshipEarly"
 registers = ["r28", "r26", "r11"]
 jump_address_on_true = 0x82D5E888
+
+# Unit movement 0x82D5FFC8: [r1+112] unit table, r24 84-byte record offset, r27 quantum.
+[[midasm_hook]]
+address = 0x82D619AC
+name = "ScaleUnitMovementQuantum"
+registers = ["r1", "r24", "r27"]
+
+[[midasm_hook]]
+address = 0x82D619BC
+name = "SnapUnitMovement"
+registers = ["r1", "r24"]
+jump_address_on_true = 0x82D619C0

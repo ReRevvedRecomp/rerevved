@@ -674,6 +674,17 @@ EXPECTED_HOOKS = [
         "jump_address_on_true": 0x82D5E888,
     },
     {
+        "address": 0x82D619AC,
+        "name": "ScaleUnitMovementQuantum",
+        "registers": ["r1", "r24", "r27"],
+    },
+    {
+        "address": 0x82D619BC,
+        "name": "SnapUnitMovement",
+        "registers": ["r1", "r24"],
+        "jump_address_on_true": 0x82D619C0,
+    },
+    {
         "address": 0x82D17A9C,
         "name": "FixRushCostApply",
         "registers": [
@@ -2146,6 +2157,65 @@ class HookContractTests(unittest.TestCase):
         )
         self.assertEqual(override.count("writeGuestU32Safely("), 1)
         self.assertNotIn("REXLOG_", override)
+
+    def test_unit_movement_contract(self) -> None:
+        hooks = (ROOT / "src" / "gameplay_fixes_hooks.cpp").read_text(encoding="utf-8")
+        app_source = APP_SOURCE.read_text(encoding="utf-8")
+        helpers = (ROOT / "src" / "gameplay_fixes.h").read_text(encoding="utf-8")
+        self.assertEqual(
+            len(
+                re.findall(
+                    r'REXCVAR_DEFINE_STRING\(unit_movement,\s*"normal",\s*'
+                    r'"ReRevved",\s*"[^"]+"\)\s*'
+                    r'\.allowed\(\{\s*"normal",\s*"fast",\s*"instant"\s*\}\);',
+                    app_source,
+                )
+            ),
+            1,
+        )
+        for name in ("ScaleUnitMovementQuantum", "SnapUnitMovement"):
+            self.assertEqual(len(re.findall(rf"^\w+ {name}\(", hooks, re.M)), 1)
+        scale = hooks.split("void ScaleUnitMovementQuantum", 1)[1].split(
+            "bool Snap", 1
+        )[0]
+        snap = hooks.split("bool SnapUnitMovement", 1)[1].split("\n}\n", 1)[0]
+        self.assertEqual(scale.count("quantum.u64 ="), 1)
+        self.assertNotIn("quantum.", snap)
+        movement = hooks[
+            hooks.index("unitMovementLogged") : hooks.index("// Before cmpwi cr6,r9,10")
+        ]
+        for forbidden in ("writeGuest", "store_and_swap", "REX_STORE"):
+            self.assertNotIn(forbidden, movement)
+        self.assertEqual(movement.count("REXLOG_INFO"), 1)
+        self.assertIn("kNetworkGameByte", movement)
+        self.assertIn('RegisterChangeCallback("unit_movement"', movement)
+        self.assertIn("AcceleratesMovingUnit", movement)
+        self.assertIn("unitType != 24 && unitType != 27", helpers)
+
+    def test_generated_unit_movement_hooks_when_available(self) -> None:
+        if not chunk_paths():
+            self.skipTest("generated sources are not available")
+
+        # Scale after native divw, before threshold srawi. Snap tests before bgt to the near-target arm at 0x82D619C0.
+        scale = (
+            "\t// divw r27,r6,r10\n"
+            "\tctx.r27.u64 = uint32_t((ctx.r10.s32 && !(ctx.r6.s32 == INT32_MIN && ctx.r10.s32 == -1)) ? ctx.r6.s32 / ctx.r10.s32 : 0);\n"
+            "\t// srawi r5,r27,1\n"
+            "\tScaleUnitMovementQuantum(ctx.r1, ctx.r24, ctx.r27);\n"
+        )
+        snap = (
+            "\t// bgt cr6,0x82d619dc\n"
+            "\tif (SnapUnitMovement(ctx.r1, ctx.r24)) {\n"
+            "\t\tgoto loc_82D619C0;\n"
+            "\t}\n"
+            "\telse {\n"
+            "\t}\n"
+            "\tif (ctx.cr6.gt) goto loc_82D619DC;\n"
+            "loc_82D619C0:\n"
+            "\t// stwx r20,r23,r22\n"
+        )
+        for expected in (scale, snap):
+            self.assertEqual(count_per_chunk(expected), 1, expected)
 
     def test_generated_spy_kidnapping_failure_guard_when_available(self) -> None:
         def scan(paths: list[Path]) -> dict[str, str]:

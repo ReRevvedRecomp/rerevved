@@ -8,7 +8,7 @@ Close ReRevved before editing the file directly.
 
 - **General**: Language (English, Deutsch, Francais, Espanol or Italiano, after a
   restart), FPS Counter, Skip Intro and Open Log Folder.
-- **Gameplay**: combat speed, resources, Raging Barbarians, One City
+- **Gameplay**: combat speed, unit movement, resources, Raging Barbarians, One City
   Challenge, Earliest Domination, Turn Limit, Starting Era, AI civilizations, Always At War, AI Handicaps,
   and Game of the Week.
 - **Notifications**: Spaceship Scenes, research prompts, advisor pop-ups, and Barbarian messages. Each is on by default; turn a row off to hide it.

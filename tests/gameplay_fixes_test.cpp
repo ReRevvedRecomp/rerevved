@@ -484,6 +484,25 @@ TEST_CASE("spaceship_tag_matches_only_its_actor_and_finishes_in_the_corridor", "
     CHECK(!gf::FinishesSpaceshipEarly(1001));
 }
 
+TEST_CASE("unit_movement_scales_a_positive_quantum_within_the_threshold", "[ctest][gameplay-fixes]")
+{
+    CHECK(gf::ParseUnitMovement("normal") == gf::UnitMovement::Normal);
+    CHECK(gf::ParseUnitMovement("fast") == gf::UnitMovement::Fast);
+    CHECK(gf::ParseUnitMovement("instant") == gf::UnitMovement::Instant);
+
+    CHECK(gf::ScaleMovementQuantum(7) == 21);
+    CHECK(gf::ScaleMovementQuantum(0) == 0);
+    CHECK(gf::ScaleMovementQuantum(-5) == -5);
+    CHECK(gf::ScaleMovementQuantum(INT32_MAX) == gf::kMaxMovementQuantum);
+    const int64_t largest = gf::kMaxMovementQuantum;
+    CHECK(largest + largest / 2 <= INT32_MAX);
+    CHECK(largest + 1 + (largest + 1) / 2 > INT32_MAX);
+
+    CHECK(gf::AcceleratesMovingUnit(0));
+    CHECK(!gf::AcceleratesMovingUnit(24));
+    CHECK(!gf::AcceleratesMovingUnit(27));
+}
+
 TEST_CASE("starting_era_choices_map_to_native_values", "[ctest][gameplay-fixes]")
 {
     for (const auto& [text, index] : std::array<std::pair<const char*, int32_t>, 5>{ { { "ancient", 0 }, { "medieval", 1 }, { "industrial", 2 }, { "modern", 3 }, { "future", 4 } } })

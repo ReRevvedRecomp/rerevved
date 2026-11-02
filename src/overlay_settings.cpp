@@ -70,7 +70,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "General", { { "", { "game_language", "show_fps_counter", "skip_intro_movie", "open_log_folder" } } } },
         { "Gameplay",
           {
-              { "", { "combat_speed", "resources", "raging_barbarians", "one_city_challenge", "domination_min_turns", "turn_limit", "starting_era", "ai_civilizations", "always_at_war" } },
+              { "", { "combat_speed", "unit_movement", "resources", "raging_barbarians", "one_city_challenge", "domination_min_turns", "turn_limit", "starting_era", "ai_civilizations", "always_at_war" } },
               { "AI Handicaps", { "ai_research_bonus_percent", "ai_production_bonus_percent", "ai_gold_bonus_percent", "ai_food_bonus_percent", "ai_culture_bonus_percent" } },
               { "Game of the Week", { "gotw_standard_rules", "gotw_allow_saving", "gotw_custom_week", "gotw_week", "gotw_custom_civilization", "gotw_civilization" } },
           } },
@@ -135,6 +135,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "game_language", Audience::kPlayer },
         { "@Input/Keybinds", Audience::kPlayer },
         { "combat_speed", Audience::kPlayer },
+        { "unit_movement", Audience::kPlayer },
         { "spaceship_scenes", Audience::kPlayer },
         { "ai_civilizations", Audience::kPlayer },
         { "multiplayer_ai_difficulty", Audience::kPlayer },
@@ -187,6 +188,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
     layout.tooltips = {
         // Gameplay.
         { "combat_speed", "Choose how quickly battle animations play." },
+        { "unit_movement", "Choose how quickly units move." },
         { "spaceship_scenes", "Show the rocket scene when a spaceship part is completed." },
         { "ai_civilizations", "Set the number of AI opponents." },
         { "multiplayer_ai_difficulty", "Set the difficulty of AI in multiplayer games you host." },
@@ -313,6 +315,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "skip_intro_movie", "Skip Intro" },
         { "game_language", "Language" },
         { "combat_speed", "Combat Speed" },
+        { "unit_movement", "Unit Movement" },
         { "spaceship_scenes", "Spaceship Scenes" },
         { "show_research_prompt", "Research Advisor Prompt" },
         { "show_popup_rival_war_peace", "Rival War and Peace News" },
