@@ -4,6 +4,7 @@
 
 #include "ai_civilization_setup.h"
 #include "ai_economy_settings.h"
+#include "always_at_war_hooks.h"
 #include "custom_achievement_combat_hooks.h"
 #include "custom_achievements.h"
 #include "gameplay_fixes.h"
@@ -202,6 +203,7 @@ REX_HOOK_RAW(sub_82D11AD8)
         logExpandedSetup(base);
         ai_civs::NoteNewGameRecount();
         rerevved::start_resources::OnNewGameSetup(ctx, base);
+        ProjectAlwaysAtWarFinal();
     }
     __imp__sub_82D11AD8(ctx, base);
 }

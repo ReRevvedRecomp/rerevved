@@ -1,3 +1,4 @@
+#include "ai_civilization_setup.h"
 #include "gameplay_fixes.h"
 #include "gameplay_session_settings.h"
 #include "guest_import_doubles.hpp"
@@ -11,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include <rex/cvar.h>
 #include <rex/kernel/init.h>
 #include <rex/memory/utils.h>
 #include <rex/ppc.h>
@@ -30,6 +32,12 @@ bool AdmitExtendedTurnLimitWarning();
 bool SkipExtendedTurnLimitDeadline();
 void ApplyStartingEra(PPCRegister& r31);
 void ApplyMultiplayerAiDifficulty(PPCRegister& r11);
+void ProjectAlwaysAtWarEarly();
+void ProjectAlwaysAtWarGroups();
+void ProjectAlwaysAtWarOnLoad();
+void RefuseContactChoice(PPCRegister& choice, PPCRegister& p, PPCRegister& q);
+bool RefuseRelationRequest(PPCRegister& p, PPCRegister& q, PPCRegister& value);
+bool RefuseDeliveredRelation(PPCRegister& p, PPCRegister& q, PPCRegister& value);
 REX_EXTERN(sub_82CF0CB0);
 
 namespace gf = rerevved::gameplay_fixes;
@@ -779,4 +787,177 @@ TEST_CASE("bonus_lookup_hook_changes_only_its_result", "[ctest][gameplay-fixes]"
         CHECK(ctx.r31.u64 == 0xCCull);
         CHECK(ctx.lr == call.returnAddress);
     }
+}
+
+TEST_CASE("always_at_war_projects_only_pairs_of_the_mask", "[ctest][gameplay-fixes]")
+{
+    std::array<uint32_t, 64> relation{};
+    relation.fill(0xFFFFFFFFu);
+    relation[8 * 0 + 1] = 1;
+    relation[8 * 2 + 0] = 1;
+    relation[8 * 1 + 1] = 7;
+    relation[8 * 1 + 3] = 1;
+    relation[8 * 5 + 0] = 1;
+    const auto native   = relation;
+
+    CHECK(gf::ProjectWar(relation, 0x07) == 6);
+    for (int32_t p = 0; p < 8; ++p)
+    {
+        for (int32_t q = 0; q < 8; ++q)
+        {
+            const auto cell = static_cast<size_t>(8 * p + q);
+            CHECK(relation[cell] == (p != q && p < 3 && q < 3 ? 0u : native[cell]));
+        }
+    }
+    CHECK(gf::ProjectWar(relation, 0x07) == 0);
+    CHECK(gf::ProjectWar(relation, 0x01) == 0);
+}
+
+TEST_CASE("always_at_war_civilizations_follow_setup_and_play", "[ctest][gameplay-fixes]")
+{
+    CHECK(gf::IntendedCivilizations(6, 5, 0x1, 4) == 0x1F);
+    CHECK(gf::IntendedCivilizations(6, 5, 0x1, 2) == 0x07);
+    CHECK(gf::IntendedCivilizations(6, 4, 0x1, 4) == 0);
+
+    CHECK(gf::LiveCivilizations(6, 5, 0x24, 0x02) == 0x06);
+    CHECK(gf::LiveCivilizations(6, 5, 0x20, 0x20) == 0);
+    CHECK(gf::LiveCivilizations(6, 4, 0x0F, 0x0F) == 0);
+}
+
+TEST_CASE("always_at_war_forbids_only_peace_between_live_civilizations", "[ctest][gameplay-fixes]")
+{
+    CHECK(gf::ForbidsPeace(true, 0x07, 0, 2));
+    CHECK(gf::ForbidsPeace(true, 0x07, 2, 0));
+    CHECK_FALSE(gf::ForbidsPeace(false, 0x07, 0, 2));
+    CHECK_FALSE(gf::ForbidsPeace(true, 0x07, 1, 1));
+    CHECK_FALSE(gf::ForbidsPeace(true, 0x07, 0, 3));
+    CHECK_FALSE(gf::ForbidsPeace(true, 0x07, 0, 8));
+    CHECK_FALSE(gf::ForbidsPeace(true, 0x07, -1, 0));
+
+    CHECK(gf::ForbidsRelationWrite(true, 0x07, 0, 1, 0, 1));
+    CHECK(gf::ForbidsRelationWrite(true, 0x07, 0, 1, 0, 0xFFFFFFFFu));
+    CHECK_FALSE(gf::ForbidsRelationWrite(true, 0x07, 0, 1, 0, 0));
+    CHECK_FALSE(gf::ForbidsRelationWrite(true, 0x07, 0, 1, 1, 1));
+    CHECK_FALSE(gf::ForbidsRelationWrite(false, 0x07, 0, 1, 0, 1));
+    CHECK_FALSE(gf::ForbidsRelationWrite(true, 0x07, 0, 3, 0, 1));
+}
+
+TEST_CASE("always_at_war_hooks_project_and_refuse_by_live_pair", "[ctest][gameplay-fixes]")
+{
+    rex::Runtime runtime(std::filesystem::path{});
+    REQUIRE(runtime.Setup(rex::RuntimeConfig{
+                .kernel_init = rex::kernel::InitializeKernel,
+                .tool_mode   = true,
+            }) == 0);
+    auto* memory = runtime.memory();
+    for (const auto& [page, size] : { std::pair<uint32_t, uint32_t>{ 0x82F70000u, 0x10000u }, { 0x830E0000u, 0x80000u } })
+    {
+        auto* heap = memory->LookupHeap(page);
+        REQUIRE(heap);
+        REQUIRE(heap->AllocFixed(page, size, 0x10000, rex::memory::kMemoryAllocationReserve | rex::memory::kMemoryAllocationCommit, rex::memory::kMemoryProtectRead | rex::memory::kMemoryProtectWrite));
+    }
+    const auto store = [&](uint32_t address, uint32_t value)
+    {
+        rex::memory::store_and_swap<uint32_t>(memory->TranslateVirtual(address), value);
+    };
+    const auto cell = [&](uint32_t p, uint32_t q)
+    {
+        return rex::memory::load_and_swap<uint32_t>(memory->TranslateVirtual(gf::kRelationMatrix + 4 * (8 * p + q)));
+    };
+    const auto resetMatrix = [&]
+    {
+        for (uint32_t i = 0; i < 64; ++i)
+        {
+            store(gf::kRelationMatrix + 4 * i, 0xFFFFFFFFu);
+        }
+    };
+    store(0x82F700AC, 6);
+    store(0x82F700B0, 5);
+    store(0x8312E608, 0x1);
+    resetMatrix();
+    // Zeroed units read as live; free them first.
+    for (uint32_t player = 0; player < 8; ++player)
+    {
+        for (uint32_t unit = 0; unit < 256; ++unit)
+        {
+            *memory->TranslateVirtual(0x830F2BF0 + player * 256 * 0x54 + unit * 0x54) = 0xFF;
+        }
+    }
+    for (const uint32_t player : { 0u, 1u, 5u })
+    {
+        *memory->TranslateVirtual(0x830F2BF0 + player * 256 * 0x54) = static_cast<uint8_t>(player);
+    }
+    for (uint32_t city = 0; city < 128; ++city)
+    {
+        *memory->TranslateVirtual(0x8314FE28 + 188 * city) = 0xFF;
+    }
+    *memory->TranslateVirtual(0x8314FE28 + 188 * 4)     = 2;
+    *memory->TranslateVirtual(0x8314FE28 + 188 * 4 + 3) = 3;
+    *memory->TranslateVirtual(0x8314FE28 + 188 * 6)     = 3;
+
+    const bool  saved = gf::AlwaysAtWarForGame();
+    PPCRegister p{}, q{}, value{}, choice{};
+    p.u64     = 0;
+    q.u64     = 1;
+    value.u64 = 1;
+
+    gf::RestoreAlwaysAtWar(false);
+    ProjectAlwaysAtWarOnLoad();
+    CHECK(cell(0, 1) == 0xFFFFFFFFu);
+    CHECK_FALSE(RefuseRelationRequest(p, q, value));
+    choice.s64 = 2;
+    RefuseContactChoice(choice, p, q);
+    CHECK(choice.s64 == 2);
+
+    gf::RestoreAlwaysAtWar(true);
+    ProjectAlwaysAtWarOnLoad();
+    for (uint32_t a = 0; a < 8; ++a)
+    {
+        for (uint32_t b = 0; b < 8; ++b)
+        {
+            CHECK(cell(a, b) == (a != b && a < 3 && b < 3 ? 0u : 0xFFFFFFFFu));
+        }
+    }
+
+    CHECK(RefuseRelationRequest(p, q, value));
+    CHECK(RefuseRelationRequest(q, p, value));
+    CHECK(RefuseDeliveredRelation(p, q, value));
+    value.s64 = -1;
+    CHECK(RefuseRelationRequest(p, q, value));
+    value.u64 = 0;
+    CHECK_FALSE(RefuseRelationRequest(p, q, value));
+    value.u64 = 1;
+    for (const uint64_t other : { 3ull, 5ull })
+    {
+        q.u64 = other;
+        CHECK_FALSE(RefuseRelationRequest(p, q, value));
+    }
+
+    q.u64      = 1;
+    choice.s64 = 2;
+    RefuseContactChoice(choice, p, q);
+    CHECK(choice.s32 == -1);
+    q.u64      = 3;
+    choice.s64 = 2;
+    RefuseContactChoice(choice, p, q);
+    CHECK(choice.s64 == 2);
+
+    resetMatrix();
+    ProjectAlwaysAtWarEarly();
+    ProjectAlwaysAtWarGroups();
+    CHECK(cell(0, 1) == 0xFFFFFFFFu);
+    {
+        rerevved::gameplay_session::SetupGate gate(true);
+        const int32_t                         expanded = rerevved::ai_civilizations::ExpandedAiLimit();
+        const uint32_t                        intended = gf::IntendedCivilizations(6, 5, 0x1, expanded != 0 ? expanded : rex::cvar::Query<int32_t>("ai_civilizations"));
+        ProjectAlwaysAtWarEarly();
+        for (uint32_t a = 0; a < 8; ++a)
+        {
+            for (uint32_t b = 0; b < 8; ++b)
+            {
+                CHECK(cell(a, b) == (a != b && (intended >> a & 1) && (intended >> b & 1) ? 0u : 0xFFFFFFFFu));
+            }
+        }
+    }
+    gf::RestoreAlwaysAtWar(saved);
 }

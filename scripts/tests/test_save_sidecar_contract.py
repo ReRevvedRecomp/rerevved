@@ -212,7 +212,18 @@ class SaveSidecarContractTests(unittest.TestCase):
             restore.index("gameplay_fixes::RestoreTurnLimit(state->turnLimit)"),
         )
         self.assertIn(
-            "rerevved::gameplay_fixes::TurnLimitForGame() };",
+            "rerevved::gameplay_fixes::TurnLimitForGame(),",
+            self.hooks.split("sidecar::State captureState", 1)[1],
+        )
+
+    def test_always_at_war_restores_after_the_turn_limit(self):
+        restore = self.hooks.split("void RestoreAfterLoadReset() noexcept", 1)[1]
+        self.assertLess(
+            restore.index("gameplay_fixes::RestoreTurnLimit(state->turnLimit)"),
+            restore.index("gameplay_fixes::RestoreAlwaysAtWar(state->alwaysAtWar)"),
+        )
+        self.assertIn(
+            "rerevved::gameplay_fixes::AlwaysAtWarForGame()",
             self.hooks.split("sidecar::State captureState", 1)[1],
         )
 

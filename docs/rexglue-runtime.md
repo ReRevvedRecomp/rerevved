@@ -18,6 +18,7 @@ driver never modifies that checkout.
   [One City Challenge](#gameplay-one-city-challenge),
   [gameplay fixes](#gameplay-fixes), [Turn Limit](#gameplay-turn-limit),
   [Starting Era](#gameplay-starting-era),
+  [Always At War](#gameplay-always-at-war),
   [Multiplayer AI Difficulty](#gameplay-multiplayer-ai-difficulty),
   [Spaceship Scenes](#gameplay-spaceship-scenes) and
   [Game of the Week](#gameplay-game-of-the-week): gameplay integration limits.
@@ -1277,19 +1278,21 @@ fallback, a following Normal game and GOTW Standard Rules with Legendary selecte
 ## Save sidecar
 
 `save_sidecar` (default `true`) controls whether the host stores gameplay
-state separately for each save. The payload stores schema version 5, or 3 for a Game of the Week practice save, the frozen
+state separately for each save. The payload stores schema version 6, or 3 for a Game of the Week practice save, the frozen
 Resources selection, sorted unique Balanced or Legendary identity overrides, the frozen Raging
 Barbarians boolean, the fixed One City Challenge enabled state and minimum
 population, the effective AI research, production, gold, food and culture bonus
-percentages, the frozen Turn Limit index (0 to 4, schema 5 only), and custom achievement progress: whether One
+percentages, the frozen Turn Limit index (0 to 4, schema 5 and later), the frozen Always At War boolean (schema 6 only), and custom achievement progress: whether One
 City Challenge was enabled at game setup (only possible while it is enabled), the Barbarian defeat count, 0 to
 50, and the whole-game history (tracked flag, unit built, battle fought, deep
 Ocean entered, first founding turn and initial AI opponent count). Schema 1
 stores only the Resources selection, Raging Barbarians, One City Challenge and
 the identity overrides. It uses native AI values and gives no progress: One
 City Challenge not from setup, a count of 0 and untracked history. Schema 2 is
-the payload before the Turn Limit and schema 5 adds its byte after the initial AI
-count; schemas 1 to 4 load the native 2100 limit. Schema 3 is
+a payload without Turn Limit; schema 5 stores its byte after the initial AI
+count; schema 6 adds the Always At War byte (0 or 1, any other value rejects the
+sidecar) after it. Schemas 1 to 4 load the native 2100 limit, and schemas 1 to 5
+load with Always At War off. Schema 3 is
 schema 2 with one Game of the Week block inserted after the fixed state and
 before the resource identity records, written only for a manual save in a
 practice game. Schema 3 itself means a block is present: one flag byte
@@ -1303,7 +1306,7 @@ isolation-only marker, written by any save of a practice game, or of a game that
 loaded as isolated, that carries no block (an automatic save, a manual one whose
 block is unavailable, or a resave of an isolated load). It holds no week, seed,
 civilization or rules; a load that finds it claims the origin and is isolated,
-never resumed. Other games write schema 5, and their autosaves are unchanged.
+never resumed. Other games write schema 6, and their autosaves are unchanged.
 New games freeze the effective gameplay selections, including standard GOTW
 values.
 
@@ -1767,7 +1770,8 @@ locations in [gotw_hooks.toml](../config/gotw_hooks.toml).
 
 ## Gameplay fixes
 
-The midasm hooks in `config/gameplay_hooks.toml` repair native behavior.
+The midasm hooks in `config/gameplay_hooks.toml` repair native behavior; the
+Always At War hooks are in `config/always_at_war_hooks.toml`.
 The Domination minimum is controlled by a setting. `src/gameplay_fixes.h`
 holds their selection and arithmetic. Static evidence is in rerevved-research manifests `science-completion.json`,
 `technology-prompt-callers.json`, `spaceship-launch-arrival-year-boundary.json`,
@@ -2011,6 +2015,51 @@ freezes the native era, whatever the setting. A new network game uses the host's
 frozen value on every peer; it is frozen before any grant draw. A load never
 writes the field and keeps the era and ownership bits the native save carries. The setting
 is not saved in the sidecar.
+
+## Gameplay Always At War
+
+`always_at_war` (bool, default off) keeps every pair of live civilizations at war.
+The relation matrix is `U32[0x830ED2D8 + 4 * (8 * p + q)]`: 0 is war, 1 peace and
+-1 no contact. The value is frozen at `ApplyNewGame` and is forced off in network
+games and Game of the Week, so it is single player only. The sidecar records it
+(schema 6), and a load restores the saved value, or off when none was saved. The
+pure decisions (pair, intended and live masks, projection, forbidden write) are in
+`src/gameplay_fixes.h`; the hooks in `src/always_at_war_hooks.cpp` and
+[always_at_war_hooks.toml](../config/always_at_war_hooks.toml) are thin. Intended
+civilizations are the configured ones less those the AI limit removes; live ones own
+a populated city or an occupied unit that is not dead. The Barbarians are neither.
+
+Projection sets both orientations of every pair of the mask to war and leaves the
+diagonal and every other cell native. Each logs `Always At War: projected` with its
+phase, mask and cells changed.
+
+| Address | Hook | Effect |
+|---|---|---|
+| `0x82D22940` | `ProjectAlwaysAtWarEarly` | Setup only: project after the late count and Barbarian publication. |
+| `0x82D1AAE8` | `ProjectAlwaysAtWarGroups` | Setup only: project after the group stores, before the recount at `0x82D1AAF0`. |
+| `sub_82D11AD8` wrapper | `ProjectAlwaysAtWarFinal` | Project after removal and start resources, immediately before the native recount (`LR == 0x82D25310`, `SetupActive`). |
+| `0x82D2582C` | `ProjectAlwaysAtWarOnLoad` | Load: project the live civilizations before the ranking call. |
+| `0x82CCA61C`, `0x82CCAB9C`, `0x82CCAFBC` | `RefuseContactChoice` | Contact dialog `0x82CC9FF8`: set the chooser result to the native -1 refusal. |
+| `0x82CC90EC` | `RefuseContactNotice` | `0x82CC9078`: return the native 0 at `0x82CC91DC` before its notification. |
+| `0x82CCFB94` | `RefuseFirstContact` | First-contact store of 1 in `0x82CCEFA8`: skip to `0x82CCFBA8`. |
+| `0x82CD0EE0`, `0x82CD1330` | `RefuseRetainedContact` | `0x82CCEFA8` retained contact: jump to the native completion `0x82CD4374`. |
+| `0x82CD1ED8` | `RefuseGoldContact` | Set the Gold chooser result to 1, the native war write at `0x82CD206C`. |
+| `0x82CCC930` | `RefuseDemocracyResponse` | `0x82CCBED0`: set the response to 1, the native refusal. |
+| `0x82CCC9CC` | `RefuseConsumedResponse` | `0x82CCBED0`: set the consumed choice to 1, the native war write. |
+| `0x82D18508` | `RefuseTowerPair` | Tower event pair body in `0x82D17AE0`: skip to `0x82D1859C`. |
+| `0x82D18AB8` | `RefuseTeslaPair` | Tesla event pair body in `0x82D17AE0`: skip to `0x82D18B50`. |
+| `0x82D033C8` | `RefuseRelationRequest` | Shared request `0x82D03388`: jump to its epilogue `0x82D03498`. |
+| `0x82CE0068` | `RefuseDeliveredRelation` | Delivered command 39 in `0x82CDDF08`: jump to the native completion `0x82CE16AC`. |
+| `0x82D25580` | `SilenceAiContact` | Automatic contact gate `0x82D253B8`: jump to its no-contact return `0x82D255B0` for a human and a live AI, so the AI opens no dialog (logs `Always At War: silenced contact`). |
+
+The two write hooks refuse only a write that would replace war, in either
+orientation, between live civilizations; a war write and every other pair stay
+native, as does the lifecycle cleanup of an eliminated player. Each refusal logs
+`Always At War: refused peace` with its site and the pair. The native diplomacy
+dialog still appears, and a refused answer resolves as a refusal. The cancel of a
+pending native request is not intercepted. A setup that fails to admit the expected
+civilizations is not rebuilt, a civilization admitted after its first city is not
+re-projected, and network peers are not enforced.
 
 ## Gameplay Multiplayer AI Difficulty
 

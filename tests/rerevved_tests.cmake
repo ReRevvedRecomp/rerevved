@@ -65,6 +65,7 @@ add_executable(rerevved_tests
     src/great_general_attachment.cpp
     src/gameplay_fixes.cpp
     src/gameplay_fixes_hooks.cpp
+    src/always_at_war_hooks.cpp
     src/spy_mission_ai.cpp
     src/spy_mission_ai_hooks.cpp
     src/button_icons.cpp

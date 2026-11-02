@@ -274,6 +274,7 @@ TEST_CASE("native_settings_rows_keep_the_f1_order_and_captions", "[ctest][native
                                                                      "Turn Limit: 2100 AD",
                                                                      "Starting Era: Ancient",
                                                                      "AI Civilizations: 4 (Default)",
+                                                                     "Always At War: Off",
                                                                      "AI Research Bonus: 0",
                                                                      "AI Production Bonus: 0",
                                                                      "AI Gold Bonus: 0",

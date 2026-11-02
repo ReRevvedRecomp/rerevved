@@ -19,6 +19,8 @@ REXCVAR_DEFINE_STRING(starting_era, "ancient", "ReRevved", "Era every civilizati
 REXCVAR_DEFINE_STRING(multiplayer_ai_difficulty, "king", "ReRevved", "Difficulty of every AI in the next multiplayer game you host: king (default), emperor or deity. Single player keeps the difficulty chosen at game setup")
     .allowed({ "king", "emperor", "deity" });
 
+REXCVAR_DEFINE_BOOL(always_at_war, false, "ReRevved", "Keep every civilization at war for the next single-player new game; peace can never be made. Network games and Game of the Week ignore it");
+
 REXCVAR_DEFINE_BOOL(spaceship_scenes, true, "ReRevved", "Show the in-world rocket scene when a spaceship part is completed. Applies to each new part; a network game plays the host's value");
 
 namespace rerevved::gameplay_fixes
@@ -29,6 +31,7 @@ namespace
 std::atomic<bool>    shortenedAllowed{ false };
 std::atomic<int32_t> restoredMinimum{ 0 };
 std::atomic<int32_t> turnLimit{ kTurnLimitNative };
+std::atomic<bool>    alwaysAtWar{ false };
 // Written and read on the single setup thread.
 int32_t startingEra             = kStartingEraNative;
 int32_t multiplayerAiDifficulty = kMultiplayerAiDifficultyNative;
@@ -52,6 +55,7 @@ void NoteGameLoad() noexcept
     shortenedAllowed.store(false, std::memory_order_relaxed);
     restoredMinimum.store(0, std::memory_order_relaxed);
     turnLimit.store(kTurnLimitNative, std::memory_order_relaxed);
+    alwaysAtWar.store(false, std::memory_order_relaxed);
 }
 
 void RestoreDominationMinimum(int32_t turns) noexcept
@@ -78,6 +82,16 @@ int32_t ParseTurnLimit(std::string_view text) noexcept
 {
     constexpr std::array<std::string_view, 5> names = { "2100", "2200", "2300", "2500", "unlimited" };
     return indexOf(names, text);
+}
+
+void RestoreAlwaysAtWar(bool enabled) noexcept
+{
+    alwaysAtWar.store(enabled, std::memory_order_relaxed);
+}
+
+bool AlwaysAtWarForGame() noexcept
+{
+    return alwaysAtWar.load(std::memory_order_relaxed);
 }
 
 void RestoreStartingEra(int32_t era) noexcept

@@ -114,7 +114,7 @@ class RagingBarbariansContractTests(unittest.TestCase):
         self.assertNotIn("REXCVAR_GET", evaluate)
         self.assertIn("enabled ? 2 : nativeValue", evaluate)
         self.assertIn(
-            '{ "", { "combat_speed", "resources", "raging_barbarians", "one_city_challenge", "domination_min_turns", "turn_limit", "starting_era", "ai_civilizations" } }',
+            '{ "", { "combat_speed", "resources", "raging_barbarians", "one_city_challenge", "domination_min_turns", "turn_limit", "starting_era", "ai_civilizations", "always_at_war" } }',
             overlay,
         )
         self.assertIn('{ "raging_barbarians", Audience::kPlayer }', overlay)

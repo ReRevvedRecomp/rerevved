@@ -15,11 +15,9 @@
 namespace rerevved::save_sidecar
 {
 
-// Schema 2 is the ordinary payload and schema 5 adds the turn limit to it. Schema 3
-// appends a practice block, written only for a Game of the Week practice save.
-// Schema 4 is the ordinary payload marked isolation-only, written for a practice or
-// isolated game's other saves. Schemas 1 to 4 carry no turn limit and load the native one.
-constexpr uint8_t kSchemaVersion = 5;
+// Schema 2 ordinary; 3 adds a practice block; 4 isolates other practice/isolated saves; 5 adds turn limit;
+// 6 adds Always At War. Schemas 1 to 4 load native turn limit and Always At War off; 5 loads Always At War off.
+constexpr uint8_t kSchemaVersion = 6;
 
 struct State
 {
@@ -40,7 +38,8 @@ struct State
     std::optional<gotw::PracticeBlock>    practice;
     // Schema 4 isolates non-resumable practice/isolated saves by origin only; exclusive with a practice block.
     bool    practiceMarker                 = false;
-    int32_t turnLimit                      = 0; // gameplay_fixes turn limit index, schema 5 only.
+    int32_t turnLimit                      = 0; // gameplay_fixes turn limit index, schemas 5 and 6.
+    bool    alwaysAtWar                    = false;
     bool    operator==(const State&) const = default;
 };
 

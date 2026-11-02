@@ -67,6 +67,7 @@ constexpr auto kSpecs = std::to_array<Spec>({
     { "turn_limit", Kind::kEnum, Applies::kNextGame, {}, {} },
     { "starting_era", Kind::kEnum, Applies::kNextGame, {}, {} },
     { "ai_civilizations", Kind::kLabeledInt, Applies::kNextGame, {}, {} },
+    { "always_at_war", Kind::kBool, Applies::kNextGame, {}, {} },
     { "multiplayer_ai_difficulty", Kind::kEnum, Applies::kNextGame, {}, {} },
     { "ai_research_bonus_percent", Kind::kPresetInt, Applies::kNextGame, {}, kBonusPresets },
     { "ai_production_bonus_percent", Kind::kPresetInt, Applies::kNextGame, {}, kBonusPresets },

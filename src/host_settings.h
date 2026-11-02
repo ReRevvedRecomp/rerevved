@@ -55,6 +55,7 @@ struct HostSettings
     int32_t                 startingEra              = 0;
     int32_t                 multiplayerAiDifficulty  = 2; // Native difficulty: King 2, Emperor 3 or Deity 4.
     bool                    skipSpaceshipScenes      = false;
+    bool                    alwaysAtWar              = false; // Local-only, never serialized.
     bool                    gotwCustomWeek           = false;
     uint32_t                gotwWeek                 = 0; // Zero when the native week applies.
     uint32_t                gotwSeed                 = 0; // Zero when the native seed applies.

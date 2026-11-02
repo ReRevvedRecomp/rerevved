@@ -138,7 +138,6 @@ name = "ApplyStartingEra"
 registers = ["r31"]
 
 # Replaces network setup's literal 2 at 0x82FFE7C8 (r24 = 0x83000000) with the frozen host value, admitted new games only.
-# See rerevved-research evidence mp-ai-difficulty.md, section 2.
 [[midasm_hook]]
 address = 0x82D221EC
 name = "ApplyMultiplayerAiDifficulty"

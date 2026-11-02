@@ -20,6 +20,7 @@ includes = [
     "config/terrain_hooks.toml",
     "config/advisor_hooks.toml",
     "config/ai_civilizations_hooks.toml",
+    "config/always_at_war_hooks.toml",
     "config/ai_economy_hooks.toml",
     "config/spy_mission_ai_hooks.toml",
     "config/button_icons_hooks.toml",

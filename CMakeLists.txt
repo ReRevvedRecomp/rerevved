@@ -369,6 +369,8 @@ set(REREVVED_SOURCES
     src/barbarian_message_hooks.cpp
     src/ai_civilizations.h
     src/ai_civilizations_hooks.cpp
+    src/always_at_war_hooks.cpp
+    src/always_at_war_hooks.h
     src/ai_civilization_setup.h
     src/ai_civilization_setup.cpp
     src/ai_economy_settings.h

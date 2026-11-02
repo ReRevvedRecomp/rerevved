@@ -9,7 +9,7 @@ Close ReRevved before editing the file directly.
 - **General**: Language (English, Deutsch, Francais, Espanol or Italiano, after a
   restart), FPS Counter, Skip Intro and Open Log Folder.
 - **Gameplay**: combat speed, resources, Raging Barbarians, One City
-  Challenge, Earliest Domination, Turn Limit, Starting Era, AI civilizations, AI Handicaps,
+  Challenge, Earliest Domination, Turn Limit, Starting Era, AI civilizations, Always At War, AI Handicaps,
   and Game of the Week.
 - **Notifications**: Spaceship Scenes, research prompts, advisor pop-ups, and Barbarian messages. Each is on by default; turn a row off to hide it.
   Turning off **Save Reminder** hides the prompt; it does not save the game.
@@ -58,6 +58,13 @@ Modern 24, through the game's own starting-technology grant. The game uses the
 value it started with, so a later change applies only to the next new game. A new
 multiplayer game uses the host's value for every player. A scenario and Game of
 the Week keep their own era, and a loaded save never grants technologies again.
+
+**Always At War** (off by default) keeps every civilization at war with every
+other one for the whole game; peace can never be made. The game keeps the value it
+started with and each save records it, so a later change applies only to the next
+new game. It is for single player only: network games and Game of the Week ignore
+it. A loaded save restores its own value. A save without a recorded Always At War
+value, or whose sidecar is missing or rejected, loads with it off.
 
 **AI Difficulty (Multiplayer)** sets the difficulty of every AI in a multiplayer
 game you host: King (the default and the game's native multiplayer value),
