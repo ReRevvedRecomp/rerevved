@@ -74,7 +74,7 @@ constexpr auto kSpecs = std::to_array<Spec>({
     { "ai_food_bonus_percent", Kind::kPresetInt, Applies::kNextGame, {}, kBonusPresets },
     { "ai_culture_bonus_percent", Kind::kPresetInt, Applies::kNextGame, {}, kBonusPresets },
     { "gotw_standard_rules", Kind::kBool, Applies::kNextGame, {}, {} },
-    // These toggles gate a number or civilization that F1 edits.
+    { "gotw_allow_saving", Kind::kBool, Applies::kNextGame, {}, {} },
     { "gotw_custom_week", Kind::kBool, Applies::kNextGame, "Custom Week", {} },
     { "gotw_week", Kind::kWeek, Applies::kNextGame, {}, {} },
     { "gotw_custom_civilization", Kind::kBool, Applies::kNextGame, "Custom Civilization", {} },

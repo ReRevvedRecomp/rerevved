@@ -159,7 +159,7 @@ std::vector<VictoryDecision> AwardVictory(const VictoryContext& context, const I
 std::vector<VictoryDecision> AwardVictory(const VictoryContext& context);
 
 // Per-game progress saved in the gameplay sidecar. gotwGame and gotwWeek are
-// not saved: Game of the Week saving is disabled.
+// not saved: practice games earn none.
 struct Progress
 {
     // OCC was on when the game was set up, not switched on mid-game.

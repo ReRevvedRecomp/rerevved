@@ -59,6 +59,8 @@ menu you came from. The settings are in tabs (General, Gameplay,
 Notifications, Online, Controls, Display and Audio); LB and RB (or PageUp and
 PageDown) switch tabs. A change applies and saves at once; the footer says
 when a setting takes effect only after a restart or in the next game.
+Game of the Week has **Allow Saving** under Gameplay, off by default; a game
+started with it on is practice and can use Save and Load.
 The Audio section also has Music, Effects, Advisor Speech and Leader Speech
 volumes from 0 to 9. They apply at once and are reapplied every time the
 game loads your profile.

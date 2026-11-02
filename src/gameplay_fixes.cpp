@@ -6,7 +6,7 @@
 
 #include <rex/cvar.h>
 
-REXCVAR_DEFINE_STRING(domination_min_turns, "10", "ReRevved", "Turns before a Domination victory can be declared: 10 (default) or 5. Applies to games started in this launch. Loaded saves keep 10")
+REXCVAR_DEFINE_STRING(domination_min_turns, "10", "ReRevved", "Turns before a Domination victory can be declared: 10 (default) or 5. Applies to games started in this launch. Loaded saves keep 10, except Game of the Week practice saves")
     .allowed({ "10", "5" });
 
 namespace rerevved::gameplay_fixes
@@ -14,18 +14,31 @@ namespace rerevved::gameplay_fixes
 namespace
 {
 
-std::atomic<bool> shortenedAllowed{ false };
+std::atomic<bool>    shortenedAllowed{ false };
+std::atomic<int32_t> restoredMinimum{ 0 };
 
 } // namespace
 
 void NoteNewGame() noexcept
 {
     shortenedAllowed.store(true, std::memory_order_relaxed);
+    restoredMinimum.store(0, std::memory_order_relaxed);
 }
 
 void NoteGameLoad() noexcept
 {
     shortenedAllowed.store(false, std::memory_order_relaxed);
+    restoredMinimum.store(0, std::memory_order_relaxed);
+}
+
+void RestoreDominationMinimum(int32_t turns) noexcept
+{
+    restoredMinimum.store(turns, std::memory_order_relaxed);
+}
+
+int32_t RestoredDominationMinimum() noexcept
+{
+    return restoredMinimum.load(std::memory_order_relaxed);
 }
 
 bool ShortenedMinimumAllowed() noexcept

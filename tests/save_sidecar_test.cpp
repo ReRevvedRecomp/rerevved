@@ -500,3 +500,109 @@ TEST_CASE("save_sidecar_schema1_has_no_progress", "[ctest][save-sidecar]")
     CHECK(restored->initialAiOpponents == -1);
     CHECK(restored->firstFoundingTurn == -1);
 }
+
+TEST_CASE("save_sidecar_practice_block", "[ctest][save-sidecar]")
+{
+    auto practice     = kSaved;
+    practice.practice = rerevved::gotw::PracticeBlock{ true, true, true, 3, rerevved::gotw::SeedForWeek(3), 9 };
+    const auto bytes  = sidecar::Serialize(practice, kIdentity);
+    REQUIRE(!bytes.empty());
+    const size_t stateOffset = 6 + kIdentity.slot.size() + 4 + 64;
+    const size_t blockOffset = stateOffset + 18;
+
+    UNSCOPED_INFO("a practice save is schema 3 and carries the block before the records");
+    CHECK(bytes[4] == 3);
+    CHECK(sidecar::Deserialize(bytes, kIdentity) == practice);
+
+    UNSCOPED_INFO("an ordinary save stays schema 2 without a block");
+    const auto ordinary = sidecar::Serialize(kSaved, kIdentity);
+    CHECK(ordinary[4] == 2);
+    CHECK(ordinary.size() + rerevved::gotw::kPracticeBlockSize == bytes.size());
+    CHECK_FALSE(sidecar::Deserialize(ordinary, kIdentity)->practice);
+
+    UNSCOPED_INFO("a schema 2 payload with a block-shaped tail is not a practice save");
+    auto legacy = bytes;
+    legacy[4]   = 2;
+    CHECK_FALSE(sidecar::Deserialize(legacy, kIdentity));
+
+    UNSCOPED_INFO("every truncation inside the block is rejected");
+    for (size_t length = blockOffset; length < blockOffset + rerevved::gotw::kPracticeBlockSize; ++length)
+    {
+        CHECK_FALSE(sidecar::Deserialize(std::span(bytes).first(length), kIdentity));
+    }
+
+    UNSCOPED_INFO("a block with unknown flags is rejected");
+    auto invalid         = bytes;
+    invalid[blockOffset] = 0x80;
+    CHECK_FALSE(sidecar::Deserialize(invalid, kIdentity));
+
+    UNSCOPED_INFO("an invalid block cannot be serialized");
+    practice.practice->seed = 0;
+    CHECK(sidecar::Serialize(practice, kIdentity).empty());
+}
+
+TEST_CASE("save_sidecar_practice_is_bound_to_the_native_digest", "[ctest][save-sidecar]")
+{
+    const auto root = std::filesystem::temp_directory_path() / ("rerevved-sidecar-practice-" + std::to_string(std::random_device{}()));
+    REQUIRE(std::filesystem::create_directory(root));
+    const auto native = root / "save0.sve";
+    writeFile(native, "native practice save");
+    auto practice     = kSaved;
+    practice.practice = rerevved::gotw::PracticeBlock{ true, false, false, 1085, 277, 0 };
+    REQUIRE(sidecar::Save(true, native, "save0.sve", 7, practice));
+    sidecar::ReadFailure failure;
+    UNSCOPED_INFO("the matching native file restores the practice block");
+    CHECK((sidecar::Read(native, "save0.sve", 7, &failure) == practice && failure == sidecar::ReadFailure::None));
+    writeFile(native, "native content from another game");
+    UNSCOPED_INFO("a replaced native file is not a practice save");
+    CHECK((!sidecar::Read(native, "save0.sve", 7, &failure) && failure == sidecar::ReadFailure::DigestMismatch));
+    std::filesystem::remove(sidecar::SidecarPath(native));
+    UNSCOPED_INFO("a missing sidecar is not a practice save");
+    CHECK((!sidecar::Read(native, "save0.sve", 7, &failure) && failure == sidecar::ReadFailure::Missing));
+    std::filesystem::remove(native);
+    std::filesystem::remove(root);
+}
+
+TEST_CASE("save_sidecar_autosave_during_practice_classifies_as_isolated", "[ctest][save-sidecar]")
+{
+    const auto root = std::filesystem::temp_directory_path() / ("rerevved-sidecar-marker-" + std::to_string(std::random_device{}()));
+    REQUIRE(std::filesystem::create_directory(root));
+    const auto native = root / "autosave.sve";
+    writeFile(native, "native autosave during practice");
+    auto marker           = kSaved;
+    marker.practiceMarker = true;
+
+    UNSCOPED_INFO("the marker is schema 4 with no practice block");
+    const auto bytes = sidecar::Serialize(marker, kIdentity);
+    REQUIRE(!bytes.empty());
+    CHECK(bytes[4] == 4);
+    CHECK(bytes.size() == sidecar::Serialize(kSaved, kIdentity).size());
+    const auto decoded = sidecar::Deserialize(bytes, kIdentity);
+    REQUIRE(decoded);
+    CHECK_FALSE(decoded->practice);
+
+    UNSCOPED_INFO("the load claims the origin and classifies as isolated, never practice");
+    REQUIRE(sidecar::Save(true, native, "autosave.sve", 7, marker));
+    bool                 claim = false;
+    sidecar::ReadFailure failure;
+    const auto           read = sidecar::Read(native, "autosave.sve", 7, &failure, &claim);
+    REQUIRE(read);
+    CHECK(claim);
+    for (const uint32_t week : { 0u, 1085u })
+    {
+        for (const bool resumable : { false, true })
+        {
+            CHECK(rerevved::gotw::ClassifyLoad(week, read->practice, claim, resumable) == rerevved::gotw::LoadKind::Isolated);
+        }
+    }
+
+    UNSCOPED_INFO("an ordinary autosave carries no claim and loads ordinary");
+    REQUIRE(sidecar::Save(true, native, "autosave.sve", 7, kSaved));
+    claim = true;
+    REQUIRE(sidecar::Read(native, "autosave.sve", 7, &failure, &claim));
+    CHECK_FALSE(claim);
+
+    std::filesystem::remove(sidecar::SidecarPath(native));
+    std::filesystem::remove(native);
+    std::filesystem::remove(root);
+}

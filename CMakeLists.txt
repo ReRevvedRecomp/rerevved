@@ -478,6 +478,8 @@ list(APPEND REREVVED_SOURCES
     src/city_founding_unit_hooks.h
     src/game_language.cpp
     src/game_language.h
+    src/gotw_practice.cpp
+    src/gotw_practice.h
     src/gotw_settings.cpp
     src/gotw_settings.h
     src/gotw_hooks.cpp

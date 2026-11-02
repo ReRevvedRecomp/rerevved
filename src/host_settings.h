@@ -57,6 +57,7 @@ struct HostSettings
     bool                    gotwCustomCivilization   = false;
     uint32_t                gotwCivilization         = 0; // Zero when the native civilization applies.
     bool                    gotwStandardRules        = true;
+    bool                    gotwAllowSaving          = false; // Local-only practice permission, never serialized.
     bool                    rulesDigestPresent       = false;
     std::array<uint8_t, 32> rulesDigest{}; // SHA-256 of accepted normalized rule content.
 };

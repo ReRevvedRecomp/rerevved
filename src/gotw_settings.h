@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string_view>
 
 namespace rerevved::host_settings
@@ -26,6 +27,16 @@ struct Selection
     uint32_t civilization       = 0; // Valid only with customCivilization.
     uint32_t setup              = 0;
     uint64_t launch             = 0;
+    // Fixed at attempt start or by a validated practice restore; practice never touches weekly results.
+    bool practice    = false;
+    bool seedPending = false;
+    // Sidecar claims practice but cannot resume it: isolate results.
+    bool isolated = false;
+
+    bool Isolates() const noexcept
+    {
+        return practice || isolated;
+    }
 
     bool IsCustom() const noexcept
     {
@@ -60,5 +71,15 @@ bool                      TraceEnabled() noexcept;
 inline constexpr uint64_t kTraceEventCap = 512;
 bool                      ShouldTraceEvent(bool enabled, uint64_t sequence) noexcept;
 bool                      IsolateWeeklyResult(int32_t mode) noexcept;
+bool                      IsolatesWeeklyResult(const Selection& selection, int32_t mode) noexcept;
+
+// Practice games: saving enabled by Allow Saving; the pause menu shows Save and Load only in setup mode 2.
+bool AllowsPracticeMenu(const Selection& selection, int32_t mode) noexcept;
+void EndPractice() noexcept;
+void ArmLoadIsolation(bool isolate) noexcept;
+// Armed isolation survives reset so a later load failure cannot enable results.
+void                    ResetForLoad() noexcept;
+void                    RestoreForLoad(const Selection& saved, bool standardRules) noexcept;
+std::optional<uint32_t> TakeResumeSeed(uint32_t week) noexcept;
 
 } // namespace rerevved::gotw

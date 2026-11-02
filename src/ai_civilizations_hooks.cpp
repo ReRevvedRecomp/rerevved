@@ -210,6 +210,8 @@ REX_HOOK_RAW(sub_82D11AD8)
 void ResetAiCivilizationsOnLoad()
 {
     rerevved::gameplay_session::ResetOnLoad();
+    // A practice save restores its Game of the Week state after this reset.
+    rerevved::gotw::ResetForLoad();
     ai_civs::ResetOnLoad();
     rerevved::ai_economy::ResetForLoad();
     rerevved::start_resources::ResetOnLoad();

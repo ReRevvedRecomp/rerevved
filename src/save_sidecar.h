@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ai_economy_settings.h"
+#include "gotw_practice.h"
 #include "resource_identity_overrides.h"
 
 #include <filesystem>
@@ -14,7 +15,10 @@
 namespace rerevved::save_sidecar
 {
 
-constexpr uint8_t kSchemaVersion = 2;
+// Schema 2 is the ordinary payload. Schema 3 appends a practice block, written
+// only for a Game of the Week practice save. Schema 4 is the ordinary payload
+// marked isolation-only, written for a practice or isolated game's other saves.
+constexpr uint8_t kSchemaVersion = 4;
 
 struct State
 {
@@ -24,15 +28,20 @@ struct State
     int32_t                               resources        = 0;
     resource_identity_overrides::Snapshot overrides;
     ai_economy::Policy                    aiEconomy;
-    bool                                  occFromSetup                   = false;
-    int32_t                               barbarianDefeats               = 0;
-    bool                                  historyKnown                   = false; // Schema 2 whole-game history. Schema 1 loads untracked.
-    bool                                  unitBuilt                      = false;
-    bool                                  battleFought                   = false;
-    bool                                  deepOceanEntered               = false;
-    int32_t                               firstFoundingTurn              = -1;
-    int32_t                               initialAiOpponents             = -1;
-    bool                                  operator==(const State&) const = default;
+    bool                                  occFromSetup       = false;
+    int32_t                               barbarianDefeats   = 0;
+    bool                                  historyKnown       = false; // Schema 2 whole-game history. Schema 1 loads untracked.
+    bool                                  unitBuilt          = false;
+    bool                                  battleFought       = false;
+    bool                                  deepOceanEntered   = false;
+    int32_t                               firstFoundingTurn  = -1;
+    int32_t                               initialAiOpponents = -1;
+    std::optional<gotw::PracticeBlock>    practice;
+    // Schema 4: a save made during a practice game, or a game loaded as isolated,
+    // that is not a resumable practice save. It carries no practice policy; it only
+    // claims the origin so the load is isolated. Not set together with a block.
+    bool practiceMarker                 = false;
+    bool operator==(const State&) const = default;
 };
 
 struct Identity
@@ -55,8 +64,10 @@ enum class ReadFailure
 std::vector<uint8_t>  Serialize(const State& state, const Identity& identity);
 std::optional<State>  Deserialize(std::span<const uint8_t> bytes, const Identity& identity);
 std::filesystem::path SidecarPath(const std::filesystem::path& nativeFile);
-std::optional<State>  Read(const std::filesystem::path& nativeFile, std::string_view slot, uint32_t device, ReadFailure* failure = nullptr);
-bool                  Save(bool nativeSuccess, const std::filesystem::path& nativeFile, std::string_view slot, uint32_t device, const State& state);
+// claimsPractice is set when the sidecar file is schema 3 or later, whether or not
+// it validates or matches the native file: it still asserts a Game of the Week origin.
+std::optional<State> Read(const std::filesystem::path& nativeFile, std::string_view slot, uint32_t device, ReadFailure* failure = nullptr, bool* claimsPractice = nullptr);
+bool                 Save(bool nativeSuccess, const std::filesystem::path& nativeFile, std::string_view slot, uint32_t device, const State& state);
 
 // Retain the staged state through every reset/freeze in one load transaction.
 class PendingLoad

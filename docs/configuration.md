@@ -40,7 +40,19 @@ the frozen setting. Game of the Week Standard Rules disables it.
 victory can be declared: 10 turns (3000 BC, the default) or 5 turns
 (3500 BC). It applies to games started in the current launch, including Game of
 the Week with Standard Rules. A new multiplayer game uses the host's value.
-Loaded saves keep the default.
+Loaded saves keep the default, except a Game of the Week practice save, which
+restores the minimum it was saved with.
+
+**Allow Saving** (Gameplay > Game of the Week, off by default) lets you save and
+load a Game of the Week. When it is on as the game starts, the whole game is
+practice: it never counts toward the weekly results and earns no Game of the
+Week achievements. Use the Save and Load rows of the pause menu. A practice save
+resumes as practice only with its gameplay sidecar, returning to the week, seed,
+civilization and rules it was saved with. Load accepts any save, in a game or
+from the main menu. Every save made during a practice game writes its gameplay
+sidecar, even with the save sidecar setting off. Automatic saves are not
+resumable: they load without practice rules and never count toward the weekly
+results. A practice save whose sidecar is later lost loads as an ordinary game.
 
 ## Display and audio
 

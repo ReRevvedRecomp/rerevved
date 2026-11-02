@@ -26,7 +26,7 @@ namespace
 {
 
 constexpr std::array<uint8_t, 4> kMagic{ 'R', 'R', 'G', 'S' };
-constexpr size_t                 kMaximumPayload = 4 + 1 + 1 + 42 + 4 + 64 + 18 + 3 + 32 * 32 * 3;
+constexpr size_t                 kMaximumPayload = 4 + 1 + 1 + 42 + 4 + 64 + 18 + gotw::kPracticeBlockSize + 3 + 32 * 32 * 3;
 
 bool validIdentity(const Identity& identity)
 {
@@ -47,7 +47,8 @@ bool validState(const State& state)
            (state.resources == 1 || state.resources == 3 || state.overrides.empty()) && ai_economy::IsValid(state.aiEconomy) &&
            state.barbarianDefeats >= 0 && state.barbarianDefeats <= 50 && (!state.occFromSetup || state.occEnabled) &&
            state.firstFoundingTurn >= -1 && state.firstFoundingTurn <= custom_achievements::kMaximumRecordedTurn &&
-           state.initialAiOpponents >= -1 && state.initialAiOpponents <= custom_achievements::kMaximumAiOpponents;
+           state.initialAiOpponents >= -1 && state.initialAiOpponents <= custom_achievements::kMaximumAiOpponents &&
+           (!state.practice || gotw::IsValid(*state.practice));
 }
 
 } // namespace
@@ -60,7 +61,8 @@ std::vector<uint8_t> Serialize(const State& state, const Identity& identity)
         return {};
     }
     std::vector<uint8_t> bytes(kMagic.begin(), kMagic.end());
-    bytes.push_back(kSchemaVersion);
+    bytes.push_back(state.practice ? uint8_t{ 3 } : state.practiceMarker ? uint8_t{ 4 }
+                                                                         : uint8_t{ 2 });
     bytes.push_back(static_cast<uint8_t>(identity.slot.size()));
     bytes.insert(bytes.end(), identity.slot.begin(), identity.slot.end());
     for (int shift : { 24, 16, 8, 0 })
@@ -87,6 +89,10 @@ std::vector<uint8_t> Serialize(const State& state, const Identity& identity)
     bytes.push_back(static_cast<uint8_t>(turn >> 8));
     bytes.push_back(static_cast<uint8_t>(turn));
     bytes.push_back(static_cast<uint8_t>(state.initialAiOpponents));
+    if (state.practice)
+    {
+        gotw::AppendPracticeBlock(bytes, *state.practice);
+    }
     bytes.insert(bytes.end(), records.begin(), records.end());
     return bytes;
 }
@@ -101,7 +107,8 @@ std::optional<State> Deserialize(std::span<const uint8_t> bytes, const Identity&
     const size_t slotSize = bytes[5];
     // Schema 1 has only the four setting bytes. Schema 2 adds five AI bonuses, the
     // occ-from-setup flag, Barbarian defeat count, whole-game history flags, first
-    // founding turn and initial AI count.
+    // founding turn and initial AI count. Schema 3 adds the practice block; schema 4
+    // is schema 2 plus the isolation-only practice marker, with no block.
     const size_t stateSize = bytes[4] == 1 ? 4 : 18;
     if (slotSize != identity.slot.size() || bytes.size() < 6 + slotSize + 4 + 64 + stateSize + 3 ||
         !std::equal(identity.slot.begin(), identity.slot.end(), bytes.begin() + 6))
@@ -142,7 +149,16 @@ std::optional<State> Deserialize(std::span<const uint8_t> bytes, const Identity&
         state.firstFoundingTurn  = turn == 0xFFFF ? -1 : turn;
         state.initialAiOpponents = bytes[offset + 17] == 0xFF ? -1 : bytes[offset + 17];
     }
-    const auto records = resource_identity_overrides::Deserialize(bytes.subspan(offset + stateSize));
+    size_t recordsOffset = offset + stateSize;
+    if (bytes[4] == 3)
+    {
+        state.practice = gotw::ReadPracticeBlock(bytes, recordsOffset);
+        if (!state.practice)
+        {
+            return std::nullopt;
+        }
+    }
+    const auto records = resource_identity_overrides::Deserialize(bytes.subspan(recordsOffset));
     if (!records)
     {
         return std::nullopt;
@@ -158,8 +174,12 @@ std::filesystem::path SidecarPath(const std::filesystem::path& nativeFile)
     return path;
 }
 
-std::optional<State> Read(const std::filesystem::path& nativeFile, std::string_view slot, uint32_t device, ReadFailure* failure)
+std::optional<State> Read(const std::filesystem::path& nativeFile, std::string_view slot, uint32_t device, ReadFailure* failure, bool* claimsPractice)
 {
+    if (claimsPractice)
+    {
+        *claimsPractice = false;
+    }
     const auto fail = [failure](ReadFailure reason) -> std::optional<State>
     {
         if (failure)
@@ -184,6 +204,11 @@ std::optional<State> Read(const std::filesystem::path& nativeFile, std::string_v
     if (file.bad() || (!file.eof() && bytes.size() <= kMaximumPayload))
     {
         return fail(ReadFailure::Unreadable);
+    }
+    // A schema 3 file asserts a practice origin even if it is rejected below.
+    if (claimsPractice && bytes.size() > 4 && std::equal(kMagic.begin(), kMagic.end(), bytes.begin()) && bytes[4] >= 3)
+    {
+        *claimsPractice = true;
     }
     const size_t digestOffset = 6 + slot.size() + 4;
     if (slot.size() > 42 || bytes.size() < digestOffset + 64)
