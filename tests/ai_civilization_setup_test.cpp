@@ -114,10 +114,6 @@ TEST_CASE("ai_civilization_setup_rejections", "[ctest][ai-civilizations]")
     {
         standardRules = true;
     }
-    SECTION("network game")
-    {
-        world.Base()[ai::kNetworkGameByte] = 1;
-    }
     SECTION("custom Game of the Week")
     {
         mode = 2;
@@ -252,6 +248,7 @@ TEST_CASE("ai_civilization_setup_normalizes_only_old_expansion", "[ctest][ai-civ
         {
             world.Layout(previousCount, previousCount - 1);
             world.Base()[ai::kNetworkGameByte] = 1;
+            world.Word(ai::kHumanMaskGlobal, 0);
             ai::SetupScope scope(next, false, world.Base());
             world.CheckLayout(6, 5);
             checkInactiveHooks();

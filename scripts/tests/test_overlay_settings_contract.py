@@ -8,25 +8,25 @@ ROOT = Path(__file__).resolve().parents[2]
 OVERLAY = (ROOT / "src/overlay_settings.cpp").read_text(encoding="utf-8")
 
 NOTIFICATION_ORDER = [
-    "skip_spaceship_scenes",
-    "hide_research_prompt",
-    "hide_popup_city_status",
-    "hide_popup_discoveries",
-    "hide_popup_combat_reports",
-    "hide_popup_rival_great_people",
-    "hide_popup_rankings",
-    "hide_popup_rival_war_peace",
-    "hide_popup_save_reminder",
-    "hide_popup_villages",
-    "hide_village_barbarian_messages",
-    "hide_popup_city_captures",
-    "hide_popup_rival_government",
-    "hide_popup_artifacts",
-    "hide_popup_spy_reports",
-    "hide_popup_victory_warnings",
-    "hide_popup_government_available",
-    "hide_barbarian_messages",
-    "hide_popup_trophy_room",
+    "spaceship_scenes",
+    "show_research_prompt",
+    "show_popup_city_status",
+    "show_popup_discoveries",
+    "show_popup_combat_reports",
+    "show_popup_rival_great_people",
+    "show_popup_rankings",
+    "show_popup_rival_war_peace",
+    "show_popup_save_reminder",
+    "show_popup_villages",
+    "show_village_barbarian_messages",
+    "show_popup_city_captures",
+    "show_popup_rival_government",
+    "show_popup_artifacts",
+    "show_popup_spy_reports",
+    "show_popup_victory_warnings",
+    "show_popup_government_available",
+    "show_barbarian_messages",
+    "show_popup_trophy_room",
 ]
 
 
@@ -60,7 +60,6 @@ class OverlaySettingsContractTests(unittest.TestCase):
                         "turn_limit",
                         "starting_era",
                         "ai_civilizations",
-                        "multiplayer_ai_difficulty",
                     ],
                 ),
                 (
@@ -84,9 +83,51 @@ class OverlaySettingsContractTests(unittest.TestCase):
                         "gotw_civilization",
                     ],
                 ),
-                ("Support", ["open_log_folder"]),
             ],
         )
+
+    def test_general_ends_with_the_log_folder(self):
+        self.assertEqual(
+            tab_groups("General"),
+            [
+                (
+                    "",
+                    [
+                        "game_language",
+                        "show_fps_counter",
+                        "skip_intro_movie",
+                        "open_log_folder",
+                    ],
+                )
+            ],
+        )
+
+    def test_online_starts_with_the_multiplayer_ai_difficulty(self):
+        groups = tab_groups("Online")
+        self.assertEqual(
+            groups[0],
+            (
+                "",
+                [
+                    "multiplayer_ai_difficulty",
+                    "system_link_status",
+                    "system_link_profile_name",
+                ],
+            ),
+        )
+
+    def test_owner_tooltips(self):
+        for key, text in (
+            ("skip_intro_movie", "Enable to skip the opening scenes at startup."),
+            ("turn_limit", "Set the year a game ends by turn limit."),
+            ("starting_era", "Set the era a new game begins in."),
+            ("ai_civilizations", "Set the number of AI opponents."),
+            (
+                "multiplayer_ai_difficulty",
+                "Set the difficulty of AI in multiplayer games you host.",
+            ),
+        ):
+            self.assertIn(f'{{ "{key}", "{text}" }}', OVERLAY)
 
     def test_notifications_run_from_most_to_least_frequent(self):
         self.assertEqual(tab_groups("Notifications"), [("", NOTIFICATION_ORDER)])

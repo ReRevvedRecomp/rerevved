@@ -139,8 +139,6 @@ TEST_CASE("host gameplay policy precedes title freezes", "[ctest][host-settings]
     CHECK_FALSE(session::ApplyNewGame(local, false, 1));
     CHECK(rerevved::gameplay_fixes::TurnLimitForGame() == 3);
     CHECK(rerevved::gameplay_fixes::StartingEraForGame() == 2);
-    // A local game never reaches the network arm, so it keeps the native King.
-    CHECK(rerevved::gameplay_fixes::MultiplayerAiDifficultyForGame() == 2);
 
     const auto weekly = host::ResolveForGame(false, {}, settings);
     CHECK(session::ApplyNewGame(weekly, false, 2));

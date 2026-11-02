@@ -609,11 +609,11 @@ leaves out Week while Custom Week is off and Civilization while Custom
 Civilization is off. Keybinds and developer entries stay in F1.
 
 Four rows are not choices. They are curated in `src/native_settings.cpp` like
-the rest, with kinds of their own, and F1's layout is unchanged:
+the rest, with kinds of their own; F1 and this page read one layout:
 
 | Tab | Row | Setting | Kind |
 |---|---|---|---|
-| General (last) | Open Log Folder | `open_log_folder` | Action: the value column holds an Open button (A glyph); A, or a click on the button, runs the command once, and nothing is saved. F1 keeps it under Gameplay > Support; the combined screen places it in General (`Spec::tab`). |
+| General (last) | Open Log Folder | `open_log_folder` | Action: the value column holds an Open button (A glyph); A, or a click on the button, runs the command once, and nothing is saved. F1 lists it in General too. |
 | Online (top) | Connection Status | `system_link_status` | Read-only text, read again about twice a second while the page is shown. The words are the SDK's own (English). A does nothing. |
 | Online (top) | Profile Name | `system_link_profile_name` | Text: A opens the text entry. Up to 15 letters, digits, spaces, `-`, `_` or `.`. Restart-only. An empty name reads "Default". |
 | Online > Connection | Invite Code | `system_link_invite` | Text: A opens the text entry. Letters, digits, `-` and spaces (the SDK ignores separators inside a code), up to 1024 characters; a canonical code is at most 580. Restart-only. The row reads only "Set" or "Not set", beside a Paste button (X, Ctrl+V) and a Copy button (Y, Ctrl+C); the footer lists both while the row is highlighted. |
@@ -904,8 +904,9 @@ Layout is in multiples of the font size, which follows the window height
 **Retail audio rows.** The Audio section ends with Music Volume, Effects
 Volume, Advisor Speech Volume and Leader Speech Volume (positions shown as the
 digits 0 to 9, as the retail dots). Their labels and tooltips sit in
-`ConfigureSettingsLayout` with the others, but they are not in the F1 layout, so
-F1 is unchanged. Each volume is a persistent integer cvar (`retail_music_volume`,
+`ConfigureSettingsLayout` with the others, and F1 lists the same four rows as
+choices (Game Default, then 0 to 9; F1 cannot show the live game value, and a
+cvar change callback applies its edits). Each volume is a persistent integer cvar (`retail_music_volume`,
 `retail_effects_volume`, `retail_advisor_volume`, `retail_leader_volume`; range
 -1..9, default -1) saved to `rerevved.toml` through `ApplyAndSave`, so the
 footer notes are the usual applied and unsaved ones. -1 means no override: the
@@ -2003,8 +2004,7 @@ start year the retail presets pair with that era in STARTYEAR, Q+0x3E: 1000 AD f
 Medieval, 1500 AD for Industrial and 1800 AD for Modern. The same setup reads it at
 `0x82D24F20`, after the grants, and advances the first turn to that year (turns 60,
 80 and 98). It writes only those halfwords and no register or condition register,
-so the native grant order and random draws are unchanged. The frozen value is cleared when native setup
-returns, successful or not, so it never applies outside that setup.
+so the native grant order and random draws are unchanged.
 
 A scenario keeps its authored era. Game of the Week, fresh or practice, always
 freezes the native era, whatever the setting. A new network game uses the host's
@@ -2024,7 +2024,7 @@ them natively.
 
 `multiplayer_ai_difficulty` is a string setting with the choices `king` (default),
 `emperor` and `deity`, which are the native values 2, 3 and 4. F1
-**Gameplay > AI Difficulty (Multiplayer)** shows them. One hook in
+**Online > AI Difficulty (Multiplayer)** shows them. One hook in
 [gameplay_hooks.toml](../config/gameplay_hooks.toml) sits before `0x82D221EC` and
 takes r11. It replaces the literal 2 with the frozen value while `SetupActive` is
 true, and leaves it otherwise. r11 is dead after the store: the call to
@@ -2038,8 +2038,8 @@ setting is not saved in the sidecar, and single player is unchanged.
 
 ## Gameplay Spaceship Scenes
 
-`skip_spaceship_scenes` is a bool setting, off by default, shown as the first row
-of F1 **Notifications**, **Disable Spaceship Scenes**. It skips the rocket scene of
+`spaceship_scenes` is a bool setting, on by default, shown as the first row
+of F1 **Notifications**, **Spaceship Scenes**. Turning it off skips the rocket scene of
 every spaceship part, including the player's own. A network game plays the host's
 value, carried in the host settings and frozen at `ApplyNewGame`; single player and
 Game of the Week use the live preference. The preference is sampled once per part
@@ -2051,7 +2051,7 @@ The pending-part caller in `sub_82D1D1C0` requests a type 24 actor with
 hooks in [gameplay_hooks.toml](../config/gameplay_hooks.toml) work as follows.
 
 - `0x82D1DEE8`, past the `-1` bypass at `0x82D1DEE4`, tags the actor index
-  `256 * owner + slot` (r21 owner, r29 slot) when the effective preference is on.
+  `256 * owner + slot` (r21 owner, r29 slot) when the effective `spaceship_scenes` setting is off.
   A failed request is never tagged. `0x82D1DF5C` clears the tag before the removal
   request.
 - In `sub_82D5E660` (r28 owner, r26 slot), an actor matching the tag skips only
@@ -2072,13 +2072,12 @@ count.
 
 [Online play](online-play.md#gameplay-settings-and-mods) describes the player
 settings and compatibility requirements. The version-7 title payload in
-[host_settings.cpp](../src/host_settings.cpp) carries AI count capped at 4,
+[host_settings.cpp](../src/host_settings.cpp) carries AI count from 0 to 6,
 Resources, Raging Barbarians, OCC, the AI research, production, gold, food and
 culture bonus percentages (0 to 200), Domination minimum turns (5 or 10), combat
 speed, the Turn Limit index (0 to 4), the Starting Era index (0 to 3), the
 multiplayer AI difficulty (2, 3 or 4), the spaceship scene skip (0 or 1) in the
-last header byte, and Game of the Week selections. Peers reject any other version,
-including versions 2, 4, 5 and 6.
+last header byte, and Game of the Week selections. Peers reject any other version.
 The override applies to that game and leaves local CVars unchanged.
 
 Before gameplay settings are frozen for a new game,
@@ -2119,7 +2118,7 @@ When no research is set, the game opens the technology prompt at the start of
 each turn and after the local player visits a village, whatever the village
 gives. A technology reward when a city changes hands can open it too.
 Dismissing it leaves research unset, so the prompt returns.
-`hide_research_prompt` defaults to `false`. When `true`, each of those
+`show_research_prompt` defaults to `true`. When `false`, each of those
 automatic prompts is skipped as if it had been dismissed: research stays unset
 until the player chooses it from the technology window, and no technology is
 chosen automatically. Special Powers > Research a New Technology, which the
@@ -2127,20 +2126,20 @@ player opens, is unchanged.
 
 ## Advisor pop-ups
 
-F1 **Notifications** also lists 15 `hide_popup_*` settings, each default `false`.
-Each one skips one group of advisor notices, for example rival war and peace
+F1 **Notifications** also lists 15 `show_popup_*` settings, each default `true`.
+Turning one off skips one group of advisor notices, for example rival war and peace
 news, combat reports or village outcomes. A skipped notice is not shown and
 the game continues as if it had been closed. Three of them answer a question:
-`hide_popup_save_reminder` does not save, `hide_popup_trophy_room` does not
-open the Trophy Room, and `hide_popup_government_available` keeps the current
-government. `src/advisor_popups.h` lists the call sites in each group. Other
+turning off `show_popup_save_reminder` does not save, `show_popup_trophy_room`
+does not open the Trophy Room, and `show_popup_government_available` keeps the
+current government. `src/advisor_popups.h` lists the call sites in each group. Other
 advisor screens, including the Special Functions menu, are unchanged.
 
-Two more default-`false` settings skip the Barbarian leader message.
-`hide_barbarian_messages` skips the message shown on first contact with a
+Two more default-`true` settings control the Barbarian leader message.
+Turning off `show_barbarian_messages` skips the message shown on first contact with a
 Barbarian tribe; the game treats that tribe as not yet introduced, so the
-message can appear at a later contact once the setting is off.
-`hide_village_barbarian_messages` skips the message shown after capturing a
+message can appear at a later contact once the setting is turned back on.
+Turning off `show_village_barbarian_messages` skips the message shown after capturing a
 Barbarian village, which names the reward; the reward is still granted.
 `src/barbarian_messages.h` lists the village call sites.
 
@@ -2338,10 +2337,18 @@ expanded layouts fit the native unit pools for eight participants and saved
 player arrays. Contacts, full AI turns and save/load remain gameplay
 acceptance checks.
 
-Expansion requires the ordinary offline layout with the human in slot zero.
-Multiplayer, Game of the Week, restricted civilization selections and the
-native special two-player setup retain their native participant counts.
-Multiplayer values are capped at 4 in the prepared host snapshot.
+Single-player expansion requires the ordinary layout with the human in slot
+zero. Game of the Week, restricted civilization selections and the native
+special two-player setup retain their native participant counts.
+
+In multiplayer the host snapshot value R (0 to 6) applies to every peer. With H
+humans in the five native civilization slots, the setup keeps A = min(R, 7 - H)
+ordinary AI and uses N = max(6, H + A + 1, highest human ordinal + 2)
+participants with Barbarians in slot N - 1. It widens the native layout only
+when N exceeds 6 and N is at most 8 with every human below the Barbarian slot;
+otherwise the native layout and the removal limit apply. The setup logs the
+request, H, A, N, Barbarian slot and human mask. Peers do not compare rosters; a
+mismatch appears as a desync.
 
 - A game with one human keeps at least one AI civilization, so 0 (**None**)
   applies only to multiplayer games with two or more humans. Domination then
@@ -2449,8 +2456,8 @@ startup, so edits made in a running session apply at the next launch.
 
 | Group | Row | Setting | Meaning |
 |---|---|---|---|
-| (top) | Status | `system_link_status` | Read-only connection status for this session |
-| (top) | Player Name | `system_link_profile_name` | Optional player name, up to 15 letters, digits, spaces, `-`, `_` or `.` |
+| (top) | Connection Status | `system_link_status` | Read-only connection status for this session |
+| (top) | Profile Name | `system_link_profile_name` | Optional player name, up to 15 letters, digits, spaces, `-`, `_` or `.` |
 | Connection | Invite Code | `system_link_invite` | Invite code from the relay host; a nonempty code selects relay mode |
 | Connection | Direct LAN | `system_link_lan_enabled` | Direct LAN mode; cannot be combined with an invite |
 | Connection | Peer-to-Peer | `system_link_direct` | Direct UDP to other relay players, with the relay as fallback; off by default, relay mode only |

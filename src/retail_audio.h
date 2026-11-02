@@ -41,8 +41,6 @@ inline constexpr std::array<Channel, kChannelCount> kChannels{ {
     { "retail_leader_volume", 0x821234DC },
 } };
 
-std::optional<size_t> ChannelOfCvar(std::string_view name);
-
 float PositionToGain(int position);
 
 struct Reading
@@ -132,5 +130,8 @@ private:
 
 ApplyQueue& Queue();
 LiveStore&  Live();
+
+// Call once; every volume cvar edit then republishes overrides and queues live apply.
+void RegisterChangeCallbacks();
 
 } // namespace rerevved::retail_audio

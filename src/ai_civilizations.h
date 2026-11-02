@@ -107,6 +107,24 @@ inline uint32_t RemovableMask(int32_t count, int32_t barbarian, uint32_t humanMa
     return removable;
 }
 
+// Clamp AI so participants and Barbarians fit eight slots.
+struct MultiplayerLayout
+{
+    int32_t ai;
+    int32_t count;
+    int32_t barbarian;
+};
+
+constexpr MultiplayerLayout MultiplayerAiLayout(int32_t humans, int32_t requested, int32_t highestHuman)
+{
+    const int32_t room = kMaxCivilizationPlayers - humans;
+    const int32_t ai   = requested < room ? requested : room;
+    int32_t       n    = humans + ai + 1;
+    n                  = n > kPlayerCount ? n : kPlayerCount;
+    n                  = n > highestHuman + 2 ? n : highestHuman + 2;
+    return { ai, n, n - 1 };
+}
+
 // FNV-1a over the killed (player, unit, type) list, logged so two peers can
 // compare what each removed.
 class KillDigest

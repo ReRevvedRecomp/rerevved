@@ -20,7 +20,9 @@ public:
 void NoteNewGameRecount() noexcept;
 void CommitNewGame() noexcept;
 // The frozen request is available only after the early hook accepted expansion.
-int32_t ExpandedAiLimit() noexcept;
+int32_t  ExpandedAiLimit() noexcept;
+uint32_t ExpandedCount() noexcept;
+uint32_t ExpandedBarbarian() noexcept;
 // Loading native state must never normalize its serialized participant layout.
 void ResetOnLoad() noexcept;
 

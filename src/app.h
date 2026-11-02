@@ -77,6 +77,7 @@ protected:
     void OnConfigureFonts(ImFontAtlas* atlas) override;
     void OnConfigureStyle(ImGuiStyle& imgui_style, rex::ui::Style& ui_style) override;
     void OnConfigureSettings(rex::ui::SettingsLayout& layout) override;
+    void OnConfigureModManager(std::vector<rex::ui::AssetOverlayLoadoutSource>& tabs) override;
 
     void OnPostLaunchModule(rex::system::XThread* thread) override;
     void OnGuestThreadExit(rex::system::XThread* thread) override;

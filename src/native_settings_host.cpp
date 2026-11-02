@@ -105,7 +105,7 @@ public:
 
     ApplyStatus Apply(std::string_view key, std::string_view raw) override
     {
-        return ApplyAndSaveVolume(key, raw, host_.configPath);
+        return ApplyAndSave(key, raw, host_.configPath);
     }
 
     // F1 order: layout Keybinds controller keys, then other Input/Keybinds; player-visible rows only.
@@ -235,26 +235,6 @@ ApplyStatus ApplyAndSave(std::string_view name, std::string_view raw, const std:
     if (!rex::cvar::SetFlagByName(name, raw))
         return ApplyStatus::kRejected;
     return rex::cvar::TrySaveConfigSubset(configPath, { std::string(name) }) ? ApplyStatus::kSaved : ApplyStatus::kUnsaved;
-}
-
-ApplyStatus ApplyAndSaveVolume(std::string_view name, std::string_view raw, const std::filesystem::path& configPath)
-{
-    const auto status = ApplyAndSave(name, raw, configPath);
-    if (status == ApplyStatus::kRejected)
-        return status;
-    retail_audio::PublishOverrides();
-    // The cvar now holds the value, so the live apply follows it; a request
-    // the guest cannot place yet waits in the queue.
-    if (const auto channel = retail_audio::ChannelOfCvar(name))
-    {
-        const int position = retail_audio::OverrideOf(*channel);
-        if (position != retail_audio::kNoOverride)
-        {
-            retail_audio::Queue().Post(*channel, position);
-            retail_audio::Live().RequestRefresh();
-        }
-    }
-    return status;
 }
 
 std::unique_ptr<Services> MakeUiServices(HostBindings host)

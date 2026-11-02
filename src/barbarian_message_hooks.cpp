@@ -7,8 +7,8 @@
 #include <rex/cvar.h>
 #include <rex/ppc.h>
 
-REXCVAR_DECLARE(bool, hide_barbarian_messages);
-REXCVAR_DECLARE(bool, hide_village_barbarian_messages);
+REXCVAR_DECLARE(bool, show_barbarian_messages);
+REXCVAR_DECLARE(bool, show_village_barbarian_messages);
 
 namespace
 {
@@ -21,7 +21,7 @@ thread_local rerevved::barbarian_messages::LeaderMessageGate gate;
 // that natively skips to 0x82CD4738.
 bool SkipBarbarianContactMessage()
 {
-    return REXCVAR_GET(hide_barbarian_messages);
+    return !REXCVAR_GET(show_barbarian_messages);
 }
 
 // In sub_82CC85D0 after its prologue. r12 still holds the entry LR that the
@@ -32,7 +32,7 @@ void BeginBarbarianLeaderMessage(PPCRegister& stack, PPCRegister& entryLr, PPCRe
     namespace barbarian = rerevved::barbarian_messages;
     namespace ai_civs   = rerevved::ai_civilizations;
 
-    const bool village = REXCVAR_GET(hide_village_barbarian_messages) &&
+    const bool village = !REXCVAR_GET(show_village_barbarian_messages) &&
                          barbarian::IsVillageReturn(entryLr.u32);
     // The removed set alone decides, so turning the option off before the
     // first round ends does not bring back the farewells it promised to hide.

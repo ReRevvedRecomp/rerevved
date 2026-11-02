@@ -2,6 +2,8 @@
 
 #include "ai_civilizations.h"
 
+#include <bit>
+
 #include <rex/logging.h>
 #include <rex/runtime.h>
 #include <rex/system/kernel_state.h>
@@ -21,6 +23,9 @@ struct State
     uint8_t* base          = nullptr;
     int32_t  requested     = 0;
     int32_t  mode          = 0;
+    int32_t  ai            = 0;
+    uint32_t count         = 0;
+    uint32_t barbarian     = 0;
     bool     standardRules = false;
     bool     applied       = false;
     bool     recounted     = false;
@@ -107,19 +112,8 @@ void reject(const char* reason)
 
 void configure()
 {
-    if (scopeDepth == 0 || state.applied || state.rejected || (state.requested != 5 && state.requested != 6))
+    if (scopeDepth == 0 || state.applied || state.rejected)
     {
-        return;
-    }
-    if (state.standardRules)
-    {
-        reject("standard_rules");
-        return;
-    }
-    // Mode 2 omits civilization 0 from the native duplicate comparison.
-    if (state.mode == 2)
-    {
-        reject("gotw_setup");
         return;
     }
     uint32_t special        = 0;
@@ -132,9 +126,20 @@ void configure()
         reject("unreadable_state");
         return;
     }
-    if (state.base[kNetworkGameByte] != 0)
+    const bool network = state.base[kNetworkGameByte] != 0;
+    if (!network && state.requested != 5 && state.requested != 6)
     {
-        reject("network_game");
+        return;
+    }
+    if (state.standardRules)
+    {
+        reject("standard_rules");
+        return;
+    }
+    // Mode 2 omits civilization 0 from the native duplicate comparison.
+    if (state.mode == 2)
+    {
+        reject("gotw_setup");
         return;
     }
     if (special != 0)
@@ -150,7 +155,7 @@ void configure()
     }
     // The native duplicate scan compares only earlier ordinals. Keep the
     // already selected human before every AI candidate.
-    if (humans != 1)
+    if (network ? humans == 0 : humans != 1)
     {
         reject("human_mask");
         return;
@@ -160,15 +165,45 @@ void configure()
         reject("unsupported_layout");
         return;
     }
-    if (!storeLayout(static_cast<uint32_t>(state.requested + 2), static_cast<uint32_t>(state.requested + 1)))
+    const int32_t nativeHumans = std::popcount(humans & kCivilizationSlots);
+    int32_t       ai           = state.requested;
+    int32_t       count        = state.requested + 2;
+    int32_t       barbarian    = state.requested + 1;
+    if (network)
+    {
+        const int32_t highestHuman = std::bit_width(humans & 0xFF) - 1;
+        const auto    wide         = MultiplayerAiLayout(nativeHumans, state.requested, highestHuman);
+        ai                         = wide.ai;
+        count                      = wide.count;
+        barbarian                  = wide.barbarian;
+        if (count <= kPlayerCount)
+        {
+            return;
+        }
+        if (count > kMaxCivilizationPlayers + 1 || highestHuman >= barbarian)
+        {
+            reject("layout_overflow");
+            return;
+        }
+    }
+    if (!storeLayout(static_cast<uint32_t>(count), static_cast<uint32_t>(barbarian)))
     {
         reject("unwritable_layout");
         return;
     }
     // Retry 0x82D220CC returns to the native mask writer at 0x82D21FF4.
     // Keep the first accepted request throughout that native setup attempt.
-    state.applied = true;
-    REXLOG_INFO("Expanded AI setup: requested={} effective={} reason=applied", state.requested, state.requested);
+    state.applied   = true;
+    state.ai        = ai;
+    state.count     = static_cast<uint32_t>(count);
+    state.barbarian = static_cast<uint32_t>(barbarian);
+    REXLOG_INFO("Expanded AI setup: requested={} humans={} effective={} count={} barbarian={} human_mask=0x{:08X} reason=applied",
+                state.requested,
+                nativeHumans,
+                ai,
+                count,
+                barbarian,
+                humans);
 }
 
 } // namespace
@@ -206,7 +241,7 @@ SetupScope::~SetupScope()
 void CommitNewGame() noexcept
 {
     if (scopeDepth != 0 && state.applied && state.recounted && !state.committed &&
-        layout(static_cast<uint32_t>(state.requested + 2), static_cast<uint32_t>(state.requested + 1)))
+        layout(state.count, state.barbarian))
     {
         state.committed = true;
     }
@@ -222,7 +257,17 @@ void NoteNewGameRecount() noexcept
 
 int32_t ExpandedAiLimit() noexcept
 {
-    return scopeDepth != 0 && state.applied ? state.requested : 0;
+    return scopeDepth != 0 && state.applied ? state.ai : 0;
+}
+
+uint32_t ExpandedCount() noexcept
+{
+    return scopeDepth != 0 && state.applied ? state.count : 0;
+}
+
+uint32_t ExpandedBarbarian() noexcept
+{
+    return scopeDepth != 0 && state.applied ? state.barbarian : 0;
 }
 
 void ResetOnLoad() noexcept
@@ -239,10 +284,9 @@ void ConfigureExpandedAiSetup()
 
 void PreserveExpandedAiSetup(PPCRegister& count, PPCRegister& barbarian)
 {
-    const int32_t requested = rerevved::ai_civilizations::ExpandedAiLimit();
-    if (requested != 0)
+    if (rerevved::ai_civilizations::ExpandedCount() != 0)
     {
-        count.u64     = static_cast<uint32_t>(requested + 2);
-        barbarian.u64 = static_cast<uint32_t>(requested + 1);
+        count.u64     = rerevved::ai_civilizations::ExpandedCount();
+        barbarian.u64 = rerevved::ai_civilizations::ExpandedBarbarian();
     }
 }

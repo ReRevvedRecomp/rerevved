@@ -138,7 +138,7 @@ constexpr std::array<int32_t, 4> kTurnLimitYears     = { 2100, 2200, 2300, 2500 
 
 constexpr bool IsValidTurnLimit(int32_t limit) noexcept
 {
-    return limit >= kTurnLimitNative && limit <= kTurnLimitUnlimited;
+    return limit <= kTurnLimitUnlimited;
 }
 
 constexpr bool ExtendsTurnLimit(int32_t limit) noexcept
@@ -146,25 +146,22 @@ constexpr bool ExtendsTurnLimit(int32_t limit) noexcept
     return limit > kTurnLimitNative && limit < kTurnLimitUnlimited;
 }
 
-// Accepts only the offered choices "2100", "2200", "2300", "2500" and "unlimited".
-bool ParseTurnLimit(std::string_view text, int32_t& limit) noexcept;
+int32_t ParseTurnLimit(std::string_view text) noexcept;
 
 void    RestoreTurnLimit(int32_t limit) noexcept;
 int32_t TurnLimitForGame() noexcept;
 
-// From turn 118 the calendar year is 2 * turn + 1714, so the first turn at a
-// year cap is (cap - 1714) / 2 (turn 193 is 2100 AD).
-constexpr int64_t TurnLimitCapTurn(int32_t limit) noexcept
+// From turn 118 the calendar year is 2 * turn + 1714 (turn 193 is 2100 AD).
+constexpr int32_t TurnLimitCapTurn(int32_t limit) noexcept
 {
     return (kTurnLimitYears[static_cast<size_t>(limit)] - 1714) / 2;
 }
 
-// The first turn an extended limit can end the game. Outside the scenario
-// sentinel -1 the native deadline also needs 200 turns after the start turn.
-constexpr int64_t TurnLimitDeadlineTurn(int32_t limit, int32_t scenario, int32_t startTurn) noexcept
+// Scenarios other than sentinel -1 also require 200 turns after the start.
+constexpr int32_t TurnLimitDeadlineTurn(int32_t limit, int32_t scenario, int32_t startTurn) noexcept
 {
-    const int64_t cap = TurnLimitCapTurn(limit);
-    return scenario == -1 ? cap : std::max(cap, int64_t{ startTurn } + 200);
+    const int32_t cap = TurnLimitCapTurn(limit);
+    return scenario == -1 ? cap : std::max(cap, startTurn + 200);
 }
 
 constexpr bool TurnLimitWarningDue(int32_t limit, int32_t scenario, int32_t startTurn, int32_t turn) noexcept
@@ -187,7 +184,7 @@ constexpr int32_t kStartingEraModern = 3;
 
 constexpr bool IsValidStartingEra(int32_t era) noexcept
 {
-    return era >= kStartingEraNative && era <= kStartingEraModern;
+    return era <= kStartingEraModern;
 }
 
 // Only scenario sentinel -1 permits a new-game era override.
@@ -204,8 +201,9 @@ constexpr int32_t StartingEraYear(int32_t era) noexcept
     return kYears[era];
 }
 
-// Accepts only the offered choices "ancient", "medieval", "industrial" and "modern".
-bool ParseStartingEra(std::string_view text, int32_t& era) noexcept;
+// The index of one of the offered choices "ancient", "medieval", "industrial" and
+// "modern"; the CVar's allowed list admits nothing else.
+int32_t ParseStartingEra(std::string_view text) noexcept;
 
 void    RestoreStartingEra(int32_t era) noexcept;
 int32_t StartingEraForGame() noexcept;
@@ -219,8 +217,7 @@ constexpr bool IsValidMultiplayerAiDifficulty(int32_t difficulty) noexcept
     return difficulty >= kMultiplayerAiDifficultyNative && difficulty <= kMultiplayerAiDifficultyDeity;
 }
 
-// Accepts only the offered choices "king", "emperor" and "deity".
-bool ParseMultiplayerAiDifficulty(std::string_view text, int32_t& difficulty) noexcept;
+int32_t ParseMultiplayerAiDifficulty(std::string_view text) noexcept;
 
 void    RestoreMultiplayerAiDifficulty(int32_t difficulty) noexcept;
 int32_t MultiplayerAiDifficultyForGame() noexcept;
@@ -234,7 +231,7 @@ constexpr int32_t SpaceshipActorIndex(int32_t owner, int32_t slot) noexcept
 
 constexpr bool MatchesSpaceshipTag(int32_t tag, int32_t owner, int32_t slot) noexcept
 {
-    return tag >= 0 && tag == SpaceshipActorIndex(owner, slot);
+    return tag == SpaceshipActorIndex(owner, slot);
 }
 
 constexpr int32_t kSpaceshipFinishCorridor = 1000;

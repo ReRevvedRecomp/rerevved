@@ -62,8 +62,8 @@ when a setting takes effect only after a restart or in the next game.
 Gameplay also has **Turn Limit** (2100 AD by default, up to Unlimited), which
 applies to the next new game and is saved with each game, and **Starting Era**
 (Ancient by default, up to Modern), which gives every civilization extra
-technologies in the next new game. **AI Difficulty (Multiplayer)** (King by
-default, up to Deity) sets the AI difficulty of the multiplayer games you host.
+technologies in the next new game. **AI Difficulty (Multiplayer)** on the Online
+tab (King by default, up to Deity) sets the AI difficulty of the multiplayer games you host.
 Game of the Week has **Allow Saving** under Gameplay, off by default; a game
 started with it on is practice and can use Save and Load.
 The Audio section also has Music, Effects, Advisor Speech and Leader Speech

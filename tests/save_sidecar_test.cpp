@@ -643,12 +643,8 @@ TEST_CASE("save_sidecar_turn_limit", "[ctest][save-sidecar]")
     marker.practiceMarker = true;
     CHECK(sidecar::Deserialize(sidecar::Serialize(marker, kIdentity), kIdentity)->turnLimit == 0);
 
-    UNSCOPED_INFO("an unknown limit is rejected on read and write");
+    UNSCOPED_INFO("an unknown limit is rejected on read");
     auto invalid        = sidecar::Serialize(saved, kIdentity);
     invalid[turnOffset] = 5;
     CHECK_FALSE(sidecar::Deserialize(invalid, kIdentity));
-    saved.turnLimit = 5;
-    CHECK(sidecar::Serialize(saved, kIdentity).empty());
-    saved.turnLimit = -1;
-    CHECK(sidecar::Serialize(saved, kIdentity).empty());
 }

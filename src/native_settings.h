@@ -114,9 +114,7 @@ public:
         return false;
     }
 
-    // The retail audio rows (retail_audio.h), used by the Options page only.
-    // The defaults suit a host that has none.
-    // The live game values, a channel being empty while the game has no entry.
+    // Live retail audio (retail_audio.h); missing game entries yield empty channels.
     virtual LiveVolumes ReadLiveVolumes()
     {
         return {};
@@ -462,9 +460,6 @@ std::optional<HostBindings> Host();
 
 std::optional<FlagState> ReadFlag(std::string_view name);
 ApplyStatus              ApplyAndSave(std::string_view name, std::string_view raw, const std::filesystem::path& configPath);
-// ApplyAndSave for a retail volume cvar: once the value is accepted, posts the
-// live apply for the guest thread. Other names behave as ApplyAndSave.
-ApplyStatus ApplyAndSaveVolume(std::string_view name, std::string_view raw, const std::filesystem::path& configPath);
 
 std::unique_ptr<Services> MakeUiServices(HostBindings host);
 

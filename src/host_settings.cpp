@@ -90,7 +90,7 @@ const std::string& shownName(const ModRef* local, const ModRef* host, const std:
 
 HostSettings Normalize(HostSettings settings, bool networkGame)
 {
-    settings.aiCivilizations = std::clamp(settings.aiCivilizations, int32_t{ 0 }, networkGame ? kMaxAiCivilizations : kMaxLocalAiCivilizations);
+    settings.aiCivilizations = std::clamp(settings.aiCivilizations, int32_t{ 0 }, kMaxAiCivilizations);
     if (settings.resources != 0 && settings.resources != 1 && settings.resources != 3)
     {
         settings.resources = 0;
@@ -104,18 +104,6 @@ HostSettings Normalize(HostSettings settings, bool networkGame)
         settings.dominationMinimumTurns = 10;
     }
     settings.combatSpeed = settings.combatSpeed == 1 ? 1 : 0;
-    if (!gameplay_fixes::IsValidTurnLimit(settings.turnLimit))
-    {
-        settings.turnLimit = gameplay_fixes::kTurnLimitNative;
-    }
-    if (!gameplay_fixes::IsValidStartingEra(settings.startingEra))
-    {
-        settings.startingEra = gameplay_fixes::kStartingEraNative;
-    }
-    if (!gameplay_fixes::IsValidMultiplayerAiDifficulty(settings.multiplayerAiDifficulty))
-    {
-        settings.multiplayerAiDifficulty = gameplay_fixes::kMultiplayerAiDifficultyNative;
-    }
     if (!settings.gotwCustomWeek || !gotw::IsValidWeek(settings.gotwWeek))
     {
         settings.gotwCustomWeek = false;
@@ -432,7 +420,7 @@ int32_t ResolveAiLimit(bool                             networkGame,
 
     if (!networkGame)
     {
-        return choose(std::clamp(local, int32_t{ 0 }, kMaxLocalAiCivilizations), "local");
+        return choose(std::clamp(local, int32_t{ 0 }, kMaxAiCivilizations), "local");
     }
 
     using State = rex::session_data::State;

@@ -115,7 +115,7 @@ Select content for one session without changing the saved location:
 
 HELP
 
-F1 > Gameplay > Support > Open Log Folder opens the active log folder.
+F1 > General > Open Log Folder opens the active log folder.
 Report the release version, OS, CPU, GPU, steps to reproduce, and what
 happened. Check logs for personal paths and secrets before sharing. Do not
 upload game files, saves, configuration files, or the full data folder.

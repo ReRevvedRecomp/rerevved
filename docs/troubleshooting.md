@@ -61,5 +61,5 @@ with a report.
 ## Report a crash, freeze, or unresolved problem
 
 Record what you did, what happened, and the release version. Use
-**F1 > Gameplay > Support > Open Log Folder** when available. Follow
+**F1 > General > Open Log Folder** when available. Follow
 [Support](support.md) to review the log before attaching it to an issue.

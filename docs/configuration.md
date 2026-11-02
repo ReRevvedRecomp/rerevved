@@ -7,13 +7,13 @@ Close ReRevved before editing the file directly.
 ## Settings
 
 - **General**: Language (English, Deutsch, Francais, Espanol or Italiano, after a
-  restart), FPS Counter and Skip Intro.
+  restart), FPS Counter, Skip Intro and Open Log Folder.
 - **Gameplay**: combat speed, resources, Raging Barbarians, One City
-  Challenge, Earliest Domination, Turn Limit, Starting Era, AI civilizations, AI Difficulty (Multiplayer), AI Handicaps,
-  Game of the Week, and the Support section.
-- **Notifications**: Disable Spaceship Scenes, research prompts, advisor pop-ups, and Barbarian messages.
-  **Disable Save Reminder** suppresses a prompt; it does not save the game.
-- **Online**: connection status, player name, relay invite, and Discord options.
+  Challenge, Earliest Domination, Turn Limit, Starting Era, AI civilizations, AI Handicaps,
+  and Game of the Week.
+- **Notifications**: Spaceship Scenes, research prompts, advisor pop-ups, and Barbarian messages. Each is on by default; turn a row off to hide it.
+  Turning off **Save Reminder** hides the prompt; it does not save the game.
+- **Online**: AI Difficulty (Multiplayer), connection status, player name, relay invite, and Discord options.
   See [Online play](online-play.md).
 - **Controls**: keyboard/controller bindings, mouse sensitivity, vibration,
   controller input in the background, Button Icons, and overlay hotkeys.
@@ -65,8 +65,8 @@ Emperor or Deity. Every player in that game plays the host's value. A later
 change applies only to the next new game. Single player keeps the difficulty
 chosen at game setup, and a loaded save never applies the host's value.
 
-**Disable Spaceship Scenes** (Notifications, off by default) skips the rocket
-scene of every spaceship part, yours included. In a multiplayer game every player
+**Spaceship Scenes** (Notifications, on by default) shows the rocket
+scene of every spaceship part, yours included; turn it off to skip them. In a multiplayer game every player
 uses the host's value; otherwise your own setting applies, also to a Game of the
 Week. Part scenes already running are not affected by a change.
 
@@ -136,7 +136,7 @@ The default player data folder is separate from the application folder:
 
 Windows uses your actual Documents location, including a redirected folder.
 The data folder holds `rerevved.toml`, `logs/`, `cache/`, saves, achievements,
-and saved mod/asset selections. **F1 > Gameplay > Support > Open Log Folder**
+and saved mod/asset selections. **F1 > General > Open Log Folder**
 opens the active log folder, including when a profile or log override is used.
 
 A named profile stores its state under `profiles/<id>/` inside the data folder.
