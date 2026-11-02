@@ -15,6 +15,8 @@
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
 
+REXCVAR_DECLARE(bool, skip_rival_spaceship_scenes);
+
 namespace
 {
 
@@ -75,6 +77,22 @@ int32_t calendarWord(uint32_t address)
 
 // One bit per player/opponent pair, so each admission logs once per process.
 std::atomic<uint64_t> nuclearPairsLogged{ 0 };
+
+// Rival Spaceship Scenes: the network-game byte, the local observer that the
+// resolver at 0x82D8A3A0 returned in this pending-part request, and the one tagged
+// actor index (-1 when none) with its per-actor counters.
+constexpr uint32_t kNetworkGameByte = 0x8314F10B;
+
+std::atomic<int32_t>  spaceshipObserver{ -1 };
+std::atomic<int32_t>  spaceshipTag{ -1 };
+std::atomic<uint32_t> spaceshipFrames{ 0 };
+std::atomic<bool>     spaceshipRedirected{ false };
+std::atomic<bool>     spaceshipFallbackLogged{ false };
+
+bool tagsActor(PPCRegister& owner, PPCRegister& slot)
+{
+    return rerevved::gameplay_fixes::MatchesRivalSpaceshipTag(spaceshipTag.load(std::memory_order_relaxed), owner.s32, slot.s32);
+}
 
 bool ordinaryAiPlayer(int32_t player)
 {
@@ -264,6 +282,99 @@ void ApplyStartingEra(PPCRegister& r31)
         start[0]            = static_cast<uint8_t>(year >> 8);
         start[1]            = static_cast<uint8_t>(year);
     }
+}
+
+// Rival Spaceship Scenes hooks. See the pending-part caller at 0x82D1DE04..0x82D1DF60
+// and the type 24 actor updater 0x82D5E660.
+//
+// At 0x82D1DE14, after the resolver call: r3 is the local observer.
+void ObserveSpaceshipObserver(PPCRegister& r3)
+{
+    spaceshipObserver.store(r3.s32, std::memory_order_relaxed);
+}
+
+// At 0x82D1DEE8, past the beq on a failed (-1) request: r21 is the part owner and
+// r29 the returned slot. r31 - 124 is the byte the native equality test at
+// 0x82D1DE18 compared with the observer. Tags the actor when the preference is on,
+// the game is single-player and the owner is a rival.
+void TagRivalSpaceshipActor(PPCRegister& owner, PPCRegister& slot, PPCRegister& r31)
+{
+    namespace gf          = rerevved::gameplay_fixes;
+    uint8_t       network = 1;
+    const bool    single  = readGuestU8(kNetworkGameByte, network) && network == 0;
+    const int32_t seen    = spaceshipObserver.load(std::memory_order_relaxed);
+    if (!gf::TagsRivalSpaceshipActor(REXCVAR_GET(skip_rival_spaceship_scenes), single, owner.s32, seen))
+    {
+        return;
+    }
+    uint8_t current = 0;
+    readGuestU8(r31.u32 - 124, current);
+    const int32_t index = gf::RivalSpaceshipActorIndex(owner.s32, slot.s32);
+    spaceshipTag.store(index, std::memory_order_relaxed);
+    spaceshipFrames.store(0, std::memory_order_relaxed);
+    spaceshipRedirected.store(false, std::memory_order_relaxed);
+    spaceshipFallbackLogged.store(false, std::memory_order_relaxed);
+    REXLOG_INFO("[spaceship] tag owner={} observer={} slot={} index={} native_test_byte={}", owner.s32, seen, slot.s32, index, current);
+}
+
+// At 0x82D1DF5C, before the removal request D02390(owner, slot, 0).
+void UntagRivalSpaceshipActor(PPCRegister& owner, PPCRegister& slot)
+{
+    if (tagsActor(owner, slot))
+    {
+        REXLOG_INFO(
+            "[spaceship] untag owner={} slot={} suppressed_frames={} finish_redirected={}",
+            owner.s32,
+            slot.s32,
+            spaceshipFrames.load(std::memory_order_relaxed),
+            spaceshipRedirected.load(std::memory_order_relaxed) ? 1 : 0);
+        spaceshipTag.store(-1, std::memory_order_relaxed);
+    }
+}
+
+// At 0x82D5E748, the first active store of each frame of sub_82D5E660 (r28 owner,
+// r26 slot). It counts the frame and skips this store for a tagged actor.
+bool SkipRivalSpaceshipFirstStore(PPCRegister& owner, PPCRegister& slot)
+{
+    if (!tagsActor(owner, slot))
+    {
+        return false;
+    }
+    if (spaceshipFrames.fetch_add(1, std::memory_order_relaxed) == 0)
+    {
+        REXLOG_INFO("[spaceship] suppressing focus stores owner={} slot={} index={}", owner.s32, slot.s32, spaceshipTag.load(std::memory_order_relaxed));
+    }
+    return true;
+}
+
+// At 0x82D5E778, 0x82D5E780, 0x82D5E788, 0x82D5E790, 0x82D5E798, 0x82D5E7B8 and
+// 0x82D5E7C0, each before an individual active focus or view store. Jumping to the
+// next instruction keeps every other instruction of the interval native.
+bool SkipRivalSpaceshipFocusStore(PPCRegister& owner, PPCRegister& slot)
+{
+    return tagsActor(owner, slot);
+}
+
+// At 0x82D5E868, before the bge after the native cmpw at 0x82D5E864. r11 is the
+// previous time. A tagged actor in the corridor jumps to the native finish at
+// 0x82D5E888, where r25, r21, r24 and r23 already hold the finish state.
+bool FinishRivalSpaceshipEarly(PPCRegister& owner, PPCRegister& slot, PPCRegister& previousTime)
+{
+    if (!tagsActor(owner, slot))
+    {
+        return false;
+    }
+    const bool finish = rerevved::gameplay_fixes::FinishesRivalSpaceshipEarly(previousTime.s32);
+    if (finish)
+    {
+        spaceshipRedirected.store(true, std::memory_order_relaxed);
+        REXLOG_INFO("[spaceship] finish redirect previous_time={} frames={}", previousTime.s32, spaceshipFrames.load(std::memory_order_relaxed));
+    }
+    else if (!spaceshipFallbackLogged.exchange(true, std::memory_order_relaxed))
+    {
+        REXLOG_INFO("[spaceship] finish native fallback previous_time={} frames={}", previousTime.s32, spaceshipFrames.load(std::memory_order_relaxed));
+    }
+    return finish;
 }
 
 // Before cmpwi cr6,r9,10 at 0x82D11264; r9 is the elapsed turn count and is

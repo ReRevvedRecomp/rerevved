@@ -286,8 +286,9 @@ TEST_CASE("native_settings_rows_keep_the_f1_order_and_captions", "[ctest][native
                                                                      "Custom Civilization: Off" });
 
     const auto notifications = captionsOf(model, "Notifications");
-    CHECK(notifications.size() == 18);
-    CHECK(notifications.front() == "Disable Research Advisor Prompt: Off");
+    CHECK(notifications.size() == 19);
+    CHECK(notifications.front() == "Skip Rival Spaceship Scenes: Off");
+    CHECK(notifications[1] == "Disable Research Advisor Prompt: Off");
     CHECK(notifications.back() == "Disable Trophy Room Offer: Off");
 
     CHECK(captionsOf(model, "Online") == std::vector<std::string>{ "Connection Status: Off",

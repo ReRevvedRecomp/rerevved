@@ -67,7 +67,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
           } },
         { "Notifications",
           {
-              { "", { "hide_research_prompt", "hide_popup_city_status", "hide_popup_discoveries", "hide_popup_combat_reports", "hide_popup_rival_great_people", "hide_popup_rankings", "hide_popup_rival_war_peace", "hide_popup_save_reminder", "hide_popup_villages", "hide_village_barbarian_messages", "hide_popup_city_captures", "hide_popup_rival_government", "hide_popup_artifacts", "hide_popup_spy_reports", "hide_popup_victory_warnings", "hide_popup_government_available", "hide_barbarian_messages", "hide_popup_trophy_room" } },
+              { "", { "skip_rival_spaceship_scenes", "hide_research_prompt", "hide_popup_city_status", "hide_popup_discoveries", "hide_popup_combat_reports", "hide_popup_rival_great_people", "hide_popup_rankings", "hide_popup_rival_war_peace", "hide_popup_save_reminder", "hide_popup_villages", "hide_village_barbarian_messages", "hide_popup_city_captures", "hide_popup_rival_government", "hide_popup_artifacts", "hide_popup_spy_reports", "hide_popup_victory_warnings", "hide_popup_government_available", "hide_barbarian_messages", "hide_popup_trophy_room" } },
           } },
         { "Online",
           {
@@ -122,6 +122,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "game_language", Audience::kPlayer },
         { "@Input/Keybinds", Audience::kPlayer },
         { "combat_speed", Audience::kPlayer },
+        { "skip_rival_spaceship_scenes", Audience::kPlayer },
         { "ai_civilizations", Audience::kPlayer },
         { "ai_research_bonus_percent", Audience::kPlayer },
         { "ai_production_bonus_percent", Audience::kPlayer },
@@ -171,6 +172,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
     layout.tooltips = {
         // Gameplay.
         { "combat_speed", "Choose how quickly battle animations play." },
+        { "skip_rival_spaceship_scenes", "Enable to skip the rocket scene when a rival builds a spaceship part in a single-player game. Network games always show it." },
         { "ai_civilizations", "Set the number of AI opponents. Single Player uses 1 to 6. Multiplayer and Game of the Week use up to 4, and multiplayer can have none." },
         { "ai_research_bonus_percent", "Increase AI research speed by this percentage." },
         { "ai_production_bonus_percent", "Increase AI production speed by this percentage." },
@@ -290,6 +292,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "skip_intro_movie", "Skip Intro" },
         { "game_language", "Language" },
         { "combat_speed", "Combat Speed" },
+        { "skip_rival_spaceship_scenes", "Skip Rival Spaceship Scenes" },
         { "hide_research_prompt", "Disable Research Advisor Prompt" },
         { "hide_popup_rival_war_peace", "Disable Rival War and Peace News" },
         { "hide_popup_rival_government", "Disable Rival Government Changes" },

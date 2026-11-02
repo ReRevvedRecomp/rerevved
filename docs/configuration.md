@@ -11,7 +11,7 @@ Close ReRevved before editing the file directly.
 - **Gameplay**: combat speed, resources, Raging Barbarians, One City
   Challenge, Earliest Domination, Turn Limit, Starting Era, AI civilizations, AI Handicaps,
   Game of the Week, and the Support section.
-- **Notifications**: research prompts, advisor pop-ups, and Barbarian messages.
+- **Notifications**: Skip Rival Spaceship Scenes, research prompts, advisor pop-ups, and Barbarian messages.
   **Disable Save Reminder** suppresses a prompt; it does not save the game.
 - **Online**: connection status, player name, relay invite, and Discord options.
   See [Online play](online-play.md).

@@ -16,6 +16,8 @@ REXCVAR_DEFINE_STRING(turn_limit, "2100", "ReRevved", "Year the game can end by 
 REXCVAR_DEFINE_STRING(starting_era, "ancient", "ReRevved", "Era every civilization starts in for the next new game: ancient (default), medieval, industrial or modern. Scenarios and Game of the Week keep their own era")
     .allowed({ "ancient", "medieval", "industrial", "modern" });
 
+REXCVAR_DEFINE_BOOL(skip_rival_spaceship_scenes, false, "ReRevved", "Skip the in-world rocket scene when a rival completes a spaceship part in a single-player game. Applies to each new part");
+
 namespace rerevved::gameplay_fixes
 {
 namespace

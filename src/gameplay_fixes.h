@@ -210,6 +210,33 @@ bool ParseStartingEra(std::string_view text, int32_t& era) noexcept;
 void    RestoreStartingEra(int32_t era) noexcept;
 int32_t StartingEraForGame() noexcept;
 
+// Rival Spaceship Scenes: the world part-rocket actor (type 24) that the pending-part
+// request at 0x82D1DED8 creates. The index is the native actor key 256 * owner + slot.
+constexpr int32_t RivalSpaceshipActorIndex(int32_t owner, int32_t slot) noexcept
+{
+    return owner * 256 + slot;
+}
+
+// Only a single-player game tags, and only a part whose owner is not the local observer.
+// An unknown observer (the resolver's -1) stays native.
+constexpr bool TagsRivalSpaceshipActor(bool skip, bool singlePlayer, int32_t owner, int32_t observer) noexcept
+{
+    return skip && singlePlayer && observer >= 0 && owner != observer;
+}
+
+constexpr bool MatchesRivalSpaceshipTag(int32_t tag, int32_t owner, int32_t slot) noexcept
+{
+    return tag >= 0 && tag == RivalSpaceshipActorIndex(owner, slot);
+}
+
+// A tagged actor finishes early when its previous time is at most this value.
+constexpr int32_t kRivalSpaceshipFinishCorridor = 1000;
+
+constexpr bool FinishesRivalSpaceshipEarly(int32_t previousTime) noexcept
+{
+    return previousTime <= kRivalSpaceshipFinishCorridor;
+}
+
 // Domination needs currentTurn - startTurn >= 10 in the native palace-count arm.
 constexpr int32_t kNativeDominationMinimumTurns = 10;
 

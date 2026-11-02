@@ -605,6 +605,75 @@ EXPECTED_HOOKS = [
         "jump_address_on_true": 0x82D1143C,
     },
     {
+        "address": 0x82D1DE14,
+        "name": "ObserveSpaceshipObserver",
+        "registers": ["r3"],
+    },
+    {
+        "address": 0x82D1DEE8,
+        "name": "TagRivalSpaceshipActor",
+        "registers": ["r21", "r29", "r31"],
+    },
+    {
+        "address": 0x82D1DF5C,
+        "name": "UntagRivalSpaceshipActor",
+        "registers": ["r21", "r29"],
+    },
+    {
+        "address": 0x82D5E748,
+        "name": "SkipRivalSpaceshipFirstStore",
+        "registers": ["r28", "r26"],
+        "jump_address_on_true": 0x82D5E74C,
+    },
+    {
+        "address": 0x82D5E778,
+        "name": "SkipRivalSpaceshipFocusStore",
+        "registers": ["r28", "r26"],
+        "jump_address_on_true": 0x82D5E77C,
+    },
+    {
+        "address": 0x82D5E780,
+        "name": "SkipRivalSpaceshipFocusStore",
+        "registers": ["r28", "r26"],
+        "jump_address_on_true": 0x82D5E784,
+    },
+    {
+        "address": 0x82D5E788,
+        "name": "SkipRivalSpaceshipFocusStore",
+        "registers": ["r28", "r26"],
+        "jump_address_on_true": 0x82D5E78C,
+    },
+    {
+        "address": 0x82D5E790,
+        "name": "SkipRivalSpaceshipFocusStore",
+        "registers": ["r28", "r26"],
+        "jump_address_on_true": 0x82D5E794,
+    },
+    {
+        "address": 0x82D5E798,
+        "name": "SkipRivalSpaceshipFocusStore",
+        "registers": ["r28", "r26"],
+        "jump_address_on_true": 0x82D5E79C,
+    },
+    {
+        "address": 0x82D5E7B8,
+        "name": "SkipRivalSpaceshipFocusStore",
+        "registers": ["r28", "r26"],
+        "jump_address_on_true": 0x82D5E7BC,
+    },
+    {
+        "address": 0x82D5E7C0,
+        "name": "SkipRivalSpaceshipFocusStore",
+        "registers": ["r28", "r26"],
+        "jump_address_on_true": 0x82D5E7C4,
+    },
+    {
+        "address": 0x82D5E868,
+        "name": "FinishRivalSpaceshipEarly",
+        "registers": ["r28", "r26", "r11"],
+        "jump_address_on_true": 0x82D5E888,
+    },
+    {
         "address": 0x82D17A9C,
         "name": "FixRushCostApply",
         "registers": [
@@ -1487,6 +1556,39 @@ class HookContractTests(unittest.TestCase):
             "loc_82D11378:\n\t// lwz r10,112(r1)\n"
             + hook("SkipExtendedTurnLimitDeadline", "loc_82D1143C")
             + "\tctx.r10.u64 = REX_LOAD_U32(ctx.r1.u32 + 112);\n",
+        ):
+            self.assertEqual(count_per_chunk(expected), 1, expected)
+
+    def test_rival_spaceship_hooks_precede_their_native_instructions(self) -> None:
+        if not chunk_paths():
+            self.skipTest("generated sources are not available")
+
+        def hook(call: str, target: str) -> str:
+            return f"\tif ({call}) {{\n\t\tgoto {target};\n\t}}\n\telse {{\n\t}}\n"
+
+        store = "SkipRivalSpaceshipFocusStore(ctx.r28, ctx.r26)"
+        for expected in (
+            # The observer is read right after the resolver call returns.
+            "\tctx.lr = 0x82D1DE14;\n\tsub_82D8A3A0(ctx, base);\n"
+            "\t// lbz r9,-124(r31)\n\tObserveSpaceshipObserver(ctx.r3);\n",
+            # Past the -1 bypass, so only a successful request tags.
+            "\t// beq cr6,0x82d1df60\n\tif (ctx.cr6.eq) goto loc_82D1DF60;\n"
+            "\t// lis r28,-32000\n\tTagRivalSpaceshipActor(ctx.r21, ctx.r29, ctx.r31);\n",
+            "\t// bl 0x82d02390\n\tUntagRivalSpaceshipActor(ctx.r21, ctx.r29);\n",
+            "\t// stw r8,17848(r24)\n"
+            + hook("SkipRivalSpaceshipFirstStore(ctx.r28, ctx.r26)", "loc_82D5E74C"),
+            "\t// stfs f13,29392(r27)\n" + hook(store, "loc_82D5E77C"),
+            "\t// stfs f0,29124(r3)\n" + hook(store, "loc_82D5E784"),
+            "\t// stw r7,17844(r5)\n" + hook(store, "loc_82D5E78C"),
+            "\t// stw r9,-6208(r6)\n" + hook(store, "loc_82D5E794"),
+            "\t// stfs f3,280(r11)\n" + hook(store, "loc_82D5E79C"),
+            "\t// stfs f0,-3672(r23)\n" + hook(store, "loc_82D5E7BC"),
+            "\t// stfs f12,284(r11)\n" + hook(store, "loc_82D5E7C4"),
+            "\t// bge cr6,0x82d5e888\n"
+            + hook(
+                "FinishRivalSpaceshipEarly(ctx.r28, ctx.r26, ctx.r11)", "loc_82D5E888"
+            )
+            + "\tif (!ctx.cr6.lt) goto loc_82D5E888;\n",
         ):
             self.assertEqual(count_per_chunk(expected), 1, expected)
 

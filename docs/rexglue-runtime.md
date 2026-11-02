@@ -17,7 +17,8 @@ driver never modifies that checkout.
   [Raging Barbarians](#gameplay-raging-barbarians),
   [One City Challenge](#gameplay-one-city-challenge),
   [gameplay fixes](#gameplay-fixes), [Turn Limit](#gameplay-turn-limit),
-  [Starting Era](#gameplay-starting-era) and
+  [Starting Era](#gameplay-starting-era),
+  [Rival Spaceship Scenes](#gameplay-rival-spaceship-scenes) and
   [Game of the Week](#gameplay-game-of-the-week): gameplay integration limits.
 - [Custom achievements](#custom-achievements): the title-defined achievements
   and their award rules.
@@ -2009,6 +2010,40 @@ freezes the native era, whatever the setting. A new network game uses the host's
 frozen value on every peer; it is frozen before any grant draw. A load never
 writes the field and keeps the era and ownership bits the native save carries. The setting
 is not saved in the sidecar.
+
+## Gameplay Rival Spaceship Scenes
+
+`skip_rival_spaceship_scenes` is a live bool setting, off by default, shown as
+F1 **Notifications > Skip Rival Spaceship Scenes**. It is a prototype: a single-player
+run skipped a rival's scene, while camera, input, save and peer effects remain
+unproved. The preference is sampled once per part request, so a change never
+affects an actor already running.
+
+The pending-part caller in `sub_82D1D1C0` requests a type 24 actor with
+`sub_82D11750(owner, 24, x, y)` at `0x82D1DED8` and removes it with
+`sub_82D02390(owner, slot, 0)` at `0x82D1DF5C` after a synchronous wait. The
+hooks in [gameplay_hooks.toml](../config/gameplay_hooks.toml) work as follows.
+
+- `0x82D1DE14` records the resolver `sub_82D8A3A0` return (r3), the local observer.
+- `0x82D1DEE8`, past the `-1` bypass at `0x82D1DEE4`, tags the actor index
+  `256 * owner + slot` (r21 owner, r29 slot) when the preference is on, the network
+  byte `0x8314F10B` is zero and the owner is not the observer. The log line also
+  shows the byte at r31-124 that the native equality test compared. A failed
+  request is never tagged. `0x82D1DF5C` clears the tag before the removal request.
+- In `sub_82D5E660` (r28 owner, r26 slot), an actor matching the tag skips only
+  the individual active stores at `0x82D5E748`, `778`, `780`, `788`, `790`, `798`,
+  `7B8` and `7C0`, each by a jump to the next instruction. Selector 37, the timing
+  stores and the constant store at `0x82D5E8A4` stay native.
+- Before the `bge` at `0x82D5E868`, a tagged actor whose previous time (r11) is at
+  most 1000 jumps to the native finish at `0x82D5E888`; r25, r21, r24 and r23 are
+  already set on that path. Any other case runs the native branch.
+
+Game of the Week is a single-player game and is included; network games stay
+native. The creator result, busy bit, global timing, retirement, the shared-screen
+and launch results, and Wonder and other type 24 paths are untouched. Each step logs
+one `[spaceship]` line: tag, the first suppressed frame, the finish redirect or its
+native fallback with the previous time, and the untag with the suppressed frame
+count.
 
 ## Multiplayer gameplay snapshots
 

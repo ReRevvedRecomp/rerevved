@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 OVERLAY = (ROOT / "src/overlay_settings.cpp").read_text(encoding="utf-8")
 
 NOTIFICATION_ORDER = [
+    "skip_rival_spaceship_scenes",
     "hide_research_prompt",
     "hide_popup_city_status",
     "hide_popup_discoveries",

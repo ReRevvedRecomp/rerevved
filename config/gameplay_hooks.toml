@@ -168,3 +168,78 @@ jump_address_on_true = 0x82D11344
 address = 0x82D11378
 name = "SkipExtendedTurnLimitDeadline"
 jump_address_on_true = 0x82D1143C
+
+# Rival Spaceship Scenes (single-player, default off). See rerevved-research
+# evidence spaceship-cutscene-skip. The pending-part caller records the resolver's
+# local observer at 0x82D1DE14 and tags a successful type 24 request after the -1
+# bypass at 0x82D1DEE4; the removal request at 0x82D1DF5C untags it.
+[[midasm_hook]]
+address = 0x82D1DE14
+name = "ObserveSpaceshipObserver"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82D1DEE8
+name = "TagRivalSpaceshipActor"
+registers = ["r21", "r29", "r31"]
+
+[[midasm_hook]]
+address = 0x82D1DF5C
+name = "UntagRivalSpaceshipActor"
+registers = ["r21", "r29"]
+
+# Type 24 updater 0x82D5E660 (r28 owner, r26 slot): tagged actors skip only active focus/view stores.
+[[midasm_hook]]
+address = 0x82D5E748
+name = "SkipRivalSpaceshipFirstStore"
+registers = ["r28", "r26"]
+jump_address_on_true = 0x82D5E74C
+
+[[midasm_hook]]
+address = 0x82D5E778
+name = "SkipRivalSpaceshipFocusStore"
+registers = ["r28", "r26"]
+jump_address_on_true = 0x82D5E77C
+
+[[midasm_hook]]
+address = 0x82D5E780
+name = "SkipRivalSpaceshipFocusStore"
+registers = ["r28", "r26"]
+jump_address_on_true = 0x82D5E784
+
+[[midasm_hook]]
+address = 0x82D5E788
+name = "SkipRivalSpaceshipFocusStore"
+registers = ["r28", "r26"]
+jump_address_on_true = 0x82D5E78C
+
+[[midasm_hook]]
+address = 0x82D5E790
+name = "SkipRivalSpaceshipFocusStore"
+registers = ["r28", "r26"]
+jump_address_on_true = 0x82D5E794
+
+[[midasm_hook]]
+address = 0x82D5E798
+name = "SkipRivalSpaceshipFocusStore"
+registers = ["r28", "r26"]
+jump_address_on_true = 0x82D5E79C
+
+[[midasm_hook]]
+address = 0x82D5E7B8
+name = "SkipRivalSpaceshipFocusStore"
+registers = ["r28", "r26"]
+jump_address_on_true = 0x82D5E7BC
+
+[[midasm_hook]]
+address = 0x82D5E7C0
+name = "SkipRivalSpaceshipFocusStore"
+registers = ["r28", "r26"]
+jump_address_on_true = 0x82D5E7C4
+
+# Tagged actors with previous time at most 1000 take native finish 0x82D5E888 without waiting.
+[[midasm_hook]]
+address = 0x82D5E868
+name = "FinishRivalSpaceshipEarly"
+registers = ["r28", "r26", "r11"]
+jump_address_on_true = 0x82D5E888

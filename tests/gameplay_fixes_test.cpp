@@ -472,6 +472,28 @@ TEST_CASE("turn_limit_hooks_pass_native_and_decide_extended_games", "[ctest][gam
     gf::RestoreTurnLimit(restore);
 }
 
+TEST_CASE("rival_spaceship_tags_only_a_single_player_rival_part", "[ctest][gameplay-fixes]")
+{
+    CHECK(gf::TagsRivalSpaceshipActor(true, true, 2, 0));
+    // The observer's own part, a network game and the Show preference stay native.
+    CHECK(!gf::TagsRivalSpaceshipActor(true, true, 0, 0));
+    CHECK(!gf::TagsRivalSpaceshipActor(true, false, 2, 0));
+    CHECK(!gf::TagsRivalSpaceshipActor(false, true, 2, 0));
+    // An unknown observer stays native.
+    CHECK(!gf::TagsRivalSpaceshipActor(true, true, 2, -1));
+
+    // A tag matches only the actor index 256 * owner + slot it recorded.
+    const int32_t tag = gf::RivalSpaceshipActorIndex(2, 7);
+    CHECK(tag == 519);
+    CHECK(gf::MatchesRivalSpaceshipTag(tag, 2, 7));
+    CHECK(!gf::MatchesRivalSpaceshipTag(tag, 2, 6));
+    CHECK(!gf::MatchesRivalSpaceshipTag(tag, 3, 7));
+    CHECK(!gf::MatchesRivalSpaceshipTag(-1, 0, 0));
+
+    CHECK(gf::FinishesRivalSpaceshipEarly(1000));
+    CHECK(!gf::FinishesRivalSpaceshipEarly(1001));
+}
+
 TEST_CASE("starting_era_choices_map_to_native_values", "[ctest][gameplay-fixes]")
 {
     int32_t era = 9;
