@@ -1,0 +1,5 @@
+# r10 is elapsed dwell, r31 the owner.
+[[midasm_hook]]
+address = 0x82DEE89C
+name = "SkipLegalScreen"
+registers = ["r10", "r31"]

@@ -48,6 +48,7 @@ your log.
 ## Acknowledgements
 
 - [ReXGlue](https://github.com/rexglue/rexglue-sdk)
+- [Xelu's FREE Controller & Key Prompts](https://thoseawesomeguys.com/prompts/) (CC0), the keyboard button icons
 
 ## License
 

@@ -33,7 +33,10 @@ struct Selection
     }
 };
 
-bool     IsValidWeek(uint32_t week) noexcept;
+bool IsValidWeek(uint32_t week) noexcept;
+// Weeks since Sunday 2006-01-01 12:00 UTC (the game's console-clock week), rolling over each Sunday 12:00 UTC; zero before.
+uint32_t WeekAt(int64_t unixSeconds) noexcept;
+void     SeedWeekFromClock();
 bool     IsValidCivilization(uint32_t civilization) noexcept; // Roman 0..English 15, excluding Barbarian.
 uint32_t SeedForWeek(uint32_t week) noexcept;
 // Reject invalid decimal input without changing the caller's previous value.

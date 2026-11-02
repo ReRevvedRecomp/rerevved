@@ -12,6 +12,8 @@ import tarfile
 import tomllib
 import zipfile
 
+from build_keyboard_icons import KEYS as KEYBOARD_ICON_KEYS
+
 REPO = pathlib.Path(__file__).resolve().parent.parent
 
 MACOS_LIBRARIES = {
@@ -44,6 +46,12 @@ BUNDLED_ASSET_FILES = (
     "rerevved-logo/assets/file-data/GFX_MainMenu_logo.dds",
 )
 
+# Use the generator's key table so only generated keyboard icons ship.
+KEYBOARD_ICON_DIR = "button-icons/xelu-light"
+KEYBOARD_ICON_FILES = tuple(f"{name}.dds" for name in KEYBOARD_ICON_KEYS)
+
+XELU_NOTICES = ("Readme.txt", "PROVENANCE.md")
+
 # First-party Lua mods shipped disabled under mods/.
 BUNDLED_MODS = (
     "cataphracts-defense",
@@ -75,6 +83,8 @@ def expected_entries(platform):
     if platform == "macos":
         files |= {MACOS_ICD, *(f"licenses/{name}" for name in MACOS_LICENSES)}
     files |= {f"asset-overrides/{name}" for name in BUNDLED_ASSET_FILES}
+    files |= {f"{KEYBOARD_ICON_DIR}/{name}" for name in KEYBOARD_ICON_FILES}
+    files |= {f"licenses/xelu-prompts-{name}" for name in XELU_NOTICES}
     for package_id in BUNDLED_MODS:
         files |= {f"mods/{package_id}/{name}" for name in MOD_FILES}
     directories = {"game"}
@@ -400,6 +410,19 @@ def main():
         destination = bundled_assets / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
+
+    keyboard_icons = stage / KEYBOARD_ICON_DIR
+    keyboard_icons.mkdir(parents=True)
+    for filename in KEYBOARD_ICON_FILES:
+        source = REPO / "assets" / KEYBOARD_ICON_DIR / filename
+        if not source.is_file():
+            raise SystemExit(f"error: missing keyboard icon: {source}")
+        shutil.copy2(source, keyboard_icons / filename)
+    for filename in XELU_NOTICES:
+        source = REPO / "thirdparty" / "xelu-prompts" / filename
+        if not source.is_file():
+            raise SystemExit(f"error: missing Xelu notice: {source}")
+        shutil.copy2(source, licenses / f"xelu-prompts-{filename}")
 
     # No mod_order.txt ships, so every bundled mod starts disabled.
     for package_id in BUNDLED_MODS:

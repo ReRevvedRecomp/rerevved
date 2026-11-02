@@ -1,0 +1,5 @@
+# Clears r9 only for the IntroMovie.bik state object; at 0x82E551D8 r9 is frontend bit 0x1000, r31 the state.
+[[midasm_hook]]
+address = 0x82E5522C
+name = "SkipIntroMovie"
+registers = ["r9", "r31"]

@@ -1,3 +1,4 @@
 # Development tools used by repository verification and CI.
 clang-format==22.1.8
 ruff==0.15.21
+pillow==12.2.0

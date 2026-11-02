@@ -781,6 +781,19 @@ void testTraceCap()
 
 } // namespace
 
+TEST_CASE("gotw_week_follows_the_sunday_noon_utc_clock", "[ctest][gotw-settings]")
+{
+    using rerevved::gotw::WeekAt;
+    // Logged weekly launches: week 1085 on 2026-10-23 and 1086 on 2026-10-27.
+    CHECK(WeekAt(1792767984) == 1085);
+    CHECK(WeekAt(1793075931) == 1086);
+    // Rollover at Sunday 2026-10-25 12:00:00 UTC.
+    CHECK(WeekAt(1792929599) == 1085);
+    CHECK(WeekAt(1792929600) == 1086);
+    CHECK(WeekAt(1136116800) == 0);
+    CHECK(WeekAt(0) == 0);
+}
+
 TEST_CASE("gotw_settings", "[ctest][gotw-settings][local-fast]")
 {
     const RestoreNetwork restoreNetwork;

@@ -301,7 +301,7 @@ class GotwContractTests(unittest.TestCase):
             """{ "gotw_custom_week", "Enable to play a different week's game instead of this week's." }""",
             '{ "gotw_custom_civilization", "Enable to play Game of the Week as the civilization you choose." }',
             '{ "gotw_civilization", { { "0", "Roman" }, { "1", "Egyptian" }, { "2", "Greek" }, { "3", "Spanish" }, { "4", "German" }, { "5", "Russian" }, { "6", "Chinese" }, { "7", "American" }, { "8", "Japanese" }, { "9", "French" }, { "10", "Indian" }, { "11", "Arabian" }, { "12", "Aztec" }, { "13", "Zulu" }, { "14", "Mongolian" }, { "15", "English" } } }',
-            '{ "gotw_standard_rules", "Enable to play Game of the Week without Lua mods or gameplay changes other than Earliest Domination." }',
+            '{ "gotw_standard_rules", "Enable to play Game of the Week without mods or gameplay changes other than Earliest Domination." }',
         ):
             self.assert_cpp(text, overlay)
         for removed in ("gotw_custom_seed", "gotw_seed", "gotw_weekly_seed"):
@@ -482,6 +482,7 @@ class GotwContractTests(unittest.TestCase):
         self.assertEqual(
             re.findall(r'^        \{\s*"(\w+)"', tabs, re.MULTILINE),
             [
+                "General",
                 "Gameplay",
                 "Notifications",
                 "Online",
@@ -503,6 +504,10 @@ class GotwContractTests(unittest.TestCase):
         self.assert_cpp('{ "input_vibration", "Vibration" }', overlay)
         self.assert_cpp('{ "button_icons", Audience::kPlayer }', overlay)
         self.assert_cpp('{ "button_icons", "Button Icons" }', overlay)
+        icons = (ROOT / "src/button_icons.cpp").read_text(encoding="utf-8")
+        self.assert_cpp(
+            'REXCVAR_DEFINE_STRING(button_icons, "auto", "ReRevved",', icons
+        )
         self.assert_cpp(
             'layout.float_decimals = { { "mnk_sensitivity", 2 } };', overlay
         )

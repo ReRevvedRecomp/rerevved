@@ -6,10 +6,13 @@
 #include <utility>
 
 #include <rex/cvar.h>
+#include <rex/input/input_system.h>
 #include <rex/logging.h>
+#include <rex/runtime.h>
+#include <rex/system/kernel_state.h>
 
-REXCVAR_DEFINE_STRING(button_icons, "xbox", "ReRevved", "Controller button icons the game shows: xbox or playstation")
-    .allowed({ "xbox", "playstation" })
+REXCVAR_DEFINE_STRING(button_icons, "auto", "ReRevved", "Button icons the game shows: auto (keyboard when no controller is connected), xbox, playstation or keyboard")
+    .allowed({ "auto", "xbox", "playstation", "keyboard" })
     .audience(rex::cvar::Audience::kPlayer)
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 
@@ -72,6 +75,39 @@ constexpr std::array<std::pair<std::string_view, TipImage>, 8> kTips{ {
     { "XBOXHORIZONTAL", { "PS3HORIZONTAL", false } },
 } };
 
+const std::string& latchedSetting()
+{
+    static const std::string setting = rex::cvar::Query<std::string>("button_icons");
+    return setting;
+}
+
+struct PadState
+{
+    rex::input::GamepadFamily family    = rex::input::GamepadFamily::kOther;
+    bool                      connected = true;
+};
+
+PadState padState()
+{
+    auto* kernel  = REX_KERNEL_STATE();
+    auto* runtime = kernel ? kernel->emulator() : nullptr;
+    auto* input   = runtime ? dynamic_cast<rex::input::InputSystem*>(runtime->input_system()) : nullptr;
+    return input ? PadState{ input->ActiveGamepadFamily(), input->HasConnectedGamepad() } : PadState{};
+}
+
+const char* familyName(Family family)
+{
+    switch (family)
+    {
+        case Family::kPlayStation:
+            return "playstation";
+        case Family::kKeyboard:
+            return "keyboard";
+        default:
+            return "xbox";
+    }
+}
+
 bool equalsLower(std::string_view text, std::string_view lower) noexcept
 {
     if (text.size() != lower.size())
@@ -90,12 +126,20 @@ bool equalsLower(std::string_view text, std::string_view lower) noexcept
 
 } // namespace
 
+bool MaySwap()
+{
+    // Assume a PlayStation pad: only then can auto still swap.
+    return ParseFamily(latchedSetting(), rex::input::GamepadFamily::kPlayStation) == Family::kPlayStation;
+}
+
 Family ActiveFamily()
 {
     static const Family family = []
     {
-        const Family parsed = ParseFamily(rex::cvar::Query<std::string>("button_icons"));
-        REXLOG_INFO("ButtonIcons: family={}", parsed == Family::kPlayStation ? "playstation" : "xbox");
+        const std::string& setting = latchedSetting();
+        const PadState     pad     = setting == "auto" ? padState() : PadState{};
+        const Family       parsed  = ParseFamily(setting, pad.family, pad.connected);
+        REXLOG_INFO("ButtonIcons: setting={} family={}", setting, familyName(parsed));
         return parsed;
     }();
     return family;

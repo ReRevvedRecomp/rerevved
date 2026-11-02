@@ -1,0 +1,5 @@
+# SetVersion from 0x82E516F0 via 0x82C4E858: replaces r6, the retail "v1.30" literal, with the ReRevved version.
+[[midasm_hook]]
+address = 0x82E51818
+name = "ReplaceMainMenuVersion"
+registers = ["r6"]

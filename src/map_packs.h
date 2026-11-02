@@ -70,8 +70,9 @@ std::string CheckPackFiles(const std::filesystem::path& assetsRoot);
 std::vector<rex::system::AssetOverlayPackage> SelectEnabled(
     const std::filesystem::path& profileRoot, const std::filesystem::path& mapsRoot);
 
-// Registers the map pack of each selected package, in loadout order, before
-// the guest main thread starts. Refused packs are logged by package ID.
+const std::vector<std::string>& StartupOrder();
+
+// Must run before the guest main thread starts; refused packs are logged by package ID.
 void RegisterSelected(std::span<const rex::system::AssetOverlayPackage> packages);
 
 } // namespace rerevved::map_packs
