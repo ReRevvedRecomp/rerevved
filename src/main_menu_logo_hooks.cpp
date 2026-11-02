@@ -1,6 +1,8 @@
 #include "keyboard_icons.h"
 #include "main_menu_logo_asset.h"
 
+#include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <limits>
@@ -20,10 +22,15 @@ namespace
 constexpr uint32_t    kLengthPrefixSize  = sizeof(uint32_t);
 thread_local uint32_t logoGuestBuffer    = 0;
 thread_local bool     logoOverrideLogged = false;
-// The keyboard A icon keeps its own buffer: both payloads stay live.
-static_assert(rerevved::keyboard_icons::kGuestFileName == "A.dds");
-thread_local uint32_t keyboardGuestBuffer    = 0;
-thread_local bool     keyboardOverrideLogged = false;
+
+// Each keyboard prompt image keeps its own buffer: all payloads stay live.
+struct KeyboardServe
+{
+    uint32_t buffer = 0;
+    bool     logged = false;
+};
+
+thread_local std::array<KeyboardServe, rerevved::keyboard_icons::kSlots.size()> keyboardServes;
 
 bool isGuestRangeAccessible(rex::memory::Memory* memory,
                             uint32_t             address,
@@ -60,30 +67,35 @@ void writeBigEndianU32(uint8_t* destination, uint32_t value)
     destination[3] = static_cast<uint8_t>(value);
 }
 
-// True when the NUL-terminated guest string at `address` is exactly `lowerName`
-// apart from ASCII case. `lowerName` is lowercase.
-bool guestNameEqualsIgnoreCase(rex::memory::Memory* memory,
-                               uint32_t             address,
-                               std::string_view     lowerName)
+// Check pages separately so short names before unmapped pages remain readable.
+bool readGuestFileName(rex::memory::Memory* memory,
+                       uint32_t             address,
+                       char (&out)[rerevved::keyboard_icons::kMaxFileNameLength + 1],
+                       size_t& length)
 {
-    if (!isGuestRangeAccessible(memory,
-                                address,
-                                static_cast<uint32_t>(lowerName.size() + 1),
-                                false))
+    constexpr uint32_t kPage = 0x1000;
+    constexpr uint32_t kSpan = rerevved::keyboard_icons::kMaxFileNameLength + 1;
+    for (uint32_t done = 0; done < kSpan;)
     {
-        return false;
-    }
-
-    const auto* text = memory->TranslateVirtual<const unsigned char*>(address);
-    for (size_t i = 0; i < lowerName.size(); ++i)
-    {
-        const unsigned char c = text[i];
-        if ((c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c) != static_cast<unsigned char>(lowerName[i]))
+        const uint32_t at    = address + done;
+        const uint32_t chunk = std::min<uint32_t>(kPage - (at & (kPage - 1)), kSpan - done);
+        if (!isGuestRangeAccessible(memory, at, chunk, false))
         {
             return false;
         }
+        const auto* text = memory->TranslateVirtual<const char*>(at);
+        for (uint32_t i = 0; i < chunk; ++i)
+        {
+            if (text[i] == 0)
+            {
+                length = done + i;
+                return true;
+            }
+            out[done + i] = text[i];
+        }
+        done += chunk;
     }
-    return text[lowerName.size()] == 0;
+    return false;
 }
 
 // Length-prefixed (big-endian) copy into process-lifetime guestBuffer; failure preserves registers and retail data.
@@ -153,26 +165,28 @@ void ApplyAssetFileOverride(PPCRegister& stackPointer,
                     rerevved::main_menu_logo::kGuestFileName.size() + 1) == 0;
     if (!isLogo)
     {
-        // The shared A prompt image is requested by this bare name, in any
-        // case. Without a prepared keyboard icon no guest memory is read.
-        rerevved::keyboard_icons::Payload icon;
-        if (!rerevved::keyboard_icons::TryGetPayload(icon) ||
-            icon->size() != rerevved::keyboard_icons::kIconDdsSize ||
-            !guestNameEqualsIgnoreCase(
-                memory, requestedName.u32, "a.dds"))
+        // Bare prompt names ignore case; movie vector prompts bypass this hook and stay Xbox.
+        char                               name[rerevved::keyboard_icons::kMaxFileNameLength + 1];
+        size_t                             length = 0;
+        rerevved::keyboard_icons::Prepared icon;
+        if (!rerevved::keyboard_icons::AnyPrepared() ||
+            !readGuestFileName(memory, requestedName.u32, name, length) ||
+            !rerevved::keyboard_icons::TryGetPrepared(std::string_view(name, length), icon))
         {
             return;
         }
+        KeyboardServe& serve = keyboardServes[*rerevved::keyboard_icons::FindSlot(std::string_view(name, length))];
         if (serveGuestPayload(memory,
                               stackPointer,
                               returnedDataPointer,
-                              *icon,
-                              keyboardGuestBuffer) &&
-            !keyboardOverrideLogged)
+                              *icon.payload,
+                              serve.buffer) &&
+            !serve.logged)
         {
-            REXLOG_INFO("ButtonIcons: served A.dds as {}",
-                        rerevved::keyboard_icons::PreparedKey());
-            keyboardOverrideLogged = true;
+            REXLOG_INFO("ButtonIcons: served {} as {}",
+                        std::string_view(name, length),
+                        icon.key);
+            serve.logged = true;
         }
         return;
     }

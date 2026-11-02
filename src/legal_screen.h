@@ -1,7 +1,6 @@
 #pragma once
 
-// skip_legal_screens ends the legal-screen dwell early through the guest's own
-// elapsed-time completion in legal-screen update 0x82DEE860.
+// Skip Intro (skip_intro_movie) completes the legal-screen dwell via update 0x82DEE860.
 
 #include <cstdint>
 

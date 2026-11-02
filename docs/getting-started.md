@@ -50,9 +50,38 @@ Vulkan-capable GPU and macOS 13.3 or newer.
 - F3 opens Achievements.
 - F4 toggles the FPS counter.
 
-Use a mouse or keyboard in these overlays; a game controller does not navigate
-them. Rebind game controls under **F1 > Controls > Keybinds > Controller** and
-overlay keys under **F1 > Controls > Overlay Hotkeys**. Select **Save** in
+The main menu's **Options** opens the Options page. In a game, the Special
+Functions menu has **Exit Game**, and **Change Options.** opens the Options
+page too. This full-screen page supports a controller or keyboard: Up
+and Down move between settings, Left and Right change the value, A toggles a
+setting or opens a list of choices, and B closes the page and returns to the
+menu you came from. The settings are in tabs (General, Gameplay,
+Notifications, Online, Controls, Display and Audio); LB and RB (or PageUp and
+PageDown) switch tabs. A change applies and saves at once; the footer says
+when a setting takes effect only after a restart or in the next game.
+The Audio section also has Music, Effects, Advisor Speech and Leader Speech
+volumes from 0 to 9. They apply at once and are reapplied every time the
+game loads your profile.
+The first tab, General, sets the game's language after a restart and holds
+the FPS counter, Skip Intro and **Open Log Folder**. The Online tab
+shows the connection status and has the Profile Name and Invite Code, which
+open a text entry (a keyboard on screen for a gamepad); Invite Code also has
+Paste and Copy buttons.
+The Controls tab also lists the controller keybinds and the overlay hotkeys:
+press A or click a row, then press the new key (hold Shift, Ctrl or Alt for a
+combination on a controller key); Esc or B cancels, X or Delete clears and Y or
+Backspace restores the default. Developer entries stay in the F1 window. **Mods.** and
+**Achievements.** open the F2 and F3 windows.
+
+A game controller also drives Settings, Mods and Achievements while one is
+open: the D-pad or left stick moves, A selects, B backs out or closes the
+window, and LB/RB switch tabs. The game ignores the controller until the last
+of them closes. Typing text and capturing a key need the keyboard.
+
+The A, B, LT, RT, Back and Start keys default to one key each (A is `;`, B is
+`'`, LT is `Q`, RT is `E`, Back is `Z`, Start is `X`); Y or Backspace on a row restores its
+default. Rebind game controls under **Controls > Keybinds** and overlay keys under
+**Controls > Overlay Hotkeys**, on this page or in F1. Select **Save** in
 Settings to keep changes.
 
 Continue with [Configuration](configuration.md), [Mods](mods.md), or

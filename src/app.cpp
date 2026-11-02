@@ -1,5 +1,6 @@
 #include "app.h"
 #include "custom_achievements.h"
+#include "game_language.h"
 #include "gotw_settings.h"
 #include "gpu/completion/guest_progress_hooks.h"
 
@@ -42,6 +43,7 @@
 #include <rex/system/game_data_selector.h>
 #include <rex/system/xmemory.h>
 #include <rex/ui/keybinds.h>
+#include <rex/ui/monitors.h>
 #include <rex/ui/window.h>
 #include <rex/ui/windowed_app_context.h>
 
@@ -83,11 +85,17 @@
 #include "tools/presentation_fixture.h"
 #endif
 #include "host_settings.h"
+#include "keybind_defaults.h"
 #include "keyboard_icons.h"
 #include "main_menu_logo_asset.h"
 #include "map_packs.h"
 #include "mod_script_rules.h"
+#include "native_settings.h"
+#include "options_page.h"
+#include "overlay_settings.h"
+#include "pause_menu.h"
 #include "portable_mode.h"
+#include "retail_audio.h"
 #include "xenos_frame_counter.h"
 #if REREVVED_DEVELOPER
 #include "gpu/diagnostics/label_draw_capture.h"
@@ -707,9 +715,15 @@ void App::OnConfigurePaths(rex::PathConfig& paths)
 {
     // Apply before config loading and the System Link startup snapshot.
     rex::cvar::SetFlagAsApplicationDefault("live_sessions", "true");
+    rerevved::keybind_defaults::Apply();
 
     // Keep user state outside a potentially read-only install directory.
     paths.config_path = paths.user_data_root / "rerevved.toml";
+}
+
+void App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
+{
+    rerevved::ConfigureSettingsLayout(layout);
 }
 
 std::optional<rex::system::ProfileCopySpecification> App::GetProfileCopySpecification() const
@@ -994,7 +1008,10 @@ bool App::selectGameData()
 
 bool App::ConstructRuntime(const rex::PathConfig& paths)
 {
-    // Weekly GOTW seeds reach the settings field on the UI thread only.
+    // The config is loaded; the runtime reads user_language when it sets up.
+    rerevved::game_language::ApplyAtBoot();
+    // Only UI-thread GOTW seeds update the unchecked Week initialized here.
+    rerevved::gotw::SeedWeekFromClock();
     rerevved::gotw::SetSeedDispatcher([this](std::function<void()> update)
                                       {
                                           app_context().CallInUIThreadDeferred(std::move(update));
@@ -1159,6 +1176,8 @@ void App::OnPostLoadXexImage()
 void App::OnPostSetup()
 {
     rex::ReXApp::OnPostSetup();
+    // A waiting Keybind row captures keys before ImGui and input drivers.
+    window()->AddInputListener(&keybindCapture, rerevved::keybind_capture::kListenerZ);
     runtime()->SetModLoadoutChangedCallback([this]
                                             {
                                                 PublishModSnapshot(*runtime());
@@ -1171,7 +1190,7 @@ void App::OnPostSetup()
                                              {
                                                  return std::nullopt;
                                              }
-                                             return "Mods can't be changed during a multiplayer game.";
+                                             return std::string(rerevved::gameplay_session::kModsLockedReason);
                                          });
 
     // Resolve selected package assets after the SDK has built the loadout and
@@ -1182,13 +1201,79 @@ void App::OnPostSetup()
         runtime()->user_data_root(),
         rex::filesystem::GetExecutableFolder() / rerevved::map_packs::kMapsDirectory));
 
-    // Latch the button-icon family now, with the SDK's window attached, so
-    // "auto" sees the pad state at launch. The keyboard A icon follows the
-    // first key bound to keybind_a at this moment.
+    // Latch after the SDK window is attached so "auto" sees the launch pad.
     if (rerevved::button_icons::ActiveFamily() == rerevved::button_icons::Family::kKeyboard)
     {
         (void)rerevved::keyboard_icons::Prepare(rex::filesystem::GetExecutableFolder() / "button-icons" / "xelu-light",
-                                                rex::cvar::Query<std::string>("keybind_a"));
+                                                [](std::string_view keybind)
+                                                {
+                                                    return rex::cvar::Query<std::string>(keybind);
+                                                });
+    }
+
+    // Exit Game arrives on the guest thread; close runs on the UI thread.
+    rerevved::pause_menu::SetHostActions({
+        .quit = [this, alive = std::weak_ptr(gameplayUiAlive)]
+        {
+            app_context().CallInUIThreadDeferred([this, alive]
+                                                 {
+                                                     const auto live = alive.lock();
+                                                     if (!live || !live->load())
+                                                         return;
+                                                     if (OnWindowCloseRequested())
+                                                         window()->RequestClose();
+                                                 });
+        },
+    });
+
+    rerevved::retail_audio::PublishOverrides();
+
+    {
+        auto layout = std::make_shared<rex::ui::SettingsLayout>();
+        rerevved::ConfigureSettingsLayout(*layout);
+        const auto alive = std::weak_ptr(gameplayUiAlive);
+        rerevved::native_settings::SetHost({
+            .post = [this, alive](std::function<void()> job)
+            {
+                const auto live = alive.lock();
+                if (!live || !live->load())
+                    return false;
+                app_context().CallInUIThreadDeferred([alive, job = std::move(job)]
+                                                     {
+                                                         const auto live = alive.lock();
+                                                         if (live && live->load())
+                                                             job();
+                                                     });
+                return true;
+            },
+            .alive = [alive]
+            {
+                const auto live = alive.lock();
+                return live && live->load();
+            },
+            .configPath     = user_data_root() / "rerevved.toml",
+            .monitorChoices = []
+            {
+                return rex::ui::MonitorChoiceLabels();
+            },
+            .openOptionsPage = [this]
+            {
+                // Capture pad on the UI thread before the guest resumes; queue F1 close so edits are not reverted.
+                CloseBuiltinOverlay(BuiltinOverlay::kSettings);
+                return openOptionsPage();
+            },
+            .optionsPageOpen = [gate = optionsGate](std::uint64_t id)
+            {
+                return gate->IsOpen(id);
+            },
+            // Queued through post: UI thread only, never after title shutdown.
+            .closeOptionsPage = [this](std::uint64_t id)
+            {
+                if (id == optionsPageId)
+                    releaseOptionsPage();
+            },
+            .layout = layout,
+        });
     }
 
     rerevved::StartPresence();
@@ -1213,9 +1298,91 @@ void App::OnGuestThreadExit(rex::system::XThread* thread)
     rerevved::display_aspect::Shutdown();
 }
 
+std::uint64_t App::openOptionsPage()
+{
+    if (optionsPage)
+    {
+        if (!optionsPage->Closing())
+            return optionsPageId;
+        releaseOptionsPage();
+    }
+    auto* drawer = imgui_drawer();
+    auto  host   = rerevved::native_settings::Host();
+    if (!drawer || !host || !host->layout)
+        return 0;
+    rerevved::OptionsPageEnv env;
+    env.host     = std::move(*host);
+    env.gameRoot = [this]
+    {
+        return game_data_root();
+    };
+    env.captureKeys    = &keybindCapture.Keys();
+    env.keyboardArtDir = []
+    {
+        return rex::filesystem::GetExecutableFolder() / "button-icons" / "xelu-light";
+    };
+    env.immediateDrawer = [this]
+    {
+        return immediate_drawer();
+    };
+    // Close is requested inside draw; reset next UI turn only if no newer page replaced it.
+    const auto generation = ++optionsPageGeneration;
+    env.requestClose      = [this, alive = std::weak_ptr(gameplayUiAlive), generation]
+    {
+        app_context().CallInUIThreadDeferred([this, alive, generation]
+                                             {
+                                                 const auto live = alive.lock();
+                                                 if (live && live->load() && generation == optionsPageGeneration)
+                                                     resetOptionsPage();
+                                             });
+    };
+    // Defer Settings until Mods edits are discarded; the generation keeps queued requests from outliving the page.
+    env.closeSettings = [this, alive = std::weak_ptr(gameplayUiAlive), generation]
+    {
+        app_context().CallInUIThreadDeferred([this, alive, generation]
+                                             {
+                                                 const auto live = alive.lock();
+                                                 if (live && live->load() && generation == optionsPageGeneration)
+                                                     CloseBuiltinOverlay(BuiltinOverlay::kSettings);
+                                             });
+    };
+    env.openSettings = [this, alive = std::weak_ptr(gameplayUiAlive), generation]
+    {
+        app_context().CallInUIThreadDeferred([this, alive, generation]
+                                             {
+                                                 const auto live = alive.lock();
+                                                 if (live && live->load() && generation == optionsPageGeneration)
+                                                     OpenBuiltinOverlay(BuiltinOverlay::kSettings);
+                                             });
+    };
+    env.appContext = &app_context();
+    REXLOG_INFO("Opening the Options page");
+    optionsPage   = std::make_unique<rerevved::OptionsPage>(drawer, std::move(env));
+    optionsPageId = optionsGate->Opened();
+    return optionsPageId;
+}
+
+void App::resetOptionsPage()
+{
+    optionsPage.reset();
+    optionsGate->Closed(optionsPageId);
+}
+
+void App::releaseOptionsPage()
+{
+    ++optionsPageGeneration;
+    resetOptionsPage();
+}
+
 void App::OnShutdown()
 {
+    optionsGate->Shutdown();
+    releaseOptionsPage();
+    if (window())
+        window()->RemoveInputListener(&keybindCapture);
     rerevved::gotw::SetSeedDispatcher({});
+    rerevved::pause_menu::SetHostActions({});
+    rerevved::native_settings::SetHost({});
 #if REREVVED_DEVELOPER
     rerevved::gpu::guest_d3d::ReportCompletionProbe(true);
     rerevved::gpu::guest_d3d::ReportTilingRestore(true);
@@ -1266,6 +1433,7 @@ void App::OnShutdown()
         nativeDrain->result.wait_until(nativeDrain->deadline.Expiry());
         if (!guestVideoStopped)
             hardExitAfterMissedVblankJoin();
+        releaseOptionsPage();
         ShutdownOverlays();
         nativePresentation->FlushTrace();
 #if REREVVED_DEVELOPER
@@ -1334,6 +1502,7 @@ bool App::OnWindowCloseRequested()
                                                                                             return;
                                                                                         nativeClose.Complete([this]
                                                                                                              {
+                                                                                                                 releaseOptionsPage();
                                                                                                                  ShutdownOverlays();
                                                                                                                  nativePresentation->Event("overlays_shutdown");
                                                                                                              });

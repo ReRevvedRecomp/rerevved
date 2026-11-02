@@ -1,7 +1,4 @@
-# Skip Legal Screens (skip_legal_screens setting). In legal-screen update
-# 0x82DEE860, r10 holds the elapsed dwell compared against 5000 and r31 the
-# owner. The hook reports the full dwell only for the GFX_LegalScreen.gfx owner
-# after it has dispatched the main-menu preload.
+# r10 is elapsed dwell, r31 the owner.
 [[midasm_hook]]
 address = 0x82DEE89C
 name = "SkipLegalScreen"

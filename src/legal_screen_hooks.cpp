@@ -8,9 +8,8 @@
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
 
-REXCVAR_DEFINE_BOOL(skip_legal_screens, false, "ReRevved", "Finish the legal screens as soon as the main menu has started loading")
-    .audience(rex::cvar::Audience::kPlayer)
-    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
+// Defined with the intro movie hook: one Skip Intro setting covers both.
+REXCVAR_DECLARE(bool, skip_intro_movie);
 
 namespace ls = rerevved::legal_screen;
 
@@ -18,7 +17,7 @@ namespace ls = rerevved::legal_screen;
 // report full dwell only after preload (+0x434 set), so exactly one preload runs.
 void SkipLegalScreen(PPCRegister& elapsed, PPCRegister& owner)
 {
-    if (!REXCVAR_GET(skip_legal_screens) || elapsed.u32 >= ls::kLegalScreenDwell)
+    if (!REXCVAR_GET(skip_intro_movie) || elapsed.u32 >= ls::kLegalScreenDwell)
     {
         return;
     }

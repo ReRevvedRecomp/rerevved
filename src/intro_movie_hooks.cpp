@@ -8,7 +8,7 @@
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
 
-REXCVAR_DEFINE_BOOL(skip_intro_movie, false, "ReRevved", "Skip the opening movie and continue as if it had finished")
+REXCVAR_DEFINE_BOOL(skip_intro_movie, false, "ReRevved", "Skip the legal screens and the opening movie at startup")
     .audience(rex::cvar::Audience::kPlayer)
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 

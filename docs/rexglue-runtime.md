@@ -362,14 +362,46 @@ a restart.
 
 ### Keyboard icons
 
-With the `keyboard` family active, every A prompt shows the keycap of the
-first key bound to `keybind_a`; the A button is the only image covered so far.
-The binding is read once at startup. Only its first comma-separated
-alternative counts, with outer spaces trimmed, and a later alternative is never
-used. A chord such as `Shift+Space`, an empty binding, or a key without shipped
-art leaves the retail A icon and logs one line saying why. Key names match the
-SDK's names case-sensitively. Comma, Period, Backslash, F13 to F24, the numpad
-keys, Pause and ScrollLock have no art.
+With the `keyboard` family active, the prompt images the game requests by name
+show the keycap of the first key bound to that button, one per slot in
+`keyboard_icons::kSlots`:
+
+| Image | Binding cvar | Canvas |
+|---|---|---|
+| `a.dds`, `b.dds`, `x.dds`, `y.dds` | `keybind_a`, `keybind_b`, `keybind_x`, `keybind_y` | 64x64 |
+| `lb.dds`, `rb.dds` | `keybind_left_shoulder`, `keybind_right_shoulder` | 128x64 |
+| `lt.dds`, `rt.dds` | `keybind_left_trigger`, `keybind_right_trigger` | 64x128 |
+| `l3.dds`, `r3.dds` | `keybind_lstick_press`, `keybind_rstick_press` | 64x64 |
+| `dup.dds`, `ddown.dds`, `dleft.dds`, `dright.dds` | `keybind_dpad_up`, `_down`, `_left`, `_right` | 64x64 |
+| `startbutton.dds`, `backbutton.dds` | `keybind_start`, `keybind_back` | 64x64 |
+
+No label or tip name is rewritten, so a control label or loading tip whose
+Xbox frame or export draws one of these images shows the key too, with the
+retail layout and box size.
+
+The bindings are read once at startup. Each is a comma-separated list; the first
+alternative that is a single key with shipped art is shown, and a later
+alternative is never used once one qualifies. Alternatives are trimmed of outer
+spaces. A chord such as `Shift+Space`, an empty alternative, a key without
+shipped art, and a bare `Shift`, `Control` or `Alt` are skipped; the SDK
+matches modifiers exactly, so a bare modifier never activates a button. When none qualifies, that button keeps its retail
+prompt and one log line says why; the other buttons are unaffected. Key names
+match the SDK's names case-sensitively. Comma, Period, Backslash, F13 to F24,
+the numpad keys, Pause and ScrollLock have no art. The default D-pad bindings
+are chords, so the D-pad directions stay retail until rebound to single keys.
+
+The left and right stick images, the D-pad image and the vertical and
+horizontal axis images stand for several directions or a whole control, so they
+have no single key and keep their retail art. The `dup.dds`, `ddown.dds`,
+`dleft.dds` and `dright.dds` images are served for any direct request, but the
+DUP, DDOWN, DLEFT and DRIGHT labels in MainMenu and CityScreen draw the generic
+`DPAD.dds` image, so rebinding a D-pad direction does not reach those prompts
+and they stay retail.
+
+Only external DDS images are covered. A prompt a movie draws as vector art stays
+Xbox, whatever the binding: the D-pad in `buttonLegend.gfx` and single-button
+frames in other movies such as the stat screen's LB frame. No replacement path
+exists for them.
 
 The art is one 64x64 uncompressed DDS per key under
 `assets/button-icons/xelu-light`, staged next to the executable as
@@ -377,10 +409,14 @@ The art is one 64x64 uncompressed DDS per key under
 `scripts/build_keyboard_icons.py` builds the files from the keycap PNGs in
 `thirdparty/xelu-prompts` and its `--check` mode compares them byte for byte.
 `src/keyboard_icons.cpp` lists the shipped key names and validates each file.
+The Options page takes its Keyboard prompt keys from the same list. A
+shoulder or trigger slot gets the keycap centered, unscaled, on a transparent
+canvas of the retail image's size, 128x64 or 64x128, built at startup.
+
 The File Data override hook `ApplyAssetFileOverride` at `0x82E87B90` serves the
-chosen file when the requested name is exactly `A.dds`, in any case, with no
-path; the main-menu logo uses the same hook with a separate guest buffer. Any
-failure leaves the retail image in place.
+prepared file when the requested name is exactly a slot's name, in any case,
+with no path; the main-menu logo uses the same hook. Each image has its own
+guest buffer. Any failure leaves the retail image in place.
 
 The key art is "FREE Controller & Key Prompts" by Nicolae (Xelu) Berbece, in
 the public domain under CC0; `thirdparty/xelu-prompts/PROVENANCE.md` records
@@ -405,7 +441,8 @@ guest memory.
 
 ## Intro movie
 
-The `skip_intro_movie` setting defaults to `false` and requires a restart. The
+The `skip_intro_movie` setting (Skip Intro in the settings screens) defaults to
+`false`, requires a restart and covers this movie and the legal screens below. The
 intro and attract movie states share the frontend state entry `0x82E551D8`,
 which tests frontend flag bit `0x1000` at `0x82E5522C` and, when it is clear,
 completes the state through its vtable slot `+0x18` without building the
@@ -416,7 +453,8 @@ movie and every other reader of the flag keep their native behavior.
 
 ## Legal screens
 
-The `skip_legal_screens` setting defaults to `false` and requires a restart.
+The `skip_intro_movie` setting also skips the legal screens;
+`skip_legal_screens` is not an independent setting.
 Legal-screen update `0x82DEE860` compares the elapsed dwell in `r10` against
 5000 at `0x82DEE89C`; at or above it the owner completes natively. The same
 update dispatches main-menu preload `0x82E7EA60` once and sets owner byte
@@ -426,6 +464,21 @@ sets `r10` to 5000 only for the `GFX_LegalScreen.gfx` owner (vtable
 exactly once before the screen completes. The hook does not wait for the
 preload to finish.
 
+## Game language
+
+The `game_language` setting holds an Xbox language ID: 1 English, 3 German,
+4 French, 5 Spanish or 6 Italian, the languages the disc has text for. It
+defaults to 1 and requires a restart; the Options page shows it as
+**Language**, the first row of the General tab, as does F1. `App::ConstructRuntime` calls
+`game_language::ApplyAtBoot` after the config loads and before the runtime is
+created, which copies the value to the SDK's `user_language` once. The game
+reads it through XConfig category 3 setting 9, and XDBF metadata reads it
+during module setup. Later edits change only `game_language`, so the running
+game keeps the language it started with. The copy is an application default,
+so an explicit `user_language` in `rerevved.toml`, the environment or the
+command line wins for that run and is logged. A `game_language` value that is
+not one of the five IDs is left as stored and not copied.
+
 ## Main-menu version label
 
 The main menu shows `v` plus the ReRevved version, such as `v0.6.1`, instead
@@ -434,6 +487,601 @@ of the retail `v1.30`. Main-menu initializer `0x82E516F0` sends the movie's
 retail literal `0x82139CA8`. The hook in `config/version_label_hooks.toml`
 replaces `r6` only when it holds that literal, with a string allocated once on
 the system heap and kept for the process. The label is always on.
+
+## Pause menu
+
+Special Functions, the in-game pause menu, gains **Exit Game** as its last row,
+after **Exit to the Main Menu**, in both its full list and its shorter alternate
+list. It is always on. Exit Game asks the same retail quit question as Exit to
+the Main Menu; only its Yes row quits, through the same path as the window's
+close button. No or Back on the quit question returns to Special Functions.
+
+**Change Options.** (both lists) opens the Options page, a full-screen page the
+title draws with ImGui over the running game, in place of the retail Options
+screen. Special Functions stays up underneath, and B on the page returns to it
+with its header and legend unchanged.
+The screen has a page strip (Options, Mods, Achievements) under a banner that names
+the current page, centered. The Options page has a tab strip (General, Gameplay,
+Notifications, Online, Controls, Display and Audio; a tab with no qualifying
+setting is left out), one panel with the current tab's
+`Label ... Value` rows under the F1 window's section headers (AI Handicaps,
+Game of the Week, Connection, Matchmaking, Discord) as subheadings, and a
+footer with the highlighted row's tooltip, a note line, and the A, X and Y
+prompts the page offers, with B ("Back", or "Keep" and "Cancel" during Mods
+questions) at the footer's bottom right; the page's action buttons share the
+row to its left, shrinking and then showing only their glyphs, never reaching
+B (`options_skin::ActionWidth`). The footer is as tall as its content
+needs (`options_skin::FooterHeight`: the tip lines the longest tooltip of the
+shown tab takes, one note line, and the button row, with half an em of padding),
+so it does not change height as the highlight moves; the Achievements page has
+no tip or note and its footer is the button row alone. LB and RB sit at the ends of the tab strip. The screen is built from a
+`PageSet` (`src/page_set.h`); the page strip above the tabs shows the page
+titles with LT and RT at its ends, and LT and RT (or Q and E) step between
+pages, wrapping from the last to the first. A click on a title or on a shoulder prompt, or the
+wheel over the strip, works as on the tab strip. The strip is hidden while only
+one page is registered. Each page remembers its highlighted row and scroll
+while the screen is open; opening the screen always lands on Options. The
+highlighted row is a
+full-width blue bar with the game's gold arrow (`goldarrow.dds`, turned to point
+left) at each end of its value, dimmed when the value cannot move that way; the
+drawn triangle stands in when the art did not load. The A and B
+prompts (A, B, X, Y, LB, RB, LT and RT) use the active Button Icons family's own
+art, each at its image's aspect ratio. On the strips the triggers (LT, RT) are
+drawn at the strip height less 0.4 em (`options_skin::HintHeight`) and the
+shoulders (LB, RB) at 80 percent of that (`options_skin::ShoulderHintHeight`),
+each centered on the strip with the width of the image's own ratio and a click
+target that matches the drawn art, so a bumper (2:1) and a trigger (1:2) read as
+a set in every family; a drawn cap is sized from the same height. Xbox and PlayStation read the user's own
+`Pregame.FPK`: `a.dds`, `b.dds`, `lb.dds`, `rb.dds`, `lt.dds`, `rt.dds`, `x.dds`
+and `y.dds` for Xbox; `ps3x.dds`, `ps3circle.dds`, `ps3l1.dds`, `ps3r1.dds`,
+`ps3l2.dds`, `ps3r2.dds`, `ps3square.dds` and `ps3triangle.dds` for PlayStation.
+Keyboard reads the bundled Xelu keycaps beside the executable: `Return.dds` and
+`Escape.dds` for A and B, `PageUp.dds` and `PageDown.dds` for the tabs, `Q.dds`
+and `E.dds` for the pages, `X.dds` and `Y.dds` for the Mods page. A prompt whose
+file is missing or does not decode is drawn as a lettered disc or key cap
+instead, with one log line. Nothing retail ships with the title.
+
+All three pages share the Civilopedia look (`src/options_skin.h`). The
+backdrop is the world map `gfx_mapbackground_512x256.dds` from the user's
+`Common0.FPK` (1024x512), scaled to cover the screen, magnified 1.25x and
+cropped to the Americas side (`MapCrop`), under a translucent dark-blue tint.
+The strips (2.8 em each) sit on a band of `bardarkblue.dds` (`Pregame.FPK`)
+stretched across the screen. The list sits in a fixed panel with a `bardarkblue.dds` title
+strip, a vector body in two blues, a dark outer border and a thin light inner
+line, and scrolls inside it without a scroll bar. The title strip holds the
+Mods and Achievements counts and is left out first when a short screen needs the
+room (`options_skin::ChromeFor`, which then shrinks the margin, banner, strips
+and footer toward their floors to keep three Options rows). When the list can scroll
+further up or down, the panel's right edge shows an LS glyph (`ls.dds` for
+Xbox, `ps3ls.dds` for PlayStation) with a gold arrow (`goldarrow.dds`, turned
+up or down) in the title strip and at the bottom; the Keyboard family has no LS
+art and shows the arrows alone. A click on an arrow scrolls one row. Art that
+is missing or does not decode is replaced by the drawn shape (plain navy
+backdrop, flat fills, triangles) with one log line per file, and the decoded
+art is shared by every page of the process like the prompt art.
+
+Controls: Up and Down (D-pad, left stick or arrow keys) move across the rows of
+the current tab and stop at its ends; the page scrolls to keep the row in view.
+Left and Right (or the arrows) apply the previous or next value at once, with
+no wrap. A (or Enter) flips a bool and steps a short list to the next value,
+wrapping from the last to the first. A row with more than ten choices
+(Civilization, and Monitor with many displays) opens a centered picker
+instead: Up and Down move, A applies and closes, B closes without a change.
+LB and RB (or PageUp and PageDown) move to the previous or next tab, stopping
+at the first and last tab. Each tab remembers its highlighted row while the page
+is open. B (or Escape) closes
+the page and returns to the menu it was opened from. Moving the mouse over a
+row highlights it, a click on an arrow steps, a click on a tab title switches
+to that tab, and the wheel scrolls the current tab. The right stick scrolls
+the list on screen on every page (Options, Mods, Achievements) one row at a time,
+as the Civilopedia does: a tilt past the deadzone (`StickRepeat`) steps at once
+and repeats while held, and the scroll stops at the first and last row (no wrap,
+`options_skin::StepScroll`). The highlight stays on its row, so it can scroll out
+of view; the next Up or Down press brings the list back to it. The right stick is
+inert while a picker, the text entry, a Mods question or a picked-up mod is up.
+The pad's analog triggers, right stick and X, Y and Start buttons are read from
+the captured pad, since the SDK does not map them to ImGui keys.
+
+The rows are the curated settings of `src/native_settings.cpp`: bool settings,
+settings with a fixed set of choices, and numeric settings with presets (the
+five AI bonus percentages 0, 25, 50, 100, 200; Volume 0, 25, 50, 75, 100; Mouse
+Sensitivity 0.50, 1.00, 1.50, 2.00, 4.00). Order, labels, choice labels and
+tooltips come from `ConfigureSettingsLayout` in `src/overlay_settings.cpp`;
+type, allowed values, range and lifecycle come from the cvar registry. A bool
+reads Off then On. A current value outside the presets stays as an extra first
+choice and is applied with its exact text. Enums offer only the values the
+registry allows, so Upscaling has no row on a build without FidelityFX, where
+Bilinear is the only value. Monitor offers Default and the connected monitors.
+Week (Game of the Week) steps one week at a time from its current value, which
+follows the current week until Custom Week is turned on, and A (or a click on
+its value) opens the text entry in a digits-only mode to type the week whole:
+the value is prefilled and selected, so the first digit replaces it, the
+keyboard shows the digits 0-9 with Clear, Delete and OK (no Shift, Space or
+Paste key; Ctrl+V still pastes digits), and the usual Start or Enter and B or
+Escape apply and cancel. The week takes `1..2147483647` (`gotw_week` is a
+string cvar, so the range is the title's own, `NormalizeWeek`); leading zeros
+are dropped, and an empty, zero, over-range or non-digit value stays in the
+entry with the note "Enter a week from 1 to 2147483647." Like F1, the page
+leaves out Week while Custom Week is off and Civilization while Custom
+Civilization is off. Keybinds and developer entries stay in F1.
+
+Four rows are not choices. They are curated in `src/native_settings.cpp` like
+the rest, with kinds of their own, and F1's layout is unchanged:
+
+| Tab | Row | Setting | Kind |
+|---|---|---|---|
+| General (last) | Open Log Folder | `open_log_folder` | Action: the value column holds an Open button (A glyph); A, or a click on the button, runs the command once, and nothing is saved. F1 keeps it under Gameplay > Support; the combined screen places it in General (`Spec::tab`). |
+| Online (top) | Connection Status | `system_link_status` | Read-only text, read again about twice a second while the page is shown. The words are the SDK's own (English). A does nothing. |
+| Online (top) | Profile Name | `system_link_profile_name` | Text: A opens the text entry. Up to 15 letters, digits, spaces, `-`, `_` or `.`. Restart-only. An empty name reads "Default". |
+| Online > Connection | Invite Code | `system_link_invite` | Text: A opens the text entry. Letters, digits, `-` and spaces (the SDK ignores separators inside a code), up to 1024 characters; a canonical code is at most 580. Restart-only. The row reads only "Set" or "Not set", beside a Paste button (X, Ctrl+V) and a Copy button (Y, Ctrl+C); the footer lists both while the row is highlighted. |
+
+The invite code is a credential. The model never copies it into a row, a
+caption or a note; the entry for it starts empty and its field shows only the
+last four characters you typed (the rest as `*`). The title never logs it, and
+the SDK redacts `system_link_invite` in its own cvar logging. Clearing the entry
+and applying removes the saved code.
+
+**Text entry.** A on a text row opens a title-drawn panel in the picker's style:
+a field (with a length counter), a note line, an on-screen keyboard and a footer.
+The keyboard is a 10-column grid of digits, `qwertyuiop`, `asdfghjkl-` and
+`zxcvbnm_.`, then a row of Shift, Space, Paste, Clear, Delete and OK; keys the
+row does not accept (`_` and `.` for the invite code) are dimmed and
+inert. The cursor wraps at every edge. A keyboard types straight into the field
+(printable ASCII the row accepts; while the entry is open the page asks ImGui for
+text input every frame, which is what makes the SDK start SDL text input), Backspace deletes, Ctrl+V pastes, Enter
+applies and Escape cancels; the mouse can click any key. On a gamepad the D-pad
+or left stick moves over the grid, A presses the highlighted key, X deletes the
+last character, Y toggles Shift (letters show in upper case while it is on),
+Start (Options on PlayStation) applies and B cancels. Paste puts the clipboard
+(through ImGui) in whole, without surrounding whitespace or one pair of quotes,
+and refuses the whole paste with "That value was not accepted." when it has a
+character the row does not take or does not fit; Clear empties the field. The
+invite is handled as a credential in memory: the editor's storage is allocated
+once and zeroed on Clear, Delete, Cancel, Apply and close, the paste is appended
+without a copy, and ImGui's cached copy of the clipboard is zeroed after each
+paste. (The system clipboard itself is the user's.) OK
+applies the text through the same `ApplyAndSave` path as any row: a refused value
+leaves the entry open with that note, any other outcome closes it and the row
+note ("Takes effect after restart." or the unsaved note) shows. Page and tab
+switching, row navigation and the right stick are inert while it is open, and
+the press that opened it is not a new press inside it. Its footer prompts use
+the active family's art (the Keyboard family shows Enter and Esc); the Start
+prompt is drawn, since no art for it is read.
+
+The Invite Code row also has Paste and Copy buttons in its value column, drawn
+like the footer buttons with the X and Y glyphs (the footer shows them while the
+row is highlighted; a click on a button acts on its own row, and A still opens
+the entry). Paste (X or Ctrl+V) reads the clipboard and applies it at once
+through the entry's rules (`OptionsModel::PasteSecret`): the same trimming,
+character set and length limit, a refused value leaving the registry alone with
+the refusal note, and a saved one the restart note. Copy (Y or Ctrl+C,
+dimmed and inert while "Not set") reads the invite from the registry at that
+moment, hands it to the clipboard and wipes its own copy (`OptionsModel::CopySecret`),
+then the footer note reads "Copied." until the highlight or the value changes.
+X, Y and the Ctrl keys do nothing on other rows, while a picker or the entry is
+open, or in a frame that also moves the highlight or switches the tab. The
+Open Log Folder row's Open button works the same way for A.
+
+Six controller keybinds default to one main key each. The SDK defines them as
+two keys (`keybind_a` `Semicolon,Space`, `keybind_b` `Quote,Backspace`,
+`keybind_left_trigger` `Q,I`, `keybind_right_trigger` `E,O`, `keybind_back`
+`Z,Tab`, `keybind_start` `X,Return`; `src/input/mnk/mnk_input_driver.cpp`); the
+title replaces them with `Semicolon`, `Quote`, `Q`, `E`, `Z` and `X` through
+`rex::cvar::SetFlagAsApplicationDefault` in `App::OnConfigurePaths`, before the
+config loads (`keybind_defaults::Apply`). The other controller binds are
+unchanged: the D-pad defaults are `Shift` chords, and Guide is unbound. That
+default is what Reset (Y) and F1's reset restore, and the keyboard icons show the
+single key's keycap. A value from the command line or environment is applied
+before the title runs and outranks an application default, so the SDK skips it;
+for such a key `Apply` keeps the value and its source and sets the entry's
+default directly (`rex::cvar::GetRegistry()`, single-threaded startup), so a
+reset still restores the title's default.
+
+A profile holds only keybinds the player applied. A saved two-key pair remains
+until the player resets that row (Y, or F1's reset) to the single-key default.
+
+The Controls tab ends with F1's two keybind sections, Keybinds (the controller
+keys) and Overlay Hotkeys, one row per bind. The model finds them as F1 does
+(`OptionsModel` asks `Services::BindKeys()`; the host lists the registry's
+String entries under `Input/Keybinds`, the controller category first, only those
+the layout shows to players, so `bind_debug_overlay` stays out). A label is the
+layout's, else the description's lead (at most 48 characters, title-cased) with
+the layout's label format, as in `rex/ui/settings_rows.h`; the value is F1's key
+text (a pair such as "Semicolon,Space" reads "; or Space", no key reads "(none)"; the joining
+word is the page language's). A key with a keycap in the shipped keyboard art
+shows that cap, and a chord, a pair or a key without art shows text. Controller
+rows carry the tip about keyboard and mouse mode and a note that the button
+icons update after a restart (the SDK reads the bind itself at once). A key that
+another bind also uses shows "(!)" and a footer note, and is kept, as in F1.
+A click anywhere on a row but its buttons, or A, starts capture: the row reads
+"Press a key..." and the next key, with Shift, Ctrl or Alt held for a controller
+key, is applied and saved through the registry at once.
+
+Capture reads raw virtual keys from the window (`keybind_capture::Listener`, an
+input listener above ImGui and the input drivers, with `keybind_capture::Gate`
+holding the state), so F13 to F24 bind and every name is the SDK's
+(`VirtualKeyToString`, with the keypad Enter alias stored as `Return`). While a
+row waits, and for each captured key until its key-up, that key and its repeats
+are handled in the listener: they never reach the game's keyboard driver, ImGui
+(so Escape cannot also close a focused F2 window), the page or the overlay
+hotkeys. A key held from before the capture keeps its own state. Esc or gamepad
+B cancels and capture never times out. A hotkey also accepts Shift, Ctrl or Alt
+pressed and released alone; on a controller key they wait for the key they
+modify. A key the SDK has no name for (keypad decimal, the Windows key) is
+refused with a footer note and capture goes on. A key the window never reports
+(the SDK drops unmapped scancodes such as the ISO backslash key) cannot be
+captured: capture keeps waiting, and Esc or B cancels. While a captured printable
+key is down its typed characters are the listener's too, so a console with focus
+does not receive the window's text repeats (the window gives a character no key,
+so characters typed with other keys meanwhile are held back as well; a held
+modifier, function or arrow key holds none back). B and Back are locked to the
+capture for that frame so another window does not also read them. A value too
+long for the footer tip is cut there; F1 shows it in full. Completing a capture is the
+frame's one row action, so a Clear click in the same frame does nothing. X or
+Delete clears a bind, Y or Backspace resets it to its default (each dimmed when
+it would change nothing); the Keyboard icon family shows Del and Bksp in place
+of X and Y. When the key does not fit beside the buttons they shorten to their
+glyphs or chords, then leave the row (the footer keeps them, and a value still
+too long for its cell is written out in the footer tip). One row action
+runs per frame, and everything is inert while a picker, a text entry, a question
+or a grab is open. Pad buttons and the mouse do not bind here.
+
+A change runs on the UI thread through `ApplyAndSave`: `SetFlagByName`, then
+`TrySaveConfigSubset` for that key to the `rerevved.toml` the title configures.
+The page then reads every value again, so a row shows what the registry holds.
+For a row that does not apply at once the footer note reads "Takes effect
+after restart." or "Takes effect in the next game.". "Changed for this
+session, but it could not be saved." and "That value was not accepted." replace
+that note until the highlight moves; a rejected value changes nothing.
+
+**Mods page.** The second page has three tabs, Packages, Assets and Maps, on a tab
+strip with LB and RB at its ends (LB and RB wrap around the three tabs, are ignored while a
+mod is picked up or a question is up, and a switch ends the frame's input). Each
+tab keeps its highlighted row and its scroll while the screen is open (a tab
+switch never scrolls to the highlight; only moving the selection does, and a
+switch lets go of the wheel lock ImGui keeps on the list that was just
+hidden). Entering the Mods page reads the catalogs again from disk once
+(`Runtime::RescanModCatalog` and `RescanAssetOverlayCatalog`, F2's Rescan
+buttons, and the `maps` folder beside the executable), so packages installed or repaired while the screen is open appear;
+the rescan is synchronous on the UI thread, never per frame. The
+panel's title strip shows "N installed, M enabled" for the shown tab. The
+Packages tab lists every installed mod package from the same
+runtime catalog the F2 manager reads (`Runtime::mod_catalog`), with the enabled
+ones first in load order (numbered, on a tinted row with a ticked box) and the
+disabled ones after them by name, as F2 sorts them. Each row has the package's icon (the manifest icon, a
+plain frame when none loads), its name with the version and author, its first
+diagnostic (`error:` or `warning:`, in yellow) else its description, the state
+(Enabled or Disabled), and "Native" for a native DLL package. An enabled
+package that is no longer installed keeps a row, "N. <id> (unavailable)", that
+A removes from the loadout. The footer shows no description (the row shows
+it), only one status line, in this order: the lock reason, the move hint,
+a failed save's message, "Fix errors before saving." with the first validation
+problem, "Save changes to replace the invalid loadout." with the first problem
+of the saved file, "Unsaved changes", "Restart required for saved changes.", and
+the first non-blocking catalog warning.
+
+The Assets tab is F2's Asset Overrides tab through the same model
+(`src/assets_list.*` maps the catalog; `src/mods_list.*` holds the edits). It
+lists the packs of `Runtime::asset_overlay_catalog` the same way (enabled packs
+first in priority order, the rest by name, each with its version, author, first
+diagnostic or description, and Enabled or Disabled; no icon, never native) and
+reads `asset_order_ids`, `asset_order_file_exists`, `asset_order_file_invalid`,
+`asset_loadout_diagnostics` and `asset_overlay_restart_required`. Enabling
+appends a pack to the priority order, as F2 does; X picks a pack up and Up and
+Down move it, which does F2's Edit Order. Y applies through
+`Runtime::ApplyAssetOverlayLoadout` (validated by `ValidateAssetOverlayLoadout`),
+writing `asset_order.txt`; it is offered, as F2 offers Save changes, when the
+staged list differs from the saved one, or no `asset_order.txt` exists, or the
+saved one is invalid, and the staged list validates. A saved change always waits
+for a restart ("Restart required for saved changes."). An invalid saved file asks
+"The current asset overlay loadout has errors. Replace it with the selected
+packs?" first; a failed save shows the SDK's first diagnostic, or "Could not save
+the asset overlay loadout.". F2's asset pane has no multiplayer lock and none
+applies here (the lock reason covers only mod loadouts). F2's Rescan button is
+not on the page; the rescan on entry stands in for it.
+
+Up and Down (pad or arrows) move the highlight and stop at the ends. A (Enter)
+enables or disables the highlighted mod. Enabling appends it to the end of the
+load order, as F2 does, so the highlight follows the mod into the enabled block.
+X (key X) picks up the highlighted enabled mod: Up and Down then move it within
+the enabled mods (never into the disabled ones), A or X drops it where it is,
+and B puts it back where it was picked up. LB, RB, LT and RT (page switching)
+are ignored while a mod is picked up. Y (key Y) applies. X and Y are read from
+the captured pad directly, since the SDK maps neither to an ImGui key, and the
+page ignores them until every page button was released once, like the triggers.
+Left and Right do nothing. The mouse moves the highlight, a click on the
+highlighted row toggles it, the arrows at the right end of an enabled row move
+it up or down one place, and the wheel scrolls. The footer prompts show only
+what can be done now: A (Enable, Disable or Remove), X (Move) on an enabled
+row, Y (Apply) when Apply would do something, and B (Back).
+
+Apply is F2's Save changes: it calls `Runtime::ApplyModLoadout` with the
+staged list, which validates it, writes `mod_order.txt` and, with the Lua rules
+host, replaces the Lua rules at once; native mods wait for a restart, which the
+footer reports. It is offered when the staged list differs from the saved one,
+or no `mod_order.txt` exists or the saved one is invalid, or the script host
+supports live replacement (so Apply re-applies an unchanged loadout), and only
+when the staged list validates and the loadout is not locked. An invalid saved
+file asks "The current profile loadout has errors. Replace it with the selected
+packages?" first (A Replace, B Keep), also when the SDK reports that only on
+the write. A failure shows the SDK's first diagnostic, or "Could not save the
+mod loadout.", and keeps the staged list.
+
+The Maps tab is the Assets tab for map packs and never appears in Assets. It
+lists the packs in the `maps` folder beside the executable (`src/maps_tab.*`
+scans it with `DiscoverAssetOverlayCatalog` and reads and writes the profile's
+`map_order.txt` through the SDK's order-file functions, since the runtime keeps
+no maps catalog), through the same model and rows as Assets, with "No map packs
+are installed." when the folder is empty. A pack is enabled and ordered only
+there, never by `asset_order.txt`. Y saves `map_order.txt`, which takes effect
+on the next launch: the footer reads "Restart required for saved changes."
+while the saved order differs from the one `map_packs::RegisterSelected` was
+given at launch, and saving the startup order again clears it. The SDK's
+unknown-field warning for the `[map_pack]` table is not shown. Its
+discard, replace and invalid-order questions and diagnostics follow the Assets
+tab's, worded for map packs.
+
+B with pending changes (F2's discard popup) asks "Discard enabled and
+load-order changes?" ("Discard asset overlay enable and priority changes?" on the
+Assets tab): A discards them and closes the screen, B keeps editing. With edits
+on several tabs the Packages question comes first and, once discarded, the Assets
+and then the Maps question follow on their tabs (no key or pad press acts on it until a
+frame has drawn it, and its buttons ignore a click on that frame), as F2 asks about the mods and then the asset
+overrides; the screen closes after the last answer. B on Options or
+Achievements with pending changes switches to the Mods page, to the tab with
+edits (Packages first), and asks the same question. Opening the F1 Settings window over pending Mods
+changes does the same: an open picker, pick-up or question ends first,
+Settings is put away and kept away for as long as the question is up (a second
+press of its key is closed again), the press that opened it does not answer
+the question, the page asks, Discard brings Settings back and closes the page,
+and Keep stays on Mods. The queued Settings jobs are tied to the page's
+generation, so a page the guest has since dismissed never reopens Settings.
+Settings is opened by an SDK bind the title cannot gate, so the page can only
+react after it opens. Closes that cannot
+wait (the guest closing the page, shutdown) drop the staged list with the page. Apply reads the runtime again right before
+it decides, so a loadout F2 saved meanwhile is never overwritten by an old list;
+the lock is read every frame before any input acts. A grab ends when the saved
+loadout changes under it: an unmoved grab follows the new loadout, a moved one
+keeps its order as pending edits. A key or pad press acts only after both
+strips have settled, and is dropped if a click or the wheel changed the page or
+the Options tab in the same frame. While the question
+is up, only A and B act. The multiplayer lock (`SetModLoadoutLockProvider`, from
+`gameplay_session::RuleReplacementAllowed`) shows the provider's reason, "Mods
+can't be changed during a multiplayer game.", in the footer, dims the rows, and
+makes them read-only; the highlight still moves so descriptions stay readable.
+The list is read again every 30 frames, when the page is shown, and after
+every change; a refresh keeps pending edits, and with none pending the list
+follows what F2 saved. Package names and descriptions are shown as written; the
+page's own text comes from `title_text` (see the language table below). The
+model (rows, staged edits, grab, apply and confirmation state, notes) is
+`src/mods_list.*`. F2 stays unchanged for keyboard and mouse use. The arrows at
+the right end of an enabled row are the gold arrow turned up or down, with the
+drawn triangle as fallback.
+
+**Achievements page.** The third page lists every achievement the SDK catalog
+holds, from the same `AchievementManager` the F3 window reads (the catalog,
+`IsUnlocked` and `GetUnlockTime` of the live kernel state), so the XEX
+achievements and the seventeen custom ones appear together. The order is the F3
+window's: the original achievements in catalog order, then the custom ones by
+ascending gamerscore, label and ID (`src/achievements_list.cpp`). As in F3, the
+page has two tabs, Original (the game's own achievements) and Custom, on a tab
+strip with LB and RB at its ends, only when custom achievements exist; without
+them the page is one list with no tab strip. Each tab keeps its highlighted row
+and its scroll while the screen is open. The panel's title strip shows the
+shown tab's "N of M unlocked" and "EarnedG of TotalG", as F3's header does per
+tab. Each row
+has the achievement's icon (the SDK's `AchievementIconCache`, the F3 loader:
+metadata `icon_path`, `icons/<image_id>.png`, then the title XDBF image; dimmed
+while locked, a plain frame when none loads), the label, the description (the
+locked one while locked, the unlocked one after), the gamerscore, and a state
+line: "Locked", "Unlocked YYYY-MM-DD" (local date of the stored unlock time;
+"Unlocked" alone when the time is unknown). Unlocked rows
+carry the SDK's unlocked row tint. Up and Down (pad or arrows) move the
+highlight and stop at the ends; the list scrolls to keep it in view, the wheel
+scrolls, and moving the mouse over a row highlights it. The footer has no text
+(the row already shows the description and state) and is the B prompt alone.
+The page is read-only: A, Left and Right do nothing and the A prompt is not
+drawn; LB and RB switch the tabs; B closes the screen. The list is read again every 30 frames and when the page
+is shown. The text comes from `title_text`,
+with `{0}`/`{1}` placeholders filled by the page. A page is a `PageKind`, a
+title and one `addPage` call in `OptionsPage`.
+
+`OptionsPage` (`src/options_page.cpp`) is an `ImGuiDialog` created with pad
+capture, so the game reads a neutral pad while it is open, and a button held
+when the page opens is ignored until it is released. The window sets
+keyboard and mouse capture each frame and turns ImGui navigation off; the page
+reads ImGui key state itself. `App` owns the page through a `unique_ptr`. The
+page never calls the base `Close()`: it marks itself closing and the owner
+resets it on the next UI turn, releasing it before `ShutdownOverlays`. Opening
+the page closes an open F1 Settings window first, so its Revert cannot undo a
+page change, and opening F1 Settings while the page is up closes the page.
+Layout is in multiples of the font size, which follows the window height
+(900 pixels is 1x).
+
+**Retail audio rows.** The Audio section ends with Music Volume, Effects
+Volume, Advisor Speech Volume and Leader Speech Volume (positions shown as the
+digits 0 to 9, as the retail dots). Their labels and tooltips sit in
+`ConfigureSettingsLayout` with the others, but they are not in the F1 layout, so
+F1 is unchanged. Each volume is a persistent integer cvar (`retail_music_volume`,
+`retail_effects_volume`, `retail_advisor_volume`, `retail_leader_volume`; range
+-1..9, default -1) saved to `rerevved.toml` through `ApplyAndSave`, so the
+footer notes are the usual applied and unsaved ones. -1 means no override: the
+row then shows the live game value, read from the guest, and the first edit
+writes the override. A game value that is not a retail step shows as `~N` until
+an edit sets a step. Left and Right from such a value go to the next lower or
+higher step (so 0 and 9 stay reachable); a game value maps to the nearest
+actual step gain, so 0.937 reads as 8. A row with neither an override nor a game
+value (no profile loaded yet) reads "Unavailable" and cannot change.
+
+`src/retail_audio_hooks.cpp` applies them on a guest thread with the TOML-only
+adapter: for the audio-table entry that `0x82D504B8` (catalog index, key
+`USER_VOLUME_*` at `0x821234A0`, `0x821234B4`, `0x821234C4`, `0x821234DC`) and
+`0x82E42380` (entry, owner `U32[0x8314F284]`) resolve for each transaction, it
+stores `float[entry+0]` as the retail setter `0x82DE6170` does (position times
+0.11 in single precision, above 0.98 snapped to 1.0) and clears `U32[entry+0xC]`.
+It never calls the profile notification `0x82C7AA28`, a profile writer or a
+save, so the retail `config.ini` is left alone. The UI thread never touches
+guest memory and the guest thread never reads cvar storage: the UI publishes a
+copied atomic override snapshot after each change, and the page posts copied requests (channel, position, profile-load
+generation) to an `ApplyQueue` and reads a copied `LiveStore` snapshot; the
+page asks for a fresh snapshot about twice a second and reads its rows again
+when the snapshot changes.
+
+Three hooks drive it. The frame driver `0x82C7DF58` (the accepted guest main
+thread boundary, active from the main menu through gameplay; the pause menu's
+modal pump drives the same application slots, which is expected, but not yet
+observed, to reach it) drains the queue and publishes live values after its
+original body returns. An idle frame costs three relaxed
+loads and a counter; guest memory is read only for a posted request or a page
+refresh. The frontend profile initializer `0x82E2DE98` starts a new generation
+when it is entered, which drops every queued request, and after it returns
+applies every set override and publishes fresh values, because the retail load
+has by then stored and published its own. The native publisher `0x82C7AA98`
+(also called by `0x82E51BE0` after the initializer returns) is hooked too: after
+each call it reapplies the overrides and republishes, without starting a
+generation, so the last native store never wins. A request or reapply the owners
+cannot take yet (no audio manager or scene owner) is kept and retried every 30
+frames, or at once on a page refresh. After each load the hook also turns the
+retail rumble mask `0x20` on (the flags word at `U32[0x8314F288]`, then the
+zero-strength `0x82C79D38` call on the input owner `U32[0x8314F2A4]`) so the
+Vibration row is the only rumble switch; if the flags, input owner or backend are
+not live it logs once and retries. There is no retail Rumble row.
+
+`src/native_settings.cpp` holds the curated model (`OptionsModel`: sections,
+highlight, value stepping, picker and notes, with no drawing and no threads).
+
+`src/pause_menu_hooks.cpp` wraps advisor list show `0x82CE8338` and acts only
+for the Special Functions calls returning to `0x82D06538` (full) and
+`0x82D06614` (alternate). It formats the retail list template (`0x8214DC80`
+full, `0x8214DCF8` alternate) through text formatter `0x82E6A430`, appends its
+row to the formatted text and formats the result through the same
+formatter, maps the selected row back to the retail index, and gives the
+retail jump tables only retail rows or `-1`. Each further list runs after
+the previous one has closed, never nested, and first restores the Special
+Functions header through virtual `+56` of header object `0x8314F76C`, as
+`0x82D064E4..0x82D06510` does; without it the list shows the advisor's own
+name. A failed text allocation, or a formatted retail text that is not a
+header plus five (full) or three (alternate) rows, keeps the retail rows.
+
+The lists follow the game's language. The formatter looks a template up whole,
+by its CRC-32 (reflected polynomial `0xEDB88320`, initial value `0xFFFFFFFF`, no
+final inversion; loop `0x82E6A1C4..0x82E6A1E8`), in the loaded language's
+`str_<set>.str` table (`0x82E6A158`, called from `0x82E6A2A0` when the language
+is not internal `7`). A template without an entry passes through unchanged. The
+retail templates, the header `0x8214DC68` ("Special Functions") and the quit
+questions all have entries in the French, German, Spanish and Italian tables,
+so the retail rows and the header come out in the game's language with no
+title text. `BuildList` (`src/pause_menu.cpp`)
+takes the formatted retail text and adds **Exit Game** after the last retail
+row (with a trailing period when that row has one), and the result, which has
+no table entry, is formatted again to reach the list. The retail rows keep
+their indices; Exit Game is the row after them (full list row 5, alternate row
+3), and any other index cancels.
+
+`src/title_text.cpp` holds the title-authored strings in five languages
+(English, German, French, Spanish, Italian), as UTF-8. The language is the
+SDK's `user_language` as `game_language::ApplyAtBoot` left it
+(`game_language::ActiveId()`): Xbox IDs 3, 4, 5 and 6 pick German, French,
+Spanish and Italian, and any other value picks English, as the game does. An
+empty entry shows the English text. The game's text path is Windows-1252: the
+`gfxfontlib.swf` faces cover U+0020..U+00FF plus a few punctuation marks and
+letters, the formatter replaces byte `0x9C` with its own markup
+(`0x82E6A298`) and the retail tables hold single-byte accented letters, so the
+table converts to Windows-1252 when it is used (`title_text::ToWindows1252`).
+A character outside that code page becomes `?`.
+
+The same table holds the combined options screen's text, so the whole screen
+follows the game's language. Its rows have stable keys: the `Id` rows first (the
+text added to the game's menus and the page chrome, `tab`, `legend`, `mods`,
+`achievements` and similar areas), then keyed rows for the settings text
+(`tab.<name>`, `section.<name>`, `setting.<cvar>.label`, `setting.<cvar>.tip`,
+`choice.<cvar>.<raw value>`, `common.on`, `common.off` and the `note.*` lines).
+The F1 layout and `native_settings.h` use English.
+`OptionsModel` is built with the page's language and asks
+`title_text::Screen(key, english, language)` for each label, tooltip, tab and
+section title, value caption and note: a language other than English that has a
+non-empty entry for the key shows it, and every other case shows the English the
+caller passed. A test holds each keyed row's English equal to what the model
+produces and fails on a key nothing uses, so an English change shows up as a
+row to retranslate. F1, F2 and F3 stay English; package names and descriptions,
+achievement text and messages the SDK returns are shown as given. The title's
+own multiplayer lock reason on the Mods page is shown from the table
+(`mods.locked`); any other lock reason is shown as given. The page draws through
+ImGui with fonts that bake U+0020..U+00FF, so every options screen entry is
+UTF-8 limited to that range (a test rejects other characters, and control
+characters); the game-menu row uses the Windows-1252 path above. Placeholders
+(`{0}`, `{1}`) in a translation must match the English entry (also tested).
+The translators' list (`strings.md`) is written from the table by
+`REREVVED_STRINGS_MD=<path> rerevved_tests title_text_writes_the_translators_list`.
+
+`src/options_modal_hooks.cpp` replaces `0x82D84580`, the retail Change Options
+entry (virtual `+0xCC` of header object `0x8314F76C`), only for the call
+returning to `0x82D068E4` with `r3 = 0x8314F76C` and every host binding present;
+any other caller, or a page that cannot open, runs the retail function. The page
+opens first, on the UI thread while the guest waits, so its pad capture exists
+before the guest reads the pad again. The hook then keeps the retail outer work:
+the receiver's `+0x1F4` call (`r4 = 0`) and, when its returned low byte is
+nonzero, the `+0x1F0` call after the modal. It skips only the construction
+(`0x82DE69D8`) and modal run of `GFX_OptionsScreen`. The modal run is a copy of
+runner `0x82E40738` for `r4 = r5 = 0` with no retail child: it adds one to
+`0x83156368`, stores `0` at `0x8315636C`, saves and sets to one byte `+5` of the
+object at `0x8314F28C`, stops rumble through `0x82C79D38` when the input owner
+`U32[0x8314F2A4]` exists, then loops over that object's virtual slots `+0x20`,
+`+0x2C`, `+0x24`, `+0x44` (`r4 = 0`, `r5 = 1`) and `+0x2C`. A nonzero low byte
+from `+0x20`, `+0x2C` or `+0x24`, or a zero one from `+0x44`, ends the loop and
+closes the page; so does a missing application object. Where the dialog's
+`+4` update said "continue", the loop asks whether the page is still open, and
+each iteration runs the retail audio drain so Audio rows apply live. On exit it
+restores byte `+5` on the current application object and subtracts one from the
+counter. The retail result `+0x42C` is not used: `0x82D84580` discards it, and
+so does `0x82D068E4`, which runs the Special Functions loop again.
+
+The guest never keeps a pointer or context for the UI: the page's id comes
+from `PageGate` (`src/options_modal.h`), which the app publishes on the UI
+thread after the page's dialog is destroyed (any reason: B, a close from the
+loop, shutdown). The guest loop reads it without a lock, leaves at once when
+the title is shutting down, and a break from the application closes the page
+through a UI job the guest waits for.
+
+## Main menu Options
+
+The main menu's **Options** row opens the Options page in place of the retail
+Options screen. B on the page returns to the main menu with its focus and
+legend as they were; the menu does not react to the pad while the page is up.
+
+`src/main_menu_options_hooks.cpp` hooks the main movie's row callback
+`0x82E51560` (`r3 = M`, `r4 = A`). The retail callback reads the parent
+`R = U32[M+4]` and the descriptor text `U32[A]`; for the text `4` it calls
+`R`'s virtual `+0x30`, `0x82D6BFD8`, which requests the exit animation and
+frontend transition `36` (the retail Options dialog, which the frontend state
+machine runs asynchronously) and then plays cue `1001` through `0x82E4E680`.
+The hook takes the page only when the descriptor is exactly `4`, the movie's
+table is `0x82139CBC`, `R`'s table is `0x8213B90C` with `0x82D6BFD8` in its
+`+0x30` cell, `R+0x10` and the exit byte `R+0xC` are zero, the frontend manager `F = U32[0x8314F2E4]` has `R` as its state (`U32[F+4]`), no
+prompt is up at `F+0x2C` and every host binding is
+present. The descriptor is read only while readable, and its second byte only
+after a `4`, as the retail comparison stops at the NUL. Anything else, and a page that cannot open, runs the
+retail callback. The page opens first, on the UI thread while the guest waits,
+so its pad capture exists before the menu reads the pad again. The hook then
+plays the handler's cue and returns without the exit or the transition, so the
+movie, its focus and its legend stay as they were. An accept while the page is
+already up is consumed.
+
+The frontend state machine keeps running, so there is no guest loop here. The
+frontend manager `F = U32[0x8314F2E4]` runs its recurring update `0x82C568C8`
+every frame, which calls the current state's virtual `+8` (`R`'s is
+`0x82C4E470`); while the menu is current `U32[F+4]` is `R`. The update is
+hooked after its original body and costs one atomic load when no page session
+is active. A page is closed when `F+4` is no longer `R` (the parent was
+replaced), when `R` requested a transition, or when a guest prompt appeared at
+`F+0x2C` (frontend events 25 and 28 install one without changing the other
+fields). Transitions go through `0x82D704F0`, by the handler or by the retail
+automatic transition `1`; it sets `R+0xC` and the manager's pending word
+`F+0x10` and leaves `R+0x10` zero for transition `1`, so the check is any of
+`R+0xC`, `R+0x10`, or a change of the manager word since the page opened. A
+prompt or a `F+4` other than `R` at the accept also sends the accept to the
+retail callback. The hook's record of the page ends when the page does.
+Shutdown closes the page through the app, as for every page.
 
 ## Combat settings
 
@@ -855,8 +1503,12 @@ valid field value. Revalidation at launch falls back to native for an
 invalid checked Week and logs the rejected value once for that launch.
 The Week tooltip is "Enable to play a different week's game instead of this week's."
 
-The unchecked Week field receives this week's original native r4 value through
-the UI dispatcher and its alive token. Checking Week before delivery protects
+At startup an unchecked Week field is set to this week from the host clock,
+using the native rule: week derivation `0x82D8CBA0` normalizes the date to the
+preceding Sunday at 12:00 and divides a 2006-based day count by 7, so weeks
+count from Sunday 2006-01-01 12:00 UTC and roll over each Sunday at 12:00 UTC.
+The guest clock follows the host's system time. A weekly launch then delivers
+the original native r4 value through the UI dispatcher and its alive token. Checking Week before delivery protects
 the field, and another launch invalidates older queued updates. The info log
 records the native week, effective week and effective seed.
 
@@ -884,7 +1536,7 @@ native, so in mode 2 an AI can receive the player's civilization because the
 duplicate scan starts at slot 1.
 
 **Standard Rules** is a plain checkbox (`gotw_standard_rules`, default on).
-Its tooltip is "Enable to play Game of the Week without Lua mods or gameplay changes other than Earliest Domination."
+Its tooltip is "Enable to play Game of the Week without mods or gameplay changes other than Earliest Domination."
 For a new GOTW game, it freezes Resources as Normal, Raging Barbarians and
 One City Challenge off, including OCC's Mongol ability swap, keeps the
 native AI civilization count, and suspends gameplay Lua mod rules. Earliest

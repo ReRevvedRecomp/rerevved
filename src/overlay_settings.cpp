@@ -1,6 +1,6 @@
 // F1 settings layout for ReRevved.
 
-#include "app.h"
+#include "overlay_settings.h"
 
 #include <algorithm>
 #include <array>
@@ -54,9 +54,10 @@ std::string titleCase(std::string_view text)
 
 } // namespace
 
-void rerevved::App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
+void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
 {
     layout.tabs = {
+        { "General", { { "", { "game_language", "show_fps_counter", "skip_intro_movie" } } } },
         { "Gameplay",
           {
               { "", { "combat_speed", "resources", "raging_barbarians", "one_city_challenge", "domination_min_turns", "ai_civilizations" } },
@@ -83,7 +84,7 @@ void rerevved::App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
           } },
         { "Display",
           {
-              { "", { "fullscreen", "monitor", "window_size", "display_aspect", "resolution_scale", "vsync", "present_effect", "swap_post_effect", "show_fps_counter", "skip_intro_movie", "skip_legal_screens" } },
+              { "", { "fullscreen", "monitor", "window_size", "display_aspect", "resolution_scale", "vsync", "present_effect", "swap_post_effect" } },
           } },
         { "Audio", { { "", { "audio_volume", "audio_mute", "audio_play_in_background" } } } },
         { "Developer",
@@ -118,7 +119,7 @@ void rerevved::App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
         { "input_vibration", Audience::kPlayer },
         { "button_icons", Audience::kPlayer },
         { "skip_intro_movie", Audience::kPlayer },
-        { "skip_legal_screens", Audience::kPlayer },
+        { "game_language", Audience::kPlayer },
         { "@Input/Keybinds", Audience::kPlayer },
         { "combat_speed", Audience::kPlayer },
         { "ai_civilizations", Audience::kPlayer },
@@ -173,13 +174,13 @@ void rerevved::App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
         { "ai_gold_bonus_percent", "Increase gold from AI cities by this percentage." },
         { "ai_food_bonus_percent", "Increase food growth in AI cities by this percentage. Starvation is unaffected." },
         { "ai_culture_bonus_percent", "Increase culture from AI cities by this percentage." },
-        { "resources", "Choose how resources are placed around each starting location in new games." },
-        { "raging_barbarians", "Enable for more Barbarian units that leave their camps sooner. Barbarians cannot capture a civilization's capital before 3000 BC." },
+        { "resources", "Choose how resources are placed around each starting location." },
+        { "raging_barbarians", "Enable for more aggressive Barbarians. Barbarians cannot capture a civilization's capital before 3000 BC." },
         { "one_city_challenge", "Enable to block Settler production." },
         { "domination_min_turns", "Set the minimum turns before a Domination victory in new games. Loaded saves keep 10." },
         { "gotw_custom_week", "Enable to play a different week's game instead of this week's." },
         { "gotw_custom_civilization", "Enable to play Game of the Week as the civilization you choose." },
-        { "gotw_standard_rules", "Enable to play Game of the Week without Lua mods or gameplay changes other than Earliest Domination." },
+        { "gotw_standard_rules", "Enable to play Game of the Week without mods or gameplay changes other than Earliest Domination." },
         { "open_log_folder", "Open the folder containing this session's log file." },
         // Notifications.
         { "hide_research_prompt", "Enable to choose research yourself instead of receiving automatic prompts." },
@@ -210,9 +211,9 @@ void rerevved::App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
         { "discord_activity", "Enable to show what you're doing in ReRevved on Discord." },
         { "discord_invites", "Enable to let Discord friends join your hosted Player Match." },
         // Controls.
-        { "input_gamepad_in_background", "Enable to keep using your controller while another window is active." },
+        { "input_gamepad_in_background", "Enable to keep the gamepad active while the window is inactive." },
         { "input_vibration", "Enable controller rumble." },
-        { "button_icons", "Choose which button icons the game shows. Auto uses keyboard icons when no controller is connected; keyboard icons cover the A button so far." },
+        { "button_icons", "Choose which button icons the game shows." },
         { "mnk_mode", "Enable to play with keyboard and mouse." },
         { "mnk_mouse", "Enable to move the right stick with your mouse." },
         { "mnk_sensitivity", "How strongly mouse movement moves the right stick." },
@@ -221,33 +222,39 @@ void rerevved::App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
         { "monitor", "Choose which monitor the game opens on." },
         { "window_size", "Choose the window size outside fullscreen." },
         { "display_aspect", "Ultrawide shows more of the world on wide screens and keeps the interface centered." },
-        { "resolution_scale", "Choose how much detail the game renders; Auto matches your display." },
+        { "resolution_scale", "Choose how much detail the game renders. Auto matches your display." },
         { "vsync", "Enable to keep the game at its normal frame pacing." },
         { "present_effect", "Choose how the image is scaled and sharpened for your display." },
         { "swap_post_effect", "Choose how jagged edges are smoothed." },
         { "show_fps_counter", "Enable to show frames per second in the corner." },
-        { "skip_intro_movie", "Enable to skip the opening movie at startup." },
-        { "skip_legal_screens", "Enable to leave the legal screens as soon as the main menu starts loading." },
+        { "skip_intro_movie", "Enable to skip the legal screens and the opening movie at startup." },
+        { "game_language", "Choose the game's language." },
         // Audio.
         { "audio_volume", "Adjust how loudly the game plays." },
         { "audio_mute", "Enable to silence all game audio." },
         { "audio_play_in_background", "Enable to keep hearing the game while another window is active." },
+        // Options page only: these are not in the F1 layout.
+        { "retail_music_volume", "Set the music volume from 0 to 9. The game applies your choice each time a profile loads." },
+        { "retail_effects_volume", "Set the sound effects volume from 0 to 9. The game applies your choice each time a profile loads." },
+        { "retail_advisor_volume", "Set the advisor speech volume from 0 to 9. The game applies your choice each time a profile loads." },
+        { "retail_leader_volume", "Set the leader speech volume from 0 to 9. The game applies your choice each time a profile loads." },
         // Developer.
         { "renderer", "Native is experimental." },
         { "system_link_relay_address", "Your relay server's address and port." },
     };
     layout.choice_labels = {
         // The guest renders 1280x720; the scale multiplies both axes.
-        { "resolution_scale", { { "0", "Auto (Match Display)" }, { "1", "1280x720" }, { "2", "2560x1440" }, { "3", "3840x2160" } } },
+        { "resolution_scale", { { "0", "Auto" }, { "1", "1280x720" }, { "2", "2560x1440" }, { "3", "3840x2160" } } },
         { "renderer", { { "xenos", "Xenos" }, { "native", "Native (Experimental)" } } },
         { "window_size", { { "", "Default (1280x720)" }, { "maximized", "Maximized" } } },
-        { "button_icons", { { "auto", "Auto (Match Controller)" }, { "xbox", "Xbox" }, { "playstation", "PlayStation" }, { "keyboard", "Keyboard" } } },
+        { "button_icons", { { "auto", "Auto" }, { "xbox", "Xbox" }, { "playstation", "PlayStation" }, { "keyboard", "Keyboard" } } },
         { "display_aspect", { { "original", "16:9" }, { "auto", "Ultrawide" }, { "21:9", "21:9" }, { "32:9", "32:9" } } },
         { "ai_civilizations", { { "0", "None (Multiplayer)" }, { "1", "1" }, { "2", "2" }, { "3", "3" }, { "4", "4 (Default)" }, { "5", "5" }, { "6", "6" } } },
         { "gotw_civilization", { { "0", "Roman" }, { "1", "Egyptian" }, { "2", "Greek" }, { "3", "Spanish" }, { "4", "German" }, { "5", "Russian" }, { "6", "Chinese" }, { "7", "American" }, { "8", "Japanese" }, { "9", "French" }, { "10", "Indian" }, { "11", "Arabian" }, { "12", "Aztec" }, { "13", "Zulu" }, { "14", "Mongolian" }, { "15", "English" } } },
         { "domination_min_turns", { { "10", "10 Turns (3000 BC)" }, { "5", "5 Turns (3500 BC)" } } },
         { "resources", { { "0", "Normal" }, { "1", "Balanced" }, { "3", "Legendary" } } },
         { "swap_post_effect", { { "none", "Off" }, { "fxaa", "FXAA" }, { "fxaa_extreme", "FXAA (Extreme)" } } },
+        { "game_language", { { "1", "English" }, { "3", "Deutsch" }, { "4", "Fran\u00e7ais" }, { "5", "Espa\u00f1ol" }, { "6", "Italiano" } } },
         { "present_effect", { { "cas", "CAS" }, { "fsr", "FSR" }, { "fsr2", "FSR 2" }, { "fsr3", "FSR 3" } } },
     };
     layout.labels = {
@@ -262,12 +269,18 @@ void rerevved::App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
         { "audio_volume", "Volume" },
         { "audio_mute", "Mute" },
         { "audio_play_in_background", "Play Sound in Background" },
+        { "retail_music_volume", "Music Volume" },
+        { "retail_effects_volume", "Effects Volume" },
+        { "retail_advisor_volume", "Advisor Speech Volume" },
+        { "retail_leader_volume", "Leader Speech Volume" },
         { "mnk_sensitivity", "Mouse Sensitivity" },
+        { "mnk_mode", "Keyboard and Mouse" },
+        { "mnk_mouse", "Mouse Aim" },
         { "input_gamepad_in_background", "Gamepad in Background" },
         { "input_vibration", "Vibration" },
         { "button_icons", "Button Icons" },
-        { "skip_intro_movie", "Skip Intro Movie" },
-        { "skip_legal_screens", "Skip Legal Screens" },
+        { "skip_intro_movie", "Skip Intro" },
+        { "game_language", "Language" },
         { "combat_speed", "Combat Speed" },
         { "hide_research_prompt", "Disable Research Advisor Prompt" },
         { "hide_popup_rival_war_peace", "Disable Rival War and Peace News" },

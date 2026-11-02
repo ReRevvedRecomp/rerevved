@@ -5,6 +5,7 @@
 
 #include <array>
 #include <charconv>
+#include <chrono>
 #include <mutex>
 #include <string>
 #include <utility>
@@ -110,6 +111,27 @@ catch (...)
 bool IsValidWeek(uint32_t week) noexcept
 {
     return week >= 1 && week <= 0x7FFFFFFFu;
+}
+
+uint32_t WeekAt(int64_t unixSeconds) noexcept
+{
+    // Week derivation 0x82D8CBA0: previous Sunday noon, 2006-based day count divided by 7.
+    constexpr int64_t kEpoch = 1136116800; // 2006-01-01T12:00:00Z
+    constexpr int64_t kWeek  = 7 * 24 * 60 * 60;
+    if (unixSeconds < kEpoch)
+        return 0;
+    const int64_t week = (unixSeconds - kEpoch) / kWeek;
+    return week > 0x7FFFFFFF ? 0 : static_cast<uint32_t>(week);
+}
+
+void SeedWeekFromClock()
+{
+    if (REXCVAR_GET(gotw_custom_week))
+        return;
+    const auto now  = std::chrono::system_clock::now().time_since_epoch();
+    const auto week = WeekAt(std::chrono::duration_cast<std::chrono::seconds>(now).count());
+    if (IsValidWeek(week))
+        rex::cvar::SetFlagByName("gotw_week", std::to_string(week));
 }
 
 bool IsValidCivilization(uint32_t civilization) noexcept

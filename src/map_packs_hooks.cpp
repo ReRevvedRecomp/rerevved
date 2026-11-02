@@ -77,9 +77,24 @@ std::vector<rex::system::AssetOverlayPackage> rerevved::map_packs::SelectEnabled
     return std::move(selection.packages);
 }
 
+namespace
+{
+
+std::vector<std::string> startupOrder;
+
+}
+
+const std::vector<std::string>& rerevved::map_packs::StartupOrder()
+{
+    return startupOrder;
+}
+
 void rerevved::map_packs::RegisterSelected(
     std::span<const rex::system::AssetOverlayPackage> packages)
 {
+    startupOrder.clear();
+    for (const auto& package : packages)
+        startupOrder.push_back(package.id);
     std::vector<Candidate>             candidates;
     std::vector<std::filesystem::path> roots;
     for (const auto& package : packages)

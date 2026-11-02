@@ -6,6 +6,8 @@ Close ReRevved before editing the file directly.
 
 ## Settings
 
+- **General**: Language (English, Deutsch, Francais, Espanol or Italiano, after a
+  restart), FPS Counter and Skip Intro.
 - **Gameplay**: combat speed, resources, Raging Barbarians, One City
   Challenge, Earliest Domination, AI civilizations, AI Handicaps, Game of the
   Week, and the Support section.
@@ -16,11 +18,11 @@ Close ReRevved before editing the file directly.
 - **Controls**: keyboard/controller bindings, mouse sensitivity, vibration,
   controller input in the background, Button Icons, and overlay hotkeys.
   **Button Icons** chooses which button icons the game shows, after a
-  restart. **Auto (Match Controller)** shows PlayStation icons if the
+  restart. **Auto** shows PlayStation icons if the
   controller you last used, or else the first one connected, is a PlayStation
   controller, and Xbox icons for any other controller. With no controller
   connected at launch it shows keyboard icons. **Keyboard** always shows them;
-  so far they replace the A button with the first key bound to it.
+  they replace each single-button image prompt with the first key bound to it.
 - **Display**: window and presentation options, described below.
 - **Audio**: Volume, Mute, and Play Sound in Background.
 
@@ -42,8 +44,7 @@ Loaded saves keep the default.
 
 ## Display and audio
 
-ReRevved renders with Xenos. **Render Resolution** defaults to **Auto (Match
-Display)**, which chooses at startup the largest multiple of 1280x720 that fits
+ReRevved renders with Xenos. **Render Resolution** defaults to **Auto**, which chooses at startup the largest multiple of 1280x720 that fits
 your window or fullscreen monitor, for example 1280x720 on a 1080p display or
 2560x1440 on a 1440p display. You can also choose 1280x720, 2560x1440 or
 3840x2160. **Window Size** sets the window dimensions used by Auto at startup.
@@ -79,8 +80,8 @@ a restart. Select **Save**, exit, and launch again after changing them.
 Explicit `window_width` and `window_height` values in the config or command
 line override Window Size.
 
-**Skip Intro Movie** skips the opening movie, starting with the next launch.
-Other movies, including the attract movie, are unchanged.
+**Skip Intro** skips the legal screens and the opening movie, starting with the
+next launch. Other movies, including the attract movie, are unchanged.
 
 Volume and Mute apply immediately. Turn off **Play Sound in Background** to
 silence the game when its window is unfocused or minimized.

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cstring>
 #include <fstream>
 #include <mutex>
@@ -17,8 +18,6 @@ namespace rerevved::keyboard_icons
 
 namespace
 {
-
-constexpr uint32_t kIconSize = 64;
 
 // Must list the same SDK key names as KEYS in scripts/build_keyboard_icons.py.
 constexpr std::array<std::string_view, 80> kKeys{ {
@@ -104,34 +103,46 @@ constexpr std::array<std::string_view, 80> kKeys{ {
     "MMB",
 } };
 
-std::shared_mutex selectionMutex;
-Payload           selectedIcon;
-std::string_view  selectedKey;
+std::shared_mutex                   selectionMutex;
+std::array<Prepared, kSlots.size()> selected;
+
+constexpr size_t kHeaderSize = 128;
 
 uint32_t readLittleEndianU32(const uint8_t* value)
 {
     return uint32_t{ value[0] } | (uint32_t{ value[1] } << 8) | (uint32_t{ value[2] } << 16) | (uint32_t{ value[3] } << 24);
 }
 
+void writeLittleEndianU32(uint8_t* destination, uint32_t value)
+{
+    for (size_t i = 0; i < 4; ++i)
+    {
+        destination[i] = static_cast<uint8_t>(value >> (8 * i));
+    }
+}
+
+size_t canvasDdsSize(uint32_t width, uint32_t height)
+{
+    return kHeaderSize + size_t{ width } * height * 4;
+}
+
 void clearSelection()
 {
     std::unique_lock lock(selectionMutex);
-    selectedIcon = {};
-    selectedKey  = {};
+    selected = {};
 }
 
-std::string_view firstAlternative(std::string_view binding) noexcept
+std::string_view trimSpaces(std::string_view text) noexcept
 {
-    binding = binding.substr(0, binding.find(','));
-    while (!binding.empty() && binding.front() == ' ')
+    while (!text.empty() && text.front() == ' ')
     {
-        binding.remove_prefix(1);
+        text.remove_prefix(1);
     }
-    while (!binding.empty() && binding.back() == ' ')
+    while (!text.empty() && text.back() == ' ')
     {
-        binding.remove_suffix(1);
+        text.remove_suffix(1);
     }
-    return binding;
+    return text;
 }
 
 std::optional<std::string_view> shippedKey(std::string_view name) noexcept
@@ -144,6 +155,46 @@ std::optional<std::string_view> shippedKey(std::string_view name) noexcept
     return *found;
 }
 
+bool equalsLower(std::string_view text, std::string_view lower) noexcept
+{
+    if (text.size() != lower.size())
+    {
+        return false;
+    }
+    for (size_t i = 0; i < text.size(); ++i)
+    {
+        if (std::tolower(static_cast<unsigned char>(text[i])) != static_cast<unsigned char>(lower[i]))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+std::optional<std::vector<uint8_t>> readIcon(const std::filesystem::path& path)
+{
+    std::error_code error;
+    const auto      size = std::filesystem::file_size(path, error);
+    if (error || size != kIconDdsSize)
+    {
+        REXLOG_WARN("ButtonIcons: keyboard art '{}' is missing or the wrong size", path.string());
+        return std::nullopt;
+    }
+    std::vector<uint8_t> bytes(kIconDdsSize);
+    std::ifstream        file(path, std::ios::binary);
+    if (!file.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(bytes.size())))
+    {
+        REXLOG_WARN("ButtonIcons: keyboard art '{}' could not be read", path.string());
+        return std::nullopt;
+    }
+    if (!IsValidIconDds(bytes))
+    {
+        REXLOG_WARN("ButtonIcons: keyboard art '{}' is malformed", path.string());
+        return std::nullopt;
+    }
+    return bytes;
+}
+
 } // namespace
 
 std::span<const std::string_view> ShippedKeys() noexcept
@@ -151,19 +202,50 @@ std::span<const std::string_view> ShippedKeys() noexcept
     return kKeys;
 }
 
+std::optional<size_t> FindSlot(std::string_view requestedName) noexcept
+{
+    for (size_t i = 0; i < kSlots.size(); ++i)
+    {
+        if (equalsLower(requestedName, kSlots[i].fileName))
+        {
+            return i;
+        }
+    }
+    return std::nullopt;
+}
+
 std::optional<std::string_view> PrimaryKey(std::string_view binding) noexcept
 {
-    const std::string_view first = firstAlternative(binding);
-    if (first.empty() || first.find('+') != std::string_view::npos)
+    while (true)
     {
-        return std::nullopt;
+        const size_t           comma       = binding.find(',');
+        const std::string_view alternative = trimSpaces(binding.substr(0, comma));
+        if (!alternative.empty() && alternative.find('+') == std::string_view::npos)
+        {
+            // SDK exact-modifier matching cannot activate bare Shift, Control or Alt (no left or right names).
+            const bool modifier = alternative == "Shift" || alternative == "Control" || alternative == "Alt";
+            if (const auto key = shippedKey(alternative); key && !modifier)
+            {
+                return key;
+            }
+        }
+        if (comma == std::string_view::npos)
+        {
+            return std::nullopt;
+        }
+        binding.remove_prefix(comma + 1);
     }
-    return shippedKey(first);
 }
 
 bool IsValidIconDds(std::span<const uint8_t> data)
 {
-    if (data.data() == nullptr || data.size() != kIconDdsSize || std::memcmp(data.data(), "DDS ", 4) != 0)
+    return IsValidCanvasDds(data, kIconSize, kIconSize);
+}
+
+bool IsValidCanvasDds(std::span<const uint8_t> data, uint32_t width, uint32_t height)
+{
+    if (data.data() == nullptr || width == 0 || height == 0 || width > 4096 || height > 4096 ||
+        data.size() != canvasDdsSize(width, height) || std::memcmp(data.data(), "DDS ", 4) != 0)
     {
         return false;
     }
@@ -172,9 +254,9 @@ bool IsValidIconDds(std::span<const uint8_t> data)
     // CAPS | HEIGHT | WIDTH | PITCH | PIXELFORMAT, no mip chain, no volume.
     if (readLittleEndianU32(bytes + 4) != 124 ||
         readLittleEndianU32(bytes + 8) != 0x100f ||
-        readLittleEndianU32(bytes + 12) != kIconSize ||
-        readLittleEndianU32(bytes + 16) != kIconSize ||
-        readLittleEndianU32(bytes + 20) != kIconSize * 4 ||
+        readLittleEndianU32(bytes + 12) != height ||
+        readLittleEndianU32(bytes + 16) != width ||
+        readLittleEndianU32(bytes + 20) != width * 4 ||
         readLittleEndianU32(bytes + 24) != 0 ||
         readLittleEndianU32(bytes + 28) != 0)
     {
@@ -196,70 +278,85 @@ bool IsValidIconDds(std::span<const uint8_t> data)
            readLittleEndianU32(bytes + 120) == 0;
 }
 
-bool Prepare(const std::filesystem::path& dir, std::string_view binding)
+std::vector<uint8_t> ComposeCanvas(std::span<const uint8_t> icon, uint32_t width, uint32_t height)
+{
+    if (!IsValidIconDds(icon) || width < kIconSize || height < kIconSize || width > 4096 || height > 4096 ||
+        (width - kIconSize) % 2 != 0 || (height - kIconSize) % 2 != 0)
+    {
+        return {};
+    }
+
+    // Transparent black is all zero bytes; only size fields differ from the icon.
+    std::vector<uint8_t> canvas(canvasDdsSize(width, height), 0);
+    std::memcpy(canvas.data(), icon.data(), kHeaderSize);
+    writeLittleEndianU32(canvas.data() + 12, height);
+    writeLittleEndianU32(canvas.data() + 16, width);
+    writeLittleEndianU32(canvas.data() + 20, width * 4);
+
+    const size_t left = (width - kIconSize) / 2;
+    const size_t top  = (height - kIconSize) / 2;
+    for (size_t row = 0; row < kIconSize; ++row)
+    {
+        std::memcpy(canvas.data() + kHeaderSize + ((top + row) * width + left) * 4,
+                    icon.data() + kHeaderSize + row * kIconSize * 4,
+                    kIconSize * 4);
+    }
+    return canvas;
+}
+
+size_t Prepare(const std::filesystem::path& dir, const BindingLookup& lookup)
 {
     clearSelection();
 
-    const std::string_view first = firstAlternative(binding);
-    if (first.empty())
+    std::array<Prepared, kSlots.size()> prepared{};
+    size_t                              count = 0;
+    for (size_t i = 0; i < kSlots.size(); ++i)
     {
-        REXLOG_INFO("ButtonIcons: keybind_a has no key; keeping the retail A icon");
-        return false;
-    }
-    if (first.find('+') != std::string_view::npos)
-    {
-        REXLOG_INFO("ButtonIcons: keybind_a starts with chord '{}'; keeping the retail A icon", first);
-        return false;
-    }
-    const auto key = shippedKey(first);
-    if (!key)
-    {
-        REXLOG_INFO("ButtonIcons: no keyboard art for keybind_a key '{}'; keeping the retail A icon", first);
-        return false;
+        const Slot&       slot    = kSlots[i];
+        const std::string binding = lookup ? lookup(slot.keybind) : std::string();
+        const auto        key     = PrimaryKey(binding);
+        if (!key)
+        {
+            REXLOG_INFO("ButtonIcons: {} '{}' has no single key with art; keeping the retail {} icon", slot.keybind, binding, slot.fileName);
+            continue;
+        }
+
+        const auto icon   = readIcon(dir / (std::string(*key) + ".dds"));
+        auto       canvas = icon ? ComposeCanvas(*icon, slot.width, slot.height) : std::vector<uint8_t>();
+        if (canvas.empty())
+        {
+            REXLOG_WARN("ButtonIcons: keeping the retail {} icon", slot.fileName);
+            continue;
+        }
+        prepared[i] = { std::make_shared<const std::vector<uint8_t>>(std::move(canvas)), *key };
+        ++count;
+        REXLOG_INFO("ButtonIcons: keyboard {} is {}", slot.fileName, *key);
     }
 
-    const std::filesystem::path path = dir / (std::string(*key) + ".dds");
-    std::error_code             error;
-    const auto                  size = std::filesystem::file_size(path, error);
-    if (error || size != kIconDdsSize)
-    {
-        REXLOG_WARN("ButtonIcons: keyboard art '{}' is missing or the wrong size; keeping the retail A icon", path.string());
-        return false;
-    }
-    std::vector<uint8_t> bytes(kIconDdsSize);
-    std::ifstream        file(path, std::ios::binary);
-    if (!file.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(bytes.size())))
-    {
-        REXLOG_WARN("ButtonIcons: keyboard art '{}' could not be read; keeping the retail A icon", path.string());
-        return false;
-    }
-    if (!IsValidIconDds(bytes))
-    {
-        REXLOG_WARN("ButtonIcons: keyboard art '{}' is malformed; keeping the retail A icon", path.string());
-        return false;
-    }
-
-    auto payload = std::make_shared<const std::vector<uint8_t>>(std::move(bytes));
-    {
-        std::unique_lock lock(selectionMutex);
-        selectedIcon = std::move(payload);
-        selectedKey  = *key;
-    }
-    REXLOG_INFO("ButtonIcons: keyboard A icon is {}", *key);
-    return true;
+    std::unique_lock lock(selectionMutex);
+    selected = std::move(prepared);
+    return count;
 }
 
-bool TryGetPayload(Payload& payload)
+bool TryGetPrepared(std::string_view requestedName, Prepared& prepared)
 {
+    const auto slot = FindSlot(requestedName);
+    if (!slot)
+    {
+        return false;
+    }
     std::shared_lock lock(selectionMutex);
-    payload = selectedIcon;
-    return static_cast<bool>(payload);
+    prepared = selected[*slot];
+    return static_cast<bool>(prepared.payload);
 }
 
-std::string_view PreparedKey()
+bool AnyPrepared()
 {
     std::shared_lock lock(selectionMutex);
-    return selectedKey;
+    return std::any_of(selected.begin(), selected.end(), [](const Prepared& entry)
+                       {
+                           return static_cast<bool>(entry.payload);
+                       });
 }
 
 void ResetForTests()

@@ -12,7 +12,7 @@
 #include <rex/runtime.h>
 #include <rex/system/xmemory.h>
 
-REXCVAR_DECLARE(bool, skip_legal_screens);
+REXCVAR_DECLARE(bool, skip_intro_movie);
 
 void SkipLegalScreen(PPCRegister& elapsed, PPCRegister& owner);
 
@@ -20,7 +20,7 @@ namespace ls = rerevved::legal_screen;
 
 TEST_CASE("legal_screen_hook_completes_only_after_preload", "[ctest][legal-screen]")
 {
-    REREVVED_RESTORE_CVAR(skip_legal_screens);
+    REREVVED_RESTORE_CVAR(skip_intro_movie);
     rex::Runtime runtime(std::filesystem::path{});
     REQUIRE(runtime.Setup(rex::RuntimeConfig{
                 .kernel_init = rex::kernel::InitializeKernel,
@@ -52,9 +52,9 @@ TEST_CASE("legal_screen_hook_completes_only_after_preload", "[ctest][legal-scree
 
     preload(kLegal, 1);
     preload(kOther, 1);
-    REQUIRE(rex::cvar::SetFlagByName("skip_legal_screens", "false"));
+    REQUIRE(rex::cvar::SetFlagByName("skip_intro_movie", "false"));
     CHECK(run(kLegal, 10) == 10);
-    REQUIRE(rex::cvar::SetFlagByName("skip_legal_screens", "true"));
+    REQUIRE(rex::cvar::SetFlagByName("skip_intro_movie", "true"));
     CHECK(run(kLegal, 10) == ls::kLegalScreenDwell);
     CHECK(run(kLegal, 7000) == 7000);
     CHECK(run(kOther, 10) == 10);

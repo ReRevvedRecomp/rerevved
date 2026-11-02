@@ -1,6 +1,4 @@
-# Skip Intro Movie (skip_intro_movie setting). In the shared frontend
-# movie-state entry 0x82E551D8, r9 holds frontend flag bit 0x1000 and r31 the
-# state object. The hook clears r9 only for the IntroMovie.bik state object.
+# Clears r9 only for the IntroMovie.bik state object; at 0x82E551D8 r9 is frontend bit 0x1000, r31 the state.
 [[midasm_hook]]
 address = 0x82E5522C
 name = "SkipIntroMovie"

@@ -45,6 +45,13 @@ std::optional<std::vector<uint8_t>> ReadFpkEntry(const std::filesystem::path& ar
                                                  std::string_view             entry_name,
                                                  std::string*                 error);
 
+// Unreadable archive: false and *error set. Missing entries yield nullopt and errors[i].
+bool ReadFpkEntries(const std::filesystem::path&                      archive,
+                    std::span<const std::string_view>                 entry_names,
+                    std::vector<std::optional<std::vector<uint8_t>>>& out,
+                    std::vector<std::string>&                         errors,
+                    std::string*                                      error);
+
 // Decodes the top mip level of a DDS: 32-bit RGB(A) described by pixel-format
 // masks, or DXT1, DXT3 and DXT5. Anything else returns nullopt with *error set.
 // Dimensions must be nonzero and at most 4096.
