@@ -258,6 +258,7 @@ constexpr auto kKeyedRows = std::to_array<Row>({
     { "choice.starting_era.medieval", { "Medieval", "Mittelalter", "Moyen \u00c2ge", "Medieval", "Medievale" }, "" },
     { "choice.starting_era.industrial", { "Industrial", "Industriezeitalter", "\u00c8re industrielle", "Industrial", "Industriale" }, "" },
     { "choice.starting_era.modern", { "Modern", "Moderne", "\u00c8re moderne", "Moderna", "Moderna" }, "" },
+    { "choice.starting_era.future", { "Future", "Zukunft", "Futur", "Futuro", "Futuro" }, "" },
     { "choice.ai_civilizations.0", { "None (Multiplayer)", "Keine (Mehrspieler)", "Aucune (multi)", "Ninguna (multi)", "Nessuna (multi)" }, "" },
     { "choice.ai_civilizations.4", { "4 (Default)", "4 (Standard)", "4 (par d\u00e9faut)", "4 (por defecto)", "4 (predefinito)" }, "" },
     { "choice.multiplayer_ai_difficulty.king", { "King", "K\u00f6nig", "Roi", "Rey", "Re" }, "" },

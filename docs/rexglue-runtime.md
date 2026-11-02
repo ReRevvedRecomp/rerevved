@@ -1994,8 +1994,8 @@ and 24, and the grant stores the era and ownership bits natively. After a player
 grants the loop reloads the halfword at `0x82D22BFC` through the Q pointer saved at
 frame+0x68, so a later player and the value-4 bulk path read the same field.
 `starting_era` is a string setting with the choices `ancient` (default, no
-override), `medieval`, `industrial` and `modern`, which are the native values
-0 to 3 in that order. F1 **Gameplay > Starting Era** shows them. The count is
+override), `medieval`, `industrial`, `modern` and `future`, which are the native values
+0 to 4 in that order; `future` copies the Beta Centauri start. F1 **Gameplay > Starting Era** shows them. The count is
 additional successful grants, not a fixed list or a final era; the native chooser
 still classifies eras from the acquisition tally.
 
@@ -2006,10 +2006,13 @@ after the join label, and takes r31. It stores the frozen value in Q+0x1C when
 the setup is an admitted new game (`SetupActive`), the scenario word `0x8312B8D4`
 is the ordinary-game sentinel -1 and the era is not Ancient. It also stores the
 start year the retail presets pair with that era in STARTYEAR, Q+0x3E: 1000 AD for
-Medieval, 1500 AD for Industrial and 1800 AD for Modern. The same setup reads it at
+Medieval, 1500 AD for Industrial and 1800 AD for Modern. Future writes 2025, the Beta Centauri request, which the
+native calendar rounds to the first playable turn at or after it. The same setup reads it at
 `0x82D24F20`, after the grants, and advances the first turn to that year (turns 60,
-80 and 98). It writes only those halfwords and no register or condition register,
-so the native grant order and random draws are unchanged.
+80 and 98 for the first three). It writes only those halfwords and no register or condition register,
+so the native grant order and random draws are unchanged. Future also leaves the
+native random grant count and technology 47 alone; the native bulk arm grants
+technologies 1 to 46.
 
 A scenario keeps its authored era. Game of the Week, fresh or practice, always
 freezes the native era, whatever the setting. A new network game uses the host's
@@ -2162,7 +2165,7 @@ settings and compatibility requirements. The version-7 title payload in
 [host_settings.cpp](../src/host_settings.cpp) carries AI count from 0 to 6,
 Resources, Raging Barbarians, OCC, the AI research, production, gold, food and
 culture bonus percentages (0 to 200), Domination minimum turns (5 or 10), combat
-speed, the Turn Limit index (0 to 4), the Starting Era index (0 to 3), the
+speed, the Turn Limit index (0 to 4), the Starting Era index (0 to 4), the
 multiplayer AI difficulty (2, 3 or 4), the spaceship scene skip (0 or 1) in the
 last header byte, and Game of the Week selections. Peers reject any other version.
 The override applies to that game and leaves local CVars unchanged.

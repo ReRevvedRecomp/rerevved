@@ -429,7 +429,7 @@ TEST_CASE("host_settings gameplay snapshot validates complete policy", "[ctest][
         CHECK(each->turnLimit == limit);
     }
     selected.turnLimit = 3;
-    for (uint8_t era = 0; era <= 3; ++era)
+    for (uint8_t era = 0; era <= 4; ++era)
     {
         selected.startingEra = era;
         const auto each      = Decode(Encode(selected));
@@ -469,7 +469,7 @@ TEST_CASE("host_settings gameplay snapshot validates complete policy", "[ctest][
     CHECK(Encode(*decoded) == bytes);
 
     for (const auto [offset, value] : std::vector<std::pair<size_t, uint8_t>>{
-             { 1, 7 }, { 5, 2 }, { 6, 201 }, { 7, 201 }, { 8, 201 }, { 9, 201 }, { 10, 201 }, { 11, 2 }, { 12, 2 }, { 21, 5 }, { 22, 4 }, { 23, 1 }, { 23, 5 }, { 24, 2 } })
+             { 1, 7 }, { 5, 2 }, { 6, 201 }, { 7, 201 }, { 8, 201 }, { 9, 201 }, { 10, 201 }, { 11, 2 }, { 12, 2 }, { 21, 5 }, { 22, 5 }, { 23, 1 }, { 23, 5 }, { 24, 2 } })
     {
         auto invalid    = bytes;
         invalid[offset] = value;

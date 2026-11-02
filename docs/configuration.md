@@ -53,8 +53,8 @@ Unlimited removes the turn limit and its warning; the other victories still end
 the game.
 
 **Starting Era** gives every civilization extra technologies when a new
-game starts: Ancient (the default) adds none, Medieval adds 5, Industrial 14 and
-Modern 24, through the game's own starting-technology grant. The game uses the
+game starts: Ancient (the default) adds none, Medieval adds 5, Industrial 14,
+Modern 24 and Future all 46 ordinary technologies, through the game's own starting-technology grant. The game uses the
 value it started with, so a later change applies only to the next new game. A new
 multiplayer game uses the host's value for every player. A scenario and Game of
 the Week keep their own era, and a loaded save never grants technologies again.

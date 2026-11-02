@@ -84,7 +84,7 @@ std::map<std::string, ns::FlagState> defaultFlags()
     flags["resources"]                 = intState("0", 0, 3);
     flags["domination_min_turns"]      = enumState("10", { "10", "5" });
     flags["turn_limit"]                = enumState("2100", { "2100", "2200", "2300", "2500", "unlimited" });
-    flags["starting_era"]              = enumState("ancient", { "ancient", "medieval", "industrial", "modern" });
+    flags["starting_era"]              = enumState("ancient", { "ancient", "medieval", "industrial", "modern", "future" });
     flags["ai_civilizations"]          = intState("4", 0, 6);
     flags["multiplayer_ai_difficulty"] = enumState("king", { "king", "emperor", "deity" });
     for (const char* key : { "ai_research_bonus_percent", "ai_production_bonus_percent", "ai_gold_bonus_percent", "ai_food_bonus_percent", "ai_culture_bonus_percent" })

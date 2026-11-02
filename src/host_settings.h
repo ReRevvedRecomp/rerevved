@@ -73,7 +73,7 @@ struct HostSettings
 // The local-only Game of the Week civilization is never serialized.
 // Gameplay bit 0x20 must equal Raging bit 0x01: peers must support capital grace.
 // Domination turns are 5 or 10. The turn limit is an index from 0 to 4 and the
-// starting era an index from 0 to 3. The multiplayer AI difficulty is 2, 3 or 4
+// starting era an index from 0 to 4. The multiplayer AI difficulty is 2, 3 or 4
 // and the spaceship scene skip is 0 or 1.
 std::vector<uint8_t> Encode(const HostSettings& settings);
 

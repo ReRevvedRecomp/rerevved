@@ -13,8 +13,8 @@ REXCVAR_DEFINE_STRING(domination_min_turns, "10", "ReRevved", "Turns before a Do
 REXCVAR_DEFINE_STRING(turn_limit, "2100", "ReRevved", "Year the game can end by turn limit in the next new game: 2100 (default), 2200, 2300, 2500 or unlimited. Game of the Week always uses 2100")
     .allowed({ "2100", "2200", "2300", "2500", "unlimited" });
 
-REXCVAR_DEFINE_STRING(starting_era, "ancient", "ReRevved", "Era every civilization starts in for the next new game: ancient (default), medieval, industrial or modern. Scenarios and Game of the Week keep their own era")
-    .allowed({ "ancient", "medieval", "industrial", "modern" });
+REXCVAR_DEFINE_STRING(starting_era, "ancient", "ReRevved", "Era every civilization starts in for the next new game: ancient (default), medieval, industrial, modern or future. Scenarios and Game of the Week keep their own era")
+    .allowed({ "ancient", "medieval", "industrial", "modern", "future" });
 
 REXCVAR_DEFINE_STRING(multiplayer_ai_difficulty, "king", "ReRevved", "Difficulty of every AI in the next multiplayer game you host: king (default), emperor or deity. Single player keeps the difficulty chosen at game setup")
     .allowed({ "king", "emperor", "deity" });
@@ -106,7 +106,7 @@ int32_t StartingEraForGame() noexcept
 
 int32_t ParseStartingEra(std::string_view text) noexcept
 {
-    constexpr std::array<std::string_view, 4> names = { "ancient", "medieval", "industrial", "modern" };
+    constexpr std::array<std::string_view, 5> names = { "ancient", "medieval", "industrial", "modern", "future" };
     return indexOf(names, text);
 }
 

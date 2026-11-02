@@ -278,7 +278,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "gotw_civilization", { { "0", "Roman" }, { "1", "Egyptian" }, { "2", "Greek" }, { "3", "Spanish" }, { "4", "German" }, { "5", "Russian" }, { "6", "Chinese" }, { "7", "American" }, { "8", "Japanese" }, { "9", "French" }, { "10", "Indian" }, { "11", "Arabian" }, { "12", "Aztec" }, { "13", "Zulu" }, { "14", "Mongolian" }, { "15", "English" } } },
         { "domination_min_turns", { { "10", "10 Turns (3000 BC)" }, { "5", "5 Turns (3500 BC)" } } },
         { "turn_limit", { { "2100", "2100 AD" }, { "2200", "2200 AD" }, { "2300", "2300 AD" }, { "2500", "2500 AD" }, { "unlimited", "Unlimited" } } },
-        { "starting_era", { { "ancient", "Ancient" }, { "medieval", "Medieval" }, { "industrial", "Industrial" }, { "modern", "Modern" } } },
+        { "starting_era", { { "ancient", "Ancient" }, { "medieval", "Medieval" }, { "industrial", "Industrial" }, { "modern", "Modern" }, { "future", "Future" } } },
         { "resources", { { "0", "Normal" }, { "1", "Balanced" }, { "3", "Legendary" } } },
         { "retail_music_volume", retailVolumeChoices() },
         { "retail_effects_volume", retailVolumeChoices() },

@@ -486,19 +486,20 @@ TEST_CASE("spaceship_tag_matches_only_its_actor_and_finishes_in_the_corridor", "
 
 TEST_CASE("starting_era_choices_map_to_native_values", "[ctest][gameplay-fixes]")
 {
-    for (const auto& [text, index] : std::array<std::pair<const char*, int32_t>, 4>{ { { "ancient", 0 }, { "medieval", 1 }, { "industrial", 2 }, { "modern", 3 } } })
+    for (const auto& [text, index] : std::array<std::pair<const char*, int32_t>, 5>{ { { "ancient", 0 }, { "medieval", 1 }, { "industrial", 2 }, { "modern", 3 }, { "future", 4 } } })
     {
         UNSCOPED_INFO("text=" << text);
         CHECK(gf::ParseStartingEra(text) == index);
         CHECK(gf::IsValidStartingEra(index));
     }
-    CHECK(!gf::IsValidStartingEra(4));
+    CHECK(gf::StartingEraYear(4) == 2025);
+    CHECK(!gf::IsValidStartingEra(5));
 }
 
 TEST_CASE("starting_era_applies_only_to_ordinary_games", "[ctest][gameplay-fixes]")
 {
     CHECK(!gf::AppliesStartingEra(gf::kStartingEraNative, -1));
-    for (const int32_t era : { 1, 2, 3 })
+    for (const int32_t era : { 1, 2, 3, 4 })
     {
         CHECK(gf::AppliesStartingEra(era, -1));
         for (const int32_t scenario : { 0, 4, 7 })
@@ -544,8 +545,7 @@ TEST_CASE("starting_era_hook_writes_only_the_admitted_ordinary_halfword", "[ctes
         CHECK(r31.u64 == kQ);
     };
 
-    // Each era takes the start year its retail preset pairs with it.
-    for (const auto [era, start] : std::array<std::pair<int32_t, int16_t>, 3>{ { { 1, 1000 }, { 2, 1500 }, { 3, 1800 } } })
+    for (const auto [era, start] : std::array<std::pair<int32_t, int16_t>, 4>{ { { 1, 1000 }, { 2, 1500 }, { 3, 1800 }, { 4, 2025 } } })
     {
         run(true, era, -1);
         CHECK(field() == era);

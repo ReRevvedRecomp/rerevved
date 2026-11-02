@@ -177,17 +177,14 @@ constexpr bool BeforeTurnLimitYear(int32_t limit, int32_t year) noexcept
     return year < kTurnLimitYears[static_cast<size_t>(limit)];
 }
 
-// Starting Era: the native STARTERA input at Q+0x1C of the active scenario, which
-// makes the setup grant loop at 0x82D22A78 give each player 5, 14 or 24 extra
-// technologies. The index is the native value: Ancient (no override), Medieval,
-// Industrial and Modern. A game freezes one value at setup, only while native setup
-// runs; a load never applies it.
+// STARTERA at Q+0x1C drives grants of 5, 14 or 24 technologies at 0x82D22A78 (Future grants 1 to 46).
+// Freeze for new-game setup only; never apply on load.
 constexpr int32_t kStartingEraNative = 0;
-constexpr int32_t kStartingEraModern = 3;
+constexpr int32_t kStartingEraFuture = 4;
 
 constexpr bool IsValidStartingEra(int32_t era) noexcept
 {
-    return era <= kStartingEraModern;
+    return era <= kStartingEraFuture;
 }
 
 // Only scenario sentinel -1 permits a new-game era override.
@@ -196,16 +193,13 @@ constexpr bool AppliesStartingEra(int32_t era, int32_t scenario) noexcept
     return era != kStartingEraNative && scenario == -1;
 }
 
-// STARTYEAR (Q+0x3E) that the retail presets pair with each STARTERA: 1000, 1500 and
-// 1800 AD. The setup search at 0x82D24F20 advances the first turn to that year.
+// Retail STARTYEAR (Q+0x3E) pairs with STARTERA
 constexpr int32_t StartingEraYear(int32_t era) noexcept
 {
-    constexpr int32_t kYears[] = { 0, 1000, 1500, 1800 };
+    constexpr int32_t kYears[] = { 0, 1000, 1500, 1800, 2025 };
     return kYears[era];
 }
 
-// The index of one of the offered choices "ancient", "medieval", "industrial" and
-// "modern"; the CVar's allowed list admits nothing else.
 int32_t ParseStartingEra(std::string_view text) noexcept;
 
 void    RestoreStartingEra(int32_t era) noexcept;
