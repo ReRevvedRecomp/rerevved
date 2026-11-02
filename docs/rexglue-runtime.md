@@ -2256,14 +2256,34 @@ Barbarian village, which names the reward; the reward is still granted.
 
 ## AI handicaps
 
-[AI handicaps](ai-difficulty.md) describes the player settings, rounding and
+[AI handicaps](configuration.md#ai-handicaps) describes the player settings and
 save policy. The three cost hooks run after native research, unit scalar and
 non-unit cost composition. Units keep the existing identity rule before the
 AI scalar adjustment. Positive costs have a floor. Unsupported player layouts
-and unsupported item IDs retain native results. The gold, food and culture
-hooks sit inside `sub_82D13978` after native loads each completed city
-contribution and before it stores the halfword city cache. Each hook scales
-the register and the stack word the native code saved it to, so both agree.
+and unsupported item IDs retain native results.
+
+Cost scaling multiplies the native cost by 100, divides by 100 plus the bonus,
+and truncates, with a minimum of one for positive costs. Research scales the
+final native technology cost after existing modifiers and rounding. Units
+scale the native scalar after existing discounts and mod rules, then multiply
+by the unit's production factor and divide by two. Integer rounding can change
+the displayed reduction; an already positive cost stays positive. Buildings
+100-122 and Wonders 200-232 scale their final native cost, preserving native
+discounts. Other item IDs keep native costs.
+
+The gold, food and culture hooks sit inside `sub_82D13978` after native loads
+each completed city contribution and before it stores the halfword city cache.
+Each hook scales the register and the stack word the native code saved it to,
+so both agree.
+
+Positive contributions are multiplied by 100 plus the bonus, divided by 100,
+and truncated. Zero and negative values stay native. Scaled values cap at
+32767; native values already above that cap stay unchanged. Food is the
+completed growth contribution, not gross harvest, so starvation stays native.
+Gold and Culture scale the composed city values, not each source separately.
+City totals, nation credits, and native clearing of excluded owners follow
+the changed values.
+
 New network games use the prepared host bonuses. Network loads keep native
 behavior. Standard Rules freezes native values at setup.
 

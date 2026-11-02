@@ -5,8 +5,7 @@ Choose a guide by the task you want to complete.
 ## Play the game
 
 - [Getting started](getting-started.md): install and select your game content.
-- [Configuration](configuration.md): change settings and back up player data.
-- [AI handicaps](ai-difficulty.md): set AI bonuses.
+- [Configuration](configuration.md): set AI handicaps, change settings, and back up player data.
 - [Troubleshooting](troubleshooting.md): resolve setup and runtime problems.
 - [Online play](online-play.md): host or join a Player Match and match gameplay loadouts.
 - [Mods](mods.md): apply Lua loadouts and manage native mods and asset overrides.
@@ -23,10 +22,8 @@ Choose a guide by the task you want to complete.
 ## Integrate or extend
 
 - [Runtime contracts](rexglue-runtime.md): inspect title integration and diagnostic boundaries.
-- [Mod API](modding-api.md): use Lua rules and the native C interfaces.
-- [Building and wonder effects](building-wonder-effects.md): inspect effect registration contracts.
+- [Mod API](modding-api.md): use Lua rules, native C interfaces, and Building and Wonder effects.
 - [Scaleform/GFx](scaleform-gfx.md): understand the retail UI integration.
-- [Image manifest](image-manifest.md): locate image inventory records and their fields.
 - [Native shaders](native-shaders.md): prepare inputs for shader translation
   during development.
 - [Shader adapter](../scripts/native-shader-adapter/README.md): build the pinned translator adapter.

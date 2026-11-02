@@ -95,6 +95,30 @@ sidecar, even with the save sidecar setting off. Automatic saves are not
 resumable: they load without practice rules and never count toward the weekly
 results. A practice save whose sidecar is later lost loads as an ordinary game.
 
+### AI handicaps
+
+The Gameplay settings include **AI Research Bonus**, **AI Production Bonus**,
+**AI Gold Bonus**, **AI Food Bonus**, and **AI Culture Bonus**. Each runs from 0
+to 200 and defaults to 0, which keeps native behavior. Humans and Barbarians
+keep native values. These options change the economy, not leader personality
+or the number of AI civilizations.
+
+Research and production costs are divided by `1 + bonus/100`. A bonus of 100
+halves the cost and 200 divides it by three. Positive city Gold, Food, and
+Culture contributions are multiplied by `1 + bonus/100`. The
+[runtime contract](rexglue-runtime.md#ai-handicaps) describes rounding and limits.
+
+Changes apply to the next new game. Multiplayer uses the host's values; see
+[Online play](online-play.md#gameplay-settings-and-mods).
+
+The gameplay sidecar saves all five bonuses with the native save. Loading a
+single-player save restores them. Saves without a valid sidecar, sidecars from
+earlier releases, and loads with sidecars disabled use 0 for all five. Keep the
+`.rerevved-gameplay` file beside its native save when copying saves.
+
+Game of the Week with **Standard Rules** uses 0 for all five bonuses.
+Multiplayer loads use native behavior, whatever the save recorded.
+
 ## Display and audio
 
 ReRevved renders with Xenos. **Render Resolution** defaults to **Auto**, which chooses at startup the largest multiple of 1280x720 that fits
