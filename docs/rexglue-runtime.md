@@ -2072,7 +2072,7 @@ count.
 
 [Online play](online-play.md#gameplay-settings-and-mods) describes the player
 settings and compatibility requirements. The version-7 title payload in
-[host_settings.cpp](../src/host_settings.cpp) carries AI count capped at 4,
+[host_settings.cpp](../src/host_settings.cpp) carries AI count from 0 to 6,
 Resources, Raging Barbarians, OCC, the AI research, production, gold, food and
 culture bonus percentages (0 to 200), Domination minimum turns (5 or 10), combat
 speed, the Turn Limit index (0 to 4), the Starting Era index (0 to 3), the
@@ -2337,10 +2337,18 @@ expanded layouts fit the native unit pools for eight participants and saved
 player arrays. Contacts, full AI turns and save/load remain gameplay
 acceptance checks.
 
-Expansion requires the ordinary offline layout with the human in slot zero.
-Multiplayer, Game of the Week, restricted civilization selections and the
-native special two-player setup retain their native participant counts.
-Multiplayer values are capped at 4 in the prepared host snapshot.
+Single-player expansion requires the ordinary layout with the human in slot
+zero. Game of the Week, restricted civilization selections and the native
+special two-player setup retain their native participant counts.
+
+In multiplayer the host snapshot value R (0 to 6) applies to every peer. With H
+humans in the five native civilization slots, the setup keeps A = min(R, 7 - H)
+ordinary AI and uses N = max(6, H + A + 1, highest human ordinal + 2)
+participants with Barbarians in slot N - 1. It widens the native layout only
+when N exceeds 6 and N is at most 8 with every human below the Barbarian slot;
+otherwise the native layout and the removal limit apply. The setup logs the
+request, H, A, N, Barbarian slot and human mask. Peers do not compare rosters; a
+mismatch appears as a desync.
 
 - A game with one human keeps at least one AI civilization, so 0 (**None**)
   applies only to multiplayer games with two or more humans. Domination then

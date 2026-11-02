@@ -16,8 +16,8 @@
 namespace rerevved::host_settings
 {
 
-constexpr int32_t kMaxAiCivilizations      = 4;
-constexpr int32_t kMaxLocalAiCivilizations = 6;
+constexpr int32_t kMaxAiCivilizations     = 6;
+constexpr int32_t kDefaultAiCivilizations = 4;
 
 struct ModRef
 {
@@ -37,7 +37,7 @@ struct LocalModSnapshot
 
 struct HostSettings
 {
-    int32_t             aiCivilizations = kMaxAiCivilizations;
+    int32_t             aiCivilizations = kDefaultAiCivilizations;
     std::vector<ModRef> mods;
     // The channel could not hold the full mod list; only a prefix was sent.
     bool                    modsTruncated            = false;

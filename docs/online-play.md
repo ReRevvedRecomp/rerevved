@@ -32,7 +32,7 @@ use its invite codes and start ReRevved yourself.
 For each new multiplayer game, the host supplies AI civilization count, Resources,
 Raging Barbarians, One City Challenge, the five AI bonus percentages,
 Earliest Domination, Turn Limit, Starting Era, AI difficulty, Spaceship Scenes, Game of the Week choices, and combat speed. AI civilization
-count is capped at 4 online. These values apply to that game without changing
+count goes up to 6 online; it is reduced so the humans, AI civilizations and Barbarians fit in eight participants (AI = min(request, 7 - humans)). These values apply to that game without changing
 the other players' saved settings. Set the host's choices before starting the game.
 
 While Raging Barbarians is on, Barbarians cannot capture a civilization's
