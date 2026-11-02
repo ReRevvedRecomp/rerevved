@@ -1,0 +1,13 @@
+# Always on in single player and multiplayer; inert in Game of the Week.
+
+# After CityUpdate claim helper 0x82D16BA0: r23 is the city, r27 the normalized Wonder (Apollo 17); record only the completing city.
+[[midasm_hook]]
+address = 0x82D16348
+name = "RecordApolloCompletion"
+registers = ["r23", "r27"]
+
+# Drain completions only when no native work is pending.
+[[midasm_hook]]
+address = 0x82C7DF5C
+name = "DrainApolloDiscoveryBonuses"
+registers = ["r1"]

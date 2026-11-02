@@ -66,6 +66,13 @@ new game. It is for single player only: network games and Game of the Week ignor
 it. A loaded save restores its own value. A save without a recorded Always At War
 value, or whose sidecar is missing or rejected, loads with it off.
 
+**Apollo Discovery Bonuses** is an always-on fix, not a setting. When a
+civilization completes Apollo, every technology first-discovery bonus nobody has
+claimed is granted; otherwise technologies 1 to 46 count as owned and the bonuses
+are unreachable. A bonus any civilization already claimed is never repeated. It
+applies in single player and multiplayer and skips Game of the Week. A save made
+after Apollo completes but before the bonuses arrive can lose them.
+
 **AI Difficulty (Multiplayer)** sets the difficulty of every AI in a multiplayer
 game you host: King (the default and the game's native multiplayer value),
 Emperor or Deity. Every player in that game plays the host's value. A later

@@ -371,6 +371,9 @@ set(REREVVED_SOURCES
     src/ai_civilizations_hooks.cpp
     src/always_at_war_hooks.cpp
     src/always_at_war_hooks.h
+    src/apollo_discovery.h
+    src/apollo_discovery_hooks.cpp
+    src/apollo_discovery_hooks.h
     src/ai_civilization_setup.h
     src/ai_civilization_setup.cpp
     src/ai_economy_settings.h

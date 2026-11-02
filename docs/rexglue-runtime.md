@@ -19,6 +19,7 @@ driver never modifies that checkout.
   [gameplay fixes](#gameplay-fixes), [Turn Limit](#gameplay-turn-limit),
   [Starting Era](#gameplay-starting-era),
   [Always At War](#gameplay-always-at-war),
+  [Apollo Discovery Bonuses](#gameplay-apollo-discovery-bonuses),
   [Multiplayer AI Difficulty](#gameplay-multiplayer-ai-difficulty),
   [Spaceship Scenes](#gameplay-spaceship-scenes) and
   [Game of the Week](#gameplay-game-of-the-week): gameplay integration limits.
@@ -2060,6 +2061,43 @@ dialog still appears, and a refused answer resolves as a refusal. The cancel of 
 pending native request is not intercepted. A setup that fails to admit the expected
 civilizations is not rebuilt, a civilization admitted after its first city is not
 re-projected, and network peers are not enforced.
+
+## Gameplay Apollo Discovery Bonuses
+
+An always-on fix, with no setting, grants unclaimed first-discovery bonuses when a
+civilization completes Apollo (Wonder 17), after which technologies 1 to 46 query
+as owned and can never be acquired. It applies in single player and network games
+and skips Game of the Week (`gotw::CurrentSetupIsNotGameOfTheWeek`: setup mode other
+than 2 and no practice or isolated latch). Each peer drains on its own frame timing;
+there is no peer barrier. Nothing is saved in the sidecar. The
+pure decisions are in `src/apollo_discovery.h`; the hooks in
+`src/apollo_discovery_hooks.cpp` and
+[apollo_discovery_hooks.toml](../config/apollo_discovery_hooks.toml) are thin.
+
+| Address | Hook | Effect |
+|---|---|---|
+| `0x82D16348` | `RecordApolloCompletion` | After the claim helper `0x82D16BA0` of the city update, for `r27 == 17`: record (owner of city `r23`, city) when the native claim at `0x830E51D0`/`0x830E51D4` matches. Logs `Apollo Discovery Bonuses: queued`. |
+| `0x82C7DF5C` | `DrainApolloDiscoveryBonuses` | The application frame driver, on the guest main thread: drain the oldest record once ready. |
+
+The drain runs through the dispatcher's `ExecuteTrap`, which restores the interrupted
+register state, like the Stonehenge hook. A nested pump re-enters the frame driver;
+a flag turns that call into a no-op. A record is ready when every player's
+completion marker `0x830E3348[p]` and context `0x830E3328[p]` and the recursive
+marker `0x830E3430` are zero or -1, and no owned city has a pending Wonder
+(`0x1000`) or spaceship part (`0x100`) flag at city+0x24. A value left in any
+player's marker by an earlier presentation therefore delays the drain until the
+native reset. For each technology 1 to 46 in ascending
+order, with the raw word `U32[0x830EDC48 + 4 * t]` equal to zero, the player owning
+the city and still holding the claim, it calls `0x82D09208(p, t, c, 0, 1)` and
+then `(p, t, c, 0, 2)`, each to its full return, logging
+`Apollo Discovery Bonuses: granted`. If anything native is pending after a pair the
+drain stops and later restarts from the raw words. `Apollo Discovery Bonuses:
+finished` ends a record. A new game or a load empties the queue.
+
+Left out: a save transaction with prepared-commit metadata, persisting the queue in
+the save sidecar (a save between the completion and the drain loses the grant),
+multiplayer peer barriers and a per-reward ledger. Static evidence is in
+rerevved-research `apollo-technology-discovery-bonuses.json`.
 
 ## Gameplay Multiplayer AI Difficulty
 

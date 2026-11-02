@@ -5,6 +5,7 @@
 #include "ai_civilization_setup.h"
 #include "ai_economy_settings.h"
 #include "always_at_war_hooks.h"
+#include "apollo_discovery_hooks.h"
 #include "custom_achievement_combat_hooks.h"
 #include "custom_achievements.h"
 #include "gameplay_fixes.h"
@@ -204,6 +205,7 @@ REX_HOOK_RAW(sub_82D11AD8)
         ai_civs::NoteNewGameRecount();
         rerevved::start_resources::OnNewGameSetup(ctx, base);
         ProjectAlwaysAtWarFinal();
+        ResetApolloDiscovery();
     }
     __imp__sub_82D11AD8(ctx, base);
 }
@@ -221,6 +223,7 @@ void ResetAiCivilizationsOnLoad()
     FreezeRagingBarbariansForGame();
     FreezeOccForGame();
     rerevved::gameplay_fixes::NoteGameLoad();
+    ResetApolloDiscovery();
     rerevved::custom_achievements::ResetProgress();
     rerevved::custom_achievement_combat::ResetCombatObservers();
     rerevved::save_sidecar::RestoreAfterLoadReset();

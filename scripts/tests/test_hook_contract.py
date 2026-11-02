@@ -5398,5 +5398,98 @@ class AlwaysAtWarHookContractTests(unittest.TestCase):
             )
 
 
+APOLLO_CONFIG = ROOT / "config" / "apollo_discovery_hooks.toml"
+APOLLO_SOURCE = ROOT / "src" / "apollo_discovery_hooks.cpp"
+
+
+class ApolloDiscoveryHookContractTests(unittest.TestCase):
+    def hooks(self) -> list[dict]:
+        return read_hooks(APOLLO_CONFIG)
+
+    def test_hook_table(self) -> None:
+        self.assertEqual(
+            self.hooks(),
+            [
+                {
+                    "address": 0x82D16348,
+                    "name": "RecordApolloCompletion",
+                    "registers": ["r23", "r27"],
+                },
+                {
+                    "address": 0x82C7DF5C,
+                    "name": "DrainApolloDiscoveryBonuses",
+                    "registers": ["r1"],
+                },
+            ],
+        )
+        # Each address occurs once across included files.
+        addresses = [hook["address"] for hook in all_configured_hooks()]
+        self.assertEqual(len(set(addresses)), len(addresses))
+        self.assertIn(0x82D16344, addresses)
+        self.assertIn(0x82C7DF58, addresses)
+
+    def test_every_hook_is_defined_once(self) -> None:
+        source = APOLLO_SOURCE.read_text(encoding="utf-8")
+        for name in {hook["name"] for hook in self.hooks()}:
+            self.assertEqual(len(re.findall(rf"^void {name}\(", source, re.M)), 1)
+
+    def test_registration(self) -> None:
+        self.assertEqual(
+            MANIFEST.read_text(encoding="ascii").count(
+                '"config/apollo_discovery_hooks.toml"'
+            ),
+            1,
+        )
+        cmake = CMAKE_LISTS.read_text(encoding="utf-8")
+        self.assertEqual(cmake.count("src/apollo_discovery_hooks.cpp"), 1)
+        resets = AI_CIV_SOURCE.read_text(encoding="utf-8")
+        self.assertEqual(resets.count("ResetApolloDiscovery();"), 2)
+
+    def test_record_then_drain_through_native_acquisition(self) -> None:
+        source = APOLLO_SOURCE.read_text(encoding="utf-8")
+        record = source.split("void RecordApolloCompletion", 1)[1].split(
+            "// The application frame driver", 1
+        )[0]
+        self.assertNotIn("ExecuteTrap", record)
+        self.assertIn("CurrentSetupIsNotGameOfTheWeek()", record)
+        drain = source.split("void DrainApolloDiscoveryBonuses", 1)[1]
+        self.assertIn("&thread->context()->r1 != &sp", drain)
+        self.assertIn("draining.exchange(true)", drain)
+        self.assertIn("constexpr uint32_t kAcquire          = 0x82D09208;", source)
+        self.assertIn(
+            "uint64_t arguments[] = { player, static_cast<uint64_t>(technology), "
+            "city, 0, phase };",
+            source,
+        )
+        self.assertIn("for (const uint64_t phase : { 1ull, 2ull })", source)
+        # The raw word is rechecked immediately before the pair.
+        self.assertLess(
+            source.index("ad::IsUnclaimed(word("), source.index("ExecuteTrap")
+        )
+
+    def test_generated_hooks_when_available(self) -> None:
+        paths, generated = generated_text()
+        if not paths:
+            self.skipTest("generated sources are not available")
+        record = (
+            "\tctx.r11.s64 = -2095775744;\n"
+            "\t// lbz r11,-3829(r11)\n"
+            "\tRecordApolloCompletion(ctx.r23, ctx.r27);\n"
+            "\tctx.r11.u64 = REX_LOAD_U8(ctx.r11.u32 + -3829);\n"
+        )
+        self.assertEqual(generated.count(record), 1)
+        function = generated.split("DEFINE_REX_FUNC(sub_82C7DF58)", 1)[1].split(
+            "DEFINE_REX_FUNC", 1
+        )[0]
+        self.assertIn(
+            "\tctx.r12.u64 = ctx.lr;\n"
+            "\t// bl 0x827f7c88\n"
+            "\tDrainApolloDiscoveryBonuses(ctx.r1);\n",
+            function,
+        )
+        for name in ("RecordApolloCompletion", "DrainApolloDiscoveryBonuses"):
+            self.assertEqual(len(re.findall(rf"\t{name}\(ctx\.", generated)), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
