@@ -225,8 +225,8 @@ TEST_CASE("custom_achievement_metadata", "[ctest][custom-achievements]")
     CHECK(info.description == "Win a game on Deity with all five AI Handicaps set to 200% for the entire game.");
     CHECK(info.unachieved_description == info.description);
     CHECK(info.gamerscore == 250);
-    CHECK(info.icon_path == "icons/200-percent-concentrated-power-of-will.png");
-    CHECK(info.image_id == 0);
+    CHECK(info.icon_path == "fpk:Common0.FPK/gov_revolution.dds");
+    CHECK(info.image_id == 21);
     CHECK(info.flags == 0);
 }
 
@@ -410,7 +410,7 @@ TEST_CASE("custom_achievement_new_metadata", "[ctest][custom-achievements]")
     CHECK(rule.unachieved_description == rule.description);
     CHECK(rule.gamerscore == 15);
     CHECK(rule.image_id == 5);
-    CHECK(rule.icon_path.empty());
+    CHECK(rule.icon_path == "fpk:pedia.FPK/bldg_palace.dds");
     CHECK(rule.flags == 0);
 
     const auto rage = achievements::TheirRageIsWithinYourControl();
@@ -421,7 +421,7 @@ TEST_CASE("custom_achievement_new_metadata", "[ctest][custom-achievements]")
     CHECK(rage.unachieved_description == rage.description);
     CHECK(rage.gamerscore == 25);
     CHECK(rage.image_id == 21);
-    CHECK(rage.icon_path.empty());
+    CHECK(rage.icon_path == "fpk:Level.FPK/unit_barbarian.dds");
     CHECK(rage.flags == 0);
 
     const std::set<uint32_t> ids{ achievements::kConcentratedPowerOfWillId, rule.id, rage.id };
@@ -652,10 +652,10 @@ TEST_CASE("custom_achievement_metadata_of_all_thirty_one", "[ctest][custom-achie
     };
 
     constexpr Row rows[] = {
-        { 0x10001, "200% Concentrated Power of Will", 250, 0 },
+        { 0x10001, "200% Concentrated Power of Will", 250, 21 },
         { 0x10002, "One To Rule Them All", 15, 5 },
         { 0x10003, "Their Rage Is Within Your Control", 25, 21 },
-        { 0x10004, "100% Reason to Remember the Name", 125, 0 },
+        { 0x10004, "100% Reason to Remember the Name", 125, 21 },
         { 0x10005, "Halcyon Templar", 5, 19 },
         { 0x10006, "Beyond the Firmament", 5, 4 },
         { 0x10007, "Blockbuster World Champion", 50, 34 },
@@ -697,12 +697,12 @@ TEST_CASE("custom_achievement_metadata_of_all_thirty_one", "[ctest][custom-achie
         CHECK(all[i].unachieved_description == all[i].description);
         CHECK_FALSE(all[i].description.empty());
         CHECK(all[i].flags == 0);
-        CHECK((i == 0 || i == 3) == !all[i].icon_path.empty());
+        CHECK(all[i].icon_path.starts_with("fpk:"));
         CHECK(std::string_view(achievements::AchievementName(rows[i].id)) == rows[i].label);
         total += all[i].gamerscore;
     }
     CHECK(total == 1715);
-    CHECK(all[3].icon_path == "icons/100-percent-reason-to-remember-the-name.png");
+    CHECK(all[3].icon_path == "fpk:pedia.FPK/gov_fundamentalism.dds");
     CHECK(std::string_view(achievements::AchievementName(0x1FFFF)) == "unknown");
     CHECK(achievements::ConcentratedPowerOfWill().label == all[0].label);
     CHECK(achievements::OneToRule().label == all[1].label);

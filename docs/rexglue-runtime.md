@@ -876,7 +876,8 @@ and its scroll while the screen is open. The panel's title strip shows the
 shown tab's "N of M unlocked" and "EarnedG of TotalG", as F3's header does per
 tab. Each row
 has the achievement's icon (the SDK's `AchievementIconCache`, the F3 loader:
-metadata `icon_path`, `icons/<image_id>.png`, then the title XDBF image; dimmed
+the title's game-file picture provider, metadata `icon_path`,
+`icons/<image_id>.png`, then the title XDBF image; dimmed
 while locked, a plain frame when none loads), the label, the description (the
 locked one while locked, the unlocked one after), the gamerscore, and a state
 line: "Locked", "Unlocked YYYY-MM-DD" (local date of the stored unlock time;
@@ -2294,42 +2295,45 @@ The title adds thirty-one achievements to the SDK catalog, 1715 gamerscore in
 total. Native XDBF achievement IDs are 16-bit, so these IDs cannot collide with
 them. `App::OnPostLoadXexImage` registers them after the XEX catalog is loaded
 and before the guest launches. Registration reports success only when all
-thirty-one register. An Image entry is a title XDBF image ID, or an embedded
-icon under `metadata/icons/`.
+thirty-one register. Each icon comes from the player's own game files.
+Its `icon_path`, `fpk:<archive>/<entry>`, names a DDS in an FPK under
+`Resource/Common`, decoded at runtime by `retail_ui_art`. No retail bytes ship
+with the title. If the archive or entry is missing or decoding fails, the
+title XDBF image identified by the Image entry is shown instead.
 
-| ID | Label | G | Image |
-|---|---|---:|---|
-| `0x10001` | `200% Concentrated Power of Will` | 250 | embedded icon |
-| `0x10002` | `One To Rule Them All` | 15 | 5 |
-| `0x10003` | `Their Rage Is Within Your Control` | 25 | 21 |
-| `0x10004` | `100% Reason to Remember the Name` | 125 | embedded icon |
-| `0x10005` | `Halcyon Templar` | 5 | 19 |
-| `0x10006` | `Beyond the Firmament` | 5 | 4 |
-| `0x10007` | `Blockbuster World Champion` | 50 | 34 |
-| `0x10008` | `Shallow Worldview` | 20 | 9 |
-| `0x10009` | `Cosmic Eclipse` | 75 | 32 |
-| `0x1000A` | `Art of the Walk In` | 20 | 12 |
-| `0x1000B` | `Last Stand` | 50 | 1 |
-| `0x1000C` | `Weekend Warrior` | 100 | 13 |
-| `0x1000D` | `Ye Are Idle, Ye Are Idle` | 75 | 20 |
-| `0x1000E` | `Leap Through Time` | 10 | 22 |
-| `0x1000F` | `I Have No Enemies` | 50 | 51 |
-| `0x10010` | `No More Worlds To Conquer` | 30 | 37 |
-| `0x10011` | `Tactically Centered` | 100 | 21 |
-| `0x10012` | `Fly Me to the Moon` | 75 | 32 |
-| `0x10013` | `Midas Touch` | 75 | 16 |
-| `0x10014` | `Culture Club` | 75 | 9 |
-| `0x10015` | `Iron Man` | 75 | 13 |
-| `0x10016` | `Overtime` | 10 | 51 |
-| `0x10017` | `World at War` | 100 | 4 |
-| `0x10018` | `Continental Drift` | 25 | 30 |
-| `0x10019` | `Island in the Sun` | 25 | 23 |
-| `0x1001A` | `Smoke on the Water` | 25 | 26 |
-| `0x1001B` | `Clash of the Titans` | 25 | 18 |
-| `0x1001C` | `Weather With You` | 25 | 25 |
-| `0x1001D` | `Around the World` | 25 | 34 |
-| `0x1001E` | `The Bay Harbor Butcher` | 50 | 24 |
-| `0x1001F` | `Morte Eterna` | 100 | 35 |
+| ID | Label | G | Image | Picture |
+|---|---|---:|---:|---|
+| `0x10001` | `200% Concentrated Power of Will` | 250 | 21 | `Common0.FPK/gov_revolution.dds` |
+| `0x10002` | `One To Rule Them All` | 15 | 5 | `pedia.FPK/bldg_palace.dds` |
+| `0x10003` | `Their Rage Is Within Your Control` | 25 | 21 | `Level.FPK/unit_barbarian.dds` |
+| `0x10004` | `100% Reason to Remember the Name` | 125 | 21 | `pedia.FPK/gov_fundamentalism.dds` |
+| `0x10005` | `Halcyon Templar` | 5 | 19 | `pedia.FPK/rel_templar.dds` |
+| `0x10006` | `Beyond the Firmament` | 5 | 4 | `pedia.FPK/unit_icbm.dds` |
+| `0x10007` | `Blockbuster World Champion` | 50 | 34 | `pedia.FPK/wond_hollywood.dds` |
+| `0x10008` | `Shallow Worldview` | 20 | 9 | `pedia.FPK/ter_ocean.dds` |
+| `0x10009` | `Cosmic Eclipse` | 75 | 32 | `pedia.FPK/tech_spaceflight.dds` |
+| `0x1000A` | `Art of the Walk In` | 20 | 12 | `pedia.FPK/unit_great_artist_male.dds` |
+| `0x1000B` | `Last Stand` | 50 | 1 | `pedia.FPK/unit_militia.dds` |
+| `0x1000C` | `Weekend Warrior` | 100 | 13 | `pedia.FPK/unit_warrior.dds` |
+| `0x1000D` | `Ye Are Idle, Ye Are Idle` | 75 | 20 | `pedia.FPK/tech_alphabet.dds` |
+| `0x1000E` | `Leap Through Time` | 10 | 22 | `pedia.FPK/tech_futuretechnology.dds` |
+| `0x1000F` | `I Have No Enemies` | 50 | 51 | `pedia.FPK/wond_unitednations.dds` |
+| `0x10010` | `No More Worlds To Conquer` | 30 | 37 | `pedia.FPK/ldr_greece.dds` |
+| `0x10011` | `Tactically Centered` | 100 | 21 | `pedia.FPK/wond_thegreatwall.dds` |
+| `0x10012` | `Fly Me to the Moon` | 75 | 32 | `pedia.FPK/wond_apolloprogram.dds` |
+| `0x10013` | `Midas Touch` | 75 | 16 | `pedia.FPK/res_gold.dds` |
+| `0x10014` | `Culture Club` | 75 | 9 | `pedia.FPK/wond_shakespearestheatre.dds` |
+| `0x10015` | `Iron Man` | 75 | 13 | `pedia.FPK/res_iron.dds` |
+| `0x10016` | `Overtime` | 10 | 51 | `pedia.FPK/tech_navigation.dds` |
+| `0x10017` | `World at War` | 100 | 4 | `pedia.FPK/wond_theinternet.dds` |
+| `0x10018` | `Continental Drift` | 25 | 30 | `pedia.FPK/unit_galley.dds` |
+| `0x10019` | `Island in the Sun` | 25 | 23 | `pedia.FPK/unit_galleon.dds` |
+| `0x1001A` | `Smoke on the Water` | 25 | 26 | `pedia.FPK/unit_submarine.dds` |
+| `0x1001B` | `Clash of the Titans` | 25 | 18 | `pedia.FPK/unit_great_leader.dds` |
+| `0x1001C` | `Weather With You` | 25 | 25 | `Common0.FPK/tech_astronomy.dds` |
+| `0x1001D` | `Around the World` | 25 | 34 | `pedia.FPK/tech_globalization.dds` |
+| `0x1001E` | `The Bay Harbor Butcher` | 50 | 24 | `pedia.FPK/bldg_harbor.dds` |
+| `0x1001F` | `Morte Eterna` | 100 | 35 | `pedia.FPK/unit_great_general.dds` |
 
 ### Victory achievements
 

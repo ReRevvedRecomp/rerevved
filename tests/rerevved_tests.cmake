@@ -78,6 +78,7 @@ add_executable(rerevved_tests
     src/tab_bar_layout.cpp
     src/text_entry.cpp
     src/achievements_list.cpp
+    src/achievement_icons.cpp
     src/maps_tab.cpp
     src/assets_list.cpp
     src/mods_list.cpp
@@ -155,6 +156,7 @@ add_executable(rerevved_tests
     tests/tab_bar_layout_test.cpp
     tests/text_entry_test.cpp
     tests/achievements_list_test.cpp
+    tests/achievement_icons_test.cpp
     tests/assets_list_test.cpp
     tests/maps_tab_test.cpp
     tests/mods_list_test.cpp
