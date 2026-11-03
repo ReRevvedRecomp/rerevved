@@ -75,4 +75,14 @@ const std::vector<std::string>& StartupOrder();
 // Must run before the guest main thread starts; refused packs are logged by package ID.
 void RegisterSelected(std::span<const rex::system::AssetOverlayPackage> packages);
 
+struct ScenarioOwner
+{
+    int32_t     id = 0;
+    std::string pack;
+    std::string map;
+};
+
+// The registered pack that supplied this scenario ID, or null.
+const ScenarioOwner* FindScenarioOwner(int32_t scenarioId);
+
 } // namespace rerevved::map_packs

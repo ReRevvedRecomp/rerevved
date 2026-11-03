@@ -1,9 +1,12 @@
 #include "custom_achievements.h"
 
+#include "gameplay_fixes.h"
+
 #include <algorithm>
 #include <cstdlib>
 #include <iterator>
 #include <mutex>
+#include <string_view>
 
 #include <rex/logging.h>
 #include <rex/system/achievements.h>
@@ -16,7 +19,7 @@ namespace
 std::mutex mutex;
 Progress   progress;
 
-// Total 955G.
+// Total 1715G.
 struct Entry
 {
     uint32_t    id;
@@ -28,7 +31,7 @@ struct Entry
 };
 
 constexpr Entry kCatalog[] = {
-    { kConcentratedPowerOfWillId, "200% Concentrated Power of Will", "Win a game on Deity with all five AI Handicaps set to 200% for the entire game.", 200, 0, "icons/200-percent-concentrated-power-of-will.png" },
+    { kConcentratedPowerOfWillId, "200% Concentrated Power of Will", "Win a game on Deity with all five AI Handicaps set to 200% for the entire game.", 250, 0, "icons/200-percent-concentrated-power-of-will.png" },
     { kOneToRuleId, "One To Rule Them All", "Win a game on Deity with One City Challenge enabled.", 15, 5, "" },
     { kTheirRageId, "Their Rage Is Within Your Control", "Defeat 50 Barbarian units in a single game.", 25, 21, "" },
     { kReasonToRememberId, "100% Reason to Remember the Name", "Win a game on Deity with all five AI Handicaps set to 100% for the entire game.", 125, 0, "icons/100-percent-reason-to-remember-the-name.png" },
@@ -45,6 +48,20 @@ constexpr Entry kCatalog[] = {
     { kNoEnemiesId, "I Have No Enemies", "Win a game on Deity without participating in a single battle.", 50, 51, "" },
     { kNoMoreWorldsId, "No More Worlds To Conquer", "Win a Domination victory on Deity with 6 AI opponents enabled.", 30, 37, "" },
     { kTacticallyCenteredId, "Tactically Centered", "Win a game on Deity without building any units, with all five AI Handicaps set to 50% for the entire game.", 100, 21, "" },
+    { kFlyMeToTheMoonId, "Fly Me to the Moon", "Win a Technology victory on Deity with the AI Research Handicap set to 200% for the entire game.", 75, 32, "" },
+    { kMidasTouchId, "Midas Touch", "Win an Economic victory on Deity with the AI Gold Handicap set to 200% for the entire game.", 75, 16, "" },
+    { kCultureClubId, "Culture Club", "Win a Culture victory on Deity with the AI Culture Handicap set to 200% for the entire game.", 75, 9, "" },
+    { kIronManId, "Iron Man", "Win a Domination victory on Deity with the AI Production Handicap set to 200% for the entire game.", 75, 13, "" },
+    { kOvertimeId, "Overtime", "Win after 2100 AD in a game with an extended Turn Limit.", 10, 51, "" },
+    { kWorldAtWarId, "World at War", "Win a game on Deity on the Earth map from the Real World map pack with Always At War and 6 AI opponents.", 100, 4, "" },
+    { kContinentalDriftId, "Continental Drift", "Win a game on any map from the Landmasses map pack.", 25, 30, "" },
+    { kIslandInTheSunId, "Island in the Sun", "Win a game on any map from the Islands map pack.", 25, 23, "" },
+    { kSmokeOnTheWaterId, "Smoke on the Water", "Win a game on any map from the Inland Water map pack.", 25, 26, "" },
+    { kClashOfTheTitansId, "Clash of the Titans", "Win a game on any map from the Matchups map pack.", 25, 18, "" },
+    { kWeatherWithYouId, "Weather With You", "Win a game on any map from the Climates map pack.", 25, 25, "" },
+    { kAroundTheWorldId, "Around the World", "Win a game on any map from the Real World map pack.", 25, 34, "" },
+    { kBayHarborButcherId, "The Bay Harbor Butcher", "Sink 50 ships in one game on Deity on any map from the Islands map pack.", 50, 24, "" },
+    { kMorteEternaId, "Morte Eterna", "Win a Domination victory on the Europe map on Deity, with all five AI Handicaps set to 100% for the entire game and Always At War enabled.", 100, 35, "" },
 };
 
 rex::system::AchievementInfo makeInfo(const Entry& entry)
@@ -119,6 +136,38 @@ bool yearBefore(const VictoryContext& context, int32_t limit) noexcept
     return context.yearKnown && context.year < limit;
 }
 
+// The native game ends at 2100 AD, so a later win needs a Turn Limit that extends or removes it.
+bool turnLimitExtended(const VictoryContext& context) noexcept
+{
+    namespace gf = gameplay_fixes;
+    return gf::ExtendsTurnLimit(context.turnLimit) || context.turnLimit == gf::kTurnLimitUnlimited;
+}
+
+bool inPack(const VictoryContext& context, std::string_view pack) noexcept
+{
+    return !context.networkGame && context.packId == pack;
+}
+
+bool countNavalVictory(const VictoryContext& context) noexcept
+{
+    {
+        std::lock_guard lock(mutex);
+        progress.navalVictories = std::min(progress.navalVictories + 1, kMaximumNavalVictories);
+        if (progress.navalVictories < kNavalVictoryTarget)
+        {
+            return false;
+        }
+    }
+    return deity(context) && inPack(context, "rerevved-islands");
+}
+
+// Deity win of one victory type with a single AI Handicap at the maximum for the whole game.
+bool handicapWin(const VictoryContext& context, int32_t victoryType, int32_t ai_economy::Policy::* handicap) noexcept
+{
+    return deity(context) && !context.nativeEconomy && context.victoryType == victoryType &&
+           context.policy.*handicap == ai_economy::kMaxBonusPercent;
+}
+
 bool noUnitsBuilt(const VictoryContext& context) noexcept
 {
     return context.historyKnown && !context.unitBuilt;
@@ -143,6 +192,19 @@ constexpr VictoryRule kVictoryRules[] = {
     { kNoEnemiesId, QualifiesNoEnemies },
     { kNoMoreWorldsId, QualifiesNoMoreWorlds },
     { kTacticallyCenteredId, QualifiesTacticallyCentered },
+    { kFlyMeToTheMoonId, QualifiesFlyMeToTheMoon },
+    { kMidasTouchId, QualifiesMidasTouch },
+    { kCultureClubId, QualifiesCultureClub },
+    { kIronManId, QualifiesIronMan },
+    { kOvertimeId, QualifiesOvertime },
+    { kWorldAtWarId, QualifiesWorldAtWar },
+    { kContinentalDriftId, QualifiesContinentalDrift },
+    { kIslandInTheSunId, QualifiesIslandInTheSun },
+    { kSmokeOnTheWaterId, QualifiesSmokeOnTheWater },
+    { kClashOfTheTitansId, QualifiesClashOfTheTitans },
+    { kWeatherWithYouId, QualifiesWeatherWithYou },
+    { kAroundTheWorldId, QualifiesAroundTheWorld },
+    { kMorteEternaId, QualifiesMorteEterna },
 };
 
 bool inMap(Tile tile) noexcept
@@ -298,6 +360,73 @@ bool QualifiesTacticallyCentered(const VictoryContext& context) noexcept
     return deity(context) && noUnitsBuilt(context) && handicapsAt(context, 50);
 }
 
+bool QualifiesFlyMeToTheMoon(const VictoryContext& context) noexcept
+{
+    return handicapWin(context, 2, &ai_economy::Policy::researchBonusPercent);
+}
+
+bool QualifiesMidasTouch(const VictoryContext& context) noexcept
+{
+    return handicapWin(context, 3, &ai_economy::Policy::goldBonusPercent);
+}
+
+bool QualifiesCultureClub(const VictoryContext& context) noexcept
+{
+    return handicapWin(context, 4, &ai_economy::Policy::cultureBonusPercent);
+}
+
+bool QualifiesIronMan(const VictoryContext& context) noexcept
+{
+    return handicapWin(context, 1, &ai_economy::Policy::productionBonusPercent);
+}
+
+bool QualifiesOvertime(const VictoryContext& context) noexcept
+{
+    return !context.networkGame && context.yearKnown && context.year > kOvertimeFirstYear && turnLimitExtended(context);
+}
+
+bool QualifiesWorldAtWar(const VictoryContext& context) noexcept
+{
+    return deity(context) && inPack(context, "rerevved-real-world") && context.mapName == "rr_earth" && context.alwaysAtWar &&
+           context.initialAiOpponents == kNoMoreWorldsOpponents;
+}
+
+bool QualifiesContinentalDrift(const VictoryContext& context) noexcept
+{
+    return inPack(context, "rerevved-landmasses");
+}
+
+bool QualifiesIslandInTheSun(const VictoryContext& context) noexcept
+{
+    return inPack(context, "rerevved-islands");
+}
+
+bool QualifiesSmokeOnTheWater(const VictoryContext& context) noexcept
+{
+    return inPack(context, "rerevved-inland-water");
+}
+
+bool QualifiesClashOfTheTitans(const VictoryContext& context) noexcept
+{
+    return inPack(context, "rerevved-matchups");
+}
+
+bool QualifiesWeatherWithYou(const VictoryContext& context) noexcept
+{
+    return inPack(context, "rerevved-climates");
+}
+
+bool QualifiesAroundTheWorld(const VictoryContext& context) noexcept
+{
+    return inPack(context, "rerevved-real-world");
+}
+
+bool QualifiesMorteEterna(const VictoryContext& context) noexcept
+{
+    return deity(context) && context.victoryType == 1 && handicapsAt(context, 100) &&
+           context.alwaysAtWar && inPack(context, "rerevved-real-world") && context.mapName == "rr_europe";
+}
+
 bool Register()
 {
     bool all = true;
@@ -380,6 +509,7 @@ Progress CurrentProgress()
 void RestoreProgress(Progress restored)
 {
     restored.barbarianDefeats  = std::clamp(restored.barbarianDefeats, 0, kBarbarianDefeatTarget);
+    restored.navalVictories    = std::clamp(restored.navalVictories, 0, kMaximumNavalVictories);
     restored.firstFoundingTurn = restored.firstFoundingTurn < 0 ? -1 : std::min(restored.firstFoundingTurn, kMaximumRecordedTurn);
     if (restored.initialAiOpponents < 0 || restored.initialAiOpponents > kMaximumAiOpponents)
     {
@@ -470,6 +600,13 @@ bool CountsAsBarbarianDefeat(const DefeatEvent& event) noexcept
            event.killedAfter;
 }
 
+bool CountsAsNavalVictory(const DefeatEvent& event) noexcept
+{
+    return event.combatSite && event.participantsMatch && event.loserType >= kFirstShipType && event.loserType <= kLastShipType &&
+           event.local >= 0 && event.winner == event.local && event.winner != event.loser && !event.killedBefore &&
+           event.killedAfter;
+}
+
 AwardResult RecordBarbarianDefeat(const IsUnlockedFn& isUnlocked, const UnlockFn& unlock)
 {
     {
@@ -488,6 +625,16 @@ AwardResult RecordBarbarianDefeat(const IsUnlockedFn& isUnlocked, const UnlockFn
 AwardResult RecordBarbarianDefeat()
 {
     return RecordBarbarianDefeat(sdkIsUnlocked, sdkUnlock);
+}
+
+AwardResult RecordNavalVictory(const VictoryContext& context, const IsUnlockedFn& isUnlocked, const UnlockFn& unlock)
+{
+    return awardId(kBayHarborButcherId, countNavalVictory(context), isUnlocked, unlock);
+}
+
+AwardResult RecordNavalVictory(const VictoryContext& context)
+{
+    return awardEvent(kBayHarborButcherId, countNavalVictory(context));
 }
 
 } // namespace rerevved::custom_achievements

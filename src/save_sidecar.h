@@ -16,8 +16,9 @@ namespace rerevved::save_sidecar
 {
 
 // Schema 2 ordinary; 3 adds a practice block; 4 isolates other practice/isolated saves; 5 adds turn limit;
-// 6 adds Always At War. Schemas 1 to 4 load native turn limit and Always At War off; 5 loads Always At War off.
-constexpr uint8_t kSchemaVersion = 6;
+// 6 adds Always At War; 7 adds the ships sunk count. Schemas 1 to 4 load the native turn limit;
+// schemas 1 to 5 load Always At War off, and schemas 1 to 6 load no ships sunk.
+constexpr uint8_t kSchemaVersion = 7;
 
 struct State
 {
@@ -38,8 +39,9 @@ struct State
     std::optional<gotw::PracticeBlock>    practice;
     // Schema 4 isolates non-resumable practice/isolated saves by origin only; exclusive with a practice block.
     bool    practiceMarker                 = false;
-    int32_t turnLimit                      = 0; // gameplay_fixes turn limit index, schemas 5 and 6.
+    int32_t turnLimit                      = 0; // gameplay_fixes turn limit index, schema 5 and later.
     bool    alwaysAtWar                    = false;
+    int32_t navalVictories                 = 0; // schema 7
     bool    operator==(const State&) const = default;
 };
 

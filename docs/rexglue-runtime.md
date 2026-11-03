@@ -866,7 +866,7 @@ drawn triangle as fallback.
 **Achievements page.** The third page lists every achievement the SDK catalog
 holds, from the same `AchievementManager` the F3 window reads (the catalog,
 `IsUnlocked` and `GetUnlockTime` of the live kernel state), so the XEX
-achievements and the seventeen custom ones appear together. The order is the F3
+achievements and the thirty-one custom ones appear together. The order is the F3
 window's: the original achievements in catalog order, then the custom ones by
 ascending gamerscore, label and ID (`src/achievements_list.cpp`). As in F3, the
 page has two tabs, Original (the game's own achievements) and Custom, on a tab
@@ -1300,21 +1300,22 @@ fallback, a following Normal game and GOTW Standard Rules with Legendary selecte
 ## Save sidecar
 
 `save_sidecar` (default `true`) controls whether the host stores gameplay
-state separately for each save. The payload stores schema version 6, or 3 for a Game of the Week practice save, the frozen
+state separately for each save. The payload stores schema version 7, or 3 for a Game of the Week practice save, the frozen
 Resources selection, sorted unique Balanced or Legendary identity overrides, the frozen Raging
 Barbarians boolean, the fixed One City Challenge enabled state and minimum
 population, the effective AI research, production, gold, food and culture bonus
-percentages, the frozen Turn Limit index (0 to 4, schema 5 and later), the frozen Always At War boolean (schema 6 only), and custom achievement progress: whether One
+percentages, the frozen Turn Limit index (0 to 4, schema 5 and later), the frozen Always At War boolean (schema 6 and later), and custom achievement progress: whether One
 City Challenge was enabled at game setup (only possible while it is enabled), the Barbarian defeat count, 0 to
-50, and the whole-game history (tracked flag, unit built, battle fought, deep
+50, the ships sunk count (schema 7, one byte at state offset +20, 0 to 255), and the whole-game history (tracked flag, unit built, battle fought, deep
 Ocean entered, first founding turn and initial AI opponent count). Schema 1
 stores only the Resources selection, Raging Barbarians, One City Challenge and
 the identity overrides. It uses native AI values and gives no progress: One
 City Challenge not from setup, a count of 0 and untracked history. Schema 2 is
 a payload without Turn Limit; schema 5 stores its byte after the initial AI
 count; schema 6 adds the Always At War byte (0 or 1, any other value rejects the
-sidecar) after it. Schemas 1 to 4 load the native 2100 limit, and schemas 1 to 5
-load with Always At War off. Schema 3 is
+sidecar) after it; schema 7 adds the ships sunk byte after that, making the fixed
+state 21 bytes. Schemas 1 to 4 load the native 2100 limit, schemas 1 to 5
+load with Always At War off, and schemas 1 to 6 load a ships sunk count of 0. Schema 3 is
 schema 2 with one Game of the Week block inserted after the fixed state and
 before the resource identity records, written only for a manual save in a
 practice game. Schema 3 itself means a block is present: one flag byte
@@ -1328,7 +1329,7 @@ isolation-only marker, written by any save of a practice game, or of a game that
 loaded as isolated, that carries no block (an automatic save, a manual one whose
 block is unavailable, or a resave of an isolated load). It holds no week, seed,
 civilization or rules; a load that finds it claims the origin and is isolated,
-never resumed. Other games write schema 6, and their autosaves are unchanged.
+never resumed. Other games write schema 7, and their autosaves are unchanged.
 New games freeze the effective gameplay selections, including standard GOTW
 values.
 
@@ -2289,16 +2290,16 @@ behavior. Standard Rules freezes native values at setup.
 
 ## Custom achievements
 
-The title adds seventeen achievements to the SDK catalog, 955 gamerscore in
+The title adds thirty-one achievements to the SDK catalog, 1715 gamerscore in
 total. Native XDBF achievement IDs are 16-bit, so these IDs cannot collide with
 them. `App::OnPostLoadXexImage` registers them after the XEX catalog is loaded
 and before the guest launches. Registration reports success only when all
-seventeen register. An Image entry is a title XDBF image ID, or an embedded
+thirty-one register. An Image entry is a title XDBF image ID, or an embedded
 icon under `metadata/icons/`.
 
 | ID | Label | G | Image |
 |---|---|---:|---|
-| `0x10001` | `200% Concentrated Power of Will` | 200 | embedded icon |
+| `0x10001` | `200% Concentrated Power of Will` | 250 | embedded icon |
 | `0x10002` | `One To Rule Them All` | 15 | 5 |
 | `0x10003` | `Their Rage Is Within Your Control` | 25 | 21 |
 | `0x10004` | `100% Reason to Remember the Name` | 125 | embedded icon |
@@ -2315,6 +2316,20 @@ icon under `metadata/icons/`.
 | `0x1000F` | `I Have No Enemies` | 50 | 51 |
 | `0x10010` | `No More Worlds To Conquer` | 30 | 37 |
 | `0x10011` | `Tactically Centered` | 100 | 21 |
+| `0x10012` | `Fly Me to the Moon` | 75 | 32 |
+| `0x10013` | `Midas Touch` | 75 | 16 |
+| `0x10014` | `Culture Club` | 75 | 9 |
+| `0x10015` | `Iron Man` | 75 | 13 |
+| `0x10016` | `Overtime` | 10 | 51 |
+| `0x10017` | `World at War` | 100 | 4 |
+| `0x10018` | `Continental Drift` | 25 | 30 |
+| `0x10019` | `Island in the Sun` | 25 | 23 |
+| `0x1001A` | `Smoke on the Water` | 25 | 26 |
+| `0x1001B` | `Clash of the Titans` | 25 | 18 |
+| `0x1001C` | `Weather With You` | 25 | 25 |
+| `0x1001D` | `Around the World` | 25 | 34 |
+| `0x1001E` | `The Bay Harbor Butcher` | 50 | 24 |
+| `0x1001F` | `Morte Eterna` | 100 | 35 |
 
 ### Victory achievements
 
@@ -2328,9 +2343,10 @@ The award comes from a hook on `sub_82D052C8`, the native local-player victory
 handler. Every victory test reaches it only when the winner is the local
 player, so it is awarded from that event and never from loading a save or from
 the result screen. The hook reads the difficulty, the network byte, the current
-year (`0x8312B8E0`, negative is BC) and the effective AI policy before calling
-the native handler unchanged, then evaluates every victory predicate below and
-asks the SDK unlock store for each one that qualifies. A second delivery of the
+year (`0x8312B8E0`, negative is BC), the effective AI policy and the map pack
+of the current scenario before calling the native handler unchanged. It then
+adds the frozen Turn Limit and Always At War setting, evaluates every victory
+predicate below and asks the SDK unlock store for each one that qualifies. A second delivery of the
 same victory finds the achievements unlocked and does nothing, so duplicate
 delivery relies on that store. An unreadable difficulty or network byte never
 qualifies, and an unreadable year fails every predicate that requires a year.
@@ -2350,6 +2366,26 @@ Network games are excluded from every predicate.
 | `0x1000E` | Game of the Week on week 36428, any difficulty |
 | `0x1000F` | Deity, tracked history, no battle fought |
 | `0x10010` | Domination victory (type 1), Deity, 6 AI opponents at setup |
+| `0x10012` | Technology victory (type 2), Deity, no native economy, AI Research handicap 200 (others any) |
+| `0x10013` | Economic victory (type 3), Deity, no native economy, AI Gold handicap 200 (others any) |
+| `0x10014` | Culture victory (type 4), Deity, no native economy, AI Culture handicap 200 (others any) |
+| `0x10015` | Domination victory (type 1), Deity, no native economy, AI Production handicap 200 (others any) |
+| `0x10016` | Year after 2100 AD in a game whose frozen Turn Limit is 2200, 2300, 2500 or unlimited, any difficulty |
+| `0x10017` | Deity, map `rr_earth` of pack `rerevved-real-world`, Always At War on, 6 AI opponents at setup |
+| `0x10018` | Any scenario of pack `rerevved-landmasses`, any difficulty and victory type |
+| `0x10019` | Any scenario of pack `rerevved-islands`, any difficulty and victory type |
+| `0x1001A` | Any scenario of pack `rerevved-inland-water`, any difficulty and victory type |
+| `0x1001B` | Any scenario of pack `rerevved-matchups`, any difficulty and victory type |
+| `0x1001C` | Any scenario of pack `rerevved-climates`, any difficulty and victory type |
+| `0x1001D` | Any scenario of pack `rerevved-real-world`, any difficulty and victory type |
+| `0x1001F` | Domination victory (type 1), Deity, no native economy, all five handicaps 100, Always At War on, map `rr_europe` of pack `rerevved-real-world` |
+
+The map pack is identified from the scenario word `0x8312B8D4` (-1 in an
+ordinary game). A value of 100 or more is looked up in the scenarios that
+`map_packs::RegisterSelected` records for each registered pack
+(`map_packs::FindScenarioOwner`), so the predicates key on the pack ID and the
+map name, never on a scenario number. A scenario that no registered pack
+supplied matches no pack achievement.
 
 Eligibility uses the frozen game policy, not the settings sliders. Slider edits
 for the next game do not affect a running game. A save without a restored
@@ -2364,8 +2400,14 @@ target are at least 24 tiles apart (Chebyshev distance on the 32 by 32 map, x
 wrapping and y not). `Art of the Walk In` unlocks on a capital capture before
 3500 BC on Deity in a non-network game. `Last Stand` unlocks when a defending
 Militia in a city wins a battle in which the attack strength was strictly
-greater than the defense strength. An event achievement awards immediately
-through the SDK store and logs `Custom achievement unlocked: <name>`.
+greater than the defense strength. `The Bay Harbor Butcher`
+unlocks when the local player has sunk 50 ships in one game on Deity, in a
+non-network game on any map from the `rerevved-islands` pack. A ship is a
+killed unit of type 19 to 23 (Submarine to Battleship), counted by the same
+combat kill hook and guards as `Their Rage Is Within Your Control` below,
+whatever the winning unit is; the pack is read as for the victory predicates.
+An event achievement awards immediately through the SDK store and logs
+`Custom achievement unlocked: <name>`.
 
 ### Per-game history
 
@@ -2383,7 +2425,7 @@ latch followed this setup's weekly preparation, so a latch left by an earlier
 launch with the same setup address never supplies it.
 The week and the Game of the Week flag are not saved. A load clears them, and a
 practice game never sets the flag, so it earns no Game of the Week achievements. A rejected setup and a load reset
-every field to unknown (history untracked, AI count -1), and a valid schema 2 or 5 sidecar restores the saved
+every field to unknown (history untracked, AI count -1), and a valid schema 2 or later sidecar restores the saved
 fields. A game loaded from a schema 1 sidecar or without a sidecar never
 qualifies for a whole-game achievement. The first founding turn keeps only the
 first city. For a later-era start from Starting Era or a scenario such as
@@ -2436,13 +2478,20 @@ a profile that lacks it. The count is per game: a new game resets it to 0, the
 gameplay sidecar saves it and restores it on load, and a load whose sidecar is
 missing or schema 1 starts again at 0.
 
+The ships sunk count for `The Bay Harbor Butcher` uses the same hook and guards.
+Before the native call, it reads the loser's unit type byte (record offset
+`+1`, types 19 to 23) instead of testing for Barbarians. The per-game count
+saturates at 255 and is saved from schema 7. At 50 or more, each ship sunk
+checks Deity, the network byte and the `rerevved-islands` pack before asking
+the SDK store.
+
 ### Diagnostics and acceptance
 
 `--custom_achievement_trace=true` logs each native victory record and, on one
 line, the facts read and every victory decision. It also logs each kill from
 the four sites and each other kill of a Barbarian unit, with the return address,
 mode, loser, winner, local and Barbarian players, the killed flag before and after, whether it counted, and
-the count. An unlock logs one line even with tracing off, and a victory unlock
+the count, then the loser's unit type and the ships sunk decision and count. An unlock logs one line even with tracing off, and a victory unlock
 adds the victory type.
 
 Runtime acceptance is still required: a natural Deity win, the F3 list entries
