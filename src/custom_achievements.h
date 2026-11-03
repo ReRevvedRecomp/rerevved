@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <functional>
 #include <span>
+#include <string>
 #include <vector>
 
 #include <rex/system/achievement_store.h>
@@ -30,9 +31,26 @@ constexpr uint32_t kLeapThroughTimeId         = 0x1000E;
 constexpr uint32_t kNoEnemiesId               = 0x1000F;
 constexpr uint32_t kNoMoreWorldsId            = 0x10010;
 constexpr uint32_t kTacticallyCenteredId      = 0x10011;
+constexpr uint32_t kFlyMeToTheMoonId          = 0x10012;
+constexpr uint32_t kMidasTouchId              = 0x10013;
+constexpr uint32_t kCultureClubId             = 0x10014;
+constexpr uint32_t kIronManId                 = 0x10015;
+constexpr uint32_t kOvertimeId                = 0x10016;
+constexpr uint32_t kWorldAtWarId              = 0x10017;
+constexpr uint32_t kContinentalDriftId        = 0x10018;
+constexpr uint32_t kIslandInTheSunId          = 0x10019;
+constexpr uint32_t kSmokeOnTheWaterId         = 0x1001A;
+constexpr uint32_t kClashOfTheTitansId        = 0x1001B;
+constexpr uint32_t kWeatherWithYouId          = 0x1001C;
+constexpr uint32_t kAroundTheWorldId          = 0x1001D;
+constexpr uint32_t kBayHarborButcherId        = 0x1001E;
+constexpr uint32_t kMorteEternaId             = 0x1001F;
 
 constexpr int32_t kDeityDifficulty       = 4;
 constexpr int32_t kBarbarianDefeatTarget = 50;
+constexpr int32_t kNavalVictoryTarget    = 50;
+constexpr int32_t kFirstShipType         = 19; // Submarine
+constexpr int32_t kLastShipType          = 23; // Battleship
 
 // Thresholds. Years are signed calendar years (negative is BC).
 constexpr int32_t  kTemplarLastYear         = -3500; // on or before
@@ -44,10 +62,12 @@ constexpr int32_t  kWeekendWarriorFirstYear = -3000; // win strictly before
 constexpr int32_t  kLateFoundingTurn        = 100;   // first city on or after
 constexpr uint32_t kLeapWeek                = 36428;
 constexpr int32_t  kNoMoreWorldsOpponents   = 6;
+constexpr int32_t  kOvertimeFirstYear       = 2100; // win strictly after
 
 // Persisted per-game fields stay inside these ranges so a sidecar always validates.
-constexpr int32_t kMaximumRecordedTurn = 0xFFFE;
-constexpr int32_t kMaximumAiOpponents  = 6;
+constexpr int32_t kMaximumRecordedTurn   = 0xFFFE;
+constexpr int32_t kMaximumAiOpponents    = 6;
+constexpr int32_t kMaximumNavalVictories = 255;
 
 constexpr int32_t kMapSize   = 32; // Map side in tiles. x wraps.
 constexpr int32_t kMapStride = 40; // Terrain plane index is kMapStride * x + y.
@@ -101,6 +121,12 @@ struct VictoryContext
     int32_t  initialAiOpponents = -1;
     bool     gotwGame           = false;
     uint32_t gotwWeek           = 0;
+    // Frozen per-game settings: the Turn Limit choice and Always At War.
+    int32_t turnLimit   = 0;
+    bool    alwaysAtWar = false;
+    // Map pack that supplied the scenario and its map name. Empty for a retail or ordinary game.
+    std::string packId;
+    std::string mapName;
 };
 
 // 200% Concentrated Power of Will.
@@ -118,6 +144,19 @@ bool QualifiesLeapThroughTime(const VictoryContext& context) noexcept;
 bool QualifiesNoEnemies(const VictoryContext& context) noexcept;
 bool QualifiesNoMoreWorlds(const VictoryContext& context) noexcept;
 bool QualifiesTacticallyCentered(const VictoryContext& context) noexcept;
+bool QualifiesFlyMeToTheMoon(const VictoryContext& context) noexcept;
+bool QualifiesMidasTouch(const VictoryContext& context) noexcept;
+bool QualifiesCultureClub(const VictoryContext& context) noexcept;
+bool QualifiesIronMan(const VictoryContext& context) noexcept;
+bool QualifiesOvertime(const VictoryContext& context) noexcept;
+bool QualifiesWorldAtWar(const VictoryContext& context) noexcept;
+bool QualifiesContinentalDrift(const VictoryContext& context) noexcept;
+bool QualifiesIslandInTheSun(const VictoryContext& context) noexcept;
+bool QualifiesSmokeOnTheWater(const VictoryContext& context) noexcept;
+bool QualifiesClashOfTheTitans(const VictoryContext& context) noexcept;
+bool QualifiesWeatherWithYou(const VictoryContext& context) noexcept;
+bool QualifiesAroundTheWorld(const VictoryContext& context) noexcept;
+bool QualifiesMorteEterna(const VictoryContext& context) noexcept;
 
 // Registers the achievements with the SDK catalog. Returns false unless every
 // one registers, such as when no runtime is live.
@@ -159,7 +198,7 @@ std::vector<VictoryDecision> AwardVictory(const VictoryContext& context, const I
 std::vector<VictoryDecision> AwardVictory(const VictoryContext& context);
 
 // Per-game progress saved in the gameplay sidecar. gotwGame and gotwWeek are
-// not saved: Game of the Week saving is disabled.
+// not saved: practice games earn none.
 struct Progress
 {
     // OCC was on when the game was set up, not switched on mid-game.
@@ -176,6 +215,7 @@ struct Progress
     int32_t  initialAiOpponents                = -1;
     bool     gotwGame                          = false;
     uint32_t gotwWeek                          = 0; // 0 until the launch's weekly seed is latched.
+    int32_t  navalVictories                    = 0; // ships sunk by the local player
     bool     operator==(const Progress&) const = default;
 };
 
@@ -187,7 +227,7 @@ void RecordSetupOutcome(int32_t aiOpponents, uint32_t gotwWeek);
 // Everything unknown: history untracked, AI count -1, no Game of the Week.
 void     ResetProgress();
 Progress CurrentProgress();
-// Clamps the defeat count, founding turn and AI count to their ranges and always clears the
+// Clamps the defeat counts, founding turn and AI count to their ranges and always clears the
 // Game of the Week fields.
 void RestoreProgress(Progress progress);
 
@@ -197,6 +237,7 @@ void RecordUnitBuilt() noexcept;
 void RecordBattle() noexcept;
 void RecordDeepOceanEntry() noexcept;
 void RecordCityFounded(int32_t turn) noexcept; // keeps only the first, turn >= 0
+void RecordStartingEraApplied() noexcept;      // a later era starts near turn 100, so Ye Are Idle needs Ancient
 
 // Event achievements award immediately through the SDK and log "Custom achievement unlocked: <name>".
 AwardResult RecordTemplarDiscovery(int32_t year, const IsUnlockedFn& isUnlocked, const UnlockFn& unlock);
@@ -219,16 +260,28 @@ struct DefeatEvent
     int32_t barbarian         = -1;
     bool    killedBefore      = false;
     bool    killedAfter       = false;
+    int32_t loserType         = -1; // unit type of the loser
 };
 
 // True only for a combat defeat of a Barbarian unit by the local player that
 // turned the unit from alive to killed.
 bool CountsAsBarbarianDefeat(const DefeatEvent& event) noexcept;
 
+// True only for a combat defeat of a ship (unit types 19 to 23) by the local player that
+// turned the unit from alive to killed.
+bool CountsAsNavalVictory(const DefeatEvent& event) noexcept;
+
 // Counts one defeat, saturating at kBarbarianDefeatTarget. Below the target it
 // returns NotQualified. At the target every defeat checks the unlock store.
 AwardResult RecordBarbarianDefeat(const IsUnlockedFn& isUnlocked, const UnlockFn& unlock);
 
 AwardResult RecordBarbarianDefeat();
+
+// Counts one ship sunk, saturating at kMaximumNavalVictories. The Bay Harbor Butcher unlocks once
+// the count reaches kNavalVictoryTarget in a non-network Deity game from the Islands map pack,
+// read from context.difficulty, networkGame and packId.
+AwardResult RecordNavalVictory(const VictoryContext& context, const IsUnlockedFn& isUnlocked, const UnlockFn& unlock);
+
+AwardResult RecordNavalVictory(const VictoryContext& context);
 
 } // namespace rerevved::custom_achievements

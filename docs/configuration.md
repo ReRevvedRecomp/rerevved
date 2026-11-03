@@ -6,17 +6,23 @@ Close ReRevved before editing the file directly.
 
 ## Settings
 
-- **Gameplay**: combat speed, resources, Raging Barbarians, One City
-  Challenge, Earliest Domination, AI civilizations, AI Handicaps, Game of the
-  Week, and the Support section.
-- **Notifications**: research prompts, advisor pop-ups, and Barbarian messages.
-  **Disable Save Reminder** suppresses a prompt; it does not save the game.
-- **Online**: connection status, player name, relay invite, and Discord options.
+- **General**: Language (English, Deutsch, Francais, Espanol or Italiano, after a
+  restart), FPS Counter, Skip Intro and Open Log Folder.
+- **Gameplay**: combat speed, unit movement, resources, Raging Barbarians, One City
+  Challenge, Earliest Domination, Turn Limit, Starting Era, AI civilizations, Always At War, AI Handicaps,
+  and Game of the Week.
+- **Notifications**: Spaceship Scenes, research prompts, advisor pop-ups, and Barbarian messages. Each is on by default; turn a row off to hide it.
+  Turning off **Save Reminder** hides the prompt; it does not save the game.
+- **Online**: AI Difficulty (Multiplayer), connection status, player name, relay invite, and Discord options.
   See [Online play](online-play.md).
 - **Controls**: keyboard/controller bindings, mouse sensitivity, vibration,
   controller input in the background, Button Icons, and overlay hotkeys.
   **Button Icons** chooses which button icons the game shows, after a
-  restart.
+  restart. **Auto** shows PlayStation icons if the
+  controller you last used, or else the first one connected, is a PlayStation
+  controller, and Xbox icons for any other controller. With no controller
+  connected at launch it shows keyboard icons. **Keyboard** always shows them;
+  they replace each single-button image prompt with the first key bound to it.
 - **Display**: window and presentation options, described below.
 - **Audio**: Volume, Mute, and Play Sound in Background.
 
@@ -34,12 +40,88 @@ the frozen setting. Game of the Week Standard Rules disables it.
 victory can be declared: 10 turns (3000 BC, the default) or 5 turns
 (3500 BC). It applies to games started in the current launch, including Game of
 the Week with Standard Rules. A new multiplayer game uses the host's value.
-Loaded saves keep the default.
+Loaded saves keep the default, except a Game of the Week practice save, which
+restores the minimum it was saved with.
+
+**Turn Limit** chooses the year a new game can end by turn limit: 2100 AD (the
+default, as in the original game), 2200 AD, 2300 AD, 2500 AD or Unlimited. The
+game keeps the value it started with and each save records it, so a later change
+applies only to the next new game. A new multiplayer game uses the host's value
+for every player. Game of the Week always uses 2100 AD. A save without a recorded
+Turn Limit, or whose sidecar is missing or rejected, loads with 2100 AD.
+Unlimited removes the turn limit and its warning; the other victories still end
+the game.
+
+**Starting Era** gives every civilization extra technologies when a new
+game starts: Ancient (the default) adds none, Medieval adds 5, Industrial 14,
+Modern 24 and Future all 46 ordinary technologies, through the game's own starting-technology grant. The game uses the
+value it started with, so a later change applies only to the next new game. A new
+multiplayer game uses the host's value for every player. A scenario and Game of
+the Week keep their own era, and a loaded save never grants technologies again.
+
+**Always At War** (off by default) keeps every civilization at war with every
+other one for the whole game; peace can never be made. The game keeps the value it
+started with and each save records it, so a later change applies only to the next
+new game. It is for single player only: network games and Game of the Week ignore
+it. A loaded save restores its own value. A save without a recorded Always At War
+value, or whose sidecar is missing or rejected, loads with it off.
+
+**Apollo Discovery Bonuses** is an always-on fix, not a setting. When a
+civilization completes Apollo, every technology first-discovery bonus nobody has
+claimed is granted; otherwise technologies 1 to 46 count as owned and the bonuses
+are unreachable. A bonus any civilization already claimed is never repeated. It
+applies in single player and multiplayer and skips Game of the Week. A save made
+after Apollo completes but before the bonuses arrive can lose them.
+
+**AI Difficulty (Multiplayer)** sets the difficulty of every AI in a multiplayer
+game you host: King (the default and the game's native multiplayer value),
+Emperor or Deity. Every player in that game plays the host's value. A later
+change applies only to the next new game. Single player keeps the difficulty
+chosen at game setup, and a loaded save never applies the host's value.
+
+**Spaceship Scenes** (Notifications, on by default) shows the rocket
+scene of every spaceship part, yours included; turn it off to skip them. In a multiplayer game every player
+uses the host's value; otherwise your own setting applies, also to a Game of the
+Week. Part scenes already running are not affected by a change.
+
+**Allow Saving** (Gameplay > Game of the Week, off by default) lets you save and
+load a Game of the Week. When it is on as the game starts, the whole game is
+practice: it never counts toward the weekly results and earns no Game of the
+Week achievements. Use the Save and Load rows of the pause menu. A practice save
+resumes as practice only with its gameplay sidecar, returning to the week, seed,
+civilization and rules it was saved with. Load accepts any save, in a game or
+from the main menu. Every save made during a practice game writes its gameplay
+sidecar, even with the save sidecar setting off. Automatic saves are not
+resumable: they load without practice rules and never count toward the weekly
+results. A practice save whose sidecar is later lost loads as an ordinary game.
+
+### AI handicaps
+
+The Gameplay settings include **AI Research Bonus**, **AI Production Bonus**,
+**AI Gold Bonus**, **AI Food Bonus**, and **AI Culture Bonus**. Each runs from 0
+to 200 and defaults to 0, which keeps native behavior. Humans and Barbarians
+keep native values. These options change the economy, not leader personality
+or the number of AI civilizations.
+
+Research and production costs are divided by `1 + bonus/100`. A bonus of 100
+halves the cost and 200 divides it by three. Positive city Gold, Food, and
+Culture contributions are multiplied by `1 + bonus/100`. The
+[runtime contract](rexglue-runtime.md#ai-handicaps) describes rounding and limits.
+
+Changes apply to the next new game. Multiplayer uses the host's values; see
+[Online play](online-play.md#gameplay-settings-and-mods).
+
+The gameplay sidecar saves all five bonuses with the native save. Loading a
+single-player save restores them. Saves without a valid sidecar, sidecars from
+earlier releases, and loads with sidecars disabled use 0 for all five. Keep the
+`.rerevved-gameplay` file beside its native save when copying saves.
+
+Game of the Week with **Standard Rules** uses 0 for all five bonuses.
+Multiplayer loads use native behavior, whatever the save recorded.
 
 ## Display and audio
 
-ReRevved renders with Xenos. **Render Resolution** defaults to **Auto (Match
-Display)**, which chooses at startup the largest multiple of 1280x720 that fits
+ReRevved renders with Xenos. **Render Resolution** defaults to **Auto**, which chooses at startup the largest multiple of 1280x720 that fits
 your window or fullscreen monitor, for example 1280x720 on a 1080p display or
 2560x1440 on a 1440p display. You can also choose 1280x720, 2560x1440 or
 3840x2160. **Window Size** sets the window dimensions used by Auto at startup.
@@ -75,6 +157,9 @@ a restart. Select **Save**, exit, and launch again after changing them.
 Explicit `window_width` and `window_height` values in the config or command
 line override Window Size.
 
+**Skip Intro** skips the legal screens and the opening movie, starting with the
+next launch. Other movies, including the attract movie, are unchanged.
+
 Volume and Mute apply immediately. Turn off **Play Sound in Background** to
 silence the game when its window is unfocused or minimized.
 
@@ -89,7 +174,7 @@ The default player data folder is separate from the application folder:
 
 Windows uses your actual Documents location, including a redirected folder.
 The data folder holds `rerevved.toml`, `logs/`, `cache/`, saves, achievements,
-and saved mod/asset selections. **F1 > Gameplay > Support > Open Log Folder**
+and saved mod/asset selections. **F1 > General > Open Log Folder**
 opens the active log folder, including when a profile or log override is used.
 
 A named profile stores its state under `profiles/<id>/` inside the data folder.

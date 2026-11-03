@@ -16,7 +16,12 @@ driver never modifies that checkout.
 - [Gameplay resources](#gameplay-resources), [save sidecar](#save-sidecar),
   [Raging Barbarians](#gameplay-raging-barbarians),
   [One City Challenge](#gameplay-one-city-challenge),
-  [gameplay fixes](#gameplay-fixes) and
+  [gameplay fixes](#gameplay-fixes), [Turn Limit](#gameplay-turn-limit),
+  [Starting Era](#gameplay-starting-era),
+  [Always At War](#gameplay-always-at-war),
+  [Apollo Discovery Bonuses](#gameplay-apollo-discovery-bonuses),
+  [Multiplayer AI Difficulty](#gameplay-multiplayer-ai-difficulty),
+  [Spaceship Scenes](#gameplay-spaceship-scenes) and
   [Game of the Week](#gameplay-game-of-the-week): gameplay integration limits.
 - [Custom achievements](#custom-achievements): the title-defined achievements
   and their award rules.
@@ -117,6 +122,17 @@ selection isolated between named profiles.
 Explicit `log_file` and `cache_root` overrides retain their existing meanings
 and may select locations outside `P`.
 
+Map packs live under `maps/` beside the executable, apart from asset
+overrides. Each is a `maps/<id>/asset-pack.toml` package whose only asset is
+`assets/map-pack/dlc.fpk`; a pack with other assets is refused. The profile's
+`P/map_order.txt` enables packs and orders them, one package ID per line. When
+two enabled packs claim the same archive entry, map name, or scenario ID, the
+earlier one wins. An optional `[map_pack]` manifest table with `slot` and
+`scenarios = [{ id, name }]` is display metadata only; the archive stays
+authoritative. Changes apply on the next launch; see
+[`map_packs.h`](../src/map_packs.h). Release archives include the map packs
+from `rerevved-mods`. They start disabled; enable them in the Maps tab.
+
 F2 discovers packages installed under `mods/` beside the executable. Release
 archives include the first-party mods there. With no profile `mod_order.txt`,
 they start disabled. [Mods](mods.md#enable-or-change-mods) describes Apply
@@ -153,7 +169,7 @@ rerevved.exe --profile=alpha --profile_copy_from_default=true
 `--profile_copy_from_default=true` requests a single copy for this launch only. It
 requires a named profile and an absent target. The SDK copies config,
 ordinary title content and headers, title profile data, the title's
-achievement record, and both package order files when present. An empty
+achievement record, and the mod, asset and map pack order files when present. An empty
 saved order stays empty. It does not
 copy marketplace content, logs, cache, unrelated files, or another profile.
 After the copy succeeds, launch with `--profile=alpha` alone. An existing
@@ -333,11 +349,87 @@ Vulkan parity, and label, cursor and picking alignment.
 
 ## Button icons
 
-The `button_icons` setting accepts `xbox` or `playstation`, defaults to
-`xbox` and requires a restart. The retail movies and loading tips already carry
-both controller families. With `playstation`, three hooks in
-`config/button_icons_hooks.toml` swap the Xbox names the game requests;
-`src/button_icons.cpp` holds the tables.
+The `button_icons` setting accepts `auto`, `xbox`, `playstation` or `keyboard`,
+defaults to `auto` and requires a restart. The retail movies and loading tips
+already carry both controller families. With `playstation`, or `auto`
+resolving to it, three hooks in `config/button_icons_hooks.toml` swap the Xbox
+names the game requests; `src/button_icons.cpp` holds the tables.
+
+The family is resolved once, when startup finishes and before the guest runs.
+With `auto`, the SDK reports the family of the physical pad that last produced
+input, else the first connected pad, and whether any physical pad is connected.
+It publishes both when the window attaches and on each guest state poll;
+keyboard and mouse input never counts. A PlayStation pad selects
+`playstation`, any other pad keeps `xbox`, and no connected pad selects
+`keyboard`, even with keyboard and mouse mode off. If the SDK input system is
+unavailable, `auto` keeps `xbox`. Cached images, copied labels and the
+loading-tip table are not refreshed, so a controller change takes effect after
+a restart.
+
+### Keyboard icons
+
+With the `keyboard` family active, the prompt images the game requests by name
+show the keycap of the first key bound to that button, one per slot in
+`keyboard_icons::kSlots`:
+
+| Image | Binding cvar | Canvas |
+|---|---|---|
+| `a.dds`, `b.dds`, `x.dds`, `y.dds` | `keybind_a`, `keybind_b`, `keybind_x`, `keybind_y` | 64x64 |
+| `lb.dds`, `rb.dds` | `keybind_left_shoulder`, `keybind_right_shoulder` | 128x64 |
+| `lt.dds`, `rt.dds` | `keybind_left_trigger`, `keybind_right_trigger` | 64x128 |
+| `l3.dds`, `r3.dds` | `keybind_lstick_press`, `keybind_rstick_press` | 64x64 |
+| `dup.dds`, `ddown.dds`, `dleft.dds`, `dright.dds` | `keybind_dpad_up`, `_down`, `_left`, `_right` | 64x64 |
+| `startbutton.dds`, `backbutton.dds` | `keybind_start`, `keybind_back` | 64x64 |
+
+No label or tip name is rewritten, so a control label or loading tip whose
+Xbox frame or export draws one of these images shows the key too, with the
+retail layout and box size.
+
+The bindings are read once at startup. Each is a comma-separated list; the first
+alternative that is a single key with shipped art is shown, and a later
+alternative is never used once one qualifies. Alternatives are trimmed of outer
+spaces. A chord such as `Shift+Space`, an empty alternative, a key without
+shipped art, and a bare `Shift`, `Control` or `Alt` are skipped; the SDK
+matches modifiers exactly, so a bare modifier never activates a button. When none qualifies, that button keeps its retail
+prompt and one log line says why; the other buttons are unaffected. Key names
+match the SDK's names case-sensitively. Comma, Period, Backslash, F13 to F24,
+the numpad keys, Pause and ScrollLock have no art. The default D-pad bindings
+are chords, so the D-pad directions stay retail until rebound to single keys.
+
+The left and right stick images, the D-pad image and the vertical and
+horizontal axis images stand for several directions or a whole control, so they
+have no single key and keep their retail art. The `dup.dds`, `ddown.dds`,
+`dleft.dds` and `dright.dds` images are served for any direct request, but the
+DUP, DDOWN, DLEFT and DRIGHT labels in MainMenu and CityScreen draw the generic
+`DPAD.dds` image, so rebinding a D-pad direction does not reach those prompts
+and they stay retail.
+
+Only external DDS images are covered. A prompt a movie draws as vector art stays
+Xbox, whatever the binding: the D-pad in `buttonLegend.gfx` and single-button
+frames in other movies such as the stat screen's LB frame. No replacement path
+exists for them.
+
+The art is one 64x64 uncompressed DDS per key under
+`assets/button-icons/xelu-light`, staged next to the executable as
+`button-icons/xelu-light` and included in release packages.
+`scripts/build_keyboard_icons.py` builds the files from the keycap PNGs in
+`thirdparty/xelu-prompts` and its `--check` mode compares them byte for byte.
+`src/keyboard_icons.cpp` lists the shipped key names and validates each file.
+The Settings page takes its Keyboard prompt keys from the same list. A
+shoulder or trigger slot gets the keycap centered, unscaled, on a transparent
+canvas of the retail image's size, 128x64 or 64x128, built at startup.
+
+The File Data override hook `ApplyAssetFileOverride` at `0x82E87B90` serves the
+prepared file when the requested name is exactly a slot's name, in any case,
+with no path; the main-menu logo uses the same hook. Each image has its own
+guest buffer. Any failure leaves the retail image in place.
+
+The key art is "FREE Controller & Key Prompts" by Nicolae (Xelu) Berbece, in
+the public domain under CC0; `thirdparty/xelu-prompts/PROVENANCE.md` records
+the source and the imported files, and packages carry its notice under
+`licenses`.
+
+### PlayStation swaps
 
 - The external image open at `0x821E3018` swaps 17 equal-size basenames, such
   as `A.dds` to `PS3X.dds`, keeping any prefix and the extension. The Xbox
@@ -350,13 +442,681 @@ both controller families. With `playstation`, three hooks in
   boxes to a square of their smaller side. The vspace and tip text are kept.
 
 Replacement strings are allocated once on the system heap and kept for the
-process. With `xbox` every hook returns without reading guest memory.
+process. With `xbox` or `keyboard` every swap hook returns without reading
+guest memory.
+
+## Intro movie
+
+The `skip_intro_movie` setting (Skip Intro in the settings screens) defaults to
+`false`, requires a restart and covers this movie and the legal screens below. The
+intro and attract movie states share the frontend state entry `0x82E551D8`,
+which tests frontend flag bit `0x1000` at `0x82E5522C` and, when it is clear,
+completes the state through its vtable slot `+0x18` without building the
+movie. With the setting on, the hook in `config/intro_movie_hooks.toml` clears
+`r9` there only when the state object's vtable is `0x82131A18`, the
+`IntroMovie.bik` state, so the game takes its own no-movie path. The attract
+movie and every other reader of the flag keep their native behavior.
+
+## Legal screens
+
+The `skip_intro_movie` setting also skips the legal screens;
+`skip_legal_screens` is not an independent setting.
+Legal-screen update `0x82DEE860` compares the elapsed dwell in `r10` against
+5000 at `0x82DEE89C`; at or above it the owner completes natively. The same
+update dispatches main-menu preload `0x82E7EA60` once and sets owner byte
+`+0x434`. With the setting on, the hook in `config/legal_screen_hooks.toml`
+sets `r10` to 5000 only for the `GFX_LegalScreen.gfx` owner (vtable
+`0x82126EF4`) after that byte is set, so the preload is still dispatched
+exactly once before the screen completes. The hook does not wait for the
+preload to finish.
+
+## Game language
+
+The `game_language` setting holds an Xbox language ID: 1 English, 3 German,
+4 French, 5 Spanish or 6 Italian, the languages the disc has text for. It
+defaults to 1 and requires a restart; the Settings page shows it as
+**Language**, the first row of the General tab, as does F1. `App::ConstructRuntime` calls
+`game_language::ApplyAtBoot` after the config loads and before the runtime is
+created, which copies the value to the SDK's `user_language` once. The game
+reads it through XConfig category 3 setting 9, and XDBF metadata reads it
+during module setup. Later edits change only `game_language`, so the running
+game keeps the language it started with. The copy is an application default,
+so an explicit `user_language` in `rerevved.toml`, the environment or the
+command line wins for that run and is logged. A `game_language` value that is
+not one of the five IDs is left as stored and not copied.
+
+## Main-menu version label
+
+The main menu shows `v` plus the ReRevved version, such as `v0.6.1`, instead
+of the retail `v1.30`. Main-menu initializer `0x82E516F0` sends the movie's
+`SetVersion` through `0x82C4E858` at `0x82E51818` with `r6` pointing at the
+retail literal `0x82139CA8`. The hook in `config/version_label_hooks.toml`
+replaces `r6` only when it holds that literal, with a string allocated once on
+the system heap and kept for the process. The label is always on.
+
+## Pause menu
+
+Special Functions, the in-game pause menu, gains **Exit Game** as its last row,
+after **Exit to the Main Menu**, in both its full list and its shorter alternate
+list. It is always on. Exit Game asks the same retail quit question as Exit to
+the Main Menu; only its Yes row quits, through the same path as the window's
+close button. No or Back on the quit question returns to Special Functions.
+
+**Change Options.** (both lists) opens the Settings page, a full-screen page the
+title draws with ImGui over the running game, in place of the retail Options
+screen. Special Functions stays up underneath, and B on the page returns to it
+with its header and legend unchanged.
+The screen has a page strip (Settings, Mods, Achievements) under a banner that names
+the current page, centered. The Settings page has a tab strip (General, Gameplay,
+Notifications, Online, Controls, Display and Audio; a tab with no qualifying
+setting is left out), one panel with the current tab's
+`Label ... Value` rows under the F1 window's section headers (AI Handicaps,
+Game of the Week, Connection, Matchmaking, Discord) as subheadings, and a
+footer with the highlighted row's tooltip, a note line, and the A, X and Y
+prompts the page offers, with B ("Back", or "Keep" and "Cancel" during Mods
+questions) at the footer's bottom right; the page's action buttons share the
+row to its left, shrinking and then showing only their glyphs, never reaching
+B (`options_skin::ActionWidth`). The footer is as tall as its content
+needs (`options_skin::FooterHeight`: the tip lines the longest tooltip of the
+shown tab takes, one note line, and the button row, with half an em of padding),
+so it does not change height as the highlight moves; the Achievements page has
+no tip or note and its footer is the button row alone. LB and RB sit at the ends of the tab strip. The screen is built from a
+`PageSet` (`src/page_set.h`); the page strip above the tabs shows the page
+titles with LT and RT at its ends, and LT and RT (or Q and E) step between
+pages, wrapping from the last to the first. A click on a title or on a shoulder prompt, or the
+wheel over the strip, works as on the tab strip. The strip is hidden while only
+one page is registered. Each page remembers its highlighted row and scroll
+while the screen is open; opening the screen always lands on Settings. The
+highlighted row is a
+full-width blue bar with the game's gold arrow (`goldarrow.dds`, turned to point
+left) at each end of its value, dimmed when the value cannot move that way; the
+drawn triangle stands in when the art did not load. The A and B
+prompts (A, B, X, Y, LB, RB, LT and RT) use the active Button Icons family's own
+art, each at its image's aspect ratio. On the strips the triggers (LT, RT) are
+drawn at the strip height less 0.4 em (`options_skin::HintHeight`) and the
+shoulders (LB, RB) at 80 percent of that (`options_skin::ShoulderHintHeight`),
+each centered on the strip with the width of the image's own ratio and a click
+target that matches the drawn art, so a bumper (2:1) and a trigger (1:2) read as
+a set in every family; a drawn cap is sized from the same height. Xbox and PlayStation read the user's own
+`Pregame.FPK`: `a.dds`, `b.dds`, `lb.dds`, `rb.dds`, `lt.dds`, `rt.dds`, `x.dds`
+and `y.dds` for Xbox; `ps3x.dds`, `ps3circle.dds`, `ps3l1.dds`, `ps3r1.dds`,
+`ps3l2.dds`, `ps3r2.dds`, `ps3square.dds` and `ps3triangle.dds` for PlayStation.
+Keyboard reads the bundled Xelu keycaps beside the executable: `Return.dds` and
+`Escape.dds` for A and B, `PageUp.dds` and `PageDown.dds` for the tabs, `Q.dds`
+and `E.dds` for the pages, `X.dds` and `Y.dds` for the Mods page. A prompt whose
+file is missing or does not decode is drawn as a lettered disc or key cap
+instead, with one log line. Nothing retail ships with the title.
+
+All three pages share the Civilopedia look (`src/options_skin.h`). The
+backdrop is the world map `gfx_mapbackground_512x256.dds` from the user's
+`Common0.FPK` (1024x512), scaled to cover the screen, magnified 1.25x and
+cropped to the Americas side (`MapCrop`), under a translucent dark-blue tint.
+The strips (2.8 em each) sit on a band of `bardarkblue.dds` (`Pregame.FPK`)
+stretched across the screen. The list sits in a fixed panel with a `bardarkblue.dds` title
+strip, a vector body in two blues, a dark outer border and a thin light inner
+line, and scrolls inside it without a scroll bar. The title strip holds the
+Mods and Achievements counts and is left out first when a short screen needs the
+room (`options_skin::ChromeFor`, which then shrinks the margin, banner, strips
+and footer toward their floors to keep three Settings rows). When the list can scroll
+further up or down, the panel's right edge shows an LS glyph (`ls.dds` for
+Xbox, `ps3ls.dds` for PlayStation) with a gold arrow (`goldarrow.dds`, turned
+up or down) in the title strip and at the bottom; the Keyboard family has no LS
+art and shows the arrows alone. A click on an arrow scrolls one row. Art that
+is missing or does not decode is replaced by the drawn shape (plain navy
+backdrop, flat fills, triangles) with one log line per file, and the decoded
+art is shared by every page of the process like the prompt art.
+
+Controls: Up and Down (D-pad, left stick or arrow keys) move across the rows of
+the current tab and stop at its ends; the page scrolls to keep the row in view.
+Left and Right (or the arrows) apply the previous or next value at once, with
+no wrap. A (or Enter) flips a bool and steps a short list to the next value,
+wrapping from the last to the first. A row with more than ten choices
+(Civilization, and Monitor with many displays) opens a centered picker
+instead: Up and Down move, A applies and closes, B closes without a change.
+LB and RB (or PageUp and PageDown) move to the previous or next tab, stopping
+at the first and last tab. Each tab remembers its highlighted row while the page
+is open. B (or Escape) closes
+the page and returns to the menu it was opened from. Moving the mouse over a
+row highlights it, a click on an arrow steps, a click on a tab title switches
+to that tab, and the wheel scrolls the current tab. The right stick scrolls
+the list on screen on every page (Settings, Mods, Achievements) one row at a time,
+as the Civilopedia does: a tilt past the deadzone (`StickRepeat`) steps at once
+and repeats while held, and the scroll stops at the first and last row (no wrap,
+`options_skin::StepScroll`). The highlight stays on its row, so it can scroll out
+of view; the next Up or Down press brings the list back to it. The right stick is
+inert while a picker, the text entry, a Mods question or a picked-up mod is up.
+The pad's analog triggers, right stick and X, Y and Start buttons are read from
+the captured pad, since the SDK does not map them to ImGui keys.
+
+The rows are the curated settings of `src/native_settings.cpp`: bool settings,
+settings with a fixed set of choices, and numeric settings with presets (the
+five AI bonus percentages 0, 25, 50, 100, 200; Volume 0, 25, 50, 75, 100; Mouse
+Sensitivity 0.50, 1.00, 1.50, 2.00, 4.00). Order, labels, choice labels and
+tooltips come from `ConfigureSettingsLayout` in `src/overlay_settings.cpp`;
+type, allowed values, range and lifecycle come from the cvar registry. A bool
+reads Off then On. A current value outside the presets stays as an extra first
+choice and is applied with its exact text. Enums offer only the values the
+registry allows, so Upscaling has no row on a build without FidelityFX, where
+Bilinear is the only value. Monitor offers Default and the connected monitors.
+Week (Game of the Week) steps one week at a time from its current value, which
+follows the current week until Custom Week is turned on, and A (or a click on
+its value) opens the text entry in a digits-only mode to type the week whole:
+the value is prefilled and selected, so the first digit replaces it, the
+keyboard shows the digits 0-9 with Clear, Delete and OK (no Shift, Space or
+Paste key; Ctrl+V still pastes digits), and the usual Start or Enter and B or
+Escape apply and cancel. The week takes `1..2147483647` (`gotw_week` is a
+string cvar, so the range is the title's own, `NormalizeWeek`); leading zeros
+are dropped, and an empty, zero, over-range or non-digit value stays in the
+entry with the note "Enter a week from 1 to 2147483647." Like F1, the page
+leaves out Week while Custom Week is off and Civilization while Custom
+Civilization is off. Keybinds and developer entries stay in F1.
+
+Four rows are not choices. They are curated in `src/native_settings.cpp` like
+the rest, with kinds of their own; F1 and this page read one layout:
+
+| Tab | Row | Setting | Kind |
+|---|---|---|---|
+| General (last) | Open Log Folder | `open_log_folder` | Action: the value column holds an Open button (A glyph); A, or a click on the button, runs the command once, and nothing is saved. F1 lists it in General too. |
+| Online (top) | Connection Status | `system_link_status` | Read-only text, read again about twice a second while the page is shown. The words are the SDK's own (English). A does nothing. |
+| Online (top) | Profile Name | `system_link_profile_name` | Text: A opens the text entry. Up to 15 letters, digits, spaces, `-`, `_` or `.`. Restart-only. An empty name reads "Default". |
+| Online > Connection | Invite Code | `system_link_invite` | Text: A opens the text entry. Letters, digits, `-` and spaces (the SDK ignores separators inside a code), up to 1024 characters; a canonical code is at most 580. Restart-only. The row reads only "Set" or "Not set", beside a Paste button (X, Ctrl+V) and a Copy button (Y, Ctrl+C); the footer lists both while the row is highlighted. |
+
+The invite code is a credential. The model never copies it into a row, a
+caption or a note; the entry for it starts empty and its field shows only the
+last four characters you typed (the rest as `*`). The title never logs it, and
+the SDK redacts `system_link_invite` in its own cvar logging. Clearing the entry
+and applying removes the saved code.
+
+**Text entry.** A on a text row opens a title-drawn panel in the picker's style:
+a field (with a length counter), a note line, an on-screen keyboard and a footer.
+The keyboard is a 10-column grid of digits, `qwertyuiop`, `asdfghjkl-` and
+`zxcvbnm_.`, then a row of Shift, Space, Paste, Clear, Delete and OK; keys the
+row does not accept (`_` and `.` for the invite code) are dimmed and
+inert. The cursor wraps at every edge. A keyboard types straight into the field
+(printable ASCII the row accepts; while the entry is open the page asks ImGui for
+text input every frame, which is what makes the SDK start SDL text input), Backspace deletes, Ctrl+V pastes, Enter
+applies and Escape cancels; the mouse can click any key. On a gamepad the D-pad
+or left stick moves over the grid, A presses the highlighted key, X deletes the
+last character, Y toggles Shift (letters show in upper case while it is on),
+Start (Options on PlayStation) applies and B cancels. Paste puts the clipboard
+(through ImGui) in whole, without surrounding whitespace or one pair of quotes,
+and refuses the whole paste with "That value was not accepted." when it has a
+character the row does not take or does not fit; Clear empties the field. The
+invite is handled as a credential in memory: the editor's storage is allocated
+once and zeroed on Clear, Delete, Cancel, Apply and close, the paste is appended
+without a copy, and ImGui's cached copy of the clipboard is zeroed after each
+paste. (The system clipboard itself is the user's.) OK
+applies the text through the same `ApplyAndSave` path as any row: a refused value
+leaves the entry open with that note, any other outcome closes it and the row
+note ("Takes effect after restart." or the unsaved note) shows. Page and tab
+switching, row navigation and the right stick are inert while it is open, and
+the press that opened it is not a new press inside it. Its footer prompts use
+the active family's art (the Keyboard family shows Enter and Esc); the Start
+prompt is drawn, since no art for it is read.
+
+The Invite Code row also has Paste and Copy buttons in its value column, drawn
+like the footer buttons with the X and Y glyphs (the footer shows them while the
+row is highlighted; a click on a button acts on its own row, and A still opens
+the entry). Paste (X or Ctrl+V) reads the clipboard and applies it at once
+through the entry's rules (`OptionsModel::PasteSecret`): the same trimming,
+character set and length limit, a refused value leaving the registry alone with
+the refusal note, and a saved one the restart note. Copy (Y or Ctrl+C,
+dimmed and inert while "Not set") reads the invite from the registry at that
+moment, hands it to the clipboard and wipes its own copy (`OptionsModel::CopySecret`),
+then the footer note reads "Copied." until the highlight or the value changes.
+X, Y and the Ctrl keys do nothing on other rows, while a picker or the entry is
+open, or in a frame that also moves the highlight or switches the tab. The
+Open Log Folder row's Open button works the same way for A.
+
+Six controller keybinds default to one main key each. The SDK defines them as
+two keys (`keybind_a` `Semicolon,Space`, `keybind_b` `Quote,Backspace`,
+`keybind_left_trigger` `Q,I`, `keybind_right_trigger` `E,O`, `keybind_back`
+`Z,Tab`, `keybind_start` `X,Return`; `src/input/mnk/mnk_input_driver.cpp`); the
+title replaces them with `Semicolon`, `Quote`, `Q`, `E`, `Z` and `X` through
+`rex::cvar::SetFlagAsApplicationDefault` in `App::OnConfigurePaths`, before the
+config loads (`keybind_defaults::Apply`). The other controller binds are
+unchanged: the D-pad defaults are `Shift` chords, and Guide is unbound. That
+default is what Reset (Y) and F1's reset restore, and the keyboard icons show the
+single key's keycap. A value from the command line or environment is applied
+before the title runs and outranks an application default, so the SDK skips it;
+for such a key `Apply` keeps the value and its source and sets the entry's
+default directly (`rex::cvar::GetRegistry()`, single-threaded startup), so a
+reset still restores the title's default.
+
+A profile holds only keybinds the player applied. A saved two-key pair remains
+until the player resets that row (Y, or F1's reset) to the single-key default.
+
+The Controls tab ends with F1's two keybind sections, Keybinds (the controller
+keys) and Overlay Hotkeys, one row per bind. The model finds them as F1 does
+(`OptionsModel` asks `Services::BindKeys()`; the host lists the registry's
+String entries under `Input/Keybinds`, the controller category first, only those
+the layout shows to players, so `bind_debug_overlay` stays out). A label is the
+layout's, else the description's lead (at most 48 characters, title-cased) with
+the layout's label format, as in `rex/ui/settings_rows.h`; the value is F1's key
+text (a pair such as "Semicolon,Space" reads "; or Space", no key reads "(none)"; the joining
+word is the page language's). A key with a keycap in the shipped keyboard art
+shows that cap, and a chord, a pair or a key without art shows text. Controller
+rows carry the tip about keyboard and mouse mode and a note that the button
+icons update after a restart (the SDK reads the bind itself at once). A key that
+another bind also uses shows "(!)" and a footer note, and is kept, as in F1.
+A click anywhere on a row but its buttons, or A, starts capture: the row reads
+"Press a key..." and the next key, with Shift, Ctrl or Alt held for a controller
+key, is applied and saved through the registry at once.
+
+Capture reads raw virtual keys from the window (`keybind_capture::Listener`, an
+input listener above ImGui and the input drivers, with `keybind_capture::Gate`
+holding the state), so F13 to F24 bind and every name is the SDK's
+(`VirtualKeyToString`, with the keypad Enter alias stored as `Return`). While a
+row waits, and for each captured key until its key-up, that key and its repeats
+are handled in the listener: they never reach the game's keyboard driver, ImGui
+(so Escape cannot also close a focused F2 window), the page or the overlay
+hotkeys. A key held from before the capture keeps its own state. Esc or gamepad
+B cancels and capture never times out. A hotkey also accepts Shift, Ctrl or Alt
+pressed and released alone; on a controller key they wait for the key they
+modify. A key the SDK has no name for (keypad decimal, the Windows key) is
+refused with a footer note and capture goes on. A key the window never reports
+(the SDK drops unmapped scancodes such as the ISO backslash key) cannot be
+captured: capture keeps waiting, and Esc or B cancels. While a captured printable
+key is down its typed characters are the listener's too, so a console with focus
+does not receive the window's text repeats (the window gives a character no key,
+so characters typed with other keys meanwhile are held back as well; a held
+modifier, function or arrow key holds none back). B and Back are locked to the
+capture for that frame so another window does not also read them. A value too
+long for the footer tip is cut there; F1 shows it in full. Completing a capture is the
+frame's one row action, so a Clear click in the same frame does nothing. X or
+Delete clears a bind, Y or Backspace resets it to its default (each dimmed when
+it would change nothing); the Keyboard icon family shows Del and Bksp in place
+of X and Y. When the key does not fit beside the buttons they shorten to their
+glyphs or chords, then leave the row (the footer keeps them, and a value still
+too long for its cell is written out in the footer tip). One row action
+runs per frame, and everything is inert while a picker, a text entry, a question
+or a grab is open. Pad buttons and the mouse do not bind here.
+
+A change runs on the UI thread through `ApplyAndSave`: `SetFlagByName`, then
+`TrySaveConfigSubset` for that key to the `rerevved.toml` the title configures.
+The page then reads every value again, so a row shows what the registry holds.
+For a row that does not apply at once the footer note reads "Takes effect
+after restart." or "Takes effect in the next game.". "Changed for this
+session, but it could not be saved." and "That value was not accepted." replace
+that note until the highlight moves; a rejected value changes nothing.
+
+**Mods page.** The second page has three tabs, Packages, Assets and Maps, on a tab
+strip with LB and RB at its ends (LB and RB wrap around the three tabs, are ignored while a
+mod is picked up or a question is up, and a switch ends the frame's input). Each
+tab keeps its highlighted row and its scroll while the screen is open (a tab
+switch never scrolls to the highlight; only moving the selection does, and a
+switch lets go of the wheel lock ImGui keeps on the list that was just
+hidden). Entering the Mods page reads the catalogs again from disk once
+(`Runtime::RescanModCatalog` and `RescanAssetOverlayCatalog`, F2's Rescan
+buttons, and the `maps` folder beside the executable), so packages installed or repaired while the screen is open appear;
+the rescan is synchronous on the UI thread, never per frame. The
+panel's title strip shows "N installed, M enabled" for the shown tab. The
+Packages tab lists every installed mod package from the same
+runtime catalog the F2 manager reads (`Runtime::mod_catalog`), with the enabled
+ones first in load order (numbered, on a tinted row with a ticked box) and the
+disabled ones after them by name, as F2 sorts them. Each row has the package's icon (the manifest icon, a
+plain frame when none loads), its name with the version and author, its first
+diagnostic (`error:` or `warning:`, in yellow) else its description, the state
+(Enabled or Disabled), and "Native" for a native DLL package. An enabled
+package that is no longer installed keeps a row, "N. <id> (unavailable)", that
+A removes from the loadout. The footer shows no description (the row shows
+it), only one status line, in this order: the lock reason, the move hint,
+a failed save's message, "Fix errors before saving." with the first validation
+problem, "Save changes to replace the invalid loadout." with the first problem
+of the saved file, "Unsaved changes", "Restart required for saved changes.", and
+the first non-blocking catalog warning.
+
+The Assets tab is F2's Asset Overrides tab through the same model
+(`src/assets_list.*` maps the catalog; `src/mods_list.*` holds the edits). It
+lists the packs of `Runtime::asset_overlay_catalog` the same way (enabled packs
+first in priority order, the rest by name, each with its version, author, first
+diagnostic or description, and Enabled or Disabled; no icon, never native) and
+reads `asset_order_ids`, `asset_order_file_exists`, `asset_order_file_invalid`,
+`asset_loadout_diagnostics` and `asset_overlay_restart_required`. Enabling
+appends a pack to the priority order, as F2 does; X picks a pack up and Up and
+Down move it, which does F2's Edit Order. Y applies through
+`Runtime::ApplyAssetOverlayLoadout` (validated by `ValidateAssetOverlayLoadout`),
+writing `asset_order.txt`; it is offered, as F2 offers Save changes, when the
+staged list differs from the saved one, or no `asset_order.txt` exists, or the
+saved one is invalid, and the staged list validates. A saved change always waits
+for a restart ("Restart required for saved changes."). An invalid saved file asks
+"The current asset overlay loadout has errors. Replace it with the selected
+packs?" first; a failed save shows the SDK's first diagnostic, or "Could not save
+the asset overlay loadout.". F2's asset pane has no multiplayer lock and none
+applies here (the lock reason covers only mod loadouts). F2's Rescan button is
+not on the page; the rescan on entry stands in for it.
+
+Up and Down (pad or arrows) move the highlight and stop at the ends. A (Enter)
+enables or disables the highlighted mod. Enabling appends it to the end of the
+load order, as F2 does, so the highlight follows the mod into the enabled block.
+X (key X) picks up the highlighted enabled mod: Up and Down then move it within
+the enabled mods (never into the disabled ones), A or X drops it where it is,
+and B puts it back where it was picked up. LB, RB, LT and RT (page switching)
+are ignored while a mod is picked up. Y (key Y) applies. X and Y are read from
+the captured pad directly, since the SDK maps neither to an ImGui key, and the
+page ignores them until every page button was released once, like the triggers.
+Left and Right do nothing. The mouse moves the highlight, a click on the
+highlighted row toggles it, the arrows at the right end of an enabled row move
+it up or down one place, and the wheel scrolls. The footer prompts show only
+what can be done now: A (Enable, Disable or Remove), X (Move) on an enabled
+row, Y (Apply) when Apply would do something, and B (Back).
+
+Apply is F2's Save changes: it calls `Runtime::ApplyModLoadout` with the
+staged list, which validates it, writes `mod_order.txt` and, with the Lua rules
+host, replaces the Lua rules at once; native mods wait for a restart, which the
+footer reports. It is offered when the staged list differs from the saved one,
+or no `mod_order.txt` exists or the saved one is invalid, or the script host
+supports live replacement (so Apply re-applies an unchanged loadout), and only
+when the staged list validates and the loadout is not locked. An invalid saved
+file asks "The current profile loadout has errors. Replace it with the selected
+packages?" first (A Replace, B Keep), also when the SDK reports that only on
+the write. A failure shows the SDK's first diagnostic, or "Could not save the
+mod loadout.", and keeps the staged list.
+
+The Maps tab is the Assets tab for map packs and never appears in Assets. It
+lists the packs in the `maps` folder beside the executable (`src/maps_tab.*`
+scans it with `DiscoverAssetOverlayCatalog` and reads and writes the profile's
+`map_order.txt` through the SDK's order-file functions, since the runtime keeps
+no maps catalog), through the same model and rows as Assets, with "No map packs
+are installed." when the folder is empty. A pack is enabled and ordered only
+there, never by `asset_order.txt`. Y saves `map_order.txt`, which takes effect
+on the next launch: the footer reads "Restart required for saved changes."
+while the saved order differs from the one `map_packs::RegisterSelected` was
+given at launch, and saving the startup order again clears it. The SDK's
+unknown-field warning for the `[map_pack]` table is not shown. Its
+discard, replace and invalid-order questions and diagnostics follow the Assets
+tab's, worded for map packs.
+
+B with pending changes (F2's discard popup) asks "Discard enabled and
+load-order changes?" ("Discard asset overlay enable and priority changes?" on the
+Assets tab): A discards them and closes the screen, B keeps editing. With edits
+on several tabs the Packages question comes first and, once discarded, the Assets
+and then the Maps question follow on their tabs (no key or pad press acts on it until a
+frame has drawn it, and its buttons ignore a click on that frame), as F2 asks about the mods and then the asset
+overrides; the screen closes after the last answer. B on Settings or
+Achievements with pending changes switches to the Mods page, to the tab with
+edits (Packages first), and asks the same question. Opening the F1 Settings window over pending Mods
+changes does the same: an open picker, pick-up or question ends first,
+Settings is put away and kept away for as long as the question is up (a second
+press of its key is closed again), the press that opened it does not answer
+the question, the page asks, Discard brings Settings back and closes the page,
+and Keep stays on Mods. The queued Settings jobs are tied to the page's
+generation, so a page the guest has since dismissed never reopens Settings.
+Settings is opened by an SDK bind the title cannot gate, so the page can only
+react after it opens. Closes that cannot
+wait (the guest closing the page, shutdown) drop the staged list with the page. Apply reads the runtime again right before
+it decides, so a loadout F2 saved meanwhile is never overwritten by an old list;
+the lock is read every frame before any input acts. A grab ends when the saved
+loadout changes under it: an unmoved grab follows the new loadout, a moved one
+keeps its order as pending edits. A key or pad press acts only after both
+strips have settled, and is dropped if a click or the wheel changed the page or
+the Settings tab in the same frame. While the question
+is up, only A and B act. The multiplayer lock (`SetModLoadoutLockProvider`, from
+`gameplay_session::RuleReplacementAllowed`) shows the provider's reason, "Mods
+can't be changed during a multiplayer game.", in the footer, dims the rows, and
+makes them read-only; the highlight still moves so descriptions stay readable.
+The list is read again every 30 frames, when the page is shown, and after
+every change; a refresh keeps pending edits, and with none pending the list
+follows what F2 saved. Package names and descriptions are shown as written; the
+page's own text comes from `title_text` (see the language table below). The
+model (rows, staged edits, grab, apply and confirmation state, notes) is
+`src/mods_list.*`. F2 stays unchanged for keyboard and mouse use. The arrows at
+the right end of an enabled row are the gold arrow turned up or down, with the
+drawn triangle as fallback.
+
+**Achievements page.** The third page lists every achievement the SDK catalog
+holds, from the same `AchievementManager` the F3 window reads (the catalog,
+`IsUnlocked` and `GetUnlockTime` of the live kernel state), so the XEX
+achievements and the thirty-one custom ones appear together. The order is the F3
+window's: the original achievements in catalog order, then the custom ones by
+ascending gamerscore, label and ID (`src/achievements_list.cpp`). As in F3, the
+page has two tabs, Original (the game's own achievements) and Custom, on a tab
+strip with LB and RB at its ends, only when custom achievements exist; without
+them the page is one list with no tab strip. Each tab keeps its highlighted row
+and its scroll while the screen is open. The panel's title strip shows the
+shown tab's "N of M unlocked" and "EarnedG of TotalG", as F3's header does per
+tab. Each row
+has the achievement's icon (the SDK's `AchievementIconCache`, the F3 loader:
+the title's game-file picture provider, metadata `icon_path`,
+`icons/<image_id>.png`, then the title XDBF image; dimmed
+while locked, a plain frame when none loads), the label, the description (the
+locked one while locked, the unlocked one after), the gamerscore, and a state
+line: "Locked", "Unlocked YYYY-MM-DD" (local date of the stored unlock time;
+"Unlocked" alone when the time is unknown). Unlocked rows
+carry the SDK's unlocked row tint. Up and Down (pad or arrows) move the
+highlight and stop at the ends; the list scrolls to keep it in view, the wheel
+scrolls, and moving the mouse over a row highlights it. The footer has no text
+(the row already shows the description and state) and is the B prompt alone.
+The page is read-only: A, Left and Right do nothing and the A prompt is not
+drawn; LB and RB switch the tabs; B closes the screen. The list is read again every 30 frames and when the page
+is shown. The text comes from `title_text`,
+with `{0}`/`{1}` placeholders filled by the page. A page is a `PageKind`, a
+title and one `addPage` call in `OptionsPage`.
+
+`OptionsPage` (`src/options_page.cpp`) is an `ImGuiDialog` created with pad
+capture, so the game reads a neutral pad while it is open, and a button held
+when the page opens is ignored until it is released. The window sets
+keyboard and mouse capture each frame and turns ImGui navigation off; the page
+reads ImGui key state itself. `App` owns the page through a `unique_ptr`. The
+page never calls the base `Close()`: it marks itself closing and the owner
+resets it on the next UI turn, releasing it before `ShutdownOverlays`. Opening
+the page closes an open F1 Settings window first, so its Revert cannot undo a
+page change, and opening F1 Settings while the page is up closes the page.
+Layout is in multiples of the font size, which follows the window height
+(900 pixels is 1x).
+
+**Retail audio rows.** The Audio section ends with Music Volume, Effects
+Volume, Advisor Speech Volume and Leader Speech Volume (positions shown as the
+digits 0 to 9, as the retail dots). Their labels and tooltips sit in
+`ConfigureSettingsLayout` with the others, and F1 lists the same four rows as
+choices (Game Default, then 0 to 9; F1 cannot show the live game value, and a
+cvar change callback applies its edits). Each volume is a persistent integer cvar (`retail_music_volume`,
+`retail_effects_volume`, `retail_advisor_volume`, `retail_leader_volume`; range
+-1..9, default -1) saved to `rerevved.toml` through `ApplyAndSave`, so the
+footer notes are the usual applied and unsaved ones. -1 means no override: the
+row then shows the live game value, read from the guest, and the first edit
+writes the override. A game value that is not a retail step shows as `~N` until
+an edit sets a step. Left and Right from such a value go to the next lower or
+higher step (so 0 and 9 stay reachable); a game value maps to the nearest
+actual step gain, so 0.937 reads as 8. A row with neither an override nor a game
+value (no profile loaded yet) reads "Unavailable" and cannot change.
+
+`src/retail_audio_hooks.cpp` applies them on a guest thread with the TOML-only
+adapter: for the audio-table entry that `0x82D504B8` (catalog index, key
+`USER_VOLUME_*` at `0x821234A0`, `0x821234B4`, `0x821234C4`, `0x821234DC`) and
+`0x82E42380` (entry, owner `U32[0x8314F284]`) resolve for each transaction, it
+stores `float[entry+0]` as the retail setter `0x82DE6170` does (position times
+0.11 in single precision, above 0.98 snapped to 1.0) and clears `U32[entry+0xC]`.
+It never calls the profile notification `0x82C7AA28`, a profile writer or a
+save, so the retail `config.ini` is left alone. The UI thread never touches
+guest memory and the guest thread never reads cvar storage: the UI publishes a
+copied atomic override snapshot after each change, and the page posts copied requests (channel, position, profile-load
+generation) to an `ApplyQueue` and reads a copied `LiveStore` snapshot; the
+page asks for a fresh snapshot about twice a second and reads its rows again
+when the snapshot changes.
+
+Three hooks drive it. The frame driver `0x82C7DF58` (the accepted guest main
+thread boundary, active from the main menu through gameplay; the pause menu's
+modal pump drives the same application slots, which is expected, but not yet
+observed, to reach it) drains the queue and publishes live values after its
+original body returns. An idle frame costs three relaxed
+loads and a counter; guest memory is read only for a posted request or a page
+refresh. The frontend profile initializer `0x82E2DE98` starts a new generation
+when it is entered, which drops every queued request, and after it returns
+applies every set override and publishes fresh values, because the retail load
+has by then stored and published its own. The native publisher `0x82C7AA98`
+(also called by `0x82E51BE0` after the initializer returns) is hooked too: after
+each call it reapplies the overrides and republishes, without starting a
+generation, so the last native store never wins. A request or reapply the owners
+cannot take yet (no audio manager or scene owner) is kept and retried every 30
+frames, or at once on a page refresh. After each load the hook also turns the
+retail rumble mask `0x20` on (the flags word at `U32[0x8314F288]`, then the
+zero-strength `0x82C79D38` call on the input owner `U32[0x8314F2A4]`) so the
+Vibration row is the only rumble switch; if the flags, input owner or backend are
+not live it logs once and retries. There is no retail Rumble row.
+
+`src/native_settings.cpp` holds the curated model (`OptionsModel`: sections,
+highlight, value stepping, picker and notes, with no drawing and no threads).
+
+`src/pause_menu_hooks.cpp` wraps advisor list show `0x82CE8338` and acts only
+for the Special Functions calls returning to `0x82D06538` (full) and
+`0x82D06614` (alternate). It formats the retail list template (`0x8214DC80`
+full, `0x8214DCF8` alternate) through text formatter `0x82E6A430`, appends its
+row to the formatted text and formats the result through the same
+formatter, maps the selected row back to the retail index, and gives the
+retail jump tables only retail rows or `-1`. Each further list runs after
+the previous one has closed, never nested, and first restores the Special
+Functions header through virtual `+56` of header object `0x8314F76C`, as
+`0x82D064E4..0x82D06510` does; without it the list shows the advisor's own
+name. A failed text allocation, or a formatted retail text that is not a
+header plus five (full) or three (alternate) rows, keeps the retail rows.
+
+The lists follow the game's language. The formatter looks a template up whole,
+by its CRC-32 (reflected polynomial `0xEDB88320`, initial value `0xFFFFFFFF`, no
+final inversion; loop `0x82E6A1C4..0x82E6A1E8`), in the loaded language's
+`str_<set>.str` table (`0x82E6A158`, called from `0x82E6A2A0` when the language
+is not internal `7`). A template without an entry passes through unchanged. The
+retail templates, the header `0x8214DC68` ("Special Functions") and the quit
+questions all have entries in the French, German, Spanish and Italian tables,
+so the retail rows and the header come out in the game's language with no
+title text. `BuildList` (`src/pause_menu.cpp`)
+takes the formatted retail text and adds **Exit Game** after the last retail
+row (with a trailing period when that row has one), and the result, which has
+no table entry, is formatted again to reach the list. The retail rows keep
+their indices; Exit Game is the row after them (full list row 5, alternate row
+3), and any other index cancels.
+
+`src/title_text.cpp` holds the title-authored strings in five languages
+(English, German, French, Spanish, Italian), as UTF-8. The language is the
+SDK's `user_language` as `game_language::ApplyAtBoot` left it
+(`game_language::ActiveId()`): Xbox IDs 3, 4, 5 and 6 pick German, French,
+Spanish and Italian, and any other value picks English, as the game does. An
+empty entry shows the English text. The game's text path is Windows-1252: the
+`gfxfontlib.swf` faces cover U+0020..U+00FF plus a few punctuation marks and
+letters, the formatter replaces byte `0x9C` with its own markup
+(`0x82E6A298`) and the retail tables hold single-byte accented letters, so the
+table converts to Windows-1252 when it is used (`title_text::ToWindows1252`).
+A character outside that code page becomes `?`.
+
+The same table holds the combined options screen's text, so the whole screen
+follows the game's language. Its rows have stable keys: the `Id` rows first (the
+text added to the game's menus and the page chrome, `tab`, `legend`, `mods`,
+`achievements` and similar areas), then keyed rows for the settings text
+(`tab.<name>`, `section.<name>`, `setting.<cvar>.label`, `setting.<cvar>.tip`,
+`choice.<cvar>.<raw value>`, `common.on`, `common.off` and the `note.*` lines).
+The F1 layout and `native_settings.h` use English.
+`OptionsModel` is built with the page's language and asks
+`title_text::Screen(key, english, language)` for each label, tooltip, tab and
+section title, value caption and note: a language other than English that has a
+non-empty entry for the key shows it, and every other case shows the English the
+caller passed. A test holds each keyed row's English equal to what the model
+produces and fails on a key nothing uses, so an English change shows up as a
+row to retranslate. F1, F2 and F3 stay English; package names and descriptions,
+achievement text and messages the SDK returns are shown as given. The title's
+own multiplayer lock reason on the Mods page is shown from the table
+(`mods.locked`); any other lock reason is shown as given. The page draws through
+ImGui with fonts that bake U+0020..U+00FF, so every options screen entry is
+UTF-8 limited to that range (a test rejects other characters, and control
+characters); the game-menu row uses the Windows-1252 path above. Placeholders
+(`{0}`, `{1}`) in a translation must match the English entry (also tested).
+The translators' list (`strings.md`) is written from the table by
+`REREVVED_STRINGS_MD=<path> rerevved_tests title_text_writes_the_translators_list`.
+
+`src/options_modal_hooks.cpp` replaces `0x82D84580`, the retail Change Options
+entry (virtual `+0xCC` of header object `0x8314F76C`), only for the call
+returning to `0x82D068E4` with `r3 = 0x8314F76C` and every host binding present;
+any other caller, or a page that cannot open, runs the retail function. The page
+opens first, on the UI thread while the guest waits, so its pad capture exists
+before the guest reads the pad again. The hook then keeps the retail outer work:
+the receiver's `+0x1F4` call (`r4 = 0`) and, when its returned low byte is
+nonzero, the `+0x1F0` call after the modal. It skips only the construction
+(`0x82DE69D8`) and modal run of `GFX_OptionsScreen`. The modal run is a copy of
+runner `0x82E40738` for `r4 = r5 = 0` with no retail child: it adds one to
+`0x83156368`, stores `0` at `0x8315636C`, saves and sets to one byte `+5` of the
+object at `0x8314F28C`, stops rumble through `0x82C79D38` when the input owner
+`U32[0x8314F2A4]` exists, then loops over that object's virtual slots `+0x20`,
+`+0x2C`, `+0x24`, `+0x44` (`r4 = 0`, `r5 = 1`) and `+0x2C`. A nonzero low byte
+from `+0x20`, `+0x2C` or `+0x24`, or a zero one from `+0x44`, ends the loop and
+closes the page; so does a missing application object. Where the dialog's
+`+4` update said "continue", the loop asks whether the page is still open, and
+each iteration runs the retail audio drain so Audio rows apply live. On exit it
+restores byte `+5` on the current application object and subtracts one from the
+counter. The retail result `+0x42C` is not used: `0x82D84580` discards it, and
+so does `0x82D068E4`, which runs the Special Functions loop again.
+
+The guest never keeps a pointer or context for the UI: the page's id comes
+from `PageGate` (`src/options_modal.h`), which the app publishes on the UI
+thread after the page's dialog is destroyed (any reason: B, a close from the
+loop, shutdown). The guest loop reads it without a lock, leaves at once when
+the title is shutting down, and a break from the application closes the page
+through a UI job the guest waits for.
+
+## Main menu Options
+
+The main menu's **Options** row opens the Settings page in place of the retail
+Options screen. B on the page returns to the main menu with its focus and
+legend as they were; the menu does not react to the pad while the page is up.
+
+`src/main_menu_options_hooks.cpp` hooks the main movie's row callback
+`0x82E51560` (`r3 = M`, `r4 = A`). The retail callback reads the parent
+`R = U32[M+4]` and the descriptor text `U32[A]`; for the text `4` it calls
+`R`'s virtual `+0x30`, `0x82D6BFD8`, which requests the exit animation and
+frontend transition `36` (the retail Options dialog, which the frontend state
+machine runs asynchronously) and then plays cue `1001` through `0x82E4E680`.
+The hook takes the page only when the descriptor is exactly `4`, the movie's
+table is `0x82139CBC`, `R`'s table is `0x8213B90C` with `0x82D6BFD8` in its
+`+0x30` cell, `R+0x10` and the exit byte `R+0xC` are zero, the frontend manager `F = U32[0x8314F2E4]` has `R` as its state (`U32[F+4]`), no
+prompt is up at `F+0x2C` and every host binding is
+present. The descriptor is read only while readable, and its second byte only
+after a `4`, as the retail comparison stops at the NUL. Anything else, and a page that cannot open, runs the
+retail callback. The page opens first, on the UI thread while the guest waits,
+so its pad capture exists before the menu reads the pad again. The hook then
+plays the handler's cue and returns without the exit or the transition, so the
+movie, its focus and its legend stay as they were. An accept while the page is
+already up is consumed.
+
+The frontend state machine keeps running, so there is no guest loop here. The
+frontend manager `F = U32[0x8314F2E4]` runs its recurring update `0x82C568C8`
+every frame, which calls the current state's virtual `+8` (`R`'s is
+`0x82C4E470`); while the menu is current `U32[F+4]` is `R`. The update is
+hooked after its original body and costs one atomic load when no page session
+is active. A page is closed when `F+4` is no longer `R` (the parent was
+replaced), when `R` requested a transition, or when a guest prompt appeared at
+`F+0x2C` (frontend events 25 and 28 install one without changing the other
+fields). Transitions go through `0x82D704F0`, by the handler or by the retail
+automatic transition `1`; it sets `R+0xC` and the manager's pending word
+`F+0x10` and leaves `R+0x10` zero for transition `1`, so the check is any of
+`R+0xC`, `R+0x10`, or a change of the manager word since the page opened. A
+prompt or a `F+4` other than `R` at the accept also sends the accept to the
+retail callback. The hook's record of the page ends when the page does.
+Shutdown closes the page through the app, as for every page.
 
 ## Combat settings
 
 The `combat_speed` setting accepts `normal` or `fast` and defaults to `normal`.
 `fast` uses the guest's native faster combat presentation pace while preserving
 resolution and completion.
+
+## Unit movement setting
+
+The live `unit_movement` setting (Gameplay, after Combat Speed) accepts `normal`,
+`fast` or `instant` and defaults to `normal`. It is a presentation
+preference. A network game uses the host's value, carried in the host
+settings and frozen at `ApplyNewGame`, so every peer moves units the same way; single
+player uses the live setting. Two hooks in the coordinate updater `0x82D5FFC8` read the
+setting each update. Both leave the shared frame time, cooldowns, game-state flags,
+movement budget, tile position, destination, lifecycle and busy flags to the native
+code.
+
+| Address | Hook | Effect |
+|---|---|---|
+| `0x82D619AC` | `ScaleUnitMovementQuantum` | Fast: after the native quotient at `0x82D619A8`, multiply a positive quantum in `r27` by 3, clamped so `quantum + quantum / 2` fits 32 bits. |
+| `0x82D619BC` | `SnapUnitMovement` | Instant: before the `bgt` to the long arm, jump to the native near-target snap at `0x82D619C0`. |
+
+The unit is the 84-byte record at `[r1+112] + r24`; its type is byte 1. Types 24 and 27
+stay native. Instant moves the displayed position to the target on the first update;
+it does not skip skeletal animation or change when the command returns. The first
+update that takes effect logs `UnitMovement:` once.
 
 ## Gameplay Resources
 
@@ -542,18 +1302,36 @@ fallback, a following Normal game and GOTW Standard Rules with Legendary selecte
 ## Save sidecar
 
 `save_sidecar` (default `true`) controls whether the host stores gameplay
-state separately for each save. The payload stores schema version 2, the frozen
+state separately for each save. The payload stores schema version 7, or 3 for a Game of the Week practice save, the frozen
 Resources selection, sorted unique Balanced or Legendary identity overrides, the frozen Raging
 Barbarians boolean, the fixed One City Challenge enabled state and minimum
 population, the effective AI research, production, gold, food and culture bonus
-percentages, and custom achievement progress: whether One
+percentages, the frozen Turn Limit index (0 to 4, schema 5 and later), the frozen Always At War boolean (schema 6 and later), and custom achievement progress: whether One
 City Challenge was enabled at game setup (only possible while it is enabled), the Barbarian defeat count, 0 to
-50, and the whole-game history (tracked flag, unit built, battle fought, deep
+50, the ships sunk count (schema 7, one byte at state offset +20, 0 to 255), and the whole-game history (tracked flag, unit built, battle fought, deep
 Ocean entered, first founding turn and initial AI opponent count). Schema 1
 stores only the Resources selection, Raging Barbarians, One City Challenge and
 the identity overrides. It uses native AI values and gives no progress: One
-City Challenge not from setup, a count of 0 and untracked history. Game of the
-Week seed state is excluded.
+City Challenge not from setup, a count of 0 and untracked history. Schema 2 is
+a payload without Turn Limit; schema 5 stores its byte after the initial AI
+count; schema 6 adds the Always At War byte (0 or 1, any other value rejects the
+sidecar) after it; schema 7 adds the ships sunk byte after that, making the fixed
+state 21 bytes. Schemas 1 to 4 load the native 2100 limit, schemas 1 to 5
+load with Always At War off, and schemas 1 to 6 load a ships sunk count of 0. Schema 3 is
+schema 2 with one Game of the Week block inserted after the fixed state and
+before the resource identity records, written only for a manual save in a
+practice game. Schema 3 itself means a block is present: one flag byte
+(standard rules, custom week, custom civilization), the effective week and
+nonzero seed as big endian words, the effective civilization byte (chosen or
+derived), and the Earliest Domination byte (5 or 10). Nonstandard rules record
+only the rules bit; a load uses the current mod bundle. A block that is short,
+has unknown flags or fails validation rejects the whole sidecar, so it is not a
+practice save. Schema 4 is schema 2 with no block and a version byte of 4: the
+isolation-only marker, written by any save of a practice game, or of a game that
+loaded as isolated, that carries no block (an automatic save, a manual one whose
+block is unavailable, or a resave of an isolated load). It holds no week, seed,
+civilization or rules; a load that finds it claims the origin and is isolated,
+never resumed. Other games write schema 7, and their autosaves are unchanged.
 New games freeze the effective gameplay selections, including standard GOTW
 values.
 
@@ -760,7 +1538,7 @@ together. Multiplayer is unverified.
 ## Gameplay Game of the Week
 
 F1 **Gameplay** has a **Game of the Week** section with **Week**,
-**Civilization** and **Standard Rules**. Week combines a checkbox
+**Civilization**, **Standard Rules** and **Allow Saving**. Week combines a checkbox
 (`gotw_custom_week`, default off) and a decimal field (`gotw_week`). Checking
 Week unlocks the field and replays the chosen week's game using
 `expanded_MapList[week % 277]` as its seed. Unchecked Week preserves native
@@ -772,8 +1550,12 @@ valid field value. Revalidation at launch falls back to native for an
 invalid checked Week and logs the rejected value once for that launch.
 The Week tooltip is "Enable to play a different week's game instead of this week's."
 
-The unchecked Week field receives this week's original native r4 value through
-the UI dispatcher and its alive token. Checking Week before delivery protects
+At startup an unchecked Week field is set to this week from the host clock,
+using the native rule: week derivation `0x82D8CBA0` normalizes the date to the
+preceding Sunday at 12:00 and divides a 2006-based day count by 7, so weeks
+count from Sunday 2006-01-01 12:00 UTC and roll over each Sunday at 12:00 UTC.
+The guest clock follows the host's system time. A weekly launch then delivers
+the original native r4 value through the UI dispatcher and its alive token. Checking Week before delivery protects
 the field, and another launch invalidates older queued updates. The info log
 records the native week, effective week and effective seed.
 
@@ -792,8 +1574,9 @@ from `0x82E76ED4` and `0x82D91A94`. The launch hooks arm it for one writer
 call, and it requires the armed setup pointer and launch to match. The chosen
 ID must be in `0..15` and below the live civilization count in r5, read from
 `(*0x8314EFCC)+60`. Otherwise the hook logs a warning and keeps the derived
-civilization. Other writer calls stay native, including the load writer at
-`0x82D8685C` and modes 1 and 3. A launch with only Civilization checked leaves
+civilization. Other writer calls stay native, including modes 1 and 3. The load
+writer at `0x82D8685C` changes only for a restored practice save, described under
+Allow Saving. A launch with only Civilization checked leaves
 the writer's r4 and r5 untouched. The info log records the derived and chosen
 civilizations.
 Standard Rules does not disable Civilization. AI civilization assignment stays
@@ -801,7 +1584,7 @@ native, so in mode 2 an AI can receive the player's civilization because the
 duplicate scan starts at slot 1.
 
 **Standard Rules** is a plain checkbox (`gotw_standard_rules`, default on).
-Its tooltip is "Enable to play Game of the Week without Lua mods or gameplay changes other than Earliest Domination."
+Its tooltip is "Enable to play Game of the Week without mods or gameplay changes other than Earliest Domination."
 For a new GOTW game, it freezes Resources as Normal, Raging Barbarians and
 One City Challenge off, including OCC's Mongol ability swap, keeps the
 native AI civilization count, and suspends gameplay Lua mod rules. Earliest
@@ -854,8 +1637,7 @@ custom Week reapplies the same r4/r5 policy only when the live setup
 read through global `0x8314EFC8` has mode `+4 == 2`, matches the accepted
 setup pointer, and the incoming command carries the effective week. The
 command week need not equal the original native week. Unreadable or unrelated
-setups and ordinary new games in mode 1 retain their arguments. The load writer
-at `0x82D8685C` remains native.
+setups and ordinary new games in mode 1 retain their arguments.
 
 `gotw_trace` defaults off. When enabled it logs every entry to the setup writer at
 `0x82DADC88` and the point before cleanup `0x82DADD1C`, including LR, r3/r4/r5,
@@ -868,7 +1650,7 @@ state. One increasing sequence spans all sites and launches in the process;
 the cap is 512 events, followed by a truncation marker. A truncated trace
 cannot establish complete ordering.
 
-Results for a custom week or civilization in mode 2 take the native branch
+Results for a practice game, or a custom week or civilization in mode 2, take the native branch
 for nonlocal results at `0x82D7DC90` before the outcome is classified. It
 writes outcome -1 and sets the completion
 byte required by native session cleanup. Native guards for null results and
@@ -878,7 +1660,126 @@ submission helper at `0x82DBE69C`. Cache request completion continues.
 The submission guard also covers older replay weeks, which can pass the native
 check for unequal weeks at `0x82DBE6CC`. These guards cover the researched
 sites; complete local outcome/profile mutation coverage remains unproved.
-No custom save path or GOTW sidecar is supplied.
+A practice game (see Allow Saving) takes the same four guards in every setup
+mode and whatever the current settings, so its results never touch the shared
+weekly results.
+
+### Allow Saving
+
+**Allow Saving** is a plain checkbox (`gotw_allow_saving`, default off). Its
+tooltip is "Enable to save and load Game of the Week games." The combined Options screen
+shows it in the Game of the Week group with text in the five game languages.
+A change applies to the next Game of the Week.
+
+When it is on at the start of an attempt, the whole attempt is practice from
+turn 1. The accepted seed latch at `0x82E76ED4` snapshots the setting with the
+rest of the launch policy, so later changes to the checkbox cannot change that
+game. Only a single-player mode 2 launch can latch it; multiplayer snapshots
+never carry it. A practice game earns no Game of the Week achievements, and a
+new game that is not a Game of the Week ends the practice origin.
+
+The native pause menu builds its Save and Load rows from an eligibility Boolean
+that mode 2 clears at `0x82D06494`. A midasm hook at the branch `0x82D06490`
+(after the compare at `0x82D0648C`) skips that clear for a practice attempt in
+mode 2. The network byte `0x8314F10B`, restriction halfword `0x8314F1CC`, selected
+device and sign-in tests stay native, and the global setup mode is unchanged.
+The Save wrapper `0x82D00550` has no mode test. The automatic-save route
+`0x82D83E80` is untouched and keeps its native conditions.
+
+A manual save written during a practice game carries a Game of the Week block in
+the [save sidecar](#save-sidecar). The native file is unchanged. The block records the
+effective week, seed and civilization (the setup's own value, whether chosen or
+derived), the standard rules latch and the Earliest Domination in effect. Only the Save
+wrapper's call into the common writer (return address `0x82D005C4`) is manual;
+the automatic wrapper's call (`0x82D83FA4`) and any other caller during a
+practice game write the schema 4 isolation marker instead of a block, so an
+autosave during practice is not a resumable practice save and loads isolated.
+A game that loaded isolated writes the marker on its next save too, so the
+isolation survives another save and load. Native
+autosave cadence and naming are untouched, and an autosave outside a practice
+game stays ordinary.
+
+A valid sidecar bound to the native file's digest, whose week equals the saved
+week in the native header, is what marks a save as a practice save and restores
+its policy. The sidecar is the only origin marker. A schema 3 sidecar that was
+rejected, or a block that is week-mismatched, on the other load path or in a mode
+that is not single-player, loses its practice rules and seed and loads isolated.
+A schema 4 marker, written by an autosave during practice, claims the origin the
+same way and loads isolated. A save with neither loads as an ordinary game,
+including a practice save whose sidecar is missing, deleted or never written.
+
+No hook refuses a load, in a game, from the main menu or in multiplayer. The
+owner keeps its own content check: its refusal arm (`0x82D864F4`) stays
+reachable when the required-content mask does not match, and its cleanup
+`0x82D05D50` then wipes live game state. That is native behavior and no
+classification routes into it. A refusal before the owner would also skip state
+the pause-menu caller has already cleared. The sidecar is staged at the
+deserializer call `0x82D844C8` of the wrapper `0x82D84238`, ahead of the owner
+call, whatever `save_sidecar` says; that hook only stages and the native call
+always follows. Every load is then classified from the sidecar alone, by one
+hook at `0x82D86598`, where the owner's two successful paths rejoin after the
+content check (the refusal arm never reaches it) and setup modes 4 to 6 branch
+straight to it. It runs after the header input and before the reset at
+`0x82D86674`, and reads the saved week (frame offset 176) and the incoming r8
+(r29), which the generated code leaves unchanged on both paths. The native saved week is not an origin marker: ordinary games
+can carry a nonzero setup week (written at `0x82D21E50`, saved by the header at
+`0x82CC2B24`), so it only binds a block to its save.
+
+- A block whose week equals the native saved week, on the writer path (r8 zero)
+  in a proved single-player setup mode (1 to 3), is a validated practice save and
+  restores its policy. Mode 0, 4 to 6 and every other mode never resume.
+- Any other block, or a schema 3 sidecar that was rejected or digest-mismatched,
+  loads isolated without practice rules, and a warning says why.
+- A load with no block is an ordinary load, including inside a practice game and
+  with a nonzero native week.
+
+`save_sidecar` controls only the ordinary policy restore. The practice block is
+always read, and every save during a practice game writes its sidecar, with a log
+line, even with `save_sidecar` off: a block for a manual save, the marker
+otherwise. A write that fails logs an error: that save then loads as an ordinary
+game, a known limit.
+
+The classification never resumes a multiplayer or unknown setup mode, and the
+restore and the seed hook check the setup mode themselves.
+The load owner has no direct caller in the generated code; the wrapper reaches it
+through a table slot, so which ingresses pass a nonzero r8 is not established
+statically and the hooks cover the case at run time.
+
+Every load first clears the stale Game of the Week selection, the practice
+origin and the standard rules latch, at the same point as the other load
+resets. The classification arms the loaded game's isolation, which the reset
+keeps, so a failure later in the load cannot make the game result eligible. A
+validated practice save then restores, before any step that can fail, its own
+effective week, seed, civilization, custom selection, standard rules latch and
+Earliest Domination, and withdraws or republishes the Lua mod rules to match
+the rules bit.
+The loaded game keeps setup mode 3 with the practice origin; it is never
+restored to mode 2. It is still practice, so its results stay isolated and it
+earns no Game of the Week achievements. The load continues with the current
+mod bundle.
+
+Every result surface follows the latch alone: outcome, submission and the score and
+week cache stores. A weekly prefetch can complete while a game is torn down, so
+the caches stay isolated after the game ends. Only a new game or a load clears the
+latch, which means the weekly caches are not refreshed by prefetch after a
+practice game until then.
+
+The load writer call at `0x82D8685C` receives the saved nonzero seed in r5 for a
+validated practice save and keeps the saved week in r4. The hook runs after the
+sidecar restore at `0x82D86674` and before the writer. It supplies the seed only
+when r4 equals the restored week and the setup mode is single-player (1 to 3). It
+always arms the writer's civilization override with the saved effective
+civilization for that one call, so a derived civilization cannot differ. The
+retained player civilization table comes from the native body and is not touched.
+
+The ordering above is corroborated from narrow generated windows. These remain
+unproved without a game run: that a practice save and load round trips to the
+same map and start, that the native outcome path records no Game of the Week
+achievement of its own, and which ingresses pass a nonzero r8. The native
+outcome block at `0x82D7DC10` is entered only when the setup mode in r28 equals 2
+(the guard hook reads the same register), so a mode 3 game does not reach it
+natively; the score and week cache stores and the submission helper are not
+proved mode gated, which is why the latch isolates them in every mode.
 
 The MapList order follows `Pregame.FPK` member `ccglobaldefines.xml:228`.
 The native one-based ordinal is `(week % 277) + 1`: week 1084 selects seed
@@ -894,7 +1795,8 @@ locations in [gotw_hooks.toml](../config/gotw_hooks.toml).
 
 ## Gameplay fixes
 
-The midasm hooks in `config/gameplay_hooks.toml` repair native behavior.
+The midasm hooks in `config/gameplay_hooks.toml` repair native behavior; the
+Always At War hooks are in `config/always_at_war_hooks.toml`.
 The Domination minimum is controlled by a setting. `src/gameplay_fixes.h`
 holds their selection and arithmetic. Static evidence is in rerevved-research manifests `science-completion.json`,
 `technology-prompt-callers.json`, `spaceship-launch-arrival-year-boundary.json`,
@@ -1063,22 +1965,241 @@ Standard Rules, where it is the one gameplay setting Standard Rules leaves in
 force. Every loaded save keeps the native 10, because saves do not record the
 setting. A network peer rejects a host payload that carries any other value.
 
+## Gameplay Turn Limit
+
+The victory evaluator `sub_82D10FD8` ends a game at the native deadline
+`0x82D11378`: the current year (`0x8312B8E0`) must reach 2100, the player's
+ranking halfword at `0x830E9200 + 32 * player` must be zero, and outside the
+scenario sentinel -1 (`0x8312B8D4`) the current turn (`0x8312B8DC`) must be 200
+or more past the start turn (`0x8312B8D8`). A five-turn warning precedes it at
+`0x82D11308`: year 2090 in an ordinary game, or elapsed turn 195 in a scenario,
+for the local player only. `turn_limit` is a string setting with the choices
+`2100` (default, native), `2200`, `2300`, `2500` and `unlimited`. F1
+**Gameplay > Turn Limit** shows them as AD years and Unlimited. It applies to the
+next new game; the game's value is frozen at `ApplyNewGame`, from the accepted
+snapshot before native setup, and a later edit changes only the next game.
+
+Five hooks in [gameplay_hooks.toml](../config/gameplay_hooks.toml) read the frozen
+value and leave every other native test, the rank gate, the scenario elapsed gate
+and the calendar conversion in place:
+
+| Address | Jumps to | Jumps when |
+|---|---|---|
+| `0x82D11304` | `0x82D1143C` | The game is Unlimited: no warning and no deadline. |
+| `0x82D11318` | `0x82D11378` | The limit is 2200, 2300 or 2500 and its warning is not due: skip both native warning tests. |
+| `0x82D11324` | `0x82D11328` | The limit is extended: skip the year-2090 inequality for the native scenario test. |
+| `0x82D11340` | `0x82D11344` | The limit is extended: skip the elapsed-195 inequality for the native scenario test. |
+| `0x82D11378` | `0x82D1143C` | The limit is extended and the year is before its cap. |
+
+The hooks read no register and write none, and each one only decides a jump
+before its native instruction, so condition registers are unchanged. With 2100
+or in Game of the Week every hook returns false and the native tests run as
+retail. The calendar gives year `2 * turn + 1714` from turn 118, so the cap turns
+are 193, 243, 293 and 393 for 2100, 2200, 2300 and 2500. An extended game's
+deadline turn is the cap turn, or in a scenario the later of the cap turn and
+the start turn plus 200; the warning is due five turns before it. In the
+sentinel scenario that is ten years before the cap. Past the cap the native
+2100 compare passes, so the rank and elapsed-200 gates still decide.
+
+Game of the Week, fresh or practice, always freezes the native limit, whatever
+the setting and Standard Rules. A new network game uses the host's frozen value
+on every peer. Loaded saves restore the limit their sidecar recorded; a save with
+no sidecar, a rejected or disabled sidecar, or one without a recorded limit
+loads with 2100, never the previous game's limit or the current setting. The
+limit is not a calendar change: dates and the turn counter use the native
+conversion, and Unlimited relies on it past 2100.
+
+## Gameplay Starting Era
+
+The setup grant loop in `sub_82D217C8` reads the active scenario Q (`0x830E8FD0`,
+in r31) halfword STARTERA at Q+0x1C (`0x830E8FEC`). The first read is `lhz r8,28(r31)`
+at `0x82D22A78`; the values 1, 2 and 3 replace each player's grant count with 5, 14
+and 24, and the grant stores the era and ownership bits natively. After a player's
+grants the loop reloads the halfword at `0x82D22BFC` through the Q pointer saved at
+frame+0x68, so a later player and the value-4 bulk path read the same field.
+`starting_era` is a string setting with the choices `ancient` (default, no
+override), `medieval`, `industrial`, `modern` and `future`, which are the native values
+0 to 4 in that order; `future` copies the Beta Centauri start. F1 **Gameplay > Starting Era** shows them. The count is
+additional successful grants, not a fixed list or a final era; the native chooser
+still classifies eras from the acquisition tally.
+
+The value is frozen at `ApplyNewGame` from the accepted snapshot, before native
+setup, and a later edit changes only the next game. One hook in
+[gameplay_hooks.toml](../config/gameplay_hooks.toml) sits before `0x82D22A78`,
+after the join label, and takes r31. It stores the frozen value in Q+0x1C when
+the setup is an admitted new game (`SetupActive`), the scenario word `0x8312B8D4`
+is the ordinary-game sentinel -1 and the era is not Ancient. It also stores the
+start year the retail presets pair with that era in STARTYEAR, Q+0x3E: 1000 AD for
+Medieval, 1500 AD for Industrial and 1800 AD for Modern. Future writes 2025, the Beta Centauri request, which the
+native calendar rounds to the first playable turn at or after it. The same setup reads it at
+`0x82D24F20`, after the grants, and advances the first turn to that year (turns 60,
+80 and 98 for the first three). It writes only those halfwords and no register or condition register,
+so the native grant order and random draws are unchanged. Future also leaves the
+native random grant count and technology 47 alone; the native bulk arm grants
+technologies 1 to 46.
+
+A scenario keeps its authored era. Game of the Week, fresh or practice, always
+freezes the native era, whatever the setting. A new network game uses the host's
+frozen value on every peer; it is frozen before any grant draw. A load never
+writes the field and keeps the era and ownership bits the native save carries. The setting
+is not saved in the sidecar.
+
+## Gameplay Always At War
+
+`always_at_war` (bool, default off) keeps every pair of live civilizations at war.
+The relation matrix is `U32[0x830ED2D8 + 4 * (8 * p + q)]`: 0 is war, 1 peace and
+-1 no contact. The value is frozen at `ApplyNewGame` and is forced off in network
+games and Game of the Week, so it is single player only. The sidecar records it
+(schema 6), and a load restores the saved value, or off when none was saved. The
+pure decisions (pair, intended and live masks, projection, forbidden write) are in
+`src/gameplay_fixes.h`; the hooks in `src/always_at_war_hooks.cpp` and
+[always_at_war_hooks.toml](../config/always_at_war_hooks.toml) are thin. Intended
+civilizations are the configured ones less those the AI limit removes; live ones own
+a populated city or an occupied unit that is not dead. The Barbarians are neither.
+
+Projection sets both orientations of every pair of the mask to war and leaves the
+diagonal and every other cell native. Each logs `Always At War: projected` with its
+phase, mask and cells changed.
+
+| Address | Hook | Effect |
+|---|---|---|
+| `0x82D22940` | `ProjectAlwaysAtWarEarly` | Setup only: project after the late count and Barbarian publication. |
+| `0x82D1AAE8` | `ProjectAlwaysAtWarGroups` | Setup only: project after the group stores, before the recount at `0x82D1AAF0`. |
+| `sub_82D11AD8` wrapper | `ProjectAlwaysAtWarFinal` | Project after removal and start resources, immediately before the native recount (`LR == 0x82D25310`, `SetupActive`). |
+| `0x82D2582C` | `ProjectAlwaysAtWarOnLoad` | Load: project the live civilizations before the ranking call. |
+| `0x82CCA61C`, `0x82CCAB9C`, `0x82CCAFBC` | `RefuseContactChoice` | Contact dialog `0x82CC9FF8`: set the chooser result to the native -1 refusal. |
+| `0x82CC90EC` | `RefuseContactNotice` | `0x82CC9078`: return the native 0 at `0x82CC91DC` before its notification. |
+| `0x82CCFB94` | `RefuseFirstContact` | First-contact store of 1 in `0x82CCEFA8`: skip to `0x82CCFBA8`. |
+| `0x82CD0EE0`, `0x82CD1330` | `RefuseRetainedContact` | `0x82CCEFA8` retained contact: jump to the native completion `0x82CD4374`. |
+| `0x82CD1ED8` | `RefuseGoldContact` | Set the Gold chooser result to 1, the native war write at `0x82CD206C`. |
+| `0x82CCC930` | `RefuseDemocracyResponse` | `0x82CCBED0`: set the response to 1, the native refusal. |
+| `0x82CCC9CC` | `RefuseConsumedResponse` | `0x82CCBED0`: set the consumed choice to 1, the native war write. |
+| `0x82D18508` | `RefuseTowerPair` | Tower event pair body in `0x82D17AE0`: skip to `0x82D1859C`. |
+| `0x82D18AB8` | `RefuseTeslaPair` | Tesla event pair body in `0x82D17AE0`: skip to `0x82D18B50`. |
+| `0x82D033C8` | `RefuseRelationRequest` | Shared request `0x82D03388`: jump to its epilogue `0x82D03498`. |
+| `0x82CE0068` | `RefuseDeliveredRelation` | Delivered command 39 in `0x82CDDF08`: jump to the native completion `0x82CE16AC`. |
+| `0x82D25580` | `SilenceAiContact` | Automatic contact gate `0x82D253B8`: jump to its no-contact return `0x82D255B0` for a human and a live AI, so the AI opens no dialog (logs `Always At War: silenced contact`). |
+
+The two write hooks refuse only a write that would replace war, in either
+orientation, between live civilizations; a war write and every other pair stay
+native, as does the lifecycle cleanup of an eliminated player. Each refusal logs
+`Always At War: refused peace` with its site and the pair. The native diplomacy
+dialog still appears, and a refused answer resolves as a refusal. The cancel of a
+pending native request is not intercepted. A setup that fails to admit the expected
+civilizations is not rebuilt, a civilization admitted after its first city is not
+re-projected, and network peers are not enforced.
+
+## Gameplay Apollo Discovery Bonuses
+
+An always-on fix, with no setting, grants unclaimed first-discovery bonuses when a
+civilization completes Apollo (Wonder 17), after which technologies 1 to 46 query
+as owned and can never be acquired. It applies in single player and network games
+and skips Game of the Week (`gotw::CurrentSetupIsNotGameOfTheWeek`: setup mode other
+than 2 and no practice or isolated latch). Each peer drains on its own frame timing;
+there is no peer barrier. Nothing is saved in the sidecar. The
+pure decisions are in `src/apollo_discovery.h`; the hooks in
+`src/apollo_discovery_hooks.cpp` and
+[apollo_discovery_hooks.toml](../config/apollo_discovery_hooks.toml) are thin.
+
+| Address | Hook | Effect |
+|---|---|---|
+| `0x82D16348` | `RecordApolloCompletion` | After the claim helper `0x82D16BA0` of the city update, for `r27 == 17`: record (owner of city `r23`, city) when the native claim at `0x830E51D0`/`0x830E51D4` matches. Logs `Apollo Discovery Bonuses: queued`. |
+| `0x82C7DF5C` | `DrainApolloDiscoveryBonuses` | The application frame driver, on the guest main thread: drain the oldest record once ready. |
+
+The drain runs through the dispatcher's `ExecuteTrap`, which restores the interrupted
+register state, like the Stonehenge hook. A nested pump re-enters the frame driver;
+a flag turns that call into a no-op. A record is ready when every player's
+completion marker `0x830E3348[p]` and context `0x830E3328[p]` and the recursive
+marker `0x830E3430` are zero or -1, and no owned city has a pending Wonder
+(`0x1000`) or spaceship part (`0x100`) flag at city+0x24. A value left in any
+player's marker by an earlier presentation therefore delays the drain until the
+native reset. For each technology 1 to 46 in ascending
+order, with the raw word `U32[0x830EDC48 + 4 * t]` equal to zero, the player owning
+the city and still holding the claim, it calls `0x82D09208(p, t, c, 0, 1)` and
+then `(p, t, c, 0, 2)`, each to its full return, logging
+`Apollo Discovery Bonuses: granted`. If anything native is pending after a pair the
+drain stops and later restarts from the raw words. `Apollo Discovery Bonuses:
+finished` ends a record. A new game or a load empties the queue.
+
+Left out: a save transaction with prepared-commit metadata, persisting the queue in
+the save sidecar (a save between the completion and the drain loses the grant),
+multiplayer peer barriers and a per-reward ledger. Static evidence is in
+rerevved-research `apollo-technology-discovery-bonuses.json`.
+
+## Gameplay Multiplayer AI Difficulty
+
+Native setup `sub_82D217C8` writes the global difficulty `S32[0x82FFE7C8]`
+(`stw r11,-6200(r24)`, r24 = `0x83000000`) in two arms. When the network byte
+`0x8314F10B` is nonzero, `0x82D221D0` falls through to `li r11,2` at `0x82D221E4`
+and the store at `0x82D221EC`, so a multiplayer game is always King. Zero branches
+to the single-player path at `0x82D2264C`, which this feature leaves alone. Later
+readers, such as `0x82D2293C`, read the stored word, so the chosen value reaches
+them natively.
+
+`multiplayer_ai_difficulty` is a string setting with the choices `king` (default),
+`emperor` and `deity`, which are the native values 2, 3 and 4. F1
+**Online > AI Difficulty (Multiplayer)** shows them. One hook in
+[gameplay_hooks.toml](../config/gameplay_hooks.toml) sits before `0x82D221EC` and
+takes r11. It replaces the literal 2 with the frozen value while `SetupActive` is
+true, and leaves it otherwise. r11 is dead after the store: the call to
+`sub_82D8AA60` reads only r3, and both continuations reload r11 before using it.
+
+The value is frozen at `ApplyNewGame`, before native setup, from the accepted
+snapshot of a network game; a local game freezes King. Every peer applies the
+host's value, and a later edit changes only the next game. A load never applies
+the frozen value. The
+setting is not saved in the sidecar, and single player is unchanged.
+
+## Gameplay Spaceship Scenes
+
+`spaceship_scenes` is a bool setting, on by default, shown as the first row
+of F1 **Notifications**, **Spaceship Scenes**. Turning it off skips the rocket scene of
+every spaceship part, including the player's own. A network game plays the host's
+value, carried in the host settings and frozen at `ApplyNewGame`; single player and
+Game of the Week use the live preference. The preference is sampled once per part
+request, so a change never affects an actor already running.
+
+The pending-part caller in `sub_82D1D1C0` requests a type 24 actor with
+`sub_82D11750(owner, 24, x, y)` at `0x82D1DED8` and removes it with
+`sub_82D02390(owner, slot, 0)` at `0x82D1DF5C` after a synchronous wait. The
+hooks in [gameplay_hooks.toml](../config/gameplay_hooks.toml) work as follows.
+
+- `0x82D1DEE8`, past the `-1` bypass at `0x82D1DEE4`, tags the actor index
+  `256 * owner + slot` (r21 owner, r29 slot) when the effective `spaceship_scenes` setting is off.
+  A failed request is never tagged. `0x82D1DF5C` clears the tag before the removal
+  request.
+- In `sub_82D5E660` (r28 owner, r26 slot), an actor matching the tag skips only
+  the individual active stores at `0x82D5E748`, `778`, `780`, `788`, `790`, `798`,
+  `7B8` and `7C0`, each by a jump to the next instruction. Selector 37, the timing
+  stores and the constant store at `0x82D5E8A4` stay native.
+- Before the `bge` at `0x82D5E868`, a tagged actor whose previous time (r11) is at
+  most 1000 jumps to the native finish at `0x82D5E888`; r25, r21, r24 and r23 are
+  already set on that path. Any other case runs the native branch.
+
+The creator result, busy bit, global timing, retirement, the shared-screen and
+launch results, and Wonder and other type 24 paths are untouched. Each step logs
+one `[spaceship]` line: tag, the first suppressed frame, the finish redirect or its
+native fallback with the previous time, and the untag with the suppressed frame
+count.
+
 ## Multiplayer gameplay snapshots
 
 [Online play](online-play.md#gameplay-settings-and-mods) describes the player
-settings and compatibility requirements. The version-2 title payload in
-[host_settings.cpp](../src/host_settings.cpp) carries AI count capped at 4,
+settings and compatibility requirements. The version-8 title payload in
+[host_settings.cpp](../src/host_settings.cpp) carries AI count from 0 to 6,
 Resources, Raging Barbarians, OCC, the AI research, production, gold, food and
-culture bonus percentages (0 to 200), Domination minimum turns (5 or 10), Game
-of the Week selections and combat speed. The override applies to that game
-and leaves local CVars unchanged.
+culture bonus percentages (0 to 200), Domination minimum turns (5 or 10), combat
+speed, the Turn Limit index (0 to 4), the Starting Era index (0 to 4), the
+multiplayer AI difficulty (2, 3 or 4), the spaceship scene skip (0 or 1), unit movement (0 normal, 1 fast, 2 instant)
+in the last header byte, and Game of the Week selections. Peers reject any other version.
+The override applies to that game and leaves local CVars unchanged.
 
 Before gameplay settings are frozen for a new game,
 [`gameplay_session::Prepare`](../src/gameplay_session_settings.cpp) calls SDK
 `PrepareForGame` and waits up to 15 seconds for a ready authenticated snapshot.
 Lobby bytes do not satisfy this requirement. The host captures its current
 provider for each game. Joiners request that game's fresh snapshot.
-`ResolveForGame` requires ready host or received status, a valid version-2
+`ResolveForGame` requires ready host or received status, a valid version-8
 payload, complete matching package IDs and versions, and matching verified Lua
 digests when mod content is present. Old, missing, malformed, truncated or
 unverified data rejects setup without a local gameplay fallback.
@@ -1111,7 +2232,7 @@ When no research is set, the game opens the technology prompt at the start of
 each turn and after the local player visits a village, whatever the village
 gives. A technology reward when a city changes hands can open it too.
 Dismissing it leaves research unset, so the prompt returns.
-`hide_research_prompt` defaults to `false`. When `true`, each of those
+`show_research_prompt` defaults to `true`. When `false`, each of those
 automatic prompts is skipped as if it had been dismissed: research stays unset
 until the player chooses it from the technology window, and no technology is
 chosen automatically. Special Powers > Research a New Technology, which the
@@ -1119,64 +2240,101 @@ player opens, is unchanged.
 
 ## Advisor pop-ups
 
-F1 **Notifications** also lists 15 `hide_popup_*` settings, each default `false`.
-Each one skips one group of advisor notices, for example rival war and peace
+F1 **Notifications** also lists 15 `show_popup_*` settings, each default `true`.
+Turning one off skips one group of advisor notices, for example rival war and peace
 news, combat reports or village outcomes. A skipped notice is not shown and
 the game continues as if it had been closed. Three of them answer a question:
-`hide_popup_save_reminder` does not save, `hide_popup_trophy_room` does not
-open the Trophy Room, and `hide_popup_government_available` keeps the current
-government. `src/advisor_popups.h` lists the call sites in each group. Other
+turning off `show_popup_save_reminder` does not save, `show_popup_trophy_room`
+does not open the Trophy Room, and `show_popup_government_available` keeps the
+current government. `src/advisor_popups.h` lists the call sites in each group. Other
 advisor screens, including the Special Functions menu, are unchanged.
 
-Two more default-`false` settings skip the Barbarian leader message.
-`hide_barbarian_messages` skips the message shown on first contact with a
+Two more default-`true` settings control the Barbarian leader message.
+Turning off `show_barbarian_messages` skips the message shown on first contact with a
 Barbarian tribe; the game treats that tribe as not yet introduced, so the
-message can appear at a later contact once the setting is off.
-`hide_village_barbarian_messages` skips the message shown after capturing a
+message can appear at a later contact once the setting is turned back on.
+Turning off `show_village_barbarian_messages` skips the message shown after capturing a
 Barbarian village, which names the reward; the reward is still granted.
 `src/barbarian_messages.h` lists the village call sites.
 
 ## AI handicaps
 
-[AI handicaps](ai-difficulty.md) describes the player settings, rounding and
+[AI handicaps](configuration.md#ai-handicaps) describes the player settings and
 save policy. The three cost hooks run after native research, unit scalar and
 non-unit cost composition. Units keep the existing identity rule before the
 AI scalar adjustment. Positive costs have a floor. Unsupported player layouts
-and unsupported item IDs retain native results. The gold, food and culture
-hooks sit inside `sub_82D13978` after native loads each completed city
-contribution and before it stores the halfword city cache. Each hook scales
-the register and the stack word the native code saved it to, so both agree.
+and unsupported item IDs retain native results.
+
+Cost scaling multiplies the native cost by 100, divides by 100 plus the bonus,
+and truncates, with a minimum of one for positive costs. Research scales the
+final native technology cost after existing modifiers and rounding. Units
+scale the native scalar after existing discounts and mod rules, then multiply
+by the unit's production factor and divide by two. Integer rounding can change
+the displayed reduction; an already positive cost stays positive. Buildings
+100-122 and Wonders 200-232 scale their final native cost, preserving native
+discounts. Other item IDs keep native costs.
+
+The gold, food and culture hooks sit inside `sub_82D13978` after native loads
+each completed city contribution and before it stores the halfword city cache.
+Each hook scales the register and the stack word the native code saved it to,
+so both agree.
+
+Positive contributions are multiplied by 100 plus the bonus, divided by 100,
+and truncated. Zero and negative values stay native. Scaled values cap at
+32767; native values already above that cap stay unchanged. Food is the
+completed growth contribution, not gross harvest, so starvation stays native.
+Gold and Culture scale the composed city values, not each source separately.
+City totals, nation credits, and native clearing of excluded owners follow
+the changed values.
+
 New network games use the prepared host bonuses. Network loads keep native
 behavior. Standard Rules freezes native values at setup.
 
 ## Custom achievements
 
-The title adds seventeen achievements to the SDK catalog, 955 gamerscore in
+The title adds thirty-one achievements to the SDK catalog, 1615 gamerscore in
 total. Native XDBF achievement IDs are 16-bit, so these IDs cannot collide with
 them. `App::OnPostLoadXexImage` registers them after the XEX catalog is loaded
 and before the guest launches. Registration reports success only when all
-seventeen register. An Image entry is a title XDBF image ID, or an embedded
-icon under `metadata/icons/`.
+thirty-one register. Each icon comes from the player's own game files.
+Its `icon_path`, `fpk:<archive>/<entry>`, names a DDS in an FPK under
+`Resource/Common`, decoded at runtime by `retail_ui_art`. No retail bytes ship
+with the title. If the archive or entry is missing or decoding fails, the
+title XDBF image identified by the Image entry is shown instead.
 
-| ID | Label | G | Image |
-|---|---|---:|---|
-| `0x10001` | `200% Concentrated Power of Will` | 200 | embedded icon |
-| `0x10002` | `One To Rule Them All` | 15 | 5 |
-| `0x10003` | `Their Rage Is Within Your Control` | 25 | 21 |
-| `0x10004` | `100% Reason to Remember the Name` | 125 | embedded icon |
-| `0x10005` | `Halcyon Templar` | 5 | 19 |
-| `0x10006` | `Beyond the Firmament` | 5 | 4 |
-| `0x10007` | `Blockbuster World Champion` | 50 | 34 |
-| `0x10008` | `Shallow Worldview` | 20 | 9 |
-| `0x10009` | `Cosmic Eclipse` | 75 | 32 |
-| `0x1000A` | `Art of the Walk In` | 20 | 12 |
-| `0x1000B` | `Last Stand` | 50 | 1 |
-| `0x1000C` | `Weekend Warrior` | 100 | 13 |
-| `0x1000D` | `Ye Are Idle, Ye Are Idle` | 75 | 20 |
-| `0x1000E` | `Leap Through Time` | 10 | 22 |
-| `0x1000F` | `I Have No Enemies` | 50 | 51 |
-| `0x10010` | `No More Worlds To Conquer` | 30 | 37 |
-| `0x10011` | `Tactically Centered` | 100 | 21 |
+| ID | Label | G | Image | Picture |
+|---|---|---:|---:|---|
+| `0x10001` | `200% Concentrated Power of Will` | 250 | 21 | `Common0.FPK/gov_revolution.dds` |
+| `0x10002` | `One To Rule Them All` | 15 | 5 | `pedia.FPK/bldg_palace.dds` |
+| `0x10003` | `Their Rage Is Within Your Control` | 25 | 21 | `Level.FPK/unit_barbarian.dds` |
+| `0x10004` | `100% Reason to Remember the Name` | 125 | 21 | `pedia.FPK/gov_fundamentalism.dds` |
+| `0x10005` | `Halcyon Templar` | 5 | 19 | `pedia.FPK/rel_templar.dds` |
+| `0x10006` | `Beyond the Firmament` | 5 | 4 | `pedia.FPK/unit_icbm.dds` |
+| `0x10007` | `Blockbuster World Champion` | 50 | 34 | `pedia.FPK/wond_hollywood.dds` |
+| `0x10008` | `Shallow Worldview` | 20 | 9 | `pedia.FPK/ter_ocean.dds` |
+| `0x10009` | `Cosmic Eclipse` | 75 | 32 | `pedia.FPK/tech_spaceflight.dds` |
+| `0x1000A` | `Art of the Walk In` | 20 | 12 | `pedia.FPK/unit_great_artist_male.dds` |
+| `0x1000B` | `Last Stand` | 50 | 1 | `pedia.FPK/unit_militia.dds` |
+| `0x1000C` | `Weekend Warrior` | 100 | 13 | `pedia.FPK/unit_warrior.dds` |
+| `0x1000D` | `Ye Are Idle, Ye Are Idle` | 75 | 20 | `pedia.FPK/tech_alphabet.dds` |
+| `0x1000E` | `Leap Through Time` | 10 | 22 | `pedia.FPK/tech_futuretechnology.dds` |
+| `0x1000F` | `I Have No Enemies` | 50 | 51 | `pedia.FPK/wond_unitednations.dds` |
+| `0x10010` | `No More Worlds To Conquer` | 30 | 37 | `pedia.FPK/ldr_greece.dds` |
+| `0x10011` | `Tactically Centered` | 100 | 21 | `pedia.FPK/wond_thegreatwall.dds` |
+| `0x10012` | `Fly Me to the Moon` | 75 | 32 | `pedia.FPK/wond_apolloprogram.dds` |
+| `0x10013` | `Midas Touch` | 75 | 16 | `pedia.FPK/res_gold.dds` |
+| `0x10014` | `Culture Club` | 75 | 9 | `pedia.FPK/wond_shakespearestheatre.dds` |
+| `0x10015` | `Iron Man` | 75 | 13 | `pedia.FPK/res_iron.dds` |
+| `0x10016` | `Overtime` | 10 | 51 | `pedia.FPK/tech_navigation.dds` |
+| `0x10017` | `World at War` | 50 | 4 | `pedia.FPK/wond_theinternet.dds` |
+| `0x10018` | `Continental Drift` | 25 | 30 | `pedia.FPK/unit_galley.dds` |
+| `0x10019` | `Island in the Sun` | 25 | 23 | `pedia.FPK/unit_galleon.dds` |
+| `0x1001A` | `Smoke on the Water` | 25 | 26 | `pedia.FPK/unit_submarine.dds` |
+| `0x1001B` | `Clash of the Titans` | 25 | 18 | `pedia.FPK/unit_great_leader.dds` |
+| `0x1001C` | `Weather With You` | 25 | 25 | `Common0.FPK/tech_astronomy.dds` |
+| `0x1001D` | `Around the World` | 25 | 34 | `pedia.FPK/tech_globalization.dds` |
+| `0x1001E` | `The Bay Harbor Butcher` | 50 | 24 | `pedia.FPK/bldg_harbor.dds` |
+| `0x1001F` | `Morte Eterna` | 50 | 35 | `pedia.FPK/unit_great_general.dds` |
 
 ### Victory achievements
 
@@ -1190,9 +2348,10 @@ The award comes from a hook on `sub_82D052C8`, the native local-player victory
 handler. Every victory test reaches it only when the winner is the local
 player, so it is awarded from that event and never from loading a save or from
 the result screen. The hook reads the difficulty, the network byte, the current
-year (`0x8312B8E0`, negative is BC) and the effective AI policy before calling
-the native handler unchanged, then evaluates every victory predicate below and
-asks the SDK unlock store for each one that qualifies. A second delivery of the
+year (`0x8312B8E0`, negative is BC), the effective AI policy and the map pack
+of the current scenario before calling the native handler unchanged. It then
+adds the frozen Turn Limit and Always At War setting, evaluates every victory
+predicate below and asks the SDK unlock store for each one that qualifies. A second delivery of the
 same victory finds the achievements unlocked and does nothing, so duplicate
 delivery relies on that store. An unreadable difficulty or network byte never
 qualifies, and an unreadable year fails every predicate that requires a year.
@@ -1208,10 +2367,30 @@ Network games are excluded from every predicate.
 | `0x10008` | Tracked history and no unit moved onto a deep Ocean tile, any difficulty |
 | `0x10009` | Technology victory (type 2), year 100 BC or earlier, any difficulty |
 | `0x1000C` | Game of the Week, Deity, year before 3000 BC |
-| `0x1000D` | Deity, tracked history, first city founded on turn 100 or later |
+| `0x1000D` | Deity, tracked history, Ancient start, first city founded on turn 100 or later |
 | `0x1000E` | Game of the Week on week 36428, any difficulty |
 | `0x1000F` | Deity, tracked history, no battle fought |
 | `0x10010` | Domination victory (type 1), Deity, 6 AI opponents at setup |
+| `0x10012` | Technology victory (type 2), Deity, no native economy, AI Research handicap 200 (others any) |
+| `0x10013` | Economic victory (type 3), Deity, no native economy, AI Gold handicap 200 (others any) |
+| `0x10014` | Culture victory (type 4), Deity, no native economy, AI Culture handicap 200 (others any) |
+| `0x10015` | Domination victory (type 1), Deity, no native economy, AI Production handicap 200 (others any) |
+| `0x10016` | Year after 2100 AD in a game whose frozen Turn Limit is 2200, 2300, 2500 or unlimited, any difficulty |
+| `0x10017` | Deity, map `rr_earth` of pack `rerevved-real-world`, Always At War on, 6 AI opponents at setup |
+| `0x10018` | Any scenario of pack `rerevved-landmasses`, any difficulty and victory type |
+| `0x10019` | Any scenario of pack `rerevved-islands`, any difficulty and victory type |
+| `0x1001A` | Any scenario of pack `rerevved-inland-water`, any difficulty and victory type |
+| `0x1001B` | Any scenario of pack `rerevved-matchups`, any difficulty and victory type |
+| `0x1001C` | Any scenario of pack `rerevved-climates`, any difficulty and victory type |
+| `0x1001D` | Any scenario of pack `rerevved-real-world`, any difficulty and victory type |
+| `0x1001F` | Domination victory (type 1), Deity, Always At War on, map `rr_europe` of pack `rerevved-real-world` |
+
+The map pack is identified from the scenario word `0x8312B8D4` (-1 in an
+ordinary game). A value of 100 or more is looked up in the scenarios that
+`map_packs::RegisterSelected` records for each registered pack
+(`map_packs::FindScenarioOwner`), so the predicates key on the pack ID and the
+map name, never on a scenario number. A scenario that no registered pack
+supplied matches no pack achievement.
 
 Eligibility uses the frozen game policy, not the settings sliders. Slider edits
 for the next game do not affect a running game. A save without a restored
@@ -1226,8 +2405,14 @@ target are at least 24 tiles apart (Chebyshev distance on the 32 by 32 map, x
 wrapping and y not). `Art of the Walk In` unlocks on a capital capture before
 3500 BC on Deity in a non-network game. `Last Stand` unlocks when a defending
 Militia in a city wins a battle in which the attack strength was strictly
-greater than the defense strength. An event achievement awards immediately
-through the SDK store and logs `Custom achievement unlocked: <name>`.
+greater than the defense strength. `The Bay Harbor Butcher`
+unlocks when the local player has sunk 50 ships in one game on Deity, in a
+non-network game on any map from the `rerevved-islands` pack. A ship is a
+killed unit of type 19 to 23 (Submarine to Battleship), counted by the same
+combat kill hook and guards as `Their Rage Is Within Your Control` below,
+whatever the winning unit is; the pack is read as for the victory predicates.
+An event achievement awards immediately through the SDK store and logs
+`Custom achievement unlocked: <name>`.
 
 ### Per-game history
 
@@ -1243,12 +2428,14 @@ Game of the Week the week is the effective week of the seed latch
 (`0x82E76ED4`), which runs before the outer setup. It counts only when that
 latch followed this setup's weekly preparation, so a latch left by an earlier
 launch with the same setup address never supplies it.
-The week and the Game of the Week flag are not saved, because Game of the
-Week saving is disabled. A load clears them. A rejected setup and a load reset
-every field to unknown (history untracked, AI count -1), and a valid schema 2 sidecar restores the saved
+The week and the Game of the Week flag are not saved. A load clears them, and a
+practice game never sets the flag, so it earns no Game of the Week achievements. A rejected setup and a load reset
+every field to unknown (history untracked, AI count -1), and a valid schema 2 or later sidecar restores the saved
 fields. A game loaded from a schema 1 sidecar or without a sidecar never
 qualifies for a whole-game achievement. The first founding turn keeps only the
-first city.
+first city. For a later-era start from Starting Era or a scenario such as
+Beta Centauri, setup records turn 0 because those games start near
+or past turn 100.
 
 `IsDeepOcean` reads the current terrain plane (`0x8312B288`, index
 `40 * x + y`): a tile is deep when it and all eight neighbours, with x
@@ -1296,13 +2483,20 @@ a profile that lacks it. The count is per game: a new game resets it to 0, the
 gameplay sidecar saves it and restores it on load, and a load whose sidecar is
 missing or schema 1 starts again at 0.
 
+The ships sunk count for `The Bay Harbor Butcher` uses the same hook and guards.
+Before the native call, it reads the loser's unit type byte (record offset
+`+1`, types 19 to 23) instead of testing for Barbarians. The per-game count
+saturates at 255 and is saved from schema 7. At 50 or more, each ship sunk
+checks Deity, the network byte and the `rerevved-islands` pack before asking
+the SDK store.
+
 ### Diagnostics and acceptance
 
 `--custom_achievement_trace=true` logs each native victory record and, on one
 line, the facts read and every victory decision. It also logs each kill from
 the four sites and each other kill of a Barbarian unit, with the return address,
 mode, loser, winner, local and Barbarian players, the killed flag before and after, whether it counted, and
-the count. An unlock logs one line even with tracing off, and a victory unlock
+the count, then the loser's unit type and the ships sunk decision and count. An unlock logs one line even with tracing off, and a victory unlock
 adds the victory type.
 
 Runtime acceptance is still required: a natural Deity win, the F3 list entries
@@ -1330,10 +2524,18 @@ expanded layouts fit the native unit pools for eight participants and saved
 player arrays. Contacts, full AI turns and save/load remain gameplay
 acceptance checks.
 
-Expansion requires the ordinary offline layout with the human in slot zero.
-Multiplayer, Game of the Week, restricted civilization selections and the
-native special two-player setup retain their native participant counts.
-Multiplayer values are capped at 4 in the prepared host snapshot.
+Single-player expansion requires the ordinary layout with the human in slot
+zero. Game of the Week, restricted civilization selections and the native
+special two-player setup retain their native participant counts.
+
+In multiplayer the host snapshot value R (0 to 6) applies to every peer. With H
+humans in the five native civilization slots, the setup keeps A = min(R, 7 - H)
+ordinary AI and uses N = max(6, H + A + 1, highest human ordinal + 2)
+participants with Barbarians in slot N - 1. It widens the native layout only
+when N exceeds 6 and N is at most 8 with every human below the Barbarian slot;
+otherwise the native layout and the removal limit apply. The setup logs the
+request, H, A, N, Barbarian slot and human mask. Peers do not compare rosters; a
+mismatch appears as a desync.
 
 - A game with one human keeps at least one AI civilization, so 0 (**None**)
   applies only to multiplayer games with two or more humans. Domination then
@@ -1441,8 +2643,8 @@ startup, so edits made in a running session apply at the next launch.
 
 | Group | Row | Setting | Meaning |
 |---|---|---|---|
-| (top) | Status | `system_link_status` | Read-only connection status for this session |
-| (top) | Player Name | `system_link_profile_name` | Optional player name, up to 15 letters, digits, spaces, `-`, `_` or `.` |
+| (top) | Connection Status | `system_link_status` | Read-only connection status for this session |
+| (top) | Profile Name | `system_link_profile_name` | Optional player name, up to 15 letters, digits, spaces, `-`, `_` or `.` |
 | Connection | Invite Code | `system_link_invite` | Invite code from the relay host; a nonempty code selects relay mode |
 | Connection | Direct LAN | `system_link_lan_enabled` | Direct LAN mode; cannot be combined with an invite |
 | Connection | Peer-to-Peer | `system_link_direct` | Direct UDP to other relay players, with the relay as fallback; off by default, relay mode only |

@@ -58,6 +58,9 @@ HOOK_SOURCES = [
     ROOT / "src" / "ai_economy_hooks.cpp",
     ROOT / "src" / "spy_mission_ai_hooks.cpp",
     ROOT / "src" / "button_icons_hooks.cpp",
+    ROOT / "src" / "intro_movie_hooks.cpp",
+    ROOT / "src" / "legal_screen_hooks.cpp",
+    ROOT / "src" / "version_label_hooks.cpp",
 ]
 SPY_MISSION_AI_SOURCES = [
     ROOT / "src" / "spy_mission_ai.h",
@@ -101,6 +104,9 @@ def compat_hooks() -> list[dict]:
         "ai_economy_hooks.toml",
         "spy_mission_ai_hooks.toml",
         "button_icons_hooks.toml",
+        "intro_movie_hooks.toml",
+        "legal_screen_hooks.toml",
+        "version_label_hooks.toml",
     )
     hooks = []
     for path in paths:
@@ -544,6 +550,21 @@ EXPECTED_HOOKS = [
         "registers": ["r3", "r4", "r5"],
     },
     {
+        "address": 0x82E5522C,
+        "name": "SkipIntroMovie",
+        "registers": ["r9", "r31"],
+    },
+    {
+        "address": 0x82DEE89C,
+        "name": "SkipLegalScreen",
+        "registers": ["r10", "r31"],
+    },
+    {
+        "address": 0x82E51818,
+        "name": "ReplaceMainMenuVersion",
+        "registers": ["r6"],
+    },
+    {
         "address": 0x82D11250,
         "name": "LogDominationCapitals",
         "registers": ["r27", "r9", "r10", "r11"],
@@ -552,6 +573,116 @@ EXPECTED_HOOKS = [
         "address": 0x82D11264,
         "name": "ApplyDominationMinimumTurns",
         "registers": ["r9"],
+    },
+    {
+        "address": 0x82D22A78,
+        "name": "ApplyStartingEra",
+        "registers": ["r31"],
+    },
+    {
+        "address": 0x82D221EC,
+        "name": "ApplyMultiplayerAiDifficulty",
+        "registers": ["r11"],
+    },
+    {
+        "address": 0x82D11304,
+        "name": "SkipUnlimitedTurnDeadline",
+        "jump_address_on_true": 0x82D1143C,
+    },
+    {
+        "address": 0x82D11318,
+        "name": "SkipTurnLimitWarning",
+        "jump_address_on_true": 0x82D11378,
+    },
+    {
+        "address": 0x82D11324,
+        "name": "AdmitExtendedTurnLimitWarning",
+        "jump_address_on_true": 0x82D11328,
+    },
+    {
+        "address": 0x82D11340,
+        "name": "AdmitExtendedTurnLimitWarning",
+        "jump_address_on_true": 0x82D11344,
+    },
+    {
+        "address": 0x82D11378,
+        "name": "SkipExtendedTurnLimitDeadline",
+        "jump_address_on_true": 0x82D1143C,
+    },
+    {
+        "address": 0x82D1DEE8,
+        "name": "TagSpaceshipActor",
+        "registers": ["r21", "r29"],
+    },
+    {
+        "address": 0x82D1DF5C,
+        "name": "UntagSpaceshipActor",
+        "registers": ["r21", "r29"],
+    },
+    {
+        "address": 0x82D5E748,
+        "name": "SkipSpaceshipFirstStore",
+        "registers": ["r28", "r26"],
+        "jump_address_on_true": 0x82D5E74C,
+    },
+    {
+        "address": 0x82D5E778,
+        "name": "SkipSpaceshipFocusStore",
+        "registers": ["r28", "r26"],
+        "jump_address_on_true": 0x82D5E77C,
+    },
+    {
+        "address": 0x82D5E780,
+        "name": "SkipSpaceshipFocusStore",
+        "registers": ["r28", "r26"],
+        "jump_address_on_true": 0x82D5E784,
+    },
+    {
+        "address": 0x82D5E788,
+        "name": "SkipSpaceshipFocusStore",
+        "registers": ["r28", "r26"],
+        "jump_address_on_true": 0x82D5E78C,
+    },
+    {
+        "address": 0x82D5E790,
+        "name": "SkipSpaceshipFocusStore",
+        "registers": ["r28", "r26"],
+        "jump_address_on_true": 0x82D5E794,
+    },
+    {
+        "address": 0x82D5E798,
+        "name": "SkipSpaceshipFocusStore",
+        "registers": ["r28", "r26"],
+        "jump_address_on_true": 0x82D5E79C,
+    },
+    {
+        "address": 0x82D5E7B8,
+        "name": "SkipSpaceshipFocusStore",
+        "registers": ["r28", "r26"],
+        "jump_address_on_true": 0x82D5E7BC,
+    },
+    {
+        "address": 0x82D5E7C0,
+        "name": "SkipSpaceshipFocusStore",
+        "registers": ["r28", "r26"],
+        "jump_address_on_true": 0x82D5E7C4,
+    },
+    {
+        "address": 0x82D5E868,
+        "name": "FinishSpaceshipEarly",
+        "registers": ["r28", "r26", "r11"],
+        "jump_address_on_true": 0x82D5E888,
+    },
+    {
+        "address": 0x82D619AC,
+        "name": "ScaleUnitMovementQuantum",
+        "registers": ["r1", "r24", "r27"],
+    },
+    {
+        "address": 0x82D619BC,
+        "name": "SnapUnitMovement",
+        "registers": ["r1", "r24"],
+        "jump_address_on_true": 0x82D619C0,
     },
     {
         "address": 0x82D17A9C,
@@ -1413,6 +1544,120 @@ class HookContractTests(unittest.TestCase):
             )
             self.assertEqual(generated.count(expected), 1, call)
 
+    def test_turn_limit_hooks_precede_their_native_instructions(self) -> None:
+        if not chunk_paths():
+            self.skipTest("generated sources are not available")
+
+        def hook(name: str, target: str) -> str:
+            return f"\tif ({name}()) {{\n\t\tgoto {target};\n\t}}\n\telse {{\n\t}}\n"
+
+        for expected in (
+            "loc_82D11304:\n\t// lwz r3,-4128(r30)\n"
+            + hook("SkipUnlimitedTurnDeadline", "loc_82D1143C")
+            + "\tctx.r3.u64 = REX_LOAD_U32(ctx.r30.u32 + -4128);\n",
+            "\t// lwz r10,112(r1)\n"
+            + hook("SkipTurnLimitWarning", "loc_82D11378")
+            + "\tctx.r10.u64 = REX_LOAD_U32(ctx.r1.u32 + 112);\n",
+            "\t// bne cr6,0x82d11330\n"
+            + hook("AdmitExtendedTurnLimitWarning", "loc_82D11328")
+            + "\tif (!ctx.cr6.eq) goto loc_82D11330;\nloc_82D11328:\n",
+            "\t// bne cr6,0x82d11378\n"
+            + hook("AdmitExtendedTurnLimitWarning", "loc_82D11344")
+            + "\tif (!ctx.cr6.eq) goto loc_82D11378;\nloc_82D11344:\n",
+            "loc_82D11378:\n\t// lwz r10,112(r1)\n"
+            + hook("SkipExtendedTurnLimitDeadline", "loc_82D1143C")
+            + "\tctx.r10.u64 = REX_LOAD_U32(ctx.r1.u32 + 112);\n",
+        ):
+            self.assertEqual(count_per_chunk(expected), 1, expected)
+
+    def test_spaceship_hooks_precede_their_native_instructions(self) -> None:
+        if not chunk_paths():
+            self.skipTest("generated sources are not available")
+
+        def hook(call: str, target: str) -> str:
+            return f"\tif ({call}) {{\n\t\tgoto {target};\n\t}}\n\telse {{\n\t}}\n"
+
+        store = "SkipSpaceshipFocusStore(ctx.r28, ctx.r26)"
+        for expected in (
+            # Past the -1 bypass, so only a successful request tags.
+            "\t// beq cr6,0x82d1df60\n\tif (ctx.cr6.eq) goto loc_82D1DF60;\n"
+            "\t// lis r28,-32000\n\tTagSpaceshipActor(ctx.r21, ctx.r29);\n",
+            "\t// bl 0x82d02390\n\tUntagSpaceshipActor(ctx.r21, ctx.r29);\n",
+            "\t// stw r8,17848(r24)\n"
+            + hook("SkipSpaceshipFirstStore(ctx.r28, ctx.r26)", "loc_82D5E74C"),
+            "\t// stfs f13,29392(r27)\n" + hook(store, "loc_82D5E77C"),
+            "\t// stfs f0,29124(r3)\n" + hook(store, "loc_82D5E784"),
+            "\t// stw r7,17844(r5)\n" + hook(store, "loc_82D5E78C"),
+            "\t// stw r9,-6208(r6)\n" + hook(store, "loc_82D5E794"),
+            "\t// stfs f3,280(r11)\n" + hook(store, "loc_82D5E79C"),
+            "\t// stfs f0,-3672(r23)\n" + hook(store, "loc_82D5E7BC"),
+            "\t// stfs f12,284(r11)\n" + hook(store, "loc_82D5E7C4"),
+            "\t// bge cr6,0x82d5e888\n"
+            + hook("FinishSpaceshipEarly(ctx.r28, ctx.r26, ctx.r11)", "loc_82D5E888")
+            + "\tif (!ctx.cr6.lt) goto loc_82D5E888;\n",
+        ):
+            self.assertEqual(count_per_chunk(expected), 1, expected)
+
+    def test_starting_era_hook_precedes_the_native_input_read(self) -> None:
+        if not chunk_paths():
+            self.skipTest("generated sources are not available")
+
+        # Both paths into 0x82D22A78 must pass the hook before lhz loads STARTERA from Q+0x1C in r31.
+        hooked = (
+            "loc_82D22A78:\n\t// lhz r8,28(r31)\n"
+            "\tApplyStartingEra(ctx.r31);\n"
+            "\tctx.r8.u64 = REX_LOAD_U16(ctx.r31.u32 + 28);\n"
+        )
+        # Q at frame+0x68 is reused after each player's grants, so one early halfword store reaches every player.
+        saved = (
+            "\t// addi r31,r11,-28720\n\tctx.r31.s64 = ctx.r11.s64 + -28720;\n"
+            "\t// lis r9,-32009\n\tctx.r9.s64 = -2097741824;\n"
+            "\t// stw r31,104(r1)\n\tREX_STORE_U32(ctx.r1.u32 + 104, ctx.r31.u32);\n"
+        )
+        reload = (
+            "\t// lwz r10,104(r1)\n\tctx.r10.u64 = REX_LOAD_U32(ctx.r1.u32 + 104);\n"
+            "\t// lwz r31,0(r11)\n\tctx.r31.u64 = REX_LOAD_U32(ctx.r11.u32 + 0);\n"
+            "\t// lhz r8,28(r10)\n\tctx.r8.u64 = REX_LOAD_U16(ctx.r10.u32 + 28);\n"
+            "loc_82D22C00:\n"
+        )
+        # The post-grant start-year search reads STARTYEAR (Q+0x3E) through saved Q.
+        start_year = (
+            "loc_82D24F20:\n\t// lwz r11,104(r1)\n\tctx.r11.u64 = REX_LOAD_U32(ctx.r1.u32 + 104);\n"
+            "\t// lhz r11,62(r11)\n\tctx.r11.u64 = REX_LOAD_U16(ctx.r11.u32 + 62);\n"
+        )
+        for expected in (hooked, saved, reload, start_year):
+            self.assertEqual(count_per_chunk(expected), 1, expected)
+
+    def test_multiplayer_ai_difficulty_hook_precedes_the_network_store(self) -> None:
+        if not chunk_paths():
+            self.skipTest("generated sources are not available")
+
+        # Only the nonzero network byte reaches li r11,2: the hook replaces r11 before the network-arm store (r24 = 0x83000000).
+        network_arm = (
+            "loc_82D221D0:\n\t// lis r11,-31979\n\tctx.r11.s64 = -2095775744;\n"
+            "\t// lbz r11,-3829(r11)\n\tctx.r11.u64 = REX_LOAD_U8(ctx.r11.u32 + -3829);\n"
+            "\t// cmplwi cr6,r11,0\n\tctx.cr6.compare<uint32_t>(ctx.r11.u32, 0, ctx.xer);\n"
+            "\t// beq cr6,0x82d2264c\n\tif (ctx.cr6.eq) goto loc_82D2264C;\n"
+            "\t// lis r9,-31986\n\tctx.r9.s64 = -2096234496;\n"
+            "\t// li r11,2\n\tctx.r11.s64 = 2;\n"
+            "\t// mr r10,r17\n\tctx.r10.u64 = ctx.r17.u64;\n"
+            "\t// stw r11,-6200(r24)\n\tApplyMultiplayerAiDifficulty(ctx.r11);\n"
+            "\tREX_STORE_U32(ctx.r24.u32 + -6200, ctx.r11.u32);\n"
+        )
+        after_store = (
+            "\t// lis r31,-31979\n\tctx.r31.s64 = -2095775744;\n"
+            "\t// stw r10,17880(r9)\n\tREX_STORE_U32(ctx.r9.u32 + 17880, ctx.r10.u32);\n"
+            "\t// lwz r3,-4128(r31)\n\tctx.r3.u64 = REX_LOAD_U32(ctx.r31.u32 + -4128);\n"
+            "\t// bl 0x82d8aa60\n\tctx.lr = 0x82D22200;\n\tsub_82D8AA60(ctx, base);\n"
+            "\t// clrlwi r8,r3,24\n\tctx.r8.u64 = ctx.r3.u32 & 0xFF;\n"
+            "\t// cmplwi cr6,r8,0\n\tctx.cr6.compare<uint32_t>(ctx.r8.u32, 0, ctx.xer);\n"
+            "\t// beq cr6,0x82d22464\n\tif (ctx.cr6.eq) goto loc_82D22464;\n"
+            "\t// lwz r11,0(r14)\n\tctx.r11.u64 = REX_LOAD_U32(ctx.r14.u32 + 0);\n"
+        )
+        reload_wait = "loc_82D22464:\n\t// lwz r11,-4128(r31)\n\tctx.r11.u64 = REX_LOAD_U32(ctx.r31.u32 + -4128);\n"
+        for expected in (network_arm, after_store, reload_wait):
+            self.assertEqual(count_per_chunk(expected), 1, expected)
+
     def test_vertex_selection_observer_precedes_restore_when_available(self) -> None:
         paths = chunk_paths()
         if not paths:
@@ -1443,7 +1688,9 @@ class HookContractTests(unittest.TestCase):
         )
         # Hooks with jump_address_on_true return bool and take guest registers.
         source_names.update(
-            re.findall(r"^bool ([A-Z]\w*)[ \t]*\(\s*PPCRegister", source, re.MULTILINE)
+            re.findall(
+                r"^bool ([A-Z]\w*)[ \t]*\(\s*(?:PPCRegister|\))", source, re.MULTILINE
+            )
         )
         draw_hook_source = (ROOT / "src/gpu/guest_d3d/draw_hooks.cpp").read_text(
             encoding="utf-8"
@@ -1910,6 +2157,65 @@ class HookContractTests(unittest.TestCase):
         )
         self.assertEqual(override.count("writeGuestU32Safely("), 1)
         self.assertNotIn("REXLOG_", override)
+
+    def test_unit_movement_contract(self) -> None:
+        hooks = (ROOT / "src" / "gameplay_fixes_hooks.cpp").read_text(encoding="utf-8")
+        app_source = APP_SOURCE.read_text(encoding="utf-8")
+        helpers = (ROOT / "src" / "gameplay_fixes.h").read_text(encoding="utf-8")
+        self.assertEqual(
+            len(
+                re.findall(
+                    r'REXCVAR_DEFINE_STRING\(unit_movement,\s*"normal",\s*'
+                    r'"ReRevved",\s*"[^"]+"\)\s*'
+                    r'\.allowed\(\{\s*"normal",\s*"fast",\s*"instant"\s*\}\);',
+                    app_source,
+                )
+            ),
+            1,
+        )
+        for name in ("ScaleUnitMovementQuantum", "SnapUnitMovement"):
+            self.assertEqual(len(re.findall(rf"^\w+ {name}\(", hooks, re.M)), 1)
+        scale = hooks.split("void ScaleUnitMovementQuantum", 1)[1].split(
+            "bool Snap", 1
+        )[0]
+        snap = hooks.split("bool SnapUnitMovement", 1)[1].split("\n}\n", 1)[0]
+        self.assertEqual(scale.count("quantum.u64 ="), 1)
+        self.assertNotIn("quantum.", snap)
+        movement = hooks[
+            hooks.index("unitMovementLogged") : hooks.index("// Before cmpwi cr6,r9,10")
+        ]
+        for forbidden in ("writeGuest", "store_and_swap", "REX_STORE"):
+            self.assertNotIn(forbidden, movement)
+        self.assertEqual(movement.count("REXLOG_INFO"), 1)
+        self.assertIn("kNetworkGameByte", movement)
+        self.assertIn('RegisterChangeCallback("unit_movement"', movement)
+        self.assertIn("AcceleratesMovingUnit", movement)
+        self.assertIn("unitType != 24 && unitType != 27", helpers)
+
+    def test_generated_unit_movement_hooks_when_available(self) -> None:
+        if not chunk_paths():
+            self.skipTest("generated sources are not available")
+
+        # Scale after native divw, before threshold srawi. Snap tests before bgt to the near-target arm at 0x82D619C0.
+        scale = (
+            "\t// divw r27,r6,r10\n"
+            "\tctx.r27.u64 = uint32_t((ctx.r10.s32 && !(ctx.r6.s32 == INT32_MIN && ctx.r10.s32 == -1)) ? ctx.r6.s32 / ctx.r10.s32 : 0);\n"
+            "\t// srawi r5,r27,1\n"
+            "\tScaleUnitMovementQuantum(ctx.r1, ctx.r24, ctx.r27);\n"
+        )
+        snap = (
+            "\t// bgt cr6,0x82d619dc\n"
+            "\tif (SnapUnitMovement(ctx.r1, ctx.r24)) {\n"
+            "\t\tgoto loc_82D619C0;\n"
+            "\t}\n"
+            "\telse {\n"
+            "\t}\n"
+            "\tif (ctx.cr6.gt) goto loc_82D619DC;\n"
+            "loc_82D619C0:\n"
+            "\t// stwx r20,r23,r22\n"
+        )
+        for expected in (scale, snap):
+            self.assertEqual(count_per_chunk(expected), 1, expected)
 
     def test_generated_spy_kidnapping_failure_guard_when_available(self) -> None:
         def scan(paths: list[Path]) -> dict[str, str]:
@@ -2780,12 +3086,12 @@ class HookContractTests(unittest.TestCase):
         self.assertEqual(manifest.count('"config/advisor_hooks.toml"'), 1)
 
         app = APP_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("REXCVAR_DEFINE_BOOL(hide_research_prompt, false,", app)
+        self.assertIn("REXCVAR_DEFINE_BOOL(show_research_prompt, true,", app)
         source = RESEARCH_PROMPT_SOURCE.read_text(encoding="utf-8")
         for hook in hooks:
             self.assertIn(hook["name"] + "(", source)
         self.assertIn(
-            "gate.BeginShow(REXCVAR_GET(hide_research_prompt), stack.u32)", source
+            "gate.BeginShow(!REXCVAR_GET(show_research_prompt), stack.u32)", source
         )
 
     def test_generated_research_prompt_hooks_when_available(self) -> None:
@@ -2836,14 +3142,14 @@ class HookContractTests(unittest.TestCase):
         self.assertEqual(manifest.count('"config/advisor_hooks.toml"'), 1)
 
         table = ADVISOR_POPUP_TABLE.read_text(encoding="utf-8")
-        cvars = re.findall(r'"(hide_popup_[a-z_]+)"', table)
+        cvars = re.findall(r'"(show_popup_[a-z_]+)"', table)
         self.assertEqual(len(cvars), 15)
         app = APP_SOURCE.read_text(encoding="utf-8")
         source = ADVISOR_POPUP_SOURCE.read_text(encoding="utf-8")
         self.assertIn("SuppressAdvisorPopupShow(", source)
         for index, cvar in enumerate(cvars):
-            self.assertIn(f"REXCVAR_DEFINE_BOOL({cvar}, false,", app)
-            self.assertRegex(source, rf"case {index}:\s+return REXCVAR_GET\({cvar}\);")
+            self.assertIn(f"REXCVAR_DEFINE_BOOL({cvar}, true,", app)
+            self.assertRegex(source, rf"case {index}:\s+return !REXCVAR_GET\({cvar}\);")
 
     def test_generated_advisor_popup_hook_when_available(self) -> None:
         paths, generated = generated_text()
@@ -2902,15 +3208,13 @@ class HookContractTests(unittest.TestCase):
         self.assertEqual(manifest.count('"config/advisor_hooks.toml"'), 1)
 
         app = APP_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("REXCVAR_DEFINE_BOOL(hide_barbarian_messages, false,", app)
-        self.assertIn(
-            "REXCVAR_DEFINE_BOOL(hide_village_barbarian_messages, false,", app
-        )
+        self.assertIn("REXCVAR_DEFINE_BOOL(show_barbarian_messages, true,", app)
+        self.assertIn("REXCVAR_DEFINE_BOOL(show_village_barbarian_messages, true,", app)
         source = BARBARIAN_MESSAGE_SOURCE.read_text(encoding="utf-8")
         for hook in hooks:
             self.assertIn(hook["name"] + "(", source)
-        self.assertIn("return REXCVAR_GET(hide_barbarian_messages);", source)
-        self.assertIn("REXCVAR_GET(hide_village_barbarian_messages) &&", source)
+        self.assertIn("return !REXCVAR_GET(show_barbarian_messages);", source)
+        self.assertIn("!REXCVAR_GET(show_village_barbarian_messages) &&", source)
         table = BARBARIAN_MESSAGE_TABLE.read_text(encoding="utf-8")
         sites = re.search(r"kVillageSites\[\] = \{(.*?)\};", table, re.S)
         self.assertIsNotNone(sites)
@@ -2982,7 +3286,8 @@ class HookContractTests(unittest.TestCase):
             '{ "ai_civilizations", { { "0", "None (Multiplayer)" },', settings
         )
         self.assertRegex(
-            settings, r'\{ "", \{ [^}]*"domination_min_turns", "ai_civilizations" \} \}'
+            settings,
+            r'\{ "", \{ [^}]*"turn_limit", "starting_era", "ai_civilizations", "always_at_war" \} \}',
         )
         self.assertIn('{ "ai_civilizations", Audience::kPlayer }', settings)
         self.assertEqual(settings.count('"ai_civilizations"'), 5)
@@ -5065,6 +5370,195 @@ class RingAndVideoReplacementBoundaryTests(unittest.TestCase):
             "REX_HOOK_RAW", 1
         )[0]
         self.assertEqual(publish.count("__imp__sub_8269C400(ctx, base)"), 1)
+
+
+ALWAYS_AT_WAR_CONFIG = ROOT / "config" / "always_at_war_hooks.toml"
+ALWAYS_AT_WAR_SOURCE = ROOT / "src" / "always_at_war_hooks.cpp"
+
+
+class AlwaysAtWarHookContractTests(unittest.TestCase):
+    def hooks(self) -> list[dict]:
+        with ALWAYS_AT_WAR_CONFIG.open("rb") as stream:
+            return tomllib.load(stream)["midasm_hook"]
+
+    def test_hook_table(self) -> None:
+        hooks = self.hooks()
+        self.assertEqual(len(hooks), 18)
+        addresses = [hook["address"] for hook in hooks]
+        self.assertEqual(len(set(addresses)), len(addresses))
+        by_address = {hook["address"]: hook for hook in hooks}
+        self.assertEqual(
+            {a: by_address[a]["name"] for a in addresses[:3]},
+            {
+                0x82D22940: "ProjectAlwaysAtWarEarly",
+                0x82D1AAE8: "ProjectAlwaysAtWarGroups",
+                0x82D2582C: "ProjectAlwaysAtWarOnLoad",
+            },
+        )
+        jumps = {
+            0x82CC90EC: 0x82CC91DC,
+            0x82CCFB94: 0x82CCFBA8,
+            0x82CD0EE0: 0x82CD4374,
+            0x82CD1330: 0x82CD4374,
+            0x82D18508: 0x82D1859C,
+            0x82D18AB8: 0x82D18B50,
+            0x82D033C8: 0x82D03498,
+            0x82CE0068: 0x82CE16AC,
+            0x82D25580: 0x82D255B0,
+        }
+        for address, target in jumps.items():
+            self.assertEqual(by_address[address]["jump_address_on_true"], target)
+        self.assertEqual(
+            sum("jump_address_on_true" in hook for hook in hooks), len(jumps)
+        )
+        for address in (0x82CCA61C, 0x82CCAB9C, 0x82CCAFBC):
+            self.assertEqual(by_address[address]["name"], "RefuseContactChoice")
+            self.assertEqual(by_address[address]["registers"], ["r3", "r28", "r19"])
+        self.assertEqual(by_address[0x82D033C8]["registers"], ["r31", "r30", "r29"])
+        self.assertEqual(by_address[0x82D25580]["name"], "SilenceAiContact")
+        self.assertEqual(by_address[0x82D25580]["registers"], ["r31", "r29"])
+        others = {hook["address"] for hook in compat_hooks()} & set(addresses)
+        self.assertFalse(others)
+
+    def test_every_hook_is_defined_once(self) -> None:
+        source = ALWAYS_AT_WAR_SOURCE.read_text(encoding="utf-8")
+        for name in {hook["name"] for hook in self.hooks()}:
+            self.assertEqual(len(re.findall(rf"^\w+ {name}\(", source, re.M)), 1)
+
+    def test_registration_and_final_projection_order(self) -> None:
+        self.assertEqual(
+            MANIFEST.read_text(encoding="ascii").count(
+                '"config/always_at_war_hooks.toml"'
+            ),
+            1,
+        )
+        cmake = CMAKE_LISTS.read_text(encoding="utf-8")
+        self.assertEqual(cmake.count("src/always_at_war_hooks.cpp"), 1)
+        override = AI_CIV_SOURCE.read_text(encoding="utf-8").split(
+            "REX_HOOK_RAW(sub_82D11AD8)", 1
+        )[1]
+        self.assertLess(
+            override.index("OnNewGameSetup("),
+            override.index("ProjectAlwaysAtWarFinal();"),
+        )
+        self.assertLess(
+            override.index("ProjectAlwaysAtWarFinal();"),
+            override.index("__imp__sub_82D11AD8"),
+        )
+
+    def test_generated_hooks_when_available(self) -> None:
+        paths, generated = generated_text()
+        if not paths:
+            self.skipTest("generated sources are not available")
+        for hook in self.hooks():
+            registers = ", ".join(f"ctx.{r}" for r in hook.get("registers", []))
+            call = f"{hook['name']}({registers})"
+            if "jump_address_on_true" in hook:
+                target = f"loc_{hook['jump_address_on_true']:08X}"
+                pattern = rf"if \({re.escape(call)}\) \{{\s*goto {target};"
+            else:
+                pattern = rf"	{re.escape(call)};"
+            self.assertRegex(generated, pattern)
+        for name in {hook["name"] for hook in self.hooks()}:
+            expected = sum(hook["name"] == name for hook in self.hooks())
+            self.assertEqual(
+                len(re.findall(rf"(?:\t|if \(){name}\(", generated)),
+                expected,
+                name,
+            )
+
+
+APOLLO_CONFIG = ROOT / "config" / "apollo_discovery_hooks.toml"
+APOLLO_SOURCE = ROOT / "src" / "apollo_discovery_hooks.cpp"
+
+
+class ApolloDiscoveryHookContractTests(unittest.TestCase):
+    def hooks(self) -> list[dict]:
+        return read_hooks(APOLLO_CONFIG)
+
+    def test_hook_table(self) -> None:
+        self.assertEqual(
+            self.hooks(),
+            [
+                {
+                    "address": 0x82D16348,
+                    "name": "RecordApolloCompletion",
+                    "registers": ["r23", "r27"],
+                },
+                {
+                    "address": 0x82C7DF5C,
+                    "name": "DrainApolloDiscoveryBonuses",
+                    "registers": ["r1"],
+                },
+            ],
+        )
+        # Each address occurs once across included files.
+        addresses = [hook["address"] for hook in all_configured_hooks()]
+        self.assertEqual(len(set(addresses)), len(addresses))
+        self.assertIn(0x82D16344, addresses)
+        self.assertIn(0x82C7DF58, addresses)
+
+    def test_every_hook_is_defined_once(self) -> None:
+        source = APOLLO_SOURCE.read_text(encoding="utf-8")
+        for name in {hook["name"] for hook in self.hooks()}:
+            self.assertEqual(len(re.findall(rf"^void {name}\(", source, re.M)), 1)
+
+    def test_registration(self) -> None:
+        self.assertEqual(
+            MANIFEST.read_text(encoding="ascii").count(
+                '"config/apollo_discovery_hooks.toml"'
+            ),
+            1,
+        )
+        cmake = CMAKE_LISTS.read_text(encoding="utf-8")
+        self.assertEqual(cmake.count("src/apollo_discovery_hooks.cpp"), 1)
+        resets = AI_CIV_SOURCE.read_text(encoding="utf-8")
+        self.assertEqual(resets.count("ResetApolloDiscovery();"), 2)
+
+    def test_record_then_drain_through_native_acquisition(self) -> None:
+        source = APOLLO_SOURCE.read_text(encoding="utf-8")
+        record = source.split("void RecordApolloCompletion", 1)[1].split(
+            "// The application frame driver", 1
+        )[0]
+        self.assertNotIn("ExecuteTrap", record)
+        self.assertIn("CurrentSetupIsNotGameOfTheWeek()", record)
+        drain = source.split("void DrainApolloDiscoveryBonuses", 1)[1]
+        self.assertIn("&thread->context()->r1 != &sp", drain)
+        self.assertIn("draining.exchange(true)", drain)
+        self.assertIn("constexpr uint32_t kAcquire          = 0x82D09208;", source)
+        self.assertIn(
+            "uint64_t arguments[] = { player, static_cast<uint64_t>(technology), "
+            "city, 0, phase };",
+            source,
+        )
+        self.assertIn("for (const uint64_t phase : { 1ull, 2ull })", source)
+        # The raw word is rechecked immediately before the pair.
+        self.assertLess(
+            source.index("ad::IsUnclaimed(word("), source.index("ExecuteTrap")
+        )
+
+    def test_generated_hooks_when_available(self) -> None:
+        paths, generated = generated_text()
+        if not paths:
+            self.skipTest("generated sources are not available")
+        record = (
+            "\tctx.r11.s64 = -2095775744;\n"
+            "\t// lbz r11,-3829(r11)\n"
+            "\tRecordApolloCompletion(ctx.r23, ctx.r27);\n"
+            "\tctx.r11.u64 = REX_LOAD_U8(ctx.r11.u32 + -3829);\n"
+        )
+        self.assertEqual(generated.count(record), 1)
+        function = generated.split("DEFINE_REX_FUNC(sub_82C7DF58)", 1)[1].split(
+            "DEFINE_REX_FUNC", 1
+        )[0]
+        self.assertIn(
+            "\tctx.r12.u64 = ctx.lr;\n"
+            "\t// bl 0x827f7c88\n"
+            "\tDrainApolloDiscoveryBonuses(ctx.r1);\n",
+            function,
+        )
+        for name in ("RecordApolloCompletion", "DrainApolloDiscoveryBonuses"):
+            self.assertEqual(len(re.findall(rf"\t{name}\(ctx\.", generated)), 1)
 
 
 if __name__ == "__main__":

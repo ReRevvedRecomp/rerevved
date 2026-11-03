@@ -1,4 +1,5 @@
 #include "gotw_hooks.h"
+#include "gotw_practice.h"
 #include "gotw_settings.h"
 
 #include <cstdint>
@@ -135,9 +136,16 @@ void traceSetup(uint64_t sequence, const char* site, uint64_t lr, uint64_t r3, u
                 policy.civilization);
 }
 
+// Practice and unverified-origin latches isolate all results in every mode.
+// Prefetch can finish during teardown; stay isolated until new game/load.
 bool isolateCurrentWeeklyResult()
 {
-    if (!rerevved::gotw::ForGame().IsCustom())
+    const auto selection = rerevved::gotw::ForGame();
+    if (selection.Isolates())
+    {
+        return true;
+    }
+    if (!selection.IsCustom())
     {
         return false;
     }
@@ -149,6 +157,24 @@ bool isolateCurrentWeeklyResult()
 }
 
 } // namespace
+
+namespace rerevved::gotw
+{
+
+bool CurrentSetupIsSinglePlayer() noexcept
+{
+    uint32_t setup = 0, mode = 0;
+    return readWord(kSetupGlobal, setup) && setup != 0 && readWord(uint64_t{ setup } + 4, mode) && IsSinglePlayerSetupMode(static_cast<int32_t>(mode));
+}
+
+bool CurrentSetupIsNotGameOfTheWeek() noexcept
+{
+    uint32_t   setup = 0, mode = 0;
+    const bool weekly = readWord(kSetupGlobal, setup) && setup != 0 && readWord(uint64_t{ setup } + 4, mode) && mode == 2;
+    return !weekly && !ForGame().Isolates();
+}
+
+} // namespace rerevved::gotw
 
 void ApplyGotwSeed(PPCRegister& setup, PPCRegister& week, PPCRegister& seed) noexcept
 {
@@ -240,6 +266,40 @@ catch (...)
     // Logging cannot unwind through the guest hook.
 }
 
+void rerevved::gotw::detail::ApplyResumeSeed(PPCRegister& setup, PPCRegister& week, PPCRegister& seed) noexcept
+try
+{
+    // A stale arm must not reach this load's writer.
+    setCivilizationArm({});
+    const auto policy = rerevved::gotw::ForGame();
+    if (!policy.practice || !policy.seedPending)
+    {
+        return;
+    }
+    // Only the modes proved single-player resume a practice save.
+    uint32_t mode = 0;
+    if (!readWord(uint64_t{ setup.u32 } + 4, mode) || !rerevved::gotw::IsSinglePlayerSetupMode(static_cast<int32_t>(mode)))
+    {
+        REXLOG_WARN("Game of the Week: practice load in setup mode {} keeps the native seed", mode);
+        return;
+    }
+    // Only a validated practice restore reaches here; r4 is the saved week.
+    const auto resumed = rerevved::gotw::TakeResumeSeed(week.u32);
+    if (!resumed)
+    {
+        REXLOG_WARN("Game of the Week: practice load week={} does not match the restored week={}; keeping the native seed", week.u32, policy.week);
+        return;
+    }
+    seed.u64 = *resumed;
+    // The saved civilization is already effective; do not derive it again.
+    setCivilizationArm({ true, setup.u32, policy.launch, policy.civilization, "load" });
+    REXLOG_INFO("Game of the Week: practice load week={} seed={} civilization={} custom_civilization={}", week.u32, *resumed, policy.civilization, policy.customCivilization);
+}
+catch (...)
+{
+    // Logging cannot unwind through the guest hook.
+}
+
 void ReapplyGotwSeed(PPCRegister& setup, PPCRegister& week, PPCRegister& seed) noexcept
 {
     rerevved::gotw::detail::ReapplySeed(setup, week, seed, readWord);
@@ -248,6 +308,16 @@ void ReapplyGotwSeed(PPCRegister& setup, PPCRegister& week, PPCRegister& seed) n
 void OverrideGotwCivilization(PPCRegister& civilization, PPCRegister& setup, PPCRegister& count) noexcept
 {
     rerevved::gotw::detail::OverrideCivilization(civilization, setup, count);
+}
+
+void ApplyGotwResumeSeed(PPCRegister& setup, PPCRegister& week, PPCRegister& seed) noexcept
+{
+    rerevved::gotw::detail::ApplyResumeSeed(setup, week, seed);
+}
+
+bool AllowGotwPracticeMenu(PPCRegister& mode) noexcept
+{
+    return rerevved::gotw::AllowsPracticeMenu(rerevved::gotw::ForGame(), mode.s32);
 }
 
 void LogGotwSeed(PPCRegister& setupGlobalBase, PPCRegister& week) noexcept

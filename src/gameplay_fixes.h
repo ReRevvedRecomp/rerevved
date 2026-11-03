@@ -3,8 +3,12 @@
 // Selection and arithmetic for the gameplay fixes in gameplay_fixes_hooks.cpp,
 // kept free of guest memory so it can be tested on the host.
 
+#include "ai_civilizations.h"
+
+#include <algorithm>
 #include <array>
 #include <cstdint>
+#include <span>
 #include <string_view>
 
 namespace rerevved::gameplay_fixes
@@ -130,22 +134,210 @@ constexpr bool SuppressBonusLookupResult(
            growthBaseline < kGrowthThresholdFloor;
 }
 
+// Unlimited bypasses native warning and deadline at 0x82D11378.
+constexpr int32_t                kTurnLimitNative    = 0;
+constexpr int32_t                kTurnLimitUnlimited = 4;
+constexpr std::array<int32_t, 4> kTurnLimitYears     = { 2100, 2200, 2300, 2500 };
+
+constexpr bool IsValidTurnLimit(int32_t limit) noexcept
+{
+    return limit <= kTurnLimitUnlimited;
+}
+
+constexpr bool ExtendsTurnLimit(int32_t limit) noexcept
+{
+    return limit > kTurnLimitNative && limit < kTurnLimitUnlimited;
+}
+
+int32_t ParseTurnLimit(std::string_view text) noexcept;
+
+void    RestoreTurnLimit(int32_t limit) noexcept;
+int32_t TurnLimitForGame() noexcept;
+
+// From turn 118 the calendar year is 2 * turn + 1714 (turn 193 is 2100 AD).
+constexpr int32_t TurnLimitCapTurn(int32_t limit) noexcept
+{
+    return (kTurnLimitYears[static_cast<size_t>(limit)] - 1714) / 2;
+}
+
+// Scenarios other than sentinel -1 also require 200 turns after the start.
+constexpr int32_t TurnLimitDeadlineTurn(int32_t limit, int32_t scenario, int32_t startTurn) noexcept
+{
+    const int32_t cap = TurnLimitCapTurn(limit);
+    return scenario == -1 ? cap : std::max(cap, startTurn + 200);
+}
+
+constexpr bool TurnLimitWarningDue(int32_t limit, int32_t scenario, int32_t startTurn, int32_t turn) noexcept
+{
+    return turn == TurnLimitDeadlineTurn(limit, scenario, startTurn) - 5;
+}
+
+constexpr bool BeforeTurnLimitYear(int32_t limit, int32_t year) noexcept
+{
+    return year < kTurnLimitYears[static_cast<size_t>(limit)];
+}
+
+// STARTERA at Q+0x1C drives grants of 5, 14 or 24 technologies at 0x82D22A78 (Future grants 1 to 46).
+// Freeze for new-game setup only; never apply on load.
+constexpr int32_t kStartingEraNative = 0;
+constexpr int32_t kStartingEraFuture = 4;
+
+constexpr bool IsValidStartingEra(int32_t era) noexcept
+{
+    return era <= kStartingEraFuture;
+}
+
+// Only scenario sentinel -1 permits a new-game era override.
+constexpr bool AppliesStartingEra(int32_t era, int32_t scenario) noexcept
+{
+    return era != kStartingEraNative && scenario == -1;
+}
+
+// Retail STARTYEAR (Q+0x3E) pairs with STARTERA
+constexpr int32_t StartingEraYear(int32_t era) noexcept
+{
+    constexpr int32_t kYears[] = { 0, 1000, 1500, 1800, 2025 };
+    return kYears[era];
+}
+
+int32_t ParseStartingEra(std::string_view text) noexcept;
+
+void    RestoreStartingEra(int32_t era) noexcept;
+int32_t StartingEraForGame() noexcept;
+
+// Network setup writes S32[0x82FFE7C8] = 2 at 0x82D221EC
+constexpr int32_t kMultiplayerAiDifficultyNative = 2;
+constexpr int32_t kMultiplayerAiDifficultyDeity  = 4;
+
+constexpr bool IsValidMultiplayerAiDifficulty(int32_t difficulty) noexcept
+{
+    return difficulty >= kMultiplayerAiDifficultyNative && difficulty <= kMultiplayerAiDifficultyDeity;
+}
+
+int32_t ParseMultiplayerAiDifficulty(std::string_view text) noexcept;
+
+void    RestoreMultiplayerAiDifficulty(int32_t difficulty) noexcept;
+int32_t MultiplayerAiDifficultyForGame() noexcept;
+
+// U32[0x830ED2D8 + 4 * (8 * p + q)] is war 0, peace 1, no contact -1.
+constexpr uint32_t kRelationMatrix  = 0x830ED2D8;
+constexpr int32_t  kRelationPlayers = 8;
+constexpr uint32_t kRelationWar     = 0;
+
+constexpr bool IsPairOf(uint32_t mask, int32_t p, int32_t q) noexcept
+{
+    return p != q && p >= 0 && q >= 0 && p < kRelationPlayers && q < kRelationPlayers &&
+           (mask >> p & 1) != 0 && (mask >> q & 1) != 0;
+}
+
+inline uint32_t IntendedCivilizations(int32_t count, int32_t barbarian, uint32_t humans, int32_t maxAi) noexcept
+{
+    return ai_civilizations::CivilizationMask(count, barbarian) &
+           ~ai_civilizations::RemovableMask(count, barbarian, humans, maxAi);
+}
+
+// Live means an owned populated city or an occupied, non-dead unit.
+inline uint32_t LiveCivilizations(int32_t count, int32_t barbarian, uint32_t cityOwners, uint32_t unitOwners) noexcept
+{
+    return ai_civilizations::CivilizationMask(count, barbarian) & (cityOwners | unitOwners);
+}
+
+inline int32_t ProjectWar(std::span<uint32_t, 64> relation, uint32_t mask) noexcept
+{
+    int32_t changed = 0;
+    for (int32_t p = 0; p < kRelationPlayers; ++p)
+    {
+        for (int32_t q = 0; q < kRelationPlayers; ++q)
+        {
+            uint32_t& cell = relation[static_cast<size_t>(kRelationPlayers * p + q)];
+            if (IsPairOf(mask, p, q) && cell != kRelationWar)
+            {
+                cell = kRelationWar;
+                ++changed;
+            }
+        }
+    }
+    return changed;
+}
+
+constexpr bool ForbidsPeace(bool active, uint32_t live, int32_t p, int32_t q) noexcept
+{
+    return active && IsPairOf(live, p, q);
+}
+
+// Includes shared requests at 0x82D03388 and delivered command 39.
+constexpr bool ForbidsRelationWrite(bool active, uint32_t live, int32_t p, int32_t q, uint32_t current, uint32_t value) noexcept
+{
+    return ForbidsPeace(active, live, p, q) && current == kRelationWar && value != kRelationWar;
+}
+
+// Freeze on new game; clear on load until sidecar restoration.
+void RestoreAlwaysAtWar(bool enabled) noexcept;
+bool AlwaysAtWarForGame() noexcept;
+
+// Type 24 part-rocket actors from 0x82D1DED8 use key 256 * owner + slot.
+constexpr int32_t SpaceshipActorIndex(int32_t owner, int32_t slot) noexcept
+{
+    return owner * 256 + slot;
+}
+
+constexpr bool MatchesSpaceshipTag(int32_t tag, int32_t owner, int32_t slot) noexcept
+{
+    return tag == SpaceshipActorIndex(owner, slot);
+}
+
+constexpr int32_t kSpaceshipFinishCorridor = 1000;
+
+constexpr bool FinishesSpaceshipEarly(int32_t previousTime) noexcept
+{
+    return previousTime <= kSpaceshipFinishCorridor;
+}
+
 // Domination needs currentTurn - startTurn >= 10 in the native palace-count arm.
 constexpr int32_t kNativeDominationMinimumTurns = 10;
 
 // Accepts only the offered choices "10" and "5".
 bool ParseDominationMinimumTurns(std::string_view text, int32_t& turns) noexcept;
 
-// Applies only to a game started in this process, including a Game of the Week
-// with Standard Rules. Loaded saves do not record it and keep the native minimum.
+// Only a game started in this process may shorten it
 void NoteNewGame() noexcept;
 void NoteGameLoad() noexcept;
 bool ShortenedMinimumAllowed() noexcept;
+void RestoreDominationMinimum(int32_t turns) noexcept;
+// Zero when no practice save restored one.
+int32_t RestoredDominationMinimum() noexcept;
 
 int32_t DominationMinimumTurns(std::string_view setting, bool shortenedAllowed) noexcept;
 
 // Rebase the elapsed turns so the native compare against 10 tests the chosen
 // minimum. The native value is unchanged at 10.
 int32_t RebaseDominationElapsed(int32_t elapsed, int32_t minimumTurns) noexcept;
+
+enum class UnitMovement
+{
+    Normal,
+    Fast,
+    Instant,
+};
+
+constexpr UnitMovement ParseUnitMovement(std::string_view text) noexcept
+{
+    return text == "fast" ? UnitMovement::Fast : text == "instant" ? UnitMovement::Instant
+                                                                   : UnitMovement::Normal;
+}
+
+constexpr int32_t kFastMovementFactor = 3;
+// Largest quantum with quantum + quantum / 2 fitting a signed 32-bit word.
+constexpr int32_t kMaxMovementQuantum = 1431655765;
+
+constexpr int32_t ScaleMovementQuantum(int32_t quantum) noexcept
+{
+    return quantum > 0 ? static_cast<int32_t>(std::min<int64_t>(int64_t{ quantum } * kFastMovementFactor, kMaxMovementQuantum)) : quantum;
+}
+
+constexpr bool AcceleratesMovingUnit(int32_t unitType) noexcept
+{
+    return unitType != 24 && unitType != 27;
+}
 
 } // namespace rerevved::gameplay_fixes

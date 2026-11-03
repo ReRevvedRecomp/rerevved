@@ -41,8 +41,12 @@ GUEST_SERVICE_FILES = {
 class NativeRendererIntegrationTests(unittest.TestCase):
     def test_title_adapter_profile_copy_and_content_identity(self) -> None:
         self.assertIn("GetProfileCopySpecification() const override", APP_H)
-        self.assertIn('.config_relative_path = "rerevved.toml"', APP_CPP)
-        self.assertIn(".title_id             = rerevved::kTitleId", APP_CPP)
+        self.assertRegex(APP_CPP, r'\.config_relative_path\s+= "rerevved\.toml"')
+        self.assertRegex(APP_CPP, r"\.title_id\s+= rerevved::kTitleId")
+        self.assertRegex(
+            APP_CPP,
+            r"\.optional_relative_files\s+= \{ std::filesystem::path\(rerevved::map_packs::kOrderFileName\) \}",
+        )
         self.assertIn("extern const std::uint32_t kTitleId;", GAME_CONTENT_H)
         self.assertRegex(
             GAME_CONTENT_CPP,

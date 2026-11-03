@@ -4,6 +4,8 @@
 
 #include "ai_civilization_setup.h"
 #include "ai_economy_settings.h"
+#include "always_at_war_hooks.h"
+#include "apollo_discovery_hooks.h"
 #include "custom_achievement_combat_hooks.h"
 #include "custom_achievements.h"
 #include "gameplay_fixes.h"
@@ -202,6 +204,8 @@ REX_HOOK_RAW(sub_82D11AD8)
         logExpandedSetup(base);
         ai_civs::NoteNewGameRecount();
         rerevved::start_resources::OnNewGameSetup(ctx, base);
+        ProjectAlwaysAtWarFinal();
+        ResetApolloDiscovery();
     }
     __imp__sub_82D11AD8(ctx, base);
 }
@@ -210,6 +214,8 @@ REX_HOOK_RAW(sub_82D11AD8)
 void ResetAiCivilizationsOnLoad()
 {
     rerevved::gameplay_session::ResetOnLoad();
+    // A practice save restores its Game of the Week state after this reset.
+    rerevved::gotw::ResetForLoad();
     ai_civs::ResetOnLoad();
     rerevved::ai_economy::ResetForLoad();
     rerevved::start_resources::ResetOnLoad();
@@ -217,6 +223,7 @@ void ResetAiCivilizationsOnLoad()
     FreezeRagingBarbariansForGame();
     FreezeOccForGame();
     rerevved::gameplay_fixes::NoteGameLoad();
+    ResetApolloDiscovery();
     rerevved::custom_achievements::ResetProgress();
     rerevved::custom_achievement_combat::ResetCombatObservers();
     rerevved::save_sidecar::RestoreAfterLoadReset();

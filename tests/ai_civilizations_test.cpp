@@ -41,6 +41,21 @@ void testRemovableMask()
     CHECK(RemovableMask(6, 4, 0x01, 0) == 0);
 }
 
+void testMultiplayerAiLayout()
+{
+    constexpr auto one = MultiplayerAiLayout(1, 6, 0);
+    static_assert(one.ai == 6 && one.count == 8 && one.barbarian == 7);
+    constexpr auto two = MultiplayerAiLayout(2, 5, 1);
+    static_assert(two.ai == 5 && two.count == 8 && two.barbarian == 7);
+    constexpr auto four = MultiplayerAiLayout(4, 6, 3);
+    static_assert(four.ai == 3 && four.count == 8 && four.barbarian == 7);
+    constexpr auto native = MultiplayerAiLayout(2, 3, 1);
+    static_assert(native.ai == 3 && native.count == 6 && native.barbarian == 5);
+    constexpr auto sparse = MultiplayerAiLayout(2, 0, 6);
+    static_assert(sparse.ai == 0 && sparse.count == 8 && sparse.barbarian == 7);
+    CHECK(one.ai == 6);
+}
+
 void testUnitRecords()
 {
     UNSCOPED_INFO("first record");
@@ -115,6 +130,7 @@ TEST_CASE("ai_civilizations", "[ctest][ai-civilizations]")
 {
     testRemovableMask();
     testExpandedLayouts();
+    testMultiplayerAiLayout();
     testUnitRecords();
     testDigest();
 }

@@ -1,6 +1,7 @@
 #include "host_settings.h"
 
 #include "ai_economy_settings.h"
+#include "gameplay_fixes.h"
 #include "gotw_settings.h"
 
 #include <algorithm>
@@ -16,10 +17,10 @@ namespace
 {
 
 // Gate built-in gameplay semantics as well as the serialized field layout.
-constexpr uint8_t kFormatVersion    = 2;
+constexpr uint8_t kFormatVersion    = 8;
 constexpr uint8_t kTruncatedFlag    = 0x01;
 constexpr uint8_t kCapitalGraceFlag = 0x20;
-constexpr size_t  kHeaderSize       = 21;
+constexpr size_t  kHeaderSize       = 26;
 constexpr size_t  kMaxFieldLength   = 255;
 constexpr size_t  kMaxModCount      = 255;
 constexpr size_t  kMaxListedIssues  = 4;
@@ -89,7 +90,7 @@ const std::string& shownName(const ModRef* local, const ModRef* host, const std:
 
 HostSettings Normalize(HostSettings settings, bool networkGame)
 {
-    settings.aiCivilizations = std::clamp(settings.aiCivilizations, int32_t{ 0 }, networkGame ? kMaxAiCivilizations : kMaxLocalAiCivilizations);
+    settings.aiCivilizations = std::clamp(settings.aiCivilizations, int32_t{ 0 }, kMaxAiCivilizations);
     if (settings.resources != 0 && settings.resources != 1 && settings.resources != 3)
     {
         settings.resources = 0;
@@ -102,7 +103,8 @@ HostSettings Normalize(HostSettings settings, bool networkGame)
     {
         settings.dominationMinimumTurns = 10;
     }
-    settings.combatSpeed = settings.combatSpeed == 1 ? 1 : 0;
+    settings.combatSpeed  = settings.combatSpeed == 1 ? 1 : 0;
+    settings.unitMovement = std::clamp(settings.unitMovement, int32_t{ 0 }, int32_t{ 2 });
     if (!settings.gotwCustomWeek || !gotw::IsValidWeek(settings.gotwWeek))
     {
         settings.gotwCustomWeek = false;
@@ -119,6 +121,7 @@ HostSettings Normalize(HostSettings settings, bool networkGame)
         settings.gotwCustomCivilization = false;
         settings.gotwCivilization       = 0;
     }
+    settings.gotwAllowSaving = !networkGame && settings.gotwAllowSaving;
     if (!settings.rulesDigestPresent)
     {
         settings.rulesDigest.fill(0);
@@ -216,6 +219,11 @@ std::vector<uint8_t> Encode(const HostSettings& settings)
             out.push_back(static_cast<uint8_t>(value >> shift));
         }
     }
+    out.push_back(static_cast<uint8_t>(normalized.turnLimit));
+    out.push_back(static_cast<uint8_t>(normalized.startingEra));
+    out.push_back(static_cast<uint8_t>(normalized.multiplayerAiDifficulty));
+    out.push_back(normalized.skipSpaceshipScenes ? 1 : 0);
+    out.push_back(static_cast<uint8_t>(normalized.unitMovement));
     if (normalized.rulesDigestPresent)
     {
         out.insert(out.end(), normalized.rulesDigest.begin(), normalized.rulesDigest.end());
@@ -236,7 +244,8 @@ std::optional<HostSettings> Decode(std::span<const uint8_t> bytes)
         ((bytes[4] & kCapitalGraceFlag) != 0) != ((bytes[4] & 1) != 0) ||
         (bytes[5] != 0 && bytes[5] != 1 && bytes[5] != 3) || bytes[6] > ai_economy::kMaxBonusPercent || bytes[7] > ai_economy::kMaxBonusPercent ||
         bytes[8] > ai_economy::kMaxBonusPercent || bytes[9] > ai_economy::kMaxBonusPercent || bytes[10] > ai_economy::kMaxBonusPercent ||
-        (bytes[11] != 5 && bytes[11] != 10) || bytes[12] > 1)
+        (bytes[11] != 5 && bytes[11] != 10) || bytes[12] > 1 || !gameplay_fixes::IsValidTurnLimit(bytes[21]) ||
+        !gameplay_fixes::IsValidStartingEra(bytes[22]) || !gameplay_fixes::IsValidMultiplayerAiDifficulty(bytes[23]) || bytes[24] > 1 || bytes[25] > 2)
     {
         return std::nullopt;
     }
@@ -257,6 +266,11 @@ std::optional<HostSettings> Decode(std::span<const uint8_t> bytes)
     settings.aiCultureBonusPercent    = bytes[10];
     settings.dominationMinimumTurns   = bytes[11];
     settings.combatSpeed              = bytes[12];
+    settings.turnLimit                = bytes[21];
+    settings.startingEra              = bytes[22];
+    settings.multiplayerAiDifficulty  = bytes[23];
+    settings.skipSpaceshipScenes      = bytes[24] != 0;
+    settings.unitMovement             = bytes[25];
     for (unsigned index = 0; index < 4; ++index)
     {
         settings.gotwWeek |= uint32_t{ bytes[13 + index] } << (index * 8);
@@ -409,7 +423,7 @@ int32_t ResolveAiLimit(bool                             networkGame,
 
     if (!networkGame)
     {
-        return choose(std::clamp(local, int32_t{ 0 }, kMaxLocalAiCivilizations), "local");
+        return choose(std::clamp(local, int32_t{ 0 }, kMaxAiCivilizations), "local");
     }
 
     using State = rex::session_data::State;

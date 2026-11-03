@@ -11,7 +11,7 @@ state belongs to each profile and which marketplace content is shared.
 
 ## Sharing a log
 
-For a crash or freeze, use **F1 > Gameplay > Support > Open Log Folder** to
+For a crash or freeze, use **F1 > General > Open Log Folder** to
 find the active log. This follows named profiles and explicit log overrides.
 See [Configuration](configuration.md#file-locations) for default paths.
 If the game cannot open, look for the latest `rerevved_NNN.log` in that

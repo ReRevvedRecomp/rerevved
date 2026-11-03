@@ -5,9 +5,13 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <string_view>
 
 namespace rerevved::gameplay_session
 {
+
+// The network mod loadout lock reason must match exactly for translation.
+inline constexpr std::string_view kModsLockedReason = "Mods can't be changed during a multiplayer game.";
 
 enum class SetupKind
 {

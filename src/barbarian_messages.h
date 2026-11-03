@@ -1,7 +1,7 @@
 #pragma once
 
 // Gating for the leader message hooks in barbarian_message_hooks.cpp, used by
-// hide_village_barbarian_messages and ai_civilizations, kept free of guest
+// show_village_barbarian_messages and ai_civilizations, kept free of guest
 // memory so it can be tested on the host.
 
 #include <cstdint>

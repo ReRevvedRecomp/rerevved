@@ -60,7 +60,8 @@ Package sources and contribution rules are in
 The **Asset Overrides** tab manages asset packages separately from code mods.
 The bundled ReRevved logo is enabled by default. Saving the list writes the
 active profile's `asset_order.txt`; restart to apply the selection and priority
-order. An explicitly saved empty list disables the default selection.
+order. The first selected package that contains a file supplies it. An
+explicitly saved empty list disables the default selection.
 
 Profiles share the packages installed beside the executable but keep their
 selections separate. See [Configuration](configuration.md) for backups and

@@ -1,5 +1,7 @@
 #include "app.h"
+#include "achievement_icons.h"
 #include "custom_achievements.h"
+#include "game_language.h"
 #include "gotw_settings.h"
 #include "gpu/completion/guest_progress_hooks.h"
 
@@ -42,10 +44,12 @@
 #include <rex/system/game_data_selector.h>
 #include <rex/system/xmemory.h>
 #include <rex/ui/keybinds.h>
+#include <rex/ui/monitors.h>
 #include <rex/ui/window.h>
 #include <rex/ui/windowed_app_context.h>
 
 #include "build_info.h"
+#include "button_icons.h"
 #include "discord_presence.h"
 #include "display_aspect.h"
 #include "game_content.h"
@@ -82,9 +86,18 @@
 #include "tools/presentation_fixture.h"
 #endif
 #include "host_settings.h"
+#include "keybind_defaults.h"
+#include "keyboard_icons.h"
 #include "main_menu_logo_asset.h"
+#include "map_packs.h"
+#include "maps_tab.h"
 #include "mod_script_rules.h"
+#include "native_settings.h"
+#include "options_page.h"
+#include "overlay_settings.h"
+#include "pause_menu.h"
 #include "portable_mode.h"
+#include "retail_audio.h"
 #include "xenos_frame_counter.h"
 #if REREVVED_DEVELOPER
 #include "gpu/diagnostics/label_draw_capture.h"
@@ -194,25 +207,27 @@ bool NativeScriptActive()
 
 REXCVAR_DEFINE_STRING(combat_speed, "normal", "ReRevved", "Combat presentation speed")
     .allowed({ "normal", "fast" });
-REXCVAR_DEFINE_BOOL(hide_research_prompt, false, "ReRevved", "Do not open the technology prompt at turn start or after a village; choose research from the technology window");
-REXCVAR_DEFINE_BOOL(hide_popup_rival_war_peace, false, "ReRevved", "Do not show reports of wars declared and peace signed between other civilizations");
-REXCVAR_DEFINE_BOOL(hide_popup_rival_government, false, "ReRevved", "Do not show reports of other civilizations changing government");
-REXCVAR_DEFINE_BOOL(hide_popup_city_captures, false, "ReRevved", "Do not show reports of cities taken or recaptured");
-REXCVAR_DEFINE_BOOL(hide_popup_victory_warnings, false, "ReRevved", "Do not show warnings that a rival is close to a victory or that the game is ending");
-REXCVAR_DEFINE_BOOL(hide_popup_rival_great_people, false, "ReRevved", "Do not show reports of rival Great People and completed Wonders");
-REXCVAR_DEFINE_BOOL(hide_popup_rankings, false, "ReRevved", "Do not show strongest economy, greatest city and culture conversion reports");
-REXCVAR_DEFINE_BOOL(hide_popup_artifacts, false, "ReRevved", "Do not show artifact rumors and ancient site discoveries");
-REXCVAR_DEFINE_BOOL(hide_popup_combat_reports, false, "ReRevved", "Do not show Great General, capture, promotion and SDI reports");
-REXCVAR_DEFINE_BOOL(hide_popup_spy_reports, false, "ReRevved", "Do not show reports of stolen gold and kidnapped Great People");
-REXCVAR_DEFINE_BOOL(hide_popup_city_status, false, "ReRevved", "Do not show disorder, celebration, culture and blockade reports");
-REXCVAR_DEFINE_BOOL(hide_popup_discoveries, false, "ReRevved", "Do not show new technology, era, milestone, trade and road reports");
-REXCVAR_DEFINE_BOOL(hide_popup_villages, false, "ReRevved", "Do not show the result of entering a village");
-REXCVAR_DEFINE_BOOL(hide_popup_save_reminder, false, "ReRevved", "Hide the save reminder. This does not save the game.");
-REXCVAR_DEFINE_BOOL(hide_popup_trophy_room, false, "ReRevved", "Do not offer to visit the Trophy Room");
-REXCVAR_DEFINE_BOOL(hide_popup_government_available, false, "ReRevved", "Do not ask to change government when a new one becomes available; keep the current one");
-REXCVAR_DEFINE_BOOL(hide_barbarian_messages, false, "ReRevved", "Do not show the Barbarian leader message on first contact with a Barbarian tribe");
-REXCVAR_DEFINE_BOOL(hide_village_barbarian_messages, false, "ReRevved", "Do not show the Barbarian leader message that names the reward for capturing a Barbarian village; the reward is still granted");
-REXCVAR_DEFINE_INT32(ai_civilizations, 4, "ReRevved", "Number of AI civilizations in a new game. A game with one human keeps at least one AI civilization. Five or six AI apply to single-player. Multiplayer uses the host's value up to four for all players")
+REXCVAR_DEFINE_STRING(unit_movement, "normal", "ReRevved", "Unit movement presentation speed. A network game uses the host's value")
+    .allowed({ "normal", "fast", "instant" });
+REXCVAR_DEFINE_BOOL(show_research_prompt, true, "ReRevved", "Open the technology prompt at turn start and after a village; when off, choose research from the technology window");
+REXCVAR_DEFINE_BOOL(show_popup_rival_war_peace, true, "ReRevved", "Show reports of wars declared and peace signed between other civilizations");
+REXCVAR_DEFINE_BOOL(show_popup_rival_government, true, "ReRevved", "Show reports of other civilizations changing government");
+REXCVAR_DEFINE_BOOL(show_popup_city_captures, true, "ReRevved", "Show reports of cities taken or recaptured");
+REXCVAR_DEFINE_BOOL(show_popup_victory_warnings, true, "ReRevved", "Show warnings that a rival is close to a victory or that the game is ending");
+REXCVAR_DEFINE_BOOL(show_popup_rival_great_people, true, "ReRevved", "Show reports of rival Great People and completed Wonders");
+REXCVAR_DEFINE_BOOL(show_popup_rankings, true, "ReRevved", "Show strongest economy, greatest city and culture conversion reports");
+REXCVAR_DEFINE_BOOL(show_popup_artifacts, true, "ReRevved", "Show artifact rumors and ancient site discoveries");
+REXCVAR_DEFINE_BOOL(show_popup_combat_reports, true, "ReRevved", "Show Great General, capture, promotion and SDI reports");
+REXCVAR_DEFINE_BOOL(show_popup_spy_reports, true, "ReRevved", "Show reports of stolen gold and kidnapped Great People");
+REXCVAR_DEFINE_BOOL(show_popup_city_status, true, "ReRevved", "Show disorder, celebration, culture and blockade reports");
+REXCVAR_DEFINE_BOOL(show_popup_discoveries, true, "ReRevved", "Show new technology, era, milestone, trade and road reports");
+REXCVAR_DEFINE_BOOL(show_popup_villages, true, "ReRevved", "Show the result of entering a village");
+REXCVAR_DEFINE_BOOL(show_popup_save_reminder, true, "ReRevved", "Show the save reminder. Turning it off does not save the game.");
+REXCVAR_DEFINE_BOOL(show_popup_trophy_room, true, "ReRevved", "Offer to visit the Trophy Room");
+REXCVAR_DEFINE_BOOL(show_popup_government_available, true, "ReRevved", "Ask to change government when a new one becomes available; when off, keep the current one");
+REXCVAR_DEFINE_BOOL(show_barbarian_messages, true, "ReRevved", "Show the Barbarian leader message on first contact with a Barbarian tribe");
+REXCVAR_DEFINE_BOOL(show_village_barbarian_messages, true, "ReRevved", "Show the Barbarian leader message that names the reward for capturing a Barbarian village; the reward is granted either way");
+REXCVAR_DEFINE_INT32(ai_civilizations, 4, "ReRevved", "Number of AI civilizations in a new game. A game with one human keeps at least one AI civilization. Multiplayer uses the host's value for all players, reduced so the humans, AI and Barbarians fit in eight slots")
     .range(0, 6);
 REXCVAR_DEFINE_COMMAND(open_log_folder, openLogFolder, "ReRevved", "Open the folder that holds the log file and crash dumps");
 REXCVAR_DEFINE_BOOL(xenos_frame_counter, false, "ReRevved", "Log one-second VdSwap return counts and decoded swap intervals")
@@ -704,16 +719,36 @@ void App::OnConfigurePaths(rex::PathConfig& paths)
 {
     // Apply before config loading and the System Link startup snapshot.
     rex::cvar::SetFlagAsApplicationDefault("live_sessions", "true");
+    rerevved::keybind_defaults::Apply();
 
     // Keep user state outside a potentially read-only install directory.
     paths.config_path = paths.user_data_root / "rerevved.toml";
 }
 
+void App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
+{
+    rerevved::ConfigureSettingsLayout(layout);
+}
+
+void App::OnConfigureModManager(std::vector<rex::ui::AssetOverlayLoadoutSource>& tabs)
+{
+    if (!runtime())
+        return;
+    tabs.push_back(rerevved::maps_tab::MakeLoadoutSource(
+        std::filesystem::path(runtime()->user_data_root()),
+        rerevved::map_packs::StartupOrder(),
+        []
+        {
+            return rex::system::DiscoverAssetOverlayCatalog(rex::filesystem::GetExecutableFolder() / rerevved::map_packs::kMapsDirectory);
+        }));
+}
+
 std::optional<rex::system::ProfileCopySpecification> App::GetProfileCopySpecification() const
 {
     return rex::system::ProfileCopySpecification{
-        .config_relative_path = "rerevved.toml",
-        .title_id             = rerevved::kTitleId,
+        .config_relative_path    = "rerevved.toml",
+        .title_id                = rerevved::kTitleId,
+        .optional_relative_files = { std::filesystem::path(rerevved::map_packs::kOrderFileName) },
     };
 }
 
@@ -990,7 +1025,10 @@ bool App::selectGameData()
 
 bool App::ConstructRuntime(const rex::PathConfig& paths)
 {
-    // Weekly GOTW seeds reach the settings field on the UI thread only.
+    // The config is loaded; the runtime reads user_language when it sets up.
+    rerevved::game_language::ApplyAtBoot();
+    // Only UI-thread GOTW seeds update the unchecked Week initialized here.
+    rerevved::gotw::SeedWeekFromClock();
     rerevved::gotw::SetSeedDispatcher([this](std::function<void()> update)
                                       {
                                           app_context().CallInUIThreadDeferred(std::move(update));
@@ -1150,11 +1188,24 @@ void App::OnPostLoadXexImage()
     {
         REXLOG_WARN("Custom achievements: registration failed");
     }
+    std::vector<rerevved::achievement_icons::Source> wanted;
+    for (const auto& achievement : rerevved::custom_achievements::AllAchievements())
+    {
+        if (auto source = rerevved::achievement_icons::ParseIconPath(achievement.icon_path))
+            wanted.push_back(std::move(*source));
+    }
+    auto icons = std::make_shared<rerevved::achievement_icons::Provider>(rerevved::achievement_icons::GameReader(game_data_root(), std::move(wanted)));
+    rex::ui::AchievementIconCache::SetProvider([icons](const rex::system::AchievementInfo& info)
+                                               {
+                                                   return (*icons)(info);
+                                               });
 }
 
 void App::OnPostSetup()
 {
     rex::ReXApp::OnPostSetup();
+    // A waiting Keybind row captures keys before ImGui and input drivers.
+    window()->AddInputListener(&keybindCapture, rerevved::keybind_capture::kListenerZ);
     runtime()->SetModLoadoutChangedCallback([this]
                                             {
                                                 PublishModSnapshot(*runtime());
@@ -1167,13 +1218,92 @@ void App::OnPostSetup()
                                              {
                                                  return std::nullopt;
                                              }
-                                             return "Mods can't be changed during a multiplayer game.";
+                                             return std::string(rerevved::gameplay_session::kModsLockedReason);
                                          });
 
     // Resolve selected package assets after the SDK has built the loadout and
     // before the guest main thread is resumed.
     (void)rerevved::main_menu_logo::ResolveSelectedLogo(
         runtime()->active_asset_overlays());
+    rerevved::map_packs::RegisterSelected(rerevved::map_packs::SelectEnabled(
+        runtime()->user_data_root(),
+        rex::filesystem::GetExecutableFolder() / rerevved::map_packs::kMapsDirectory));
+
+    // Latch after the SDK window is attached so "auto" sees the launch pad.
+    if (rerevved::button_icons::ActiveFamily() == rerevved::button_icons::Family::kKeyboard)
+    {
+        (void)rerevved::keyboard_icons::Prepare(rex::filesystem::GetExecutableFolder() / "button-icons" / "xelu-light",
+                                                [](std::string_view keybind)
+                                                {
+                                                    return rex::cvar::Query<std::string>(keybind);
+                                                });
+    }
+
+    // Exit Game arrives on the guest thread; close runs on the UI thread.
+    rerevved::pause_menu::SetHostActions({
+        .quit = [this, alive = std::weak_ptr(gameplayUiAlive)]
+        {
+            app_context().CallInUIThreadDeferred([this, alive]
+                                                 {
+                                                     const auto live = alive.lock();
+                                                     if (!live || !live->load())
+                                                         return;
+                                                     if (OnWindowCloseRequested())
+                                                         window()->RequestClose();
+                                                 });
+        },
+    });
+
+    rerevved::retail_audio::PublishOverrides();
+    rerevved::retail_audio::RegisterChangeCallbacks();
+
+    {
+        auto layout = std::make_shared<rex::ui::SettingsLayout>();
+        rerevved::ConfigureSettingsLayout(*layout);
+        const auto alive = std::weak_ptr(gameplayUiAlive);
+        rerevved::native_settings::SetHost({
+            .post = [this, alive](std::function<void()> job)
+            {
+                const auto live = alive.lock();
+                if (!live || !live->load())
+                    return false;
+                app_context().CallInUIThreadDeferred([alive, job = std::move(job)]
+                                                     {
+                                                         const auto live = alive.lock();
+                                                         if (live && live->load())
+                                                             job();
+                                                     });
+                return true;
+            },
+            .alive = [alive]
+            {
+                const auto live = alive.lock();
+                return live && live->load();
+            },
+            .configPath     = user_data_root() / "rerevved.toml",
+            .monitorChoices = []
+            {
+                return rex::ui::MonitorChoiceLabels();
+            },
+            .openOptionsPage = [this]
+            {
+                // Capture pad on the UI thread before the guest resumes; queue F1 close so edits are not reverted.
+                CloseBuiltinOverlay(BuiltinOverlay::kSettings);
+                return openOptionsPage();
+            },
+            .optionsPageOpen = [gate = optionsGate](std::uint64_t id)
+            {
+                return gate->IsOpen(id);
+            },
+            // Queued through post: UI thread only, never after title shutdown.
+            .closeOptionsPage = [this](std::uint64_t id)
+            {
+                if (id == optionsPageId)
+                    releaseOptionsPage();
+            },
+            .layout = layout,
+        });
+    }
 
     rerevved::StartPresence();
 
@@ -1197,9 +1327,91 @@ void App::OnGuestThreadExit(rex::system::XThread* thread)
     rerevved::display_aspect::Shutdown();
 }
 
+std::uint64_t App::openOptionsPage()
+{
+    if (optionsPage)
+    {
+        if (!optionsPage->Closing())
+            return optionsPageId;
+        releaseOptionsPage();
+    }
+    auto* drawer = imgui_drawer();
+    auto  host   = rerevved::native_settings::Host();
+    if (!drawer || !host || !host->layout)
+        return 0;
+    rerevved::OptionsPageEnv env;
+    env.host     = std::move(*host);
+    env.gameRoot = [this]
+    {
+        return game_data_root();
+    };
+    env.captureKeys    = &keybindCapture.Keys();
+    env.keyboardArtDir = []
+    {
+        return rex::filesystem::GetExecutableFolder() / "button-icons" / "xelu-light";
+    };
+    env.immediateDrawer = [this]
+    {
+        return immediate_drawer();
+    };
+    // Close is requested inside draw; reset next UI turn only if no newer page replaced it.
+    const auto generation = ++optionsPageGeneration;
+    env.requestClose      = [this, alive = std::weak_ptr(gameplayUiAlive), generation]
+    {
+        app_context().CallInUIThreadDeferred([this, alive, generation]
+                                             {
+                                                 const auto live = alive.lock();
+                                                 if (live && live->load() && generation == optionsPageGeneration)
+                                                     resetOptionsPage();
+                                             });
+    };
+    // Defer Settings until Mods edits are discarded; the generation keeps queued requests from outliving the page.
+    env.closeSettings = [this, alive = std::weak_ptr(gameplayUiAlive), generation]
+    {
+        app_context().CallInUIThreadDeferred([this, alive, generation]
+                                             {
+                                                 const auto live = alive.lock();
+                                                 if (live && live->load() && generation == optionsPageGeneration)
+                                                     CloseBuiltinOverlay(BuiltinOverlay::kSettings);
+                                             });
+    };
+    env.openSettings = [this, alive = std::weak_ptr(gameplayUiAlive), generation]
+    {
+        app_context().CallInUIThreadDeferred([this, alive, generation]
+                                             {
+                                                 const auto live = alive.lock();
+                                                 if (live && live->load() && generation == optionsPageGeneration)
+                                                     OpenBuiltinOverlay(BuiltinOverlay::kSettings);
+                                             });
+    };
+    env.appContext = &app_context();
+    REXLOG_INFO("Opening the Options page");
+    optionsPage   = std::make_unique<rerevved::OptionsPage>(drawer, std::move(env));
+    optionsPageId = optionsGate->Opened();
+    return optionsPageId;
+}
+
+void App::resetOptionsPage()
+{
+    optionsPage.reset();
+    optionsGate->Closed(optionsPageId);
+}
+
+void App::releaseOptionsPage()
+{
+    ++optionsPageGeneration;
+    resetOptionsPage();
+}
+
 void App::OnShutdown()
 {
+    optionsGate->Shutdown();
+    releaseOptionsPage();
+    if (window())
+        window()->RemoveInputListener(&keybindCapture);
     rerevved::gotw::SetSeedDispatcher({});
+    rerevved::pause_menu::SetHostActions({});
+    rerevved::native_settings::SetHost({});
 #if REREVVED_DEVELOPER
     rerevved::gpu::guest_d3d::ReportCompletionProbe(true);
     rerevved::gpu::guest_d3d::ReportTilingRestore(true);
@@ -1250,6 +1462,7 @@ void App::OnShutdown()
         nativeDrain->result.wait_until(nativeDrain->deadline.Expiry());
         if (!guestVideoStopped)
             hardExitAfterMissedVblankJoin();
+        releaseOptionsPage();
         ShutdownOverlays();
         nativePresentation->FlushTrace();
 #if REREVVED_DEVELOPER
@@ -1318,6 +1531,7 @@ bool App::OnWindowCloseRequested()
                                                                                             return;
                                                                                         nativeClose.Complete([this]
                                                                                                              {
+                                                                                                                 releaseOptionsPage();
                                                                                                                  ShutdownOverlays();
                                                                                                                  nativePresentation->Event("overlays_shutdown");
                                                                                                              });

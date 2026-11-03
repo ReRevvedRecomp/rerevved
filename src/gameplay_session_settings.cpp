@@ -34,9 +34,16 @@ HostSettings LocalSettings()
     settings.aiFoodBonusPercent       = rex::cvar::Query<int32_t>("ai_food_bonus_percent");
     settings.aiCultureBonusPercent    = rex::cvar::Query<int32_t>("ai_culture_bonus_percent");
     gameplay_fixes::ParseDominationMinimumTurns(rex::cvar::Query<std::string>("domination_min_turns"), settings.dominationMinimumTurns);
-    settings.combatSpeed       = rex::cvar::Query<std::string>("combat_speed") == "fast";
-    settings.gotwCustomWeek    = rex::cvar::Query<bool>("gotw_custom_week");
-    settings.gotwStandardRules = rex::cvar::Query<bool>("gotw_standard_rules");
+    settings.combatSpeed             = rex::cvar::Query<std::string>("combat_speed") == "fast";
+    settings.turnLimit               = gameplay_fixes::ParseTurnLimit(rex::cvar::Query<std::string>("turn_limit"));
+    settings.startingEra             = gameplay_fixes::ParseStartingEra(rex::cvar::Query<std::string>("starting_era"));
+    settings.multiplayerAiDifficulty = gameplay_fixes::ParseMultiplayerAiDifficulty(rex::cvar::Query<std::string>("multiplayer_ai_difficulty"));
+    settings.skipSpaceshipScenes     = !rex::cvar::Query<bool>("spaceship_scenes");
+    settings.unitMovement            = static_cast<int32_t>(gameplay_fixes::ParseUnitMovement(rex::cvar::Query<std::string>("unit_movement")));
+    settings.alwaysAtWar             = rex::cvar::Query<bool>("always_at_war");
+    settings.gotwCustomWeek          = rex::cvar::Query<bool>("gotw_custom_week");
+    settings.gotwStandardRules       = rex::cvar::Query<bool>("gotw_standard_rules");
+    settings.gotwAllowSaving         = rex::cvar::Query<bool>("gotw_allow_saving");
     if (settings.gotwCustomWeek)
     {
         settings.gotwCustomWeek = gotw::ParseWeek(rex::cvar::Query<std::string>("gotw_week"), settings.gotwWeek);
@@ -240,8 +247,18 @@ bool ApplyNewGame(const host_settings::GameSnapshot& snapshot, bool networkGame,
     raging_barbarians::RestoreForGame(!standardRules && settings.ragingBarbarians);
     occ::RestoreForGame({ !standardRules && settings.oneCityChallenge, occ::kMinimumPopulation });
     // The effective AI count and latched week are recorded after native setup in RunNativeNewGameSetup.
-    custom_achievements::BeginNewGame(!standardRules && settings.oneCityChallenge, mode == 2);
+    if (mode != 2)
+    {
+        gotw::EndPractice();
+    }
+    custom_achievements::BeginNewGame(!standardRules && settings.oneCityChallenge, mode == 2 && !gotw::ForGame().practice);
     gameplay_fixes::NoteNewGame();
+    gameplay_fixes::RestoreTurnLimit(mode == 2 ? gameplay_fixes::kTurnLimitNative : settings.turnLimit);
+    // Game of the Week keeps its native era; the hook applies this only during native setup.
+    gameplay_fixes::RestoreStartingEra(mode == 2 ? gameplay_fixes::kStartingEraNative : settings.startingEra);
+    gameplay_fixes::RestoreAlwaysAtWar(!networkGame && mode != 2 && settings.alwaysAtWar);
+    // Only network setup reads this; every peer uses the host's value.
+    gameplay_fixes::RestoreMultiplayerAiDifficulty(settings.multiplayerAiDifficulty);
     SuspendModRulesForGame(standardRules);
     return standardRules;
 }

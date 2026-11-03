@@ -71,7 +71,7 @@ void testRoundTrip()
     UNSCOPED_INFO("the encoding fits the channel");
     CHECK(bytes.size() <= rex::session_data::kMaxBytes);
     UNSCOPED_INFO("the first byte is the format version");
-    CHECK(bytes[0] == 2);
+    CHECK(bytes[0] == 8);
 
     const auto decoded = Decode(bytes);
     UNSCOPED_INFO("an encoding decodes");
@@ -110,14 +110,14 @@ void testClamping()
     CHECK(HostSettings{}.aiCivilizations == 4);
     for (const int32_t selected : { 5, 6 })
     {
-        CHECK(Decode(Encode(HostSettings{ selected, {}, false }))->aiCivilizations == 4);
+        CHECK(Decode(Encode(HostSettings{ selected, {}, false }))->aiCivilizations == selected);
     }
     HostSettings high    = sample();
     high.aiCivilizations = 9;
     HostSettings low     = sample();
     low.aiCivilizations  = -3;
-    UNSCOPED_INFO("an encoded value above 4 becomes 4");
-    CHECK(Decode(Encode(high))->aiCivilizations == 4);
+    UNSCOPED_INFO("an encoded value above 6 becomes 6");
+    CHECK(Decode(Encode(high))->aiCivilizations == 6);
     UNSCOPED_INFO("a negative encoded value becomes 0");
     CHECK(Decode(Encode(low))->aiCivilizations == 0);
 
@@ -173,11 +173,26 @@ void testRejection()
     CHECK(!Decode(std::vector<uint8_t>{ 1, 2, 0 }).has_value());
 
     auto version = good;
-    version[0]   = 5;
+    version[0]   = 9;
     UNSCOPED_INFO("an unknown version is rejected");
+    CHECK(!Decode(version).has_value());
+    version[0] = 7;
+    UNSCOPED_INFO("the version 7 payload without a unit movement is rejected");
     CHECK(!Decode(version).has_value());
     version[0] = 3;
     UNSCOPED_INFO("version 3 is rejected");
+    CHECK(!Decode(version).has_value());
+    version[0] = 6;
+    UNSCOPED_INFO("the version 6 payload without a spaceship scene skip is rejected");
+    CHECK(!Decode(version).has_value());
+    version[0] = 5;
+    UNSCOPED_INFO("the version 5 payload without an AI difficulty is rejected");
+    CHECK(!Decode(version).has_value());
+    version[0] = 4;
+    UNSCOPED_INFO("the version 4 payload without a starting era is rejected");
+    CHECK(!Decode(version).has_value());
+    version[0] = 2;
+    UNSCOPED_INFO("the version 2 payload without a turn limit is rejected");
     CHECK(!Decode(version).has_value());
     version[0] = 1;
     UNSCOPED_INFO("the released version 1 payload is rejected");
@@ -213,7 +228,7 @@ void testRejection()
     UNSCOPED_INFO("the encoder always sorts");
     CHECK(Decode(Encode(unsorted)).has_value());
     auto swapped = Encode(unsorted);
-    std::swap(swapped[22], swapped[27]);
+    std::swap(swapped[27], swapped[32]);
     UNSCOPED_INFO("mods out of id order are rejected");
     CHECK(!Decode(swapped).has_value());
 }
@@ -384,6 +399,11 @@ TEST_CASE("host_settings gameplay snapshot validates complete policy", "[ctest][
     selected.aiCultureBonusPercent    = 1;
     selected.dominationMinimumTurns   = 5;
     selected.combatSpeed              = 1;
+    selected.turnLimit                = 3;
+    selected.startingEra              = 2;
+    selected.multiplayerAiDifficulty  = 4;
+    selected.skipSpaceshipScenes      = true;
+    selected.unitMovement             = 2;
     selected.gotwCustomWeek           = true;
     selected.gotwWeek                 = 123456;
     selected.gotwSeed                 = 210;
@@ -403,14 +423,57 @@ TEST_CASE("host_settings gameplay snapshot validates complete policy", "[ctest][
     CHECK(decoded->aiFoodBonusPercent == 99);
     CHECK(decoded->aiCultureBonusPercent == 1);
     auto incompatible = bytes;
-    incompatible[0]   = 3;
+    incompatible[0]   = 1;
     CHECK_FALSE(Decode(incompatible));
-    incompatible[0] = 1;
-    CHECK_FALSE(Decode(incompatible));
-    const auto rejected = ResolveForGame(true, { State::kReceived, incompatible, true }, selected);
+    for (uint8_t limit = 0; limit <= 4; ++limit)
+    {
+        selected.turnLimit = limit;
+        const auto each    = Decode(Encode(selected));
+        REQUIRE(each);
+        CHECK(each->turnLimit == limit);
+    }
+    selected.turnLimit = 3;
+    for (uint8_t era = 0; era <= 4; ++era)
+    {
+        selected.startingEra = era;
+        const auto each      = Decode(Encode(selected));
+        REQUIRE(each);
+        CHECK(each->startingEra == era);
+    }
+    selected.startingEra = 2;
+    for (uint8_t difficulty = 2; difficulty <= 4; ++difficulty)
+    {
+        selected.multiplayerAiDifficulty = difficulty;
+        const auto each                  = Decode(Encode(selected));
+        REQUIRE(each);
+        CHECK(each->multiplayerAiDifficulty == difficulty);
+    }
+    for (const bool skip : { false, true })
+    {
+        selected.skipSpaceshipScenes = skip;
+        const auto each              = Decode(Encode(selected));
+        REQUIRE(each);
+        CHECK(each->skipSpaceshipScenes == skip);
+    }
+    for (const int32_t movement : { 0, 1, 2 })
+    {
+        selected.unitMovement = movement;
+        const auto each       = Decode(Encode(selected));
+        REQUIRE(each);
+        CHECK(each->unitMovement == movement);
+    }
+    selected.unitMovement            = 2;
+    selected.skipSpaceshipScenes     = true;
+    selected.multiplayerAiDifficulty = 4;
+    const auto rejected              = ResolveForGame(true, { State::kReceived, incompatible, true }, selected);
     CHECK_FALSE(rejected.settings);
     CHECK(decoded->dominationMinimumTurns == 5);
     CHECK(decoded->combatSpeed == 1);
+    CHECK(decoded->turnLimit == 3);
+    CHECK(decoded->startingEra == 2);
+    CHECK(decoded->multiplayerAiDifficulty == 4);
+    CHECK(decoded->skipSpaceshipScenes);
+    CHECK(decoded->unitMovement == 2);
     CHECK(decoded->gotwCustomWeek);
     CHECK(decoded->gotwWeek == 123456);
     CHECK(decoded->gotwSeed == 210);
@@ -419,7 +482,7 @@ TEST_CASE("host_settings gameplay snapshot validates complete policy", "[ctest][
     CHECK(Encode(*decoded) == bytes);
 
     for (const auto [offset, value] : std::vector<std::pair<size_t, uint8_t>>{
-             { 1, 5 }, { 5, 2 }, { 6, 201 }, { 7, 201 }, { 8, 201 }, { 9, 201 }, { 10, 201 }, { 11, 2 }, { 12, 2 } })
+             { 1, 7 }, { 5, 2 }, { 6, 201 }, { 7, 201 }, { 8, 201 }, { 9, 201 }, { 10, 201 }, { 11, 2 }, { 12, 2 }, { 21, 5 }, { 22, 5 }, { 23, 1 }, { 23, 5 }, { 24, 2 }, { 25, 3 } })
     {
         auto invalid    = bytes;
         invalid[offset] = value;
@@ -491,12 +554,13 @@ TEST_CASE("host_settings normalizes local selections before encoding", "[ctest][
     local.aiCultureBonusPercent    = 150;
     local.dominationMinimumTurns   = 1;
     local.combatSpeed              = -1;
+    local.unitMovement             = 7;
     local.gotwCustomWeek           = true;
     local.gotwWeek                 = 1;
     local.gotwSeed                 = 99;
     const auto encoded             = Decode(Encode(local));
     REQUIRE(encoded);
-    CHECK(encoded->aiCivilizations == 4);
+    CHECK(encoded->aiCivilizations == 6);
     CHECK(encoded->resources == 0);
     CHECK(encoded->aiResearchBonusPercent == 0);
     CHECK(encoded->aiProductionBonusPercent == 200);
@@ -505,6 +569,7 @@ TEST_CASE("host_settings normalizes local selections before encoding", "[ctest][
     CHECK(encoded->aiCultureBonusPercent == 150);
     CHECK(encoded->dominationMinimumTurns == 10);
     CHECK(encoded->combatSpeed == 0);
+    CHECK(encoded->unitMovement == 2);
     CHECK(encoded->gotwWeek == 1);
     CHECK(encoded->gotwSeed == 2);
     local.gotwWeek         = 0xFFFFFFFFu;

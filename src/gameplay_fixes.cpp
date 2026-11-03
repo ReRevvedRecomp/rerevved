@@ -1,31 +1,129 @@
 #include "gameplay_fixes.h"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <limits>
 
 #include <rex/cvar.h>
 
-REXCVAR_DEFINE_STRING(domination_min_turns, "10", "ReRevved", "Turns before a Domination victory can be declared: 10 (default) or 5. Applies to games started in this launch. Loaded saves keep 10")
+REXCVAR_DEFINE_STRING(domination_min_turns, "10", "ReRevved", "Turns before a Domination victory can be declared: 10 (default) or 5. Applies to games started in this launch. Loaded saves keep 10, except Game of the Week practice saves")
     .allowed({ "10", "5" });
+
+REXCVAR_DEFINE_STRING(turn_limit, "2100", "ReRevved", "Year the game can end by turn limit in the next new game: 2100 (default), 2200, 2300, 2500 or unlimited. Game of the Week always uses 2100")
+    .allowed({ "2100", "2200", "2300", "2500", "unlimited" });
+
+REXCVAR_DEFINE_STRING(starting_era, "ancient", "ReRevved", "Era every civilization starts in for the next new game: ancient (default), medieval, industrial, modern or future. Scenarios and Game of the Week keep their own era")
+    .allowed({ "ancient", "medieval", "industrial", "modern", "future" });
+
+REXCVAR_DEFINE_STRING(multiplayer_ai_difficulty, "king", "ReRevved", "Difficulty of every AI in the next multiplayer game you host: king (default), emperor or deity. Single player keeps the difficulty chosen at game setup")
+    .allowed({ "king", "emperor", "deity" });
+
+REXCVAR_DEFINE_BOOL(always_at_war, false, "ReRevved", "Keep every civilization at war for the next single-player new game; peace can never be made. Network games and Game of the Week ignore it");
+
+REXCVAR_DEFINE_BOOL(spaceship_scenes, true, "ReRevved", "Show the in-world rocket scene when a spaceship part is completed. Applies to each new part; a network game plays the host's value");
 
 namespace rerevved::gameplay_fixes
 {
 namespace
 {
 
-std::atomic<bool> shortenedAllowed{ false };
+std::atomic<bool>    shortenedAllowed{ false };
+std::atomic<int32_t> restoredMinimum{ 0 };
+std::atomic<int32_t> turnLimit{ kTurnLimitNative };
+std::atomic<bool>    alwaysAtWar{ false };
+// Written and read on the single setup thread.
+int32_t startingEra             = kStartingEraNative;
+int32_t multiplayerAiDifficulty = kMultiplayerAiDifficultyNative;
+
+template <size_t N>
+int32_t indexOf(const std::array<std::string_view, N>& names, std::string_view text) noexcept
+{
+    return static_cast<int32_t>(std::ranges::find(names, text) - names.begin());
+}
 
 } // namespace
 
 void NoteNewGame() noexcept
 {
     shortenedAllowed.store(true, std::memory_order_relaxed);
+    restoredMinimum.store(0, std::memory_order_relaxed);
 }
 
 void NoteGameLoad() noexcept
 {
     shortenedAllowed.store(false, std::memory_order_relaxed);
+    restoredMinimum.store(0, std::memory_order_relaxed);
+    turnLimit.store(kTurnLimitNative, std::memory_order_relaxed);
+    alwaysAtWar.store(false, std::memory_order_relaxed);
+}
+
+void RestoreDominationMinimum(int32_t turns) noexcept
+{
+    restoredMinimum.store(turns, std::memory_order_relaxed);
+}
+
+int32_t RestoredDominationMinimum() noexcept
+{
+    return restoredMinimum.load(std::memory_order_relaxed);
+}
+
+void RestoreTurnLimit(int32_t limit) noexcept
+{
+    turnLimit.store(limit, std::memory_order_relaxed);
+}
+
+int32_t TurnLimitForGame() noexcept
+{
+    return turnLimit.load(std::memory_order_relaxed);
+}
+
+int32_t ParseTurnLimit(std::string_view text) noexcept
+{
+    constexpr std::array<std::string_view, 5> names = { "2100", "2200", "2300", "2500", "unlimited" };
+    return indexOf(names, text);
+}
+
+void RestoreAlwaysAtWar(bool enabled) noexcept
+{
+    alwaysAtWar.store(enabled, std::memory_order_relaxed);
+}
+
+bool AlwaysAtWarForGame() noexcept
+{
+    return alwaysAtWar.load(std::memory_order_relaxed);
+}
+
+void RestoreStartingEra(int32_t era) noexcept
+{
+    startingEra = era;
+}
+
+int32_t StartingEraForGame() noexcept
+{
+    return startingEra;
+}
+
+int32_t ParseStartingEra(std::string_view text) noexcept
+{
+    constexpr std::array<std::string_view, 5> names = { "ancient", "medieval", "industrial", "modern", "future" };
+    return indexOf(names, text);
+}
+
+void RestoreMultiplayerAiDifficulty(int32_t difficulty) noexcept
+{
+    multiplayerAiDifficulty = difficulty;
+}
+
+int32_t MultiplayerAiDifficultyForGame() noexcept
+{
+    return multiplayerAiDifficulty;
+}
+
+int32_t ParseMultiplayerAiDifficulty(std::string_view text) noexcept
+{
+    constexpr std::array<std::string_view, 3> names = { "king", "emperor", "deity" };
+    return kMultiplayerAiDifficultyNative + indexOf(names, text);
 }
 
 bool ShortenedMinimumAllowed() noexcept

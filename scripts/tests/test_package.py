@@ -15,30 +15,48 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 import package  # noqa: E402
 from check_package_inventory import check  # noqa: E402
-from package import BUNDLED_MODS, reject_developer_build  # noqa: E402
+from package import (  # noqa: E402
+    BUNDLED_MAPS,
+    BUNDLED_MODS,
+    KEYBOARD_ICON_DIR,
+    KEYBOARD_ICON_FILES,
+    reject_developer_build,
+)
 
 MOD_NAMES = {
     f"mods/{package_id}/{name}"
     for package_id in BUNDLED_MODS
     for name in ("mod.toml", "main.lua")
 }
-NORMAL_FILES = {
-    "rerevved.exe",
-    "rexglue.exe",
-    "rexruntime.dll",
-    "rexgpu-xenos.dll",
-    "README.txt",
-    "ONLINE.txt",
-    "host-online.cmd",
-    "host-online.ps1",
-    "host-manual.cmd",
-    "LICENSE.txt",
-    "licenses/REXGLUE-LICENSE.txt",
-    "game/",
-    "asset-overrides/default_asset_order.txt",
-    "asset-overrides/rerevved-logo/asset-pack.toml",
-    "asset-overrides/rerevved-logo/assets/file-data/GFX_MainMenu_logo.dds",
-} | MOD_NAMES
+MAP_NAMES = {
+    f"maps/{map_id}/{name}"
+    for map_id in BUNDLED_MAPS
+    for name in ("asset-pack.toml", "assets/map-pack/dlc.fpk")
+}
+NORMAL_FILES = (
+    {
+        "rerevved.exe",
+        "rexglue.exe",
+        "rexruntime.dll",
+        "rexgpu-xenos.dll",
+        "README.txt",
+        "ONLINE.txt",
+        "host-online.cmd",
+        "host-online.ps1",
+        "host-manual.cmd",
+        "LICENSE.txt",
+        "licenses/REXGLUE-LICENSE.txt",
+        "game/",
+        "asset-overrides/default_asset_order.txt",
+        "asset-overrides/rerevved-logo/asset-pack.toml",
+        "asset-overrides/rerevved-logo/assets/file-data/GFX_MainMenu_logo.dds",
+        "licenses/xelu-prompts-Readme.txt",
+        "licenses/xelu-prompts-PROVENANCE.md",
+    }
+    | MOD_NAMES
+    | MAP_NAMES
+    | {f"{KEYBOARD_ICON_DIR}/{name}" for name in KEYBOARD_ICON_FILES}
+)
 
 
 def write_mods(root, kind="lua"):
@@ -54,6 +72,18 @@ def write_mods(root, kind="lua"):
             encoding="ascii",
         )
         (package / "main.lua").write_text("return {}\n", encoding="ascii")
+    return root
+
+
+def write_maps(root):
+    """Write the bundled map packs as scripts/assemble_mods.py produces them."""
+    for map_id in BUNDLED_MAPS:
+        archive = root / map_id / "assets" / "map-pack"
+        archive.mkdir(parents=True)
+        (root / map_id / "asset-pack.toml").write_text(
+            f'id = "{map_id}"\n', encoding="ascii"
+        )
+        (archive / "dlc.fpk").write_bytes(b"fpk")
     return root
 
 
@@ -86,6 +116,8 @@ class PackageTests(unittest.TestCase):
                     str(output),
                     "--mods-dir",
                     str(write_mods(root / "mods")),
+                    "--maps-dir",
+                    str(write_maps(root / "maps")),
                 ],
                 cwd=REPO,
                 check=True,
@@ -108,17 +140,39 @@ class PackageTests(unittest.TestCase):
                     .strip(),
                     "rerevved-logo",
                 )
+            keyboard = f"{archive_root}/{KEYBOARD_ICON_DIR}/"
+            self.assertEqual(
+                {n for n in names if n.startswith(keyboard)},
+                {keyboard + name for name in KEYBOARD_ICON_FILES},
+            )
+            with zipfile.ZipFile(archive_path) as archive:
+                self.assertEqual(
+                    archive.read(keyboard + "Semicolon.dds"),
+                    (
+                        REPO / "assets" / KEYBOARD_ICON_DIR / "Semicolon.dds"
+                    ).read_bytes(),
+                )
+                self.assertIn(
+                    b"CC0",
+                    archive.read(f"{archive_root}/licenses/xelu-prompts-Readme.txt"),
+                )
             self.assertIn(prefix + "rerevved-logo/asset-pack.toml", names)
             self.assertIn(
                 prefix + "rerevved-logo/assets/file-data/GFX_MainMenu_logo.dds",
                 names,
             )
 
-    def run_package(self, build, output, *extra, mods=None, platform="windows"):
+    def run_package(
+        self, build, output, *extra, mods=None, maps=None, platform="windows"
+    ):
         if mods is None:
             mods = output.parent / "bundled-mods"
             if not mods.exists():
                 write_mods(mods)
+        if maps is None:
+            maps = output.parent / "bundled-maps"
+            if not maps.exists():
+                write_maps(maps)
         return subprocess.run(
             [
                 sys.executable,
@@ -131,6 +185,8 @@ class PackageTests(unittest.TestCase):
                 str(output),
                 "--mods-dir",
                 str(mods),
+                "--maps-dir",
+                str(maps),
                 *extra,
             ],
             cwd=REPO,
@@ -329,6 +385,27 @@ class PackageTests(unittest.TestCase):
             result = self.run_package(build, root / "output", mods=mods)
             self.assertIn("is not a Lua rules package", result.stderr)
 
+    def test_bundled_maps_are_validated(self):
+        first = BUNDLED_MAPS[0]
+        cases = {
+            "missing": lambda maps: (maps / first / "asset-pack.toml").unlink(),
+            "extra": lambda maps: (maps / first / "extra.txt").write_text("x"),
+            "empty": lambda maps: (
+                maps / first / "assets/map-pack/dlc.fpk"
+            ).write_bytes(b""),
+        }
+        for name, damage in cases.items():
+            with self.subTest(case=name), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                build = self.make_build(root)
+                maps = write_maps(root / "maps")
+                damage(maps)
+                result = self.run_package(build, root / "output", maps=maps)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(f"bundled map {first}", result.stderr)
+                self.assertNotIn("Traceback", result.stderr)
+                self.assertFalse((root / "output").exists())
+
 
 class MacOSPackageTests(unittest.TestCase):
     def make_runtime(self, root):
@@ -364,6 +441,8 @@ class MacOSPackageTests(unittest.TestCase):
                 str(output),
                 "--mods-dir",
                 str(write_mods(root / "mods")),
+                "--maps-dir",
+                str(write_maps(root / "maps")),
                 "--macos-licenses",
                 str(notices),
             ]
@@ -538,7 +617,7 @@ class AssembleModsTests(unittest.TestCase):
             "import sys, pathlib; sys.path.insert(0, sys.argv[1]); "
             "import assemble_mods; assemble_mods.LOCK = pathlib.Path(sys.argv[2]); "
             "sys.argv = ['assemble_mods', '--mods-checkout', sys.argv[3], "
-            "'--out', sys.argv[4]]; assemble_mods.main()"
+            "'--out', sys.argv[4], '--maps-out', sys.argv[5]]; assemble_mods.main()"
         )
         return subprocess.run(
             [
@@ -549,6 +628,7 @@ class AssembleModsTests(unittest.TestCase):
                 str(lock),
                 str(checkout),
                 str(root / "out"),
+                str(root / "maps-out"),
             ],
             capture_output=True,
             text=True,

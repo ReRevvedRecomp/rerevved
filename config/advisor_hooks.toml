@@ -1,4 +1,4 @@
-# With hide_research_prompt, automatic sub_82CECCD8 calls take the dismissal path.
+# show_research_prompt off dismisses automatic sub_82CECCD8 calls.
 # The advisor show sub_82CE8338 uses the cleanup exit at 0x82CE87A8.
 # The player request in sub_82D259E8 and other advisor shows remain native.
 

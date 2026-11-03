@@ -59,17 +59,45 @@ add_executable(rerevved_tests
     src/display_aspect.cpp
     src/city_founding_unit_rules.cpp
     src/gotw_hooks.cpp
+    src/game_language.cpp
+    src/gotw_practice.cpp
     src/gotw_settings.cpp
     src/great_general_attachment.cpp
     src/gameplay_fixes.cpp
     src/gameplay_fixes_hooks.cpp
+    src/always_at_war_hooks.cpp
     src/spy_mission_ai.cpp
     src/spy_mission_ai_hooks.cpp
     src/button_icons.cpp
     src/button_icons_hooks.cpp
+    src/keybind_defaults.cpp
+    src/keyboard_icons.cpp
+    src/options_glyphs.cpp
+    src/keybind_capture.cpp
+    src/options_skin.cpp
+    src/tab_bar_layout.cpp
+    src/text_entry.cpp
+    src/achievements_list.cpp
+    src/achievement_icons.cpp
+    src/maps_tab.cpp
+    src/assets_list.cpp
+    src/mods_list.cpp
+    src/main_menu_logo_hooks.cpp
+    src/intro_movie_hooks.cpp
+    src/legal_screen_hooks.cpp
+    src/version_label_hooks.cpp
+    src/pause_menu.cpp
+    src/title_text.cpp
+    src/main_menu_options.cpp
+    src/options_modal.cpp
+    src/native_settings.cpp
+    src/native_settings_host.cpp
+    src/retail_audio.cpp
+    src/overlay_settings.cpp
     src/host_settings.cpp
     src/gameplay_session_settings.cpp
     src/main_menu_logo_asset.cpp
+    src/map_packs.cpp
     src/nation_select_text.cpp
     src/nation_select_text_hooks.cpp
     src/occ_hooks.cpp
@@ -117,8 +145,32 @@ add_executable(rerevved_tests
     tests/display_aspect_test.cpp
     tests/city_founding_unit_rules_test.cpp
     tests/gameplay_fixes_test.cpp
+    tests/apollo_discovery_test.cpp
     tests/spy_mission_ai_test.cpp
     tests/button_icons_test.cpp
+    tests/keyboard_icons_test.cpp
+    tests/options_glyphs_test.cpp
+    tests/keybind_capture_test.cpp
+    tests/keybind_defaults_test.cpp
+    tests/options_skin_test.cpp
+    tests/tab_bar_layout_test.cpp
+    tests/text_entry_test.cpp
+    tests/achievements_list_test.cpp
+    tests/achievement_icons_test.cpp
+    tests/assets_list_test.cpp
+    tests/maps_tab_test.cpp
+    tests/mods_list_test.cpp
+    tests/intro_movie_test.cpp
+    tests/legal_screen_test.cpp
+    tests/version_label_test.cpp
+    tests/pause_menu_test.cpp
+    tests/title_text_test.cpp
+    tests/main_menu_options_test.cpp
+    tests/options_modal_test.cpp
+    tests/native_settings_test.cpp
+    tests/retail_audio_test.cpp
+    tests/game_language_test.cpp
+    tests/gotw_practice_test.cpp
     tests/gotw_settings_test.cpp
     tests/great_general_attachment_test.cpp
     tests/host_settings_test.cpp
@@ -127,6 +179,7 @@ add_executable(rerevved_tests
     tests/helper_commands_test.cpp
     tests/network_pause_test.cpp
     tests/main_menu_logo_asset_test.cpp
+    tests/map_packs_test.cpp
     tests/mod_script_rules_test.cpp
     tests/nation_select_text_test.cpp
     tests/occ_settings_test.cpp
@@ -177,6 +230,9 @@ set_source_files_properties(
     tests/rules_bundle_test.cpp
     tests/mod_script_rules_test.cpp
     PROPERTIES COMPILE_DEFINITIONS RULES_BUNDLE_TESTING)
+
+target_compile_definitions(rerevved_tests PRIVATE
+    REREVVED_KEYBOARD_ICONS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/button-icons/xelu-light")
 
 # The bundled_mods case loads the mods that scripts/assemble_mods.py writes to
 # its default output, with the same version the title reports to the SDK.

@@ -60,8 +60,25 @@ OVERRIDE_HOOK = {
     "name": "OverrideGotwCivilization",
     "registers": ["r10", "r31", "r5"],
 }
-# The override sits between the late launch hook and the trace observers.
-EXPECTED_HOOKS += [NEW_HOOKS[0], OVERRIDE_HOOK, *NEW_HOOKS[1:]]
+PRACTICE_HOOKS = [
+    {
+        "address": 0x82D06490,
+        "name": "AllowGotwPracticeMenu",
+        "registers": ["r11"],
+        "jump_address_on_true": 0x82D06498,
+    },
+    {
+        "address": 0x82D8685C,
+        "name": "ApplyGotwResumeSeed",
+        "registers": ["r3", "r4", "r5"],
+    },
+    {
+        "address": 0x82D86598,
+        "name": "ClassifyGotwLoad",
+        "registers": ["r1", "r29"],
+    },
+]
+EXPECTED_HOOKS += [NEW_HOOKS[0], OVERRIDE_HOOK, *PRACTICE_HOOKS, *NEW_HOOKS[1:]]
 
 CPP_TOKEN = re.compile(r'"(?:\\.|[^"\\])*"|\w+|[^\s]')
 
@@ -208,7 +225,14 @@ class GotwContractTests(unittest.TestCase):
             "void OverrideGotwCivilization(PPCRegister& civilization, PPCRegister& setup, PPCRegister& count) noexcept;",
             header,
         )
-        self.assertNotIn(0x82D8685C, [hook["address"] for hook in EXPECTED_HOOKS])
+        self.assert_cpp(
+            "void ApplyGotwResumeSeed(PPCRegister& setup, PPCRegister& week, PPCRegister& seed) noexcept;",
+            header,
+        )
+        self.assert_cpp(
+            "bool AllowGotwPracticeMenu(PPCRegister& mode) noexcept;", header
+        )
+        self.assertNotIn(0x82D83E80, [hook["address"] for hook in EXPECTED_HOOKS])
 
     def test_argument_only_writes_and_unconditional_info(self):
         hooks = (ROOT / "src/gotw_hooks.cpp").read_text(encoding="utf-8")
@@ -229,7 +253,7 @@ class GotwContractTests(unittest.TestCase):
         )
         self.assertEqual(
             re.findall(r"\b(\w+)\.u64\s*=(?!=)", hooks),
-            ["week", "seed", "week", "seed", "civilization"],
+            ["week", "seed", "week", "seed", "civilization", "seed"],
         )
         self.assertNotIn("REX_STORE_", hooks)
         self.assertNotIn("TranslateVirtual<uint8_t*>", hooks)
@@ -270,7 +294,12 @@ class GotwContractTests(unittest.TestCase):
         self.assertIn("settings.gotwWeek", captured)
         self.assertIn('logRejected("week",', latch)
         self.assertNotIn("REXCVAR_GET", function_body(source, "ForGame"))
-        self.assert_cpp("mode == 2 && ForGame().IsCustom()", source)
+        self.assert_cpp(
+            "selection.Isolates() || (mode == 2 && selection.IsCustom())", source
+        )
+        self.assert_cpp(
+            'REXCVAR_DEFINE_BOOL(gotw_allow_saving, false, "ReRevved",', source
+        )
         header = (ROOT / "src/gotw_settings.h").read_text(encoding="utf-8")
         self.assert_cpp(
             "return customWeek || customCivilization;",
@@ -286,7 +315,10 @@ class GotwContractTests(unittest.TestCase):
         self.assertNotIn("customSeed", header)
         overlay = (ROOT / "src/overlay_settings.cpp").read_text(encoding="utf-8")
         for text in (
-            '{ "Game of the Week", { "gotw_standard_rules", "gotw_custom_week", "gotw_week", "gotw_custom_civilization", "gotw_civilization" } }',
+            '{ "Game of the Week", { "gotw_standard_rules", "gotw_allow_saving", "gotw_custom_week", "gotw_week", "gotw_custom_civilization", "gotw_civilization" } }',
+            '{ "gotw_allow_saving", Audience::kPlayer }',
+            '{ "gotw_allow_saving", "Allow Saving" }',
+            '{ "gotw_allow_saving", "Enable to save and load Game of the Week games." }',
             '{ "gotw_custom_week", Audience::kPlayer }',
             '{ "gotw_week", Audience::kPlayer }',
             '{ "gotw_custom_civilization", Audience::kPlayer }',
@@ -301,11 +333,35 @@ class GotwContractTests(unittest.TestCase):
             """{ "gotw_custom_week", "Enable to play a different week's game instead of this week's." }""",
             '{ "gotw_custom_civilization", "Enable to play Game of the Week as the civilization you choose." }',
             '{ "gotw_civilization", { { "0", "Roman" }, { "1", "Egyptian" }, { "2", "Greek" }, { "3", "Spanish" }, { "4", "German" }, { "5", "Russian" }, { "6", "Chinese" }, { "7", "American" }, { "8", "Japanese" }, { "9", "French" }, { "10", "Indian" }, { "11", "Arabian" }, { "12", "Aztec" }, { "13", "Zulu" }, { "14", "Mongolian" }, { "15", "English" } } }',
-            '{ "gotw_standard_rules", "Enable to play Game of the Week without Lua mods or gameplay changes other than Earliest Domination." }',
+            '{ "gotw_standard_rules", "Enable to play Game of the Week without mods or gameplay changes other than Earliest Domination." }',
         ):
             self.assert_cpp(text, overlay)
         for removed in ("gotw_custom_seed", "gotw_seed", "gotw_weekly_seed"):
             self.assertNotIn(removed, overlay)
+
+    def test_practice_cache_gating_and_resume_guards(self):
+        source = (ROOT / "src/gotw_hooks.cpp").read_text(encoding="utf-8")
+        for name in (
+            "GuardGotwScoreCache",
+            "GuardGotwWeekCache",
+            "GuardGotwSubmission",
+        ):
+            self.assert_cpp(
+                f"bool {name}() noexcept {{ return isolateCurrentWeeklyResult(); }}",
+                source,
+            )
+        self.assertNotIn("IsolatesWeeklyCache", source)
+        self.assertNotIn("FrontendInGameplay", source)
+        resume = source.split("detail::ApplyResumeSeed(", 1)[1].split("catch (...)", 1)[
+            0
+        ]
+        self.assertIn("!rerevved::gotw::IsSinglePlayerSetupMode(", resume)
+        self.assertNotIn("SetupKind::Network", resume)
+        self.assertLess(
+            resume.index("IsSinglePlayerSetupMode("), resume.index("TakeResumeSeed(")
+        )
+        self.assertNotIn("if (policy.customCivilization)", resume)
+        self.assertIn('policy.civilization, "load"', resume)
 
     def test_weekly_field_store_back(self):
         source = (ROOT / "src/gotw_settings.cpp").read_text(encoding="utf-8")
@@ -482,6 +538,7 @@ class GotwContractTests(unittest.TestCase):
         self.assertEqual(
             re.findall(r'^        \{\s*"(\w+)"', tabs, re.MULTILINE),
             [
+                "General",
                 "Gameplay",
                 "Notifications",
                 "Online",
@@ -503,6 +560,10 @@ class GotwContractTests(unittest.TestCase):
         self.assert_cpp('{ "input_vibration", "Vibration" }', overlay)
         self.assert_cpp('{ "button_icons", Audience::kPlayer }', overlay)
         self.assert_cpp('{ "button_icons", "Button Icons" }', overlay)
+        icons = (ROOT / "src/button_icons.cpp").read_text(encoding="utf-8")
+        self.assert_cpp(
+            'REXCVAR_DEFINE_STRING(button_icons, "auto", "ReRevved",', icons
+        )
         self.assert_cpp(
             'layout.float_decimals = { { "mnk_sensitivity", 2 } };', overlay
         )
@@ -640,6 +701,9 @@ class GotwContractTests(unittest.TestCase):
                 "GuardGotwSubmission": "sub_82DBE688",
                 "ReapplyGotwSeed": "sub_82D91A78",
                 "OverrideGotwCivilization": "sub_82DADC88",
+                "AllowGotwPracticeMenu": "sub_82D06398",
+                "ClassifyGotwLoad": "sub_82D86400",
+                "ApplyGotwResumeSeed": "sub_82D86400",
                 "TraceGotwWriterEntry": "sub_82DADC88",
                 "TraceGotwWriterExit": "sub_82DADC88",
                 "TraceGotwGeneratorSeed": "sub_82D0F0D0",
@@ -711,6 +775,35 @@ class GotwContractTests(unittest.TestCase):
             prng.index("TraceGotwPrng(ctx.r27);"),
             prng.index("ctx.r11.s64 = -2096234496;"),
         )
+        menu = self.windows["AllowGotwPracticeMenu"]
+        self.assertIn("ctx.r31.s64 = 1;", menu)
+        self.assertLess(
+            menu.index("ctx.cr6.compare<int32_t>(ctx.r11.s32, 2, ctx.xer);"),
+            menu.index("AllowGotwPracticeMenu(ctx.r11)"),
+        )
+        self.assertLess(
+            menu.index("AllowGotwPracticeMenu(ctx.r11)"),
+            menu.index("if (!ctx.cr6.eq) goto loc_82D06498;"),
+        )
+        self.assertIn("goto loc_82D06498;", menu)
+        # Refusal at 0x82D864F4 wipes live state and must not reach classification.
+        classify = self.windows["ClassifyGotwLoad"]
+        self.assertIn("loc_82D86598:", classify)
+        self.assertLess(
+            classify.index("loc_82D86598:"),
+            classify.index("ClassifyGotwLoad(ctx.r1, ctx.r29);"),
+        )
+        self.assertNotIn("goto loc_82D864F4;", classify)
+        resume = self.windows["ApplyGotwResumeSeed"]
+        self.assertLess(
+            resume.index("ctx.r5.s64 = 0;"),
+            resume.index("ApplyGotwResumeSeed(ctx.r3, ctx.r4, ctx.r5);"),
+        )
+        self.assertLess(
+            resume.index("ApplyGotwResumeSeed(ctx.r3, ctx.r4, ctx.r5);"),
+            resume.index("sub_82DADC88(ctx, base);"),
+        )
+        self.assertIn("ctx.lr = 0x82D86860;", resume)
         outcome = self.windows["outcome"]
         self.assertLess(
             outcome.index("if (!ctx.cr6.eq) goto loc_82D7DCBC;"),

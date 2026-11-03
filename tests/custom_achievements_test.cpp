@@ -70,6 +70,21 @@ struct FakeStore
             });
     }
 
+    achievements::AwardResult recordSunk(const achievements::VictoryContext& context)
+    {
+        return achievements::RecordNavalVictory(
+            context,
+            [this](uint32_t id)
+            {
+                return unlocked.contains(id);
+            },
+            [this](uint32_t id)
+            {
+                ++unlockCalls;
+                return unlocked.insert(id).second;
+            });
+    }
+
     achievements::AwardResult recordDefeat()
     {
         return achievements::RecordBarbarianDefeat(
@@ -97,6 +112,21 @@ achievements::VictoryContext qualifyingOneToRule(int32_t type = 1)
 achievements::DefeatEvent localKillsBarbarian()
 {
     return { true, true, 5, 0, 0, 5, false, true };
+}
+
+// The local player 0 sinks a Galley of player 3 at a combat site.
+achievements::DefeatEvent localSinksShip()
+{
+    return { true, true, 3, 0, 0, 5, false, true, 20 };
+}
+
+// A non-network Deity game from the Islands map pack.
+achievements::VictoryContext islandsDeity()
+{
+    achievements::VictoryContext context;
+    context.difficulty = 4;
+    context.packId     = "rerevved-islands";
+    return context;
 }
 
 // A tracked Deity win in 2000 AD with no handicaps, no battles and no units: it
@@ -192,11 +222,11 @@ TEST_CASE("custom_achievement_metadata", "[ctest][custom-achievements]")
     CHECK(info.id == achievements::kConcentratedPowerOfWillId);
     CHECK(info.id > 0xFFFF);
     CHECK(info.label == "200% Concentrated Power of Will");
-    CHECK(info.description == "Win a game on Deity with all five AI Handicaps set to 200% for the entire game.");
+    CHECK(info.description == "Win a game on Deity with all five AI Handicaps set to 200%.");
     CHECK(info.unachieved_description == info.description);
-    CHECK(info.gamerscore == 200);
-    CHECK(info.icon_path == "icons/200-percent-concentrated-power-of-will.png");
-    CHECK(info.image_id == 0);
+    CHECK(info.gamerscore == 250);
+    CHECK(info.icon_path == "fpk:Common0.FPK/gov_revolution.dds");
+    CHECK(info.image_id == 21);
     CHECK(info.flags == 0);
 }
 
@@ -380,7 +410,7 @@ TEST_CASE("custom_achievement_new_metadata", "[ctest][custom-achievements]")
     CHECK(rule.unachieved_description == rule.description);
     CHECK(rule.gamerscore == 15);
     CHECK(rule.image_id == 5);
-    CHECK(rule.icon_path.empty());
+    CHECK(rule.icon_path == "fpk:pedia.FPK/bldg_palace.dds");
     CHECK(rule.flags == 0);
 
     const auto rage = achievements::TheirRageIsWithinYourControl();
@@ -391,7 +421,7 @@ TEST_CASE("custom_achievement_new_metadata", "[ctest][custom-achievements]")
     CHECK(rage.unachieved_description == rage.description);
     CHECK(rage.gamerscore == 25);
     CHECK(rage.image_id == 21);
-    CHECK(rage.icon_path.empty());
+    CHECK(rage.icon_path == "fpk:Level.FPK/unit_barbarian.dds");
     CHECK(rage.flags == 0);
 
     const std::set<uint32_t> ids{ achievements::kConcentratedPowerOfWillId, rule.id, rage.id };
@@ -611,7 +641,7 @@ TEST_CASE("custom_achievement_barbarian_defeats_continue_after_reload", "[ctest]
     CHECK(store.recordDefeat() == achievements::AwardResult::Unlocked);
 }
 
-TEST_CASE("custom_achievement_metadata_of_all_seventeen", "[ctest][custom-achievements]")
+TEST_CASE("custom_achievement_metadata_of_all_thirty_one", "[ctest][custom-achievements]")
 {
     struct Row
     {
@@ -622,10 +652,10 @@ TEST_CASE("custom_achievement_metadata_of_all_seventeen", "[ctest][custom-achiev
     };
 
     constexpr Row rows[] = {
-        { 0x10001, "200% Concentrated Power of Will", 200, 0 },
+        { 0x10001, "200% Concentrated Power of Will", 250, 21 },
         { 0x10002, "One To Rule Them All", 15, 5 },
         { 0x10003, "Their Rage Is Within Your Control", 25, 21 },
-        { 0x10004, "100% Reason to Remember the Name", 125, 0 },
+        { 0x10004, "100% Reason to Remember the Name", 125, 21 },
         { 0x10005, "Halcyon Templar", 5, 19 },
         { 0x10006, "Beyond the Firmament", 5, 4 },
         { 0x10007, "Blockbuster World Champion", 50, 34 },
@@ -639,6 +669,20 @@ TEST_CASE("custom_achievement_metadata_of_all_seventeen", "[ctest][custom-achiev
         { 0x1000F, "I Have No Enemies", 50, 51 },
         { 0x10010, "No More Worlds To Conquer", 30, 37 },
         { 0x10011, "Tactically Centered", 100, 21 },
+        { 0x10012, "Fly Me to the Moon", 75, 32 },
+        { 0x10013, "Midas Touch", 75, 16 },
+        { 0x10014, "Culture Club", 75, 9 },
+        { 0x10015, "Iron Man", 75, 13 },
+        { 0x10016, "Overtime", 10, 51 },
+        { 0x10017, "World at War", 50, 4 },
+        { 0x10018, "Continental Drift", 25, 30 },
+        { 0x10019, "Island in the Sun", 25, 23 },
+        { 0x1001A, "Smoke on the Water", 25, 26 },
+        { 0x1001B, "Clash of the Titans", 25, 18 },
+        { 0x1001C, "Weather With You", 25, 25 },
+        { 0x1001D, "Around the World", 25, 34 },
+        { 0x1001E, "The Bay Harbor Butcher", 50, 24 },
+        { 0x1001F, "Morte Eterna", 50, 35 },
     };
     const auto all = achievements::AllAchievements();
     REQUIRE(all.size() == std::size(rows));
@@ -653,17 +697,17 @@ TEST_CASE("custom_achievement_metadata_of_all_seventeen", "[ctest][custom-achiev
         CHECK(all[i].unachieved_description == all[i].description);
         CHECK_FALSE(all[i].description.empty());
         CHECK(all[i].flags == 0);
-        CHECK((i == 0 || i == 3) == !all[i].icon_path.empty());
+        CHECK(all[i].icon_path.starts_with("fpk:"));
         CHECK(std::string_view(achievements::AchievementName(rows[i].id)) == rows[i].label);
         total += all[i].gamerscore;
     }
-    CHECK(total == 955);
-    CHECK(all[3].icon_path == "icons/100-percent-reason-to-remember-the-name.png");
+    CHECK(total == 1615);
+    CHECK(all[3].icon_path == "fpk:pedia.FPK/gov_fundamentalism.dds");
     CHECK(std::string_view(achievements::AchievementName(0x1FFFF)) == "unknown");
     CHECK(achievements::ConcentratedPowerOfWill().label == all[0].label);
     CHECK(achievements::OneToRule().label == all[1].label);
     CHECK(achievements::TheirRageIsWithinYourControl().label == all[2].label);
-    CHECK(all[8].description == "Win a technology victory on or before 100 BC.");
+    CHECK(all[8].description == "Win a Technology Victory on or before 100 BC.");
     CHECK(all[13].description == "Win a Game of the Week on Week 36428.");
 }
 
@@ -918,6 +962,216 @@ TEST_CASE("custom_achievement_domination_with_six_opponents", "[ctest][custom-ac
     CHECK_FALSE(achievements::QualifiesNoMoreWorlds(context));
 }
 
+TEST_CASE("custom_achievement_single_handicap_victories", "[ctest][custom-achievements]")
+{
+    struct Row
+    {
+        int32_t type;
+        bool (*qualifies)(const achievements::VictoryContext&) noexcept;
+        int32_t economy::Policy::* handicap;
+    };
+
+    const Row rows[] = {
+        { 2, achievements::QualifiesFlyMeToTheMoon, &economy::Policy::researchBonusPercent },
+        { 3, achievements::QualifiesMidasTouch, &economy::Policy::goldBonusPercent },
+        { 4, achievements::QualifiesCultureClub, &economy::Policy::cultureBonusPercent },
+        { 1, achievements::QualifiesIronMan, &economy::Policy::productionBonusPercent },
+    };
+    for (const auto& row : rows)
+    {
+        CAPTURE(row.type);
+        auto base                 = tracked(row.type);
+        base.policy.*row.handicap = 200;
+        CHECK(row.qualifies(base));
+        for (const int32_t value : { 199, 100, 0 })
+        {
+            auto changed                 = base;
+            changed.policy.*row.handicap = value;
+            CHECK_FALSE(row.qualifies(changed));
+        }
+        for (int32_t type = 1; type <= 4; ++type)
+        {
+            auto changed        = base;
+            changed.victoryType = type;
+            CHECK(row.qualifies(changed) == (type == row.type));
+        }
+        auto changed       = base;
+        changed.difficulty = 3;
+        CHECK_FALSE(row.qualifies(changed));
+        changed             = base;
+        changed.networkGame = true;
+        CHECK_FALSE(row.qualifies(changed));
+        changed               = base;
+        changed.nativeEconomy = true;
+        CHECK_FALSE(row.qualifies(changed));
+        // No history requirement.
+        changed              = base;
+        changed.historyKnown = false;
+        CHECK(row.qualifies(changed));
+    }
+    // A different handicap at 200 does not qualify.
+    auto wrong                    = tracked(2);
+    wrong.policy.goldBonusPercent = 200;
+    CHECK_FALSE(achievements::QualifiesFlyMeToTheMoon(wrong));
+}
+
+TEST_CASE("custom_achievement_overtime_needs_an_extended_turn_limit", "[ctest][custom-achievements]")
+{
+    auto context      = tracked();
+    context.turnLimit = 1;
+    for (const auto [year, expected] : { std::pair{ 2099, false }, std::pair{ 2100, false }, std::pair{ 2101, true }, std::pair{ 2300, true } })
+    {
+        CAPTURE(year);
+        context.year = year;
+        CHECK(achievements::QualifiesOvertime(context) == expected);
+    }
+    context.year = 2150;
+    for (const auto [limit, expected] : { std::pair{ 0, false }, std::pair{ 1, true }, std::pair{ 3, true }, std::pair{ 4, true }, std::pair{ 5, false } })
+    {
+        CAPTURE(limit);
+        context.turnLimit = limit;
+        CHECK(achievements::QualifiesOvertime(context) == expected);
+    }
+    // Any difficulty and no history requirement.
+    context              = tracked();
+    context.turnLimit    = 4;
+    context.year         = 2101;
+    context.difficulty   = 0;
+    context.historyKnown = false;
+    CHECK(achievements::QualifiesOvertime(context));
+    context.yearKnown = false;
+    CHECK_FALSE(achievements::QualifiesOvertime(context));
+    context             = tracked();
+    context.turnLimit   = 4;
+    context.year        = 2101;
+    context.networkGame = true;
+    CHECK_FALSE(achievements::QualifiesOvertime(context));
+}
+
+TEST_CASE("custom_achievement_world_at_war_on_earth", "[ctest][custom-achievements]")
+{
+    auto context               = tracked();
+    context.packId             = "rerevved-real-world";
+    context.mapName            = "rr_earth";
+    context.alwaysAtWar        = true;
+    context.initialAiOpponents = 6;
+    CHECK(achievements::QualifiesWorldAtWar(context));
+    CHECK(achievements::QualifiesAroundTheWorld(context));
+
+    auto changed       = context;
+    changed.difficulty = 3;
+    CHECK_FALSE(achievements::QualifiesWorldAtWar(changed));
+    changed             = context;
+    changed.networkGame = true;
+    CHECK_FALSE(achievements::QualifiesWorldAtWar(changed));
+    changed             = context;
+    changed.alwaysAtWar = false;
+    CHECK_FALSE(achievements::QualifiesWorldAtWar(changed));
+    changed                    = context;
+    changed.initialAiOpponents = 5;
+    CHECK_FALSE(achievements::QualifiesWorldAtWar(changed));
+    changed         = context;
+    changed.mapName = "rr_japan";
+    CHECK_FALSE(achievements::QualifiesWorldAtWar(changed));
+    CHECK(achievements::QualifiesAroundTheWorld(changed));
+    changed        = context;
+    changed.packId = "rerevved-islands";
+    CHECK_FALSE(achievements::QualifiesWorldAtWar(changed));
+    changed        = context;
+    changed.packId = "";
+    CHECK_FALSE(achievements::QualifiesWorldAtWar(changed));
+}
+
+TEST_CASE("custom_achievement_map_pack_wins", "[ctest][custom-achievements]")
+{
+    struct Row
+    {
+        const char* pack;
+        bool (*qualifies)(const achievements::VictoryContext&) noexcept;
+    };
+
+    const Row rows[] = {
+        { "rerevved-landmasses", achievements::QualifiesContinentalDrift },
+        { "rerevved-islands", achievements::QualifiesIslandInTheSun },
+        { "rerevved-inland-water", achievements::QualifiesSmokeOnTheWater },
+        { "rerevved-matchups", achievements::QualifiesClashOfTheTitans },
+        { "rerevved-climates", achievements::QualifiesWeatherWithYou },
+        { "rerevved-real-world", achievements::QualifiesAroundTheWorld },
+    };
+    for (const auto& row : rows)
+    {
+        CAPTURE(row.pack);
+        // Any difficulty, any victory type and no history requirement.
+        auto context         = tracked(3);
+        context.difficulty   = 0;
+        context.historyKnown = false;
+        context.packId       = row.pack;
+        context.mapName      = "any_map";
+        for (const auto& other : rows)
+        {
+            CHECK(other.qualifies(context) == (std::string_view(other.pack) == row.pack));
+        }
+        context.victoryType = 1;
+        CHECK(row.qualifies(context));
+        context.networkGame = true;
+        CHECK_FALSE(row.qualifies(context));
+        CHECK_FALSE(row.qualifies(tracked()));
+    }
+}
+
+TEST_CASE("custom_achievement_morte_eterna_on_europe", "[ctest][custom-achievements]")
+{
+    auto context        = tracked(1);
+    context.alwaysAtWar = true;
+    context.packId      = "rerevved-real-world";
+    context.mapName     = "rr_europe";
+    CHECK(achievements::QualifiesMorteEterna(context));
+    CHECK(unlockedBy(context).contains(achievements::kMorteEternaId));
+
+    const auto rejects = [&](auto change)
+    {
+        auto changed = context;
+        change(changed);
+        return !achievements::QualifiesMorteEterna(changed);
+    };
+    CHECK(rejects(
+        [](auto& c)
+        {
+            c.difficulty = 3;
+        }));
+    CHECK(rejects(
+        [](auto& c)
+        {
+            c.networkGame = true;
+        }));
+    CHECK(rejects(
+        [](auto& c)
+        {
+            c.victoryType = 2;
+        }));
+    CHECK_FALSE(rejects(
+        [](auto& c)
+        {
+            c.policy.goldBonusPercent = 101;
+            c.nativeEconomy           = true;
+        }));
+    CHECK(rejects(
+        [](auto& c)
+        {
+            c.alwaysAtWar = false;
+        }));
+    CHECK(rejects(
+        [](auto& c)
+        {
+            c.packId = "rerevved-islands";
+        }));
+    CHECK(rejects(
+        [](auto& c)
+        {
+            c.mapName = "rr_earth";
+        }));
+}
+
 TEST_CASE("custom_achievement_untracked_history_fails_whole_game_achievements", "[ctest][custom-achievements]")
 {
     // A load without a schema 2 sidecar: every history-based achievement fails even when
@@ -957,7 +1211,8 @@ TEST_CASE("custom_achievement_victory_evaluates_every_predicate", "[ctest][custo
                                        achievements::kWeekendWarriorId,
                                        achievements::kYeAreIdleId,
                                        achievements::kLeapThroughTimeId,
-                                       achievements::kNoEnemiesId };
+                                       achievements::kNoEnemiesId,
+                                       achievements::kFlyMeToTheMoonId };
     CHECK(unlockedBy(context) == expected);
 
     std::set<uint32_t> unlocked;
@@ -977,7 +1232,7 @@ TEST_CASE("custom_achievement_victory_evaluates_every_predicate", "[ctest][custo
             });
     };
     const auto first = award();
-    CHECK(first.size() == 12);
+    CHECK(first.size() == 25);
     CHECK(unlocked == expected);
     CHECK(unlockCalls == static_cast<int>(expected.size()));
     uint32_t previous = 0;
@@ -1026,8 +1281,8 @@ TEST_CASE("custom_achievement_victory_keeps_the_original_pair", "[ctest][custom-
         const auto unlocked  = unlockedBy(context);
         CHECK(unlocked.contains(achievements::kConcentratedPowerOfWillId));
         CHECK(unlocked.contains(achievements::kOneToRuleId) == occ);
-        // No tracked history and no readable year.
-        CHECK(unlocked.size() == (occ ? 2u : 1u));
+        // Iron Man also qualifies. No tracked history and no readable year.
+        CHECK(unlocked.size() == (occ ? 3u : 2u));
     }
 }
 
@@ -1162,6 +1417,132 @@ TEST_CASE("custom_achievement_capital_capture_rules", "[ctest][custom-achievemen
     CHECK(capture(-3600, 3, false) == achievements::AwardResult::NotQualified);
     CHECK(capture(-3600, 5, false) == achievements::AwardResult::Unlocked);
     CHECK(capture(-3600, 4, true) == achievements::AwardResult::NotQualified);
+}
+
+TEST_CASE("custom_achievement_counts_local_ship_victories", "[ctest][custom-achievements]")
+{
+    CHECK(achievements::CountsAsNavalVictory(localSinksShip()));
+    for (int32_t type = 19; type <= 23; ++type)
+    {
+        auto event      = localSinksShip();
+        event.loserType = type;
+        CHECK(achievements::CountsAsNavalVictory(event));
+    }
+
+    const auto rejects = [](auto change)
+    {
+        auto event = localSinksShip();
+        change(event);
+        return !achievements::CountsAsNavalVictory(event);
+    };
+    for (const int32_t type : { -1, 0, 7, 18, 24, 28 })
+    {
+        CAPTURE(type);
+        CHECK(rejects(
+            [type](auto& e)
+            {
+                e.loserType = type;
+            }));
+    }
+    CHECK(rejects(
+        [](auto& e)
+        {
+            e.winner = 1;
+        }));
+    CHECK(rejects(
+        [](auto& e)
+        {
+            e.local  = -1;
+            e.winner = -1;
+        }));
+    CHECK(rejects(
+        [](auto& e)
+        {
+            e.loser  = 0;
+            e.winner = 0;
+        }));
+    CHECK(rejects(
+        [](auto& e)
+        {
+            e.combatSite = false;
+        }));
+    CHECK(rejects(
+        [](auto& e)
+        {
+            e.participantsMatch = false;
+        }));
+    CHECK(rejects(
+        [](auto& e)
+        {
+            e.killedBefore = true;
+        }));
+    CHECK(rejects(
+        [](auto& e)
+        {
+            e.killedAfter = false;
+        }));
+}
+
+TEST_CASE("custom_achievement_bay_harbor_butcher_unlocks_at_fifty", "[ctest][custom-achievements]")
+{
+    const ProgressReset reset;
+    achievements::BeginNewGame(false, false);
+
+    FakeStore store;
+    for (int i = 1; i < achievements::kNavalVictoryTarget; ++i)
+    {
+        CAPTURE(i);
+        CHECK(store.recordSunk(islandsDeity()) == achievements::AwardResult::NotQualified);
+    }
+    CHECK(achievements::CurrentProgress().navalVictories == 49);
+    CHECK(store.unlockCalls == 0);
+
+    CHECK(store.recordSunk(islandsDeity()) == achievements::AwardResult::Unlocked);
+    CHECK(store.unlocked.contains(achievements::kBayHarborButcherId));
+    CHECK(store.recordSunk(islandsDeity()) == achievements::AwardResult::AlreadyUnlocked);
+    CHECK(store.unlockCalls == 1);
+
+    // The count saturates and starts over with a new game.
+    for (int i = 0; i < 300; ++i)
+    {
+        store.recordSunk(islandsDeity());
+    }
+    CHECK(achievements::CurrentProgress().navalVictories == achievements::kMaximumNavalVictories);
+    achievements::BeginNewGame(false, false);
+    CHECK(achievements::CurrentProgress().navalVictories == 0);
+}
+
+TEST_CASE("custom_achievement_bay_harbor_butcher_needs_deity_on_the_islands", "[ctest][custom-achievements]")
+{
+    const ProgressReset reset;
+    const auto          sinkFifty = [](const achievements::VictoryContext& context)
+    {
+        achievements::BeginNewGame(false, false);
+        FakeStore store;
+        for (int i = 0; i < achievements::kNavalVictoryTarget; ++i)
+        {
+            store.recordSunk(context);
+        }
+        return store.unlocked.contains(achievements::kBayHarborButcherId);
+    };
+    CHECK(sinkFifty(islandsDeity()));
+
+    auto context       = islandsDeity();
+    context.difficulty = 3;
+    CHECK_FALSE(sinkFifty(context));
+    context             = islandsDeity();
+    context.networkGame = true;
+    CHECK_FALSE(sinkFifty(context));
+    context        = islandsDeity();
+    context.packId = "rerevved-landmasses";
+    CHECK_FALSE(sinkFifty(context));
+    context.packId = "";
+    CHECK_FALSE(sinkFifty(context));
+
+    // A restored count continues toward the target.
+    achievements::RestoreProgress({ .navalVictories = 49 });
+    FakeStore store;
+    CHECK(store.recordSunk(islandsDeity()) == achievements::AwardResult::Unlocked);
 }
 
 TEST_CASE("custom_achievement_last_stand_strength", "[ctest][custom-achievements]")
@@ -1323,6 +1704,14 @@ TEST_CASE("custom_achievement_history_records", "[ctest][custom-achievements]")
         CHECK(achievements::CurrentProgress().firstFoundingTurn == 0);
     }
 
+    SECTION("a later starting era rules out a late first founding")
+    {
+        achievements::BeginNewGame(false, false);
+        achievements::RecordStartingEraApplied();
+        achievements::RecordCityFounded(100);
+        CHECK(achievements::CurrentProgress().firstFoundingTurn == 0);
+    }
+
     SECTION("a huge turn is bounded so the sidecar stays writable")
     {
         achievements::BeginNewGame(false, false);
@@ -1409,6 +1798,7 @@ TEST_CASE("custom_achievement_restore_progress_normalizes", "[ctest][custom-achi
     achievements::Progress saved;
     saved.occFromSetup       = true;
     saved.barbarianDefeats   = 12;
+    saved.navalVictories     = 7;
     saved.historyKnown       = true;
     saved.unitBuilt          = true;
     saved.battleFought       = true;
@@ -1431,6 +1821,13 @@ TEST_CASE("custom_achievement_restore_progress_normalizes", "[ctest][custom-achi
     saved.firstFoundingTurn = INT32_MAX;
     achievements::RestoreProgress(saved);
     CHECK(achievements::CurrentProgress().firstFoundingTurn == achievements::kMaximumRecordedTurn);
+    saved.navalVictories = 300;
+    achievements::RestoreProgress(saved);
+    CHECK(achievements::CurrentProgress().navalVictories == achievements::kMaximumNavalVictories);
+    saved.navalVictories = -1;
+    achievements::RestoreProgress(saved);
+    CHECK(achievements::CurrentProgress().navalVictories == 0);
+    saved.navalVictories = 7;
 
     // Restored history keeps recording without replacing the first founding turn.
     saved.firstFoundingTurn = 130;

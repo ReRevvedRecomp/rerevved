@@ -1,7 +1,10 @@
+#include "ai_civilization_setup.h"
 #include "gameplay_fixes.h"
+#include "gameplay_session_settings.h"
 #include "guest_import_doubles.hpp"
 
 #include <algorithm>
+#include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <cstdint>
 #include <filesystem>
@@ -9,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include <rex/cvar.h>
 #include <rex/kernel/init.h>
 #include <rex/memory/utils.h>
 #include <rex/ppc.h>
@@ -22,6 +26,18 @@ bool SuppressLiteracyCourthouseReward(PPCRegister& technology, PPCRegister& buil
 bool SuppressStaleFirstDiscoveryCaption(PPCRegister& savedCity, PPCRegister& cityTable, PPCRegister& acquirer);
 bool SkipFailedSpyUnitCreation(PPCRegister& returnedSlot);
 bool AdmitAiNuclearOpponent(PPCRegister& player, PPCRegister& opponent, PPCRegister& history);
+bool SkipUnlimitedTurnDeadline();
+bool SkipTurnLimitWarning();
+bool AdmitExtendedTurnLimitWarning();
+bool SkipExtendedTurnLimitDeadline();
+void ApplyStartingEra(PPCRegister& r31);
+void ApplyMultiplayerAiDifficulty(PPCRegister& r11);
+void ProjectAlwaysAtWarEarly();
+void ProjectAlwaysAtWarGroups();
+void ProjectAlwaysAtWarOnLoad();
+void RefuseContactChoice(PPCRegister& choice, PPCRegister& p, PPCRegister& q);
+bool RefuseRelationRequest(PPCRegister& p, PPCRegister& q, PPCRegister& value);
+bool RefuseDeliveredRelation(PPCRegister& p, PPCRegister& q, PPCRegister& value);
 REX_EXTERN(sub_82CF0CB0);
 
 namespace gf = rerevved::gameplay_fixes;
@@ -322,6 +338,287 @@ TEST_CASE("domination_shortened_minimum_latch", "[ctest][gameplay-fixes]")
     CHECK(!gf::ShortenedMinimumAllowed());
 }
 
+TEST_CASE("turn_limit_choices_map_to_indexes", "[ctest][gameplay-fixes]")
+{
+    for (const auto& [text, index] : std::array<std::pair<const char*, int32_t>, 5>{ { { "2100", 0 }, { "2200", 1 }, { "2300", 2 }, { "2500", 3 }, { "unlimited", 4 } } })
+    {
+        UNSCOPED_INFO("text=" << text);
+        CHECK(gf::ParseTurnLimit(text) == index);
+        CHECK(gf::IsValidTurnLimit(index));
+    }
+    CHECK(!gf::IsValidTurnLimit(5));
+    CHECK(!gf::ExtendsTurnLimit(gf::kTurnLimitNative));
+    CHECK(gf::ExtendsTurnLimit(1));
+    CHECK(gf::ExtendsTurnLimit(3));
+    CHECK(!gf::ExtendsTurnLimit(gf::kTurnLimitUnlimited));
+}
+
+TEST_CASE("turn_limit_cap_turns_follow_the_calendar", "[ctest][gameplay-fixes]")
+{
+    // Year = 2 * turn + 1714 from turn 118; the native 2100 cap is turn 193.
+    CHECK(gf::TurnLimitCapTurn(0) == 193);
+    CHECK(gf::TurnLimitCapTurn(1) == 243);
+    CHECK(gf::TurnLimitCapTurn(2) == 293);
+    CHECK(gf::TurnLimitCapTurn(3) == 393);
+}
+
+TEST_CASE("turn_limit_warning_is_five_turns_before_the_deadline", "[ctest][gameplay-fixes]")
+{
+    for (const auto& [limit, warning] : std::array<std::pair<int32_t, int32_t>, 3>{ { { 1, 238 }, { 2, 288 }, { 3, 388 } } })
+    {
+        for (const int32_t start : { 0, 1, 40 })
+        {
+            CHECK(gf::TurnLimitDeadlineTurn(limit, -1, start) == gf::TurnLimitCapTurn(limit));
+            for (int32_t turn = warning - 3; turn <= warning + 3; ++turn)
+            {
+                UNSCOPED_INFO("limit=" << limit << " turn=" << turn << " start=" << start);
+                CHECK(gf::TurnLimitWarningDue(limit, -1, start, turn) == (turn == warning));
+            }
+        }
+    }
+}
+
+TEST_CASE("turn_limit_scenario_deadline_waits_for_200_elapsed_turns", "[ctest][gameplay-fixes]")
+{
+    // The native deadline needs the year at the cap and, outside the sentinel scenario, 200 elapsed turns.
+    for (const auto& [start, deadline] : std::array<std::pair<int32_t, int64_t>, 3>{ { { 44, 244 }, { 43, 243 }, { 42, 243 } } })
+    {
+        UNSCOPED_INFO("start=" << start);
+        CHECK(gf::TurnLimitDeadlineTurn(1, 7, start) == deadline);
+        int64_t first = 0;
+        while (!(2 * first + 1714 >= 2200 && first - start >= 200))
+        {
+            ++first;
+        }
+        CHECK(first == deadline);
+        CHECK(gf::TurnLimitWarningDue(1, 7, start, static_cast<int32_t>(deadline - 5)));
+        CHECK(!gf::TurnLimitWarningDue(1, 7, start, static_cast<int32_t>(deadline - 4)));
+    }
+    CHECK(gf::TurnLimitDeadlineTurn(3, 7, 250) == 450);
+    CHECK(gf::TurnLimitWarningDue(3, 7, 250, 445));
+    CHECK(gf::TurnLimitDeadlineTurn(3, 7, 100) == 393);
+}
+
+TEST_CASE("turn_limit_year_test_uses_the_extended_cap", "[ctest][gameplay-fixes]")
+{
+    CHECK(gf::BeforeTurnLimitYear(1, 2198));
+    CHECK(!gf::BeforeTurnLimitYear(1, 2200));
+    CHECK(!gf::BeforeTurnLimitYear(1, 2202));
+    CHECK(gf::BeforeTurnLimitYear(3, 2498));
+    CHECK(!gf::BeforeTurnLimitYear(3, 2500));
+}
+
+TEST_CASE("turn_limit_hooks_pass_native_and_decide_extended_games", "[ctest][gameplay-fixes]")
+{
+    rex::Runtime runtime(std::filesystem::path{});
+    REQUIRE(runtime.Setup(rex::RuntimeConfig{
+                .kernel_init = rex::kernel::InitializeKernel,
+                .tool_mode   = true,
+            }) == 0);
+    auto* memory = runtime.memory();
+    auto* heap   = memory->LookupHeap(0x83120000);
+    REQUIRE((heap && heap->AllocFixed(0x83120000, 0x10000, 0x10000, rex::memory::kMemoryAllocationReserve | rex::memory::kMemoryAllocationCommit, rex::memory::kMemoryProtectRead | rex::memory::kMemoryProtectWrite)));
+    const auto calendar = [&](int32_t scenario, int32_t start, int32_t turn)
+    {
+        rex::memory::store_and_swap<int32_t>(memory->TranslateVirtual(0x8312B8D4), scenario);
+        rex::memory::store_and_swap<int32_t>(memory->TranslateVirtual(0x8312B8D8), start);
+        rex::memory::store_and_swap<int32_t>(memory->TranslateVirtual(0x8312B8DC), turn);
+        rex::memory::store_and_swap<int32_t>(memory->TranslateVirtual(0x8312B8E0), 2 * turn + 1714);
+    };
+    const auto restore = gf::TurnLimitForGame();
+
+    gf::RestoreTurnLimit(gf::kTurnLimitNative);
+    for (const int32_t turn : { 188, 192, 193, 194, 238, 243 })
+    {
+        calendar(-1, 1, turn);
+        CHECK(!SkipUnlimitedTurnDeadline());
+        CHECK(!SkipTurnLimitWarning());
+        CHECK(!AdmitExtendedTurnLimitWarning());
+        CHECK(!SkipExtendedTurnLimitDeadline());
+    }
+
+    gf::RestoreTurnLimit(gf::kTurnLimitUnlimited);
+    calendar(-1, 1, 243);
+    CHECK(SkipUnlimitedTurnDeadline());
+    CHECK(!SkipTurnLimitWarning());
+    CHECK(!AdmitExtendedTurnLimitWarning());
+    CHECK(!SkipExtendedTurnLimitDeadline());
+
+    gf::RestoreTurnLimit(1);
+    CHECK(!SkipUnlimitedTurnDeadline());
+    CHECK(AdmitExtendedTurnLimitWarning());
+    for (const int32_t turn : { 188, 189, 237, 239, 242 })
+    {
+        calendar(-1, 1, turn);
+        CHECK(SkipTurnLimitWarning());
+    }
+    calendar(-1, 1, 238);
+    CHECK(!SkipTurnLimitWarning());
+    for (const int32_t turn : { 193, 242 })
+    {
+        calendar(-1, 1, turn);
+        CHECK(SkipExtendedTurnLimitDeadline());
+    }
+    for (const int32_t turn : { 243, 244, 400 })
+    {
+        calendar(-1, 1, turn);
+        CHECK(!SkipExtendedTurnLimitDeadline());
+    }
+    calendar(5, 100, 295);
+    CHECK(!SkipTurnLimitWarning());
+    calendar(5, 100, 238);
+    CHECK(SkipTurnLimitWarning());
+
+    gf::RestoreTurnLimit(restore);
+}
+
+TEST_CASE("spaceship_tag_matches_only_its_actor_and_finishes_in_the_corridor", "[ctest][gameplay-fixes]")
+{
+    const int32_t tag = gf::SpaceshipActorIndex(2, 7);
+    CHECK(tag == 519);
+    CHECK(gf::MatchesSpaceshipTag(tag, 2, 7));
+    CHECK(!gf::MatchesSpaceshipTag(tag, 2, 6));
+    CHECK(!gf::MatchesSpaceshipTag(tag, 3, 7));
+
+    CHECK(gf::FinishesSpaceshipEarly(1000));
+    CHECK(!gf::FinishesSpaceshipEarly(1001));
+}
+
+TEST_CASE("unit_movement_scales_a_positive_quantum_within_the_threshold", "[ctest][gameplay-fixes]")
+{
+    CHECK(gf::ParseUnitMovement("normal") == gf::UnitMovement::Normal);
+    CHECK(gf::ParseUnitMovement("fast") == gf::UnitMovement::Fast);
+    CHECK(gf::ParseUnitMovement("instant") == gf::UnitMovement::Instant);
+
+    CHECK(gf::ScaleMovementQuantum(7) == 21);
+    CHECK(gf::ScaleMovementQuantum(0) == 0);
+    CHECK(gf::ScaleMovementQuantum(-5) == -5);
+    CHECK(gf::ScaleMovementQuantum(INT32_MAX) == gf::kMaxMovementQuantum);
+    const int64_t largest = gf::kMaxMovementQuantum;
+    CHECK(largest + largest / 2 <= INT32_MAX);
+    CHECK(largest + 1 + (largest + 1) / 2 > INT32_MAX);
+
+    CHECK(gf::AcceleratesMovingUnit(0));
+    CHECK(!gf::AcceleratesMovingUnit(24));
+    CHECK(!gf::AcceleratesMovingUnit(27));
+}
+
+TEST_CASE("starting_era_choices_map_to_native_values", "[ctest][gameplay-fixes]")
+{
+    for (const auto& [text, index] : std::array<std::pair<const char*, int32_t>, 5>{ { { "ancient", 0 }, { "medieval", 1 }, { "industrial", 2 }, { "modern", 3 }, { "future", 4 } } })
+    {
+        UNSCOPED_INFO("text=" << text);
+        CHECK(gf::ParseStartingEra(text) == index);
+        CHECK(gf::IsValidStartingEra(index));
+    }
+    CHECK(gf::StartingEraYear(4) == 2025);
+    CHECK(!gf::IsValidStartingEra(5));
+}
+
+TEST_CASE("starting_era_applies_only_to_ordinary_games", "[ctest][gameplay-fixes]")
+{
+    CHECK(!gf::AppliesStartingEra(gf::kStartingEraNative, -1));
+    for (const int32_t era : { 1, 2, 3, 4 })
+    {
+        CHECK(gf::AppliesStartingEra(era, -1));
+        for (const int32_t scenario : { 0, 4, 7 })
+        {
+            CHECK(!gf::AppliesStartingEra(era, scenario));
+        }
+    }
+}
+
+TEST_CASE("starting_era_hook_writes_only_the_admitted_ordinary_halfword", "[ctest][gameplay-fixes]")
+{
+    rex::Runtime runtime(std::filesystem::path{});
+    REQUIRE(runtime.Setup(rex::RuntimeConfig{
+                .kernel_init = rex::kernel::InitializeKernel,
+                .tool_mode   = true,
+            }) == 0);
+    auto*              memory = runtime.memory();
+    constexpr uint32_t kQ     = 0x830E8FD0;
+    for (const uint32_t start : { 0x830E0000u, 0x83120000u })
+    {
+        auto* heap = memory->LookupHeap(start);
+        REQUIRE((heap && heap->AllocFixed(start, 0x10000, 0x10000, rex::memory::kMemoryAllocationReserve | rex::memory::kMemoryAllocationCommit, rex::memory::kMemoryProtectRead | rex::memory::kMemoryProtectWrite)));
+    }
+    const auto restore = gf::StartingEraForGame();
+    const auto field   = [&]
+    {
+        return rex::memory::load_and_swap<int16_t>(memory->TranslateVirtual(kQ + 0x1C));
+    };
+    const auto year = [&]
+    {
+        return rex::memory::load_and_swap<int16_t>(memory->TranslateVirtual(kQ + 0x3E));
+    };
+    const auto run = [&](bool admitted, int32_t era, int32_t scenario)
+    {
+        rex::memory::store_and_swap<int16_t>(memory->TranslateVirtual(kQ + 0x1C), 7);
+        rex::memory::store_and_swap<int16_t>(memory->TranslateVirtual(kQ + 0x3E), 7);
+        rex::memory::store_and_swap<int32_t>(memory->TranslateVirtual(0x8312B8D4), scenario);
+        gf::RestoreStartingEra(era);
+        rerevved::gameplay_session::SetupGate gate(admitted);
+        PPCRegister                           r31;
+        r31.u64 = kQ;
+        ApplyStartingEra(r31);
+        CHECK(r31.u64 == kQ);
+    };
+
+    for (const auto [era, start] : std::array<std::pair<int32_t, int16_t>, 4>{ { { 1, 1000 }, { 2, 1500 }, { 3, 1800 }, { 4, 2025 } } })
+    {
+        run(true, era, -1);
+        CHECK(field() == era);
+        CHECK(year() == start);
+    }
+    run(true, 0, -1);
+    CHECK((field() == 7 && year() == 7));
+    run(true, 3, 4);
+    CHECK((field() == 7 && year() == 7));
+    {
+        rerevved::gameplay_session::SetupGate load(true, false);
+        rex::memory::store_and_swap<int32_t>(memory->TranslateVirtual(0x8312B8D4), -1);
+        gf::RestoreStartingEra(3);
+        PPCRegister r31;
+        r31.u64 = kQ;
+        ApplyStartingEra(r31);
+        CHECK(field() == 7);
+    }
+    gf::RestoreStartingEra(restore);
+}
+
+TEST_CASE("multiplayer_ai_difficulty_choices_map_to_native_values", "[ctest][gameplay-fixes]")
+{
+    for (const auto& [text, value] : std::array<std::pair<const char*, int32_t>, 3>{ { { "king", 2 }, { "emperor", 3 }, { "deity", 4 } } })
+    {
+        UNSCOPED_INFO("text=" << text);
+        CHECK(gf::ParseMultiplayerAiDifficulty(text) == value);
+        CHECK(gf::IsValidMultiplayerAiDifficulty(value));
+    }
+    CHECK(!gf::IsValidMultiplayerAiDifficulty(1));
+    CHECK(!gf::IsValidMultiplayerAiDifficulty(5));
+}
+
+TEST_CASE("multiplayer_ai_difficulty_hook_replaces_the_literal_only_during_setup", "[ctest][gameplay-fixes]")
+{
+    const auto restore = gf::MultiplayerAiDifficultyForGame();
+    const auto run     = [](bool admitted, bool newGame, int32_t difficulty)
+    {
+        gf::RestoreMultiplayerAiDifficulty(difficulty);
+        rerevved::gameplay_session::SetupGate gate(admitted, newGame);
+        PPCRegister                           r11;
+        r11.u64 = 2;
+        ApplyMultiplayerAiDifficulty(r11);
+        return r11.s64;
+    };
+    for (const int32_t difficulty : { 2, 3, 4 })
+    {
+        CHECK(run(true, true, difficulty) == difficulty);
+    }
+    CHECK(run(true, false, 4) == 2);
+    CHECK(run(false, true, 4) == 2);
+    gf::RestoreMultiplayerAiDifficulty(restore);
+}
+
 TEST_CASE("domination_elapsed_rebase_matches_threshold", "[ctest][gameplay-fixes]")
 {
     for (const int32_t minimum : { 5, 10 })
@@ -509,4 +806,177 @@ TEST_CASE("bonus_lookup_hook_changes_only_its_result", "[ctest][gameplay-fixes]"
         CHECK(ctx.r31.u64 == 0xCCull);
         CHECK(ctx.lr == call.returnAddress);
     }
+}
+
+TEST_CASE("always_at_war_projects_only_pairs_of_the_mask", "[ctest][gameplay-fixes]")
+{
+    std::array<uint32_t, 64> relation{};
+    relation.fill(0xFFFFFFFFu);
+    relation[8 * 0 + 1] = 1;
+    relation[8 * 2 + 0] = 1;
+    relation[8 * 1 + 1] = 7;
+    relation[8 * 1 + 3] = 1;
+    relation[8 * 5 + 0] = 1;
+    const auto native   = relation;
+
+    CHECK(gf::ProjectWar(relation, 0x07) == 6);
+    for (int32_t p = 0; p < 8; ++p)
+    {
+        for (int32_t q = 0; q < 8; ++q)
+        {
+            const auto cell = static_cast<size_t>(8 * p + q);
+            CHECK(relation[cell] == (p != q && p < 3 && q < 3 ? 0u : native[cell]));
+        }
+    }
+    CHECK(gf::ProjectWar(relation, 0x07) == 0);
+    CHECK(gf::ProjectWar(relation, 0x01) == 0);
+}
+
+TEST_CASE("always_at_war_civilizations_follow_setup_and_play", "[ctest][gameplay-fixes]")
+{
+    CHECK(gf::IntendedCivilizations(6, 5, 0x1, 4) == 0x1F);
+    CHECK(gf::IntendedCivilizations(6, 5, 0x1, 2) == 0x07);
+    CHECK(gf::IntendedCivilizations(6, 4, 0x1, 4) == 0);
+
+    CHECK(gf::LiveCivilizations(6, 5, 0x24, 0x02) == 0x06);
+    CHECK(gf::LiveCivilizations(6, 5, 0x20, 0x20) == 0);
+    CHECK(gf::LiveCivilizations(6, 4, 0x0F, 0x0F) == 0);
+}
+
+TEST_CASE("always_at_war_forbids_only_peace_between_live_civilizations", "[ctest][gameplay-fixes]")
+{
+    CHECK(gf::ForbidsPeace(true, 0x07, 0, 2));
+    CHECK(gf::ForbidsPeace(true, 0x07, 2, 0));
+    CHECK_FALSE(gf::ForbidsPeace(false, 0x07, 0, 2));
+    CHECK_FALSE(gf::ForbidsPeace(true, 0x07, 1, 1));
+    CHECK_FALSE(gf::ForbidsPeace(true, 0x07, 0, 3));
+    CHECK_FALSE(gf::ForbidsPeace(true, 0x07, 0, 8));
+    CHECK_FALSE(gf::ForbidsPeace(true, 0x07, -1, 0));
+
+    CHECK(gf::ForbidsRelationWrite(true, 0x07, 0, 1, 0, 1));
+    CHECK(gf::ForbidsRelationWrite(true, 0x07, 0, 1, 0, 0xFFFFFFFFu));
+    CHECK_FALSE(gf::ForbidsRelationWrite(true, 0x07, 0, 1, 0, 0));
+    CHECK_FALSE(gf::ForbidsRelationWrite(true, 0x07, 0, 1, 1, 1));
+    CHECK_FALSE(gf::ForbidsRelationWrite(false, 0x07, 0, 1, 0, 1));
+    CHECK_FALSE(gf::ForbidsRelationWrite(true, 0x07, 0, 3, 0, 1));
+}
+
+TEST_CASE("always_at_war_hooks_project_and_refuse_by_live_pair", "[ctest][gameplay-fixes]")
+{
+    rex::Runtime runtime(std::filesystem::path{});
+    REQUIRE(runtime.Setup(rex::RuntimeConfig{
+                .kernel_init = rex::kernel::InitializeKernel,
+                .tool_mode   = true,
+            }) == 0);
+    auto* memory = runtime.memory();
+    for (const auto& [page, size] : { std::pair<uint32_t, uint32_t>{ 0x82F70000u, 0x10000u }, { 0x830E0000u, 0x80000u } })
+    {
+        auto* heap = memory->LookupHeap(page);
+        REQUIRE(heap);
+        REQUIRE(heap->AllocFixed(page, size, 0x10000, rex::memory::kMemoryAllocationReserve | rex::memory::kMemoryAllocationCommit, rex::memory::kMemoryProtectRead | rex::memory::kMemoryProtectWrite));
+    }
+    const auto store = [&](uint32_t address, uint32_t value)
+    {
+        rex::memory::store_and_swap<uint32_t>(memory->TranslateVirtual(address), value);
+    };
+    const auto cell = [&](uint32_t p, uint32_t q)
+    {
+        return rex::memory::load_and_swap<uint32_t>(memory->TranslateVirtual(gf::kRelationMatrix + 4 * (8 * p + q)));
+    };
+    const auto resetMatrix = [&]
+    {
+        for (uint32_t i = 0; i < 64; ++i)
+        {
+            store(gf::kRelationMatrix + 4 * i, 0xFFFFFFFFu);
+        }
+    };
+    store(0x82F700AC, 6);
+    store(0x82F700B0, 5);
+    store(0x8312E608, 0x1);
+    resetMatrix();
+    // Zeroed units read as live; free them first.
+    for (uint32_t player = 0; player < 8; ++player)
+    {
+        for (uint32_t unit = 0; unit < 256; ++unit)
+        {
+            *memory->TranslateVirtual(0x830F2BF0 + player * 256 * 0x54 + unit * 0x54) = 0xFF;
+        }
+    }
+    for (const uint32_t player : { 0u, 1u, 5u })
+    {
+        *memory->TranslateVirtual(0x830F2BF0 + player * 256 * 0x54) = static_cast<uint8_t>(player);
+    }
+    for (uint32_t city = 0; city < 128; ++city)
+    {
+        *memory->TranslateVirtual(0x8314FE28 + 188 * city) = 0xFF;
+    }
+    *memory->TranslateVirtual(0x8314FE28 + 188 * 4)     = 2;
+    *memory->TranslateVirtual(0x8314FE28 + 188 * 4 + 3) = 3;
+    *memory->TranslateVirtual(0x8314FE28 + 188 * 6)     = 3;
+
+    const bool  saved = gf::AlwaysAtWarForGame();
+    PPCRegister p{}, q{}, value{}, choice{};
+    p.u64     = 0;
+    q.u64     = 1;
+    value.u64 = 1;
+
+    gf::RestoreAlwaysAtWar(false);
+    ProjectAlwaysAtWarOnLoad();
+    CHECK(cell(0, 1) == 0xFFFFFFFFu);
+    CHECK_FALSE(RefuseRelationRequest(p, q, value));
+    choice.s64 = 2;
+    RefuseContactChoice(choice, p, q);
+    CHECK(choice.s64 == 2);
+
+    gf::RestoreAlwaysAtWar(true);
+    ProjectAlwaysAtWarOnLoad();
+    for (uint32_t a = 0; a < 8; ++a)
+    {
+        for (uint32_t b = 0; b < 8; ++b)
+        {
+            CHECK(cell(a, b) == (a != b && a < 3 && b < 3 ? 0u : 0xFFFFFFFFu));
+        }
+    }
+
+    CHECK(RefuseRelationRequest(p, q, value));
+    CHECK(RefuseRelationRequest(q, p, value));
+    CHECK(RefuseDeliveredRelation(p, q, value));
+    value.s64 = -1;
+    CHECK(RefuseRelationRequest(p, q, value));
+    value.u64 = 0;
+    CHECK_FALSE(RefuseRelationRequest(p, q, value));
+    value.u64 = 1;
+    for (const uint64_t other : { 3ull, 5ull })
+    {
+        q.u64 = other;
+        CHECK_FALSE(RefuseRelationRequest(p, q, value));
+    }
+
+    q.u64      = 1;
+    choice.s64 = 2;
+    RefuseContactChoice(choice, p, q);
+    CHECK(choice.s32 == -1);
+    q.u64      = 3;
+    choice.s64 = 2;
+    RefuseContactChoice(choice, p, q);
+    CHECK(choice.s64 == 2);
+
+    resetMatrix();
+    ProjectAlwaysAtWarEarly();
+    ProjectAlwaysAtWarGroups();
+    CHECK(cell(0, 1) == 0xFFFFFFFFu);
+    {
+        rerevved::gameplay_session::SetupGate gate(true);
+        const int32_t                         expanded = rerevved::ai_civilizations::ExpandedAiLimit();
+        const uint32_t                        intended = gf::IntendedCivilizations(6, 5, 0x1, expanded != 0 ? expanded : rex::cvar::Query<int32_t>("ai_civilizations"));
+        ProjectAlwaysAtWarEarly();
+        for (uint32_t a = 0; a < 8; ++a)
+        {
+            for (uint32_t b = 0; b < 8; ++b)
+            {
+                CHECK(cell(a, b) == (a != b && (intended >> a & 1) && (intended >> b & 1) ? 0u : 0xFFFFFFFFu));
+            }
+        }
+    }
+    gf::RestoreAlwaysAtWar(saved);
 }

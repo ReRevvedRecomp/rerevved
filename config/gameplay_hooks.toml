@@ -130,3 +130,123 @@ registers = ["r27", "r9", "r10", "r11"]
 address = 0x82D11264
 name = "ApplyDominationMinimumTurns"
 registers = ["r9"]
+
+# Starting Era: freeze STARTERA at Q+0x1C (r31) before setup grants, new games only.
+[[midasm_hook]]
+address = 0x82D22A78
+name = "ApplyStartingEra"
+registers = ["r31"]
+
+# Replaces network setup's literal 2 at 0x82FFE7C8 (r24 = 0x83000000) with the frozen host value, admitted new games only.
+[[midasm_hook]]
+address = 0x82D221EC
+name = "ApplyMultiplayerAiDifficulty"
+registers = ["r11"]
+
+# Unlimited skips the native deadline check at 0x82D10FD8 and its warning, native 2100 and Game of the Week stay unchanged.
+[[midasm_hook]]
+address = 0x82D11304
+name = "SkipUnlimitedTurnDeadline"
+jump_address_on_true = 0x82D1143C
+
+# Skip both warnings to the extended deadline unless its warning is due (five turns before the deadline turn).
+[[midasm_hook]]
+address = 0x82D11318
+name = "SkipTurnLimitWarning"
+jump_address_on_true = 0x82D11378
+
+# Skip native year-2090 and elapsed-195 inequalities to scenario tests 0x82D11328 and 0x82D11344.
+[[midasm_hook]]
+address = 0x82D11324
+name = "AdmitExtendedTurnLimitWarning"
+jump_address_on_true = 0x82D11328
+
+[[midasm_hook]]
+address = 0x82D11340
+name = "AdmitExtendedTurnLimitWarning"
+jump_address_on_true = 0x82D11344
+
+# Before the extended cap skip the deadline, from the cap on native 2100, rank and elapsed-200 tests apply.
+[[midasm_hook]]
+address = 0x82D11378
+name = "SkipExtendedTurnLimitDeadline"
+jump_address_on_true = 0x82D1143C
+
+# Spaceship Scenes: tag successful type 24 requests after the -1 bypass at 0x82D1DEE4, removal at 0x82D1DF5C untags.
+[[midasm_hook]]
+address = 0x82D1DEE8
+name = "TagSpaceshipActor"
+registers = ["r21", "r29"]
+
+[[midasm_hook]]
+address = 0x82D1DF5C
+name = "UntagSpaceshipActor"
+registers = ["r21", "r29"]
+
+# Type 24 updater 0x82D5E660 (r28 owner, r26 slot): tagged actors skip only active focus/view stores.
+[[midasm_hook]]
+address = 0x82D5E748
+name = "SkipSpaceshipFirstStore"
+registers = ["r28", "r26"]
+jump_address_on_true = 0x82D5E74C
+
+[[midasm_hook]]
+address = 0x82D5E778
+name = "SkipSpaceshipFocusStore"
+registers = ["r28", "r26"]
+jump_address_on_true = 0x82D5E77C
+
+[[midasm_hook]]
+address = 0x82D5E780
+name = "SkipSpaceshipFocusStore"
+registers = ["r28", "r26"]
+jump_address_on_true = 0x82D5E784
+
+[[midasm_hook]]
+address = 0x82D5E788
+name = "SkipSpaceshipFocusStore"
+registers = ["r28", "r26"]
+jump_address_on_true = 0x82D5E78C
+
+[[midasm_hook]]
+address = 0x82D5E790
+name = "SkipSpaceshipFocusStore"
+registers = ["r28", "r26"]
+jump_address_on_true = 0x82D5E794
+
+[[midasm_hook]]
+address = 0x82D5E798
+name = "SkipSpaceshipFocusStore"
+registers = ["r28", "r26"]
+jump_address_on_true = 0x82D5E79C
+
+[[midasm_hook]]
+address = 0x82D5E7B8
+name = "SkipSpaceshipFocusStore"
+registers = ["r28", "r26"]
+jump_address_on_true = 0x82D5E7BC
+
+[[midasm_hook]]
+address = 0x82D5E7C0
+name = "SkipSpaceshipFocusStore"
+registers = ["r28", "r26"]
+jump_address_on_true = 0x82D5E7C4
+
+# Tagged actors with previous time at most 1000 take native finish 0x82D5E888 without waiting.
+[[midasm_hook]]
+address = 0x82D5E868
+name = "FinishSpaceshipEarly"
+registers = ["r28", "r26", "r11"]
+jump_address_on_true = 0x82D5E888
+
+# Unit movement 0x82D5FFC8: [r1+112] unit table, r24 84-byte record offset, r27 quantum.
+[[midasm_hook]]
+address = 0x82D619AC
+name = "ScaleUnitMovementQuantum"
+registers = ["r1", "r24", "r27"]
+
+[[midasm_hook]]
+address = 0x82D619BC
+name = "SnapUnitMovement"
+registers = ["r1", "r24"]
+jump_address_on_true = 0x82D619C0

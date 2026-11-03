@@ -1,6 +1,6 @@
 #pragma once
 
-// Gating for the hide_research_prompt hooks in research_prompt_hooks.cpp,
+// Gating for the show_research_prompt hooks in research_prompt_hooks.cpp,
 // kept free of guest memory so it can be tested on the host.
 
 #include <cstdint>

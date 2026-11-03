@@ -434,6 +434,30 @@ std::optional<std::vector<uint8_t>> readEntry(const std::filesystem::path& archi
     return bytes;
 }
 
+std::optional<std::vector<uint8_t>> readEntryBytes(std::ifstream& file, const FpkEntry& entry, uint64_t fileSize, std::string* error)
+{
+    if (entry.size > kMaxEntryBytes)
+    {
+        setError(error, "entry exceeds the size limit");
+        return std::nullopt;
+    }
+    if (entry.offset < kFpkHeaderBytes || entry.offset + entry.size > fileSize)
+    {
+        setError(error, "entry lies outside the archive");
+        return std::nullopt;
+    }
+    std::vector<uint8_t> bytes(static_cast<size_t>(entry.size));
+    file.clear();
+    file.seekg(static_cast<std::streamoff>(entry.offset));
+    file.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+    if (!file || static_cast<size_t>(file.gcount()) != bytes.size())
+    {
+        setError(error, "cannot read entry data");
+        return std::nullopt;
+    }
+    return bytes;
+}
+
 } // namespace
 
 std::optional<std::vector<FpkEntry>> ParseFpkTable(std::span<const uint8_t> bytes,
@@ -519,6 +543,68 @@ std::optional<std::vector<uint8_t>> ReadFpkEntry(const std::filesystem::path& ar
     {
         setError(error, "failed to read archive entry");
         return std::nullopt;
+    }
+}
+
+bool ReadFpkEntries(const std::filesystem::path&                      archive,
+                    std::span<const std::string_view>                 entry_names,
+                    std::vector<std::optional<std::vector<uint8_t>>>& out,
+                    std::vector<std::string>&                         errors,
+                    std::string*                                      error)
+{
+    out.assign(entry_names.size(), std::nullopt);
+    errors.assign(entry_names.size(), std::string());
+    try
+    {
+        std::error_code ec;
+        const uint64_t  fileSize = std::filesystem::file_size(archive, ec);
+        if (ec)
+        {
+            setError(error, "cannot determine archive size");
+            return false;
+        }
+        std::ifstream file(archive, std::ios::binary);
+        if (!file)
+        {
+            setError(error, "cannot open archive");
+            return false;
+        }
+        const size_t         prefixBytes = static_cast<size_t>(std::min(fileSize, kMaxTablePrefixBytes));
+        std::vector<uint8_t> prefix(prefixBytes);
+        file.read(reinterpret_cast<char*>(prefix.data()), static_cast<std::streamsize>(prefixBytes));
+        if (static_cast<size_t>(file.gcount()) != prefixBytes)
+        {
+            setError(error, "cannot read archive table");
+            return false;
+        }
+        const auto table = ParseFpkTable(prefix, error);
+        if (!table)
+            return false;
+        for (size_t i = 0; i < entry_names.size(); ++i)
+        {
+            const FpkEntry* found = nullptr;
+            for (const FpkEntry& entry : *table)
+            {
+                if (equalsIgnoreAsciiCase(entry.name, entry_names[i]))
+                {
+                    found = &entry;
+                    break;
+                }
+            }
+            if (found == nullptr)
+            {
+                errors[i] = "entry not found in archive";
+                continue;
+            }
+            out[i] = readEntryBytes(file, *found, fileSize, &errors[i]);
+        }
+        return true;
+    }
+    catch (const std::exception&)
+    {
+        out.assign(entry_names.size(), std::nullopt);
+        setError(error, "failed to read archive entries");
+        return false;
     }
 }
 

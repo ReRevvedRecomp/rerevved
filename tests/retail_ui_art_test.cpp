@@ -569,6 +569,27 @@ void TestReadFpkEntry()
              !error.empty()));
 }
 
+void TestReadFpkEntries()
+{
+    const auto entries = makeThreeEntries();
+    TempFile   file("batch");
+    file.write(makeFpk(entries));
+
+    std::vector<std::optional<std::vector<uint8_t>>> out;
+    std::vector<std::string>                         errors;
+    std::string                                      error;
+    const std::vector<std::string_view>              names = { "ABCDE", "missing.dds", "tile.dds" };
+    REQUIRE(art::ReadFpkEntries(file.path(), names, out, errors, &error));
+    REQUIRE(out.size() == 3);
+    REQUIRE((out[0].has_value() && *out[0] == entries[1].payload));
+    REQUIRE((!out[1].has_value() && !errors[1].empty()));
+    REQUIRE((out[2].has_value() && *out[2] == entries[0].payload));
+
+    error.clear();
+    REQUIRE((!art::ReadFpkEntries(file.path().string() + ".absent", names, out, errors, &error) && !error.empty()));
+    REQUIRE((out.size() == 3 && !out[0].has_value()));
+}
+
 void TestReadFpkEntryDecodesDds()
 {
     std::vector<uint8_t> pixel = { 0x30, 0x20, 0x10, 0x80 };
@@ -678,6 +699,7 @@ TEST_CASE("retail_ui_art", "[ctest][retail-ui-art]")
     TestParseFpkTable();
     TestParseFpkRejections();
     TestReadFpkEntry();
+    TestReadFpkEntries();
     TestReadFpkEntryDecodesDds();
     TestReadFpkEntryRejections();
 }

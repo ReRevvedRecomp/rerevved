@@ -31,9 +31,12 @@ use its invite codes and start ReRevved yourself.
 
 For each new multiplayer game, the host supplies AI civilization count, Resources,
 Raging Barbarians, One City Challenge, the five AI bonus percentages,
-Earliest Domination, Game of the Week choices, and combat speed. AI civilization
-count is capped at 4 online. These values apply to that game without changing
+Earliest Domination, Turn Limit, Starting Era, AI difficulty, Spaceship Scenes, Unit Movement, Game of the Week choices, and combat speed. AI civilization
+count goes up to 6 online; it is reduced so the humans, AI civilizations and Barbarians fit in eight participants (AI = min(request, 7 - humans)). These values apply to that game without changing
 the other players' saved settings. Set the host's choices before starting the game.
+Always At War is a single-player setting; network games ignore it.
+The Apollo Discovery Bonuses fix is always on and applies in network games too
+(Game of the Week excepted); each peer drains on its own frame timing, with no peer barrier.
 
 While Raging Barbarians is on, Barbarians cannot capture a civilization's
 capital before 3000 BC. Every peer must support this rule. The host payload

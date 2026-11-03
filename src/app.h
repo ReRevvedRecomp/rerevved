@@ -21,6 +21,9 @@
 #include "gpu/present/native_app_route.h"
 #include "gpu/present/native_presentation.h"
 #include "gpu/renderer_backend.h"
+#include "keybind_capture.h"
+#include "options_modal.h"
+#include "options_page.h"
 
 namespace rerevved::gpu
 {
@@ -74,6 +77,7 @@ protected:
     void OnConfigureFonts(ImFontAtlas* atlas) override;
     void OnConfigureStyle(ImGuiStyle& imgui_style, rex::ui::Style& ui_style) override;
     void OnConfigureSettings(rex::ui::SettingsLayout& layout) override;
+    void OnConfigureModManager(std::vector<rex::ui::AssetOverlayLoadoutSource>& tabs) override;
 
     void OnPostLaunchModule(rex::system::XThread* thread) override;
     void OnGuestThreadExit(rex::system::XThread* thread) override;
@@ -109,6 +113,10 @@ private:
 
     [[noreturn]] void hardExitAfterMissedVblankJoin();
 
+    std::uint64_t openOptionsPage();
+    void          resetOptionsPage();
+    void          releaseOptionsPage();
+
 #if REREVVED_DEVELOPER
     struct NativeFrameTiming;
     void reportNativeFrameTiming(std::chrono::steady_clock::duration assembly);
@@ -143,6 +151,16 @@ private:
         rerevved::gpu::RendererBackend::Xenos;
     rerevved::gpu::NativeRendererD3D12 nativeRenderer;
     std::shared_ptr<std::atomic<bool>> gameplayUiAlive = std::make_shared<std::atomic<bool>>(true);
+    // UI thread. Release before ShutdownOverlays; generation rejects stale resets.
+    std::unique_ptr<OptionsPage>        optionsPage;
+    rerevved::keybind_capture::Listener keybindCapture{ [this]
+                                                        {
+                                                            return optionsPage && optionsPage->CapturingBind();
+                                                        } };
+    std::uint64_t optionsPageGeneration = 0;
+    // The guest's modal gate retains this page id until its dialog is destroyed.
+    std::uint64_t                                      optionsPageId = 0;
+    std::shared_ptr<rerevved::options_modal::PageGate> optionsGate   = std::make_shared<rerevved::options_modal::PageGate>();
 };
 
 } // namespace rerevved

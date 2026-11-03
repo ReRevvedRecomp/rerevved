@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string_view>
 
 namespace rerevved::host_settings
@@ -26,6 +27,16 @@ struct Selection
     uint32_t civilization       = 0; // Valid only with customCivilization.
     uint32_t setup              = 0;
     uint64_t launch             = 0;
+    // Fixed at attempt start or by a validated practice restore; practice never touches weekly results.
+    bool practice    = false;
+    bool seedPending = false;
+    // Sidecar claims practice but cannot resume it: isolate results.
+    bool isolated = false;
+
+    bool Isolates() const noexcept
+    {
+        return practice || isolated;
+    }
 
     bool IsCustom() const noexcept
     {
@@ -33,7 +44,10 @@ struct Selection
     }
 };
 
-bool     IsValidWeek(uint32_t week) noexcept;
+bool IsValidWeek(uint32_t week) noexcept;
+// Weeks since Sunday 2006-01-01 12:00 UTC (the game's console-clock week), rolling over each Sunday 12:00 UTC; zero before.
+uint32_t WeekAt(int64_t unixSeconds) noexcept;
+void     SeedWeekFromClock();
 bool     IsValidCivilization(uint32_t civilization) noexcept; // Roman 0..English 15, excluding Barbarian.
 uint32_t SeedForWeek(uint32_t week) noexcept;
 // Reject invalid decimal input without changing the caller's previous value.
@@ -57,5 +71,15 @@ bool                      TraceEnabled() noexcept;
 inline constexpr uint64_t kTraceEventCap = 512;
 bool                      ShouldTraceEvent(bool enabled, uint64_t sequence) noexcept;
 bool                      IsolateWeeklyResult(int32_t mode) noexcept;
+bool                      IsolatesWeeklyResult(const Selection& selection, int32_t mode) noexcept;
+
+// Practice games: saving enabled by Allow Saving; the pause menu shows Save and Load only in setup mode 2.
+bool AllowsPracticeMenu(const Selection& selection, int32_t mode) noexcept;
+void EndPractice() noexcept;
+void ArmLoadIsolation(bool isolate) noexcept;
+// Armed isolation survives reset so a later load failure cannot enable results.
+void                    ResetForLoad() noexcept;
+void                    RestoreForLoad(const Selection& saved, bool standardRules) noexcept;
+std::optional<uint32_t> TakeResumeSeed(uint32_t week) noexcept;
 
 } // namespace rerevved::gotw
