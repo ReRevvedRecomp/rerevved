@@ -92,14 +92,16 @@ comparisons use the same opaque background. This does not validate guest alpha.
 ## Release packaging
 
 `package.py` stages release binaries, runtime libraries, the player README,
-licenses, the bundled default logo asset pack, the bundled first-party mods,
-and an empty `game/` directory. It rejects retail and writable runtime file
-types. The root CMake `project()` declaration supplies the version.
+licenses, the bundled default logo asset pack, the bundled mods and map
+packs, and an empty `game/` directory. It rejects retail and writable
+runtime file types. The root CMake `project()` declaration supplies the version.
 
 `assemble_mods.py` builds the mods listed in `package.py`'s `BUNDLED_MODS` from a
 `rerevved-mods` checkout at the commit in `rerevved-mods.lock.json`. The mods'
-own title lock must be an ancestor of the commit being packaged. Bundled mods
-ship without a `mod_order.txt`, so they start disabled.
+own title lock must be an ancestor of the commit being packaged. Assembly copies
+the `maps/<id>` packs listed in `BUNDLED_MAPS` from that checkout. Bundled mods
+ship without `mod_order.txt` and bundled map packs without `map_order.txt`, so
+both start disabled.
 
 See [Release process](../docs/releasing.md) for assembly commands, archive
 names and the acceptance checklist. Use `package.py --platform`,

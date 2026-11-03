@@ -7,7 +7,7 @@ import shutil
 import subprocess
 import sys
 
-from package import BUNDLED_MODS, check_mods
+from package import BUNDLED_MAPS, BUNDLED_MODS, check_maps, check_mods
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 LOCK = REPO / "rerevved-mods.lock.json"
@@ -40,6 +40,12 @@ def parse_args():
         default=REPO / "out" / "bundled-mods",
         help="output directory that must not exist; pass it to package.py --mods-dir",
     )
+    parser.add_argument(
+        "--maps-out",
+        type=pathlib.Path,
+        default=REPO / "out" / "bundled-maps",
+        help="output directory that must not exist; pass it to package.py --maps-dir",
+    )
     return parser.parse_args()
 
 
@@ -48,6 +54,10 @@ def main():
     checkout = args.mods_checkout.resolve()
     if args.out.exists():
         raise SystemExit(f"error: output already exists; remove it first: {args.out}")
+    if args.maps_out.exists():
+        raise SystemExit(
+            f"error: output already exists; remove it first: {args.maps_out}"
+        )
 
     expected = read_commit(LOCK)
     head = git(checkout, "rev-parse", "HEAD")
@@ -82,6 +92,15 @@ def main():
         shutil.copytree(checkout / "out" / "mods" / package_id, args.out / package_id)
     check_mods(args.out)
     print(f"assembled: {args.out} ({', '.join(BUNDLED_MODS)})")
+
+    args.maps_out.mkdir(parents=True)
+    for map_id in BUNDLED_MAPS:
+        # Preserve links so check_maps can reject them.
+        shutil.copytree(
+            checkout / "maps" / map_id, args.maps_out / map_id, symlinks=True
+        )
+    check_maps(args.maps_out)
+    print(f"assembled: {args.maps_out} ({', '.join(BUNDLED_MAPS)})")
 
 
 if __name__ == "__main__":
