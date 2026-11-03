@@ -343,6 +343,8 @@ set(REREVVED_SOURCES
     src/page_set.h
     src/achievements_list.cpp
     src/achievements_list.h
+    src/achievement_icons.cpp
+    src/achievement_icons.h
     src/maps_tab.cpp
     src/maps_tab.h
     src/assets_list.cpp

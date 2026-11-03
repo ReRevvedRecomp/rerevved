@@ -80,8 +80,21 @@ std::vector<rex::system::AssetOverlayPackage> rerevved::map_packs::SelectEnabled
 namespace
 {
 
-std::vector<std::string> startupOrder;
+std::vector<std::string>                        startupOrder;
+std::vector<rerevved::map_packs::ScenarioOwner> scenarioOwners;
 
+} // namespace
+
+const rerevved::map_packs::ScenarioOwner* rerevved::map_packs::FindScenarioOwner(int32_t scenarioId)
+{
+    for (const auto& owner : scenarioOwners)
+    {
+        if (owner.id == scenarioId)
+        {
+            return &owner;
+        }
+    }
+    return nullptr;
 }
 
 const std::vector<std::string>& rerevved::map_packs::StartupOrder()
@@ -93,6 +106,7 @@ void rerevved::map_packs::RegisterSelected(
     std::span<const rex::system::AssetOverlayPackage> packages)
 {
     startupOrder.clear();
+    scenarioOwners.clear();
     for (const auto& package : packages)
         startupOrder.push_back(package.id);
     std::vector<Candidate>             candidates;
@@ -159,6 +173,10 @@ void rerevved::map_packs::RegisterSelected(
             continue;
         }
         mapPacksRegistered.store(true);
+        for (const auto& scenario : candidates[index].contents.scenarios)
+        {
+            scenarioOwners.push_back({ scenario.id, decision.id, scenario.map });
+        }
         REXLOG_INFO("Map pack '{}' registered with {} scenario(s)", decision.id, candidates[index].contents.scenarios.size());
     }
 }

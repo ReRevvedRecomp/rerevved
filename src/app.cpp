@@ -1,4 +1,5 @@
 #include "app.h"
+#include "achievement_icons.h"
 #include "custom_achievements.h"
 #include "game_language.h"
 #include "gotw_settings.h"
@@ -1187,6 +1188,17 @@ void App::OnPostLoadXexImage()
     {
         REXLOG_WARN("Custom achievements: registration failed");
     }
+    std::vector<rerevved::achievement_icons::Source> wanted;
+    for (const auto& achievement : rerevved::custom_achievements::AllAchievements())
+    {
+        if (auto source = rerevved::achievement_icons::ParseIconPath(achievement.icon_path))
+            wanted.push_back(std::move(*source));
+    }
+    auto icons = std::make_shared<rerevved::achievement_icons::Provider>(rerevved::achievement_icons::GameReader(game_data_root(), std::move(wanted)));
+    rex::ui::AchievementIconCache::SetProvider([icons](const rex::system::AchievementInfo& info)
+                                               {
+                                                   return (*icons)(info);
+                                               });
 }
 
 void App::OnPostSetup()

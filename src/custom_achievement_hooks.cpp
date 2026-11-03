@@ -3,6 +3,8 @@
 #include "ai_civilizations.h"
 #include "ai_economy_settings.h"
 #include "custom_achievement_combat_hooks.h"
+#include "gameplay_fixes.h"
+#include "map_packs.h"
 #include "occ_settings.h"
 
 #include <algorithm>
@@ -36,6 +38,7 @@ namespace combat       = rerevved::custom_achievement_combat;
 constexpr uint32_t kDifficulty = 0x82FFE7C8;
 constexpr uint32_t kNetwork    = 0x8314F10B; // rerevved::ai_civilizations::kNetworkGameByte
 constexpr uint32_t kYear       = 0x8312B8E0; // Current signed calendar year, negative for BC.
+constexpr uint32_t kScenario   = 0x8312B8D4; // Scenario id, -1 in an ordinary game.
 
 bool readBytes(uint32_t address, uint32_t size, uint8_t* out) noexcept
 {
@@ -80,6 +83,22 @@ uint32_t callGuest(PPCContext& caller, uint8_t* base, PPCFunc* function, uint32_
     return call.r3.u32;
 }
 
+// Local player through the native accessor, or -1 when there is no session.
+int32_t localPlayer(PPCContext& ctx, uint8_t* base)
+{
+    uint32_t session = 0;
+    return readWord(ai_civs::kSessionGlobal, session) && session != 0 ? static_cast<int32_t>(callGuest(ctx, base, __imp__sub_82D8A3A0, session)) : -1;
+}
+
+// The map pack scenario of the running game, or null in an ordinary game.
+const rerevved::map_packs::ScenarioOwner* currentScenario() noexcept
+{
+    uint32_t word = 0;
+    return readWord(kScenario, word) && static_cast<int32_t>(word) >= rerevved::map_packs::kFirstScenarioId
+               ? rerevved::map_packs::FindScenarioOwner(static_cast<int32_t>(word))
+               : nullptr;
+}
+
 // The four combat-defeat calls of the kill function sub_82D02390, identified
 // by return address. At hook entry r1 is the calling combat function's frame,
 // whose stack words hold the loser and the winner.
@@ -111,17 +130,36 @@ const CombatSite* findCombatSite(uint64_t lr) noexcept
     return nullptr;
 }
 
-// False when the unit record is unreadable or out of range.
-bool readUnitKilled(int32_t player, uint32_t unit, bool& killed) noexcept
+// False for unreadable or out-of-range records. Reads the unit type byte (+1) when type is given.
+bool readUnitKilled(int32_t player, uint32_t unit, bool& killed, int32_t* type = nullptr) noexcept
 {
-    uint32_t flags = 0;
+    uint32_t flags    = 0;
+    uint8_t  typeByte = 0;
     if (player < 0 || static_cast<uint32_t>(player) > static_cast<uint32_t>(ai_civs::kMaxCivilizationPlayers) || unit >= ai_civs::kUnitsPerPlayer ||
-        !readWord(ai_civs::UnitRecord(static_cast<uint32_t>(player), unit) + ai_civs::kUnitFlagsOffset, flags))
+        !readWord(ai_civs::UnitRecord(static_cast<uint32_t>(player), unit) + ai_civs::kUnitFlagsOffset, flags) ||
+        (type && !readBytes(ai_civs::UnitRecord(static_cast<uint32_t>(player), unit) + 1, 1, &typeByte)))
     {
         return false;
     }
     killed = (flags & ai_civs::kUnitKilledFlag) != 0;
+    if (type)
+    {
+        *type = typeByte;
+    }
     return true;
+}
+
+achievements::VictoryContext readGameSettings()
+{
+    uint32_t                     difficulty = 0;
+    uint8_t                      network    = 0;
+    const bool                   readable   = readWord(kDifficulty, difficulty) && readBytes(kNetwork, 1, &network);
+    const auto                   scenario   = currentScenario();
+    achievements::VictoryContext context;
+    context.difficulty  = readable ? static_cast<int32_t>(difficulty) : 0;
+    context.networkGame = !readable || network != 0;
+    context.packId      = scenario ? scenario->pack : std::string{};
+    return context;
 }
 
 const char* resultName(achievements::AwardResult result) noexcept
@@ -156,6 +194,7 @@ REX_HOOK_RAW(sub_82D052C8)
     uint32_t   yearWord       = 0;
     const bool readable       = readWord(kDifficulty, difficultyWord) && readBytes(kNetwork, 1, &networkByte);
     const bool yearReadable   = readWord(kYear, yearWord);
+    const auto scenario       = currentScenario();
     const auto policy         = rerevved::ai_economy::ForGame();
     const bool nativeEconomy  = rerevved::ai_economy::NativeCostsRequired();
     const auto occ            = rerevved::occ::ForGame();
@@ -184,6 +223,10 @@ REX_HOOK_RAW(sub_82D052C8)
         context.initialAiOpponents = game.initialAiOpponents;
         context.gotwGame           = game.gotwGame;
         context.gotwWeek           = game.gotwWeek;
+        context.turnLimit          = rerevved::gameplay_fixes::TurnLimitForGame();
+        context.alwaysAtWar        = rerevved::gameplay_fixes::AlwaysAtWarForGame();
+        context.packId             = scenario ? scenario->pack : std::string{};
+        context.mapName            = scenario ? scenario->map : std::string{};
 
         const auto decisions = achievements::AwardVictory(context);
         if (REXCVAR_GET(custom_achievement_trace))
@@ -193,7 +236,7 @@ REX_HOOK_RAW(sub_82D052C8)
             {
                 decided += fmt::format(" {:X}={}/{}", decision.id, decision.qualifies, resultName(decision.result));
             }
-            REXLOG_INFO("Custom achievement trace: victory type={} difficulty={} network={} readable={} year={} year_read={} bonuses={}/{}/{}/{}/{} native_economy={} occ={} occ_from_setup={} history={} unit_built={} battle={} deep_ocean={} first_city_turn={} ai_opponents={} gotw={} week={} decisions:{}",
+            REXLOG_INFO("Custom achievement trace: victory type={} difficulty={} network={} readable={} year={} year_read={} bonuses={}/{}/{}/{}/{} native_economy={} occ={} occ_from_setup={} history={} unit_built={} battle={} deep_ocean={} first_city_turn={} ai_opponents={} gotw={} week={} turn_limit={} always_at_war={} pack={} map={} decisions:{}",
                         type,
                         context.difficulty,
                         networkByte,
@@ -216,6 +259,10 @@ REX_HOOK_RAW(sub_82D052C8)
                         game.initialAiOpponents,
                         game.gotwGame,
                         game.gotwWeek,
+                        context.turnLimit,
+                        context.alwaysAtWar,
+                        context.packId,
+                        context.mapName,
                         decided);
         }
         for (const auto& decision : decisions)
@@ -275,6 +322,7 @@ REX_HOOK_RAW(sub_82D02390)
     int32_t           winner     = -1;
     int32_t           local      = -1;
     int32_t           barbarian  = -1;
+    int32_t           loserType  = -1;
     bool              relevant   = false;
     try
     {
@@ -286,7 +334,7 @@ REX_HOOK_RAW(sub_82D02390)
                 barbarian = static_cast<int32_t>(word);
             }
             relevant   = site || loser == barbarian;
-            beforeRead = relevant && readUnitKilled(loser, unit, before);
+            beforeRead = relevant && readUnitKilled(loser, unit, before, &loserType);
         }
         if (site)
         {
@@ -298,25 +346,21 @@ REX_HOOK_RAW(sub_82D02390)
                                          readWord(frame + site->winner, stackWinner) && static_cast<int32_t>(stackPlayer) == loser && stackUnit == unit;
             if (match)
             {
-                winner           = static_cast<int32_t>(stackWinner);
-                uint32_t session = 0;
-                local            = readWord(ai_civs::kSessionGlobal, session) && session != 0
-                                       ? static_cast<int32_t>(callGuest(ctx, base, __imp__sub_82D8A3A0, session))
-                                       : -1;
+                winner = static_cast<int32_t>(stackWinner);
+                local  = localPlayer(ctx, base);
             }
         }
         else if (combat::IsBypassKill(static_cast<uint32_t>(lr)))
         {
             // Nuclear victims bypass the mode 0 combat observers. The launcher is the helper's
             // player argument: frame+276 in sub_82CF7428, still in r16 in sub_82CF78D8.
-            uint32_t   session  = 0;
             uint32_t   launched = 0;
             const bool known    = static_cast<uint32_t>(lr) == 0x82CF7818 ? readWord(callerFrame + 276, launched) : (launched = ctx.r16.u32, true);
             combat::ObserveBypassKill(static_cast<uint32_t>(lr),
                                       loser,
                                       unit,
                                       mode,
-                                      readWord(ai_civs::kSessionGlobal, session) && session != 0 ? static_cast<int32_t>(callGuest(ctx, base, __imp__sub_82D8A3A0, session)) : -1,
+                                      localPlayer(ctx, base),
                                       known && launched < 8 ? static_cast<int32_t>(launched) : -1);
         }
     }
@@ -343,6 +387,7 @@ REX_HOOK_RAW(sub_82D02390)
         event.winner            = winner;
         event.local             = local;
         event.barbarian         = barbarian;
+        event.loserType         = loserType;
         // An unreadable record never counts as a transition.
         event.killedBefore = !beforeRead || before;
         event.killedAfter  = afterRead && after;
@@ -353,9 +398,15 @@ REX_HOOK_RAW(sub_82D02390)
         {
             result = achievements::RecordBarbarianDefeat();
         }
+        const bool sunk        = achievements::CountsAsNavalVictory(event);
+        auto       navalResult = achievements::AwardResult::NotQualified;
+        if (sunk)
+        {
+            navalResult = achievements::RecordNavalVictory(readGameSettings());
+        }
         if (trace)
         {
-            REXLOG_INFO("Custom achievement trace: kill site={} lr=0x{:08X} mode={} loser={}/{} winner={} local={} barbarian={} participants_match={} killed_before={} killed_after={} counted={} count={} result={}",
+            REXLOG_INFO("Custom achievement trace: kill site={} lr=0x{:08X} mode={} loser={}/{} winner={} local={} barbarian={} participants_match={} killed_before={} killed_after={} counted={} count={} result={} loser_type={} naval_counted={} naval_count={} naval_result={}",
                         site ? site->name : "other",
                         static_cast<uint32_t>(lr),
                         mode,
@@ -369,7 +420,11 @@ REX_HOOK_RAW(sub_82D02390)
                         event.killedAfter,
                         counts,
                         achievements::CurrentProgress().barbarianDefeats,
-                        resultName(result));
+                        resultName(result),
+                        loserType,
+                        sunk,
+                        achievements::CurrentProgress().navalVictories,
+                        resultName(navalResult));
         }
         if (result == achievements::AwardResult::Unlocked)
         {

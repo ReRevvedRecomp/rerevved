@@ -27,7 +27,7 @@ namespace
 {
 
 constexpr std::array<uint8_t, 4> kMagic{ 'R', 'R', 'G', 'S' };
-constexpr size_t                 kMaximumPayload = 4 + 1 + 1 + 42 + 4 + 64 + 20 + gotw::kPracticeBlockSize + 3 + 32 * 32 * 3;
+constexpr size_t                 kMaximumPayload = 4 + 1 + 1 + 42 + 4 + 64 + 21 + gotw::kPracticeBlockSize + 3 + 32 * 32 * 3;
 
 bool validIdentity(const Identity& identity)
 {
@@ -46,7 +46,8 @@ bool validState(const State& state)
 {
     return state.occPopulation > 31 && state.occPopulation <= 127 && state.resources >= 0 && state.resources <= 3 &&
            (state.resources == 1 || state.resources == 3 || state.overrides.empty()) && ai_economy::IsValid(state.aiEconomy) &&
-           state.barbarianDefeats >= 0 && state.barbarianDefeats <= 50 && (!state.occFromSetup || state.occEnabled) &&
+           state.barbarianDefeats >= 0 && state.barbarianDefeats <= 50 &&
+           state.navalVictories >= 0 && state.navalVictories <= custom_achievements::kMaximumNavalVictories && (!state.occFromSetup || state.occEnabled) &&
            state.firstFoundingTurn >= -1 && state.firstFoundingTurn <= custom_achievements::kMaximumRecordedTurn &&
            state.initialAiOpponents >= -1 && state.initialAiOpponents <= custom_achievements::kMaximumAiOpponents &&
            (!state.practice || gotw::IsValid(*state.practice));
@@ -63,7 +64,7 @@ std::vector<uint8_t> Serialize(const State& state, const Identity& identity)
     }
     std::vector<uint8_t> bytes(kMagic.begin(), kMagic.end());
     bytes.push_back(state.practice ? uint8_t{ 3 } : state.practiceMarker ? uint8_t{ 4 }
-                                                                         : uint8_t{ 6 });
+                                                                         : uint8_t{ 7 });
     bytes.push_back(static_cast<uint8_t>(identity.slot.size()));
     bytes.insert(bytes.end(), identity.slot.begin(), identity.slot.end());
     for (int shift : { 24, 16, 8, 0 })
@@ -94,6 +95,7 @@ std::vector<uint8_t> Serialize(const State& state, const Identity& identity)
     {
         bytes.push_back(static_cast<uint8_t>(state.turnLimit));
         bytes.push_back(state.alwaysAtWar);
+        bytes.push_back(static_cast<uint8_t>(state.navalVictories));
     }
     if (state.practice)
     {
@@ -114,9 +116,11 @@ std::optional<State> Deserialize(std::span<const uint8_t> bytes, const Identity&
     // Schema 1 has only the four setting bytes. Schema 2 adds five AI bonuses, the
     // occ-from-setup flag, Barbarian defeat count, whole-game history flags, first
     // founding turn and initial AI count.
-    // Schema 3 adds a practice block, 4 an isolation marker, 5 the turn limit byte, 6 the Always At War byte.
+    // Schema 3 adds a practice block, 4 an isolation marker, 5 the turn limit byte, 6 the Always At War byte,
+    // 7 the ships sunk byte.
     const size_t stateSize = bytes[4] == 1 ? 4 : bytes[4] == 5 ? 19
                                              : bytes[4] == 6   ? 20
+                                             : bytes[4] == 7   ? 21
                                                                : 18;
     if (slotSize != identity.slot.size() || bytes.size() < 6 + slotSize + 4 + 64 + stateSize + 3 ||
         !std::equal(identity.slot.begin(), identity.slot.end(), bytes.begin() + 6))
@@ -161,13 +165,17 @@ std::optional<State> Deserialize(std::span<const uint8_t> bytes, const Identity&
     {
         state.turnLimit = bytes[offset + 18];
     }
-    if (bytes[4] == 6)
+    if (bytes[4] == 6 || bytes[4] == 7)
     {
         if (bytes[offset + 19] > 1)
         {
             return std::nullopt;
         }
         state.alwaysAtWar = bytes[offset + 19] != 0;
+    }
+    if (bytes[4] == 7)
+    {
+        state.navalVictories = bytes[offset + 20];
     }
     size_t recordsOffset = offset + stateSize;
     if (bytes[4] == 3)

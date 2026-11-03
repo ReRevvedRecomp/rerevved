@@ -174,7 +174,8 @@ sidecar::State captureState(bool manual)
              std::move(block),
              marker,
              rerevved::gameplay_fixes::TurnLimitForGame(),
-             rerevved::gameplay_fixes::AlwaysAtWarForGame() };
+             rerevved::gameplay_fixes::AlwaysAtWarForGame(),
+             progress.navalVictories };
 }
 
 } // namespace
@@ -375,7 +376,8 @@ void RestoreAfterLoadReset() noexcept
                                                    .battleFought       = state->battleFought,
                                                    .deepOceanEntered   = state->deepOceanEntered,
                                                    .firstFoundingTurn  = state->firstFoundingTurn,
-                                                   .initialAiOpponents = state->initialAiOpponents });
+                                                   .initialAiOpponents = state->initialAiOpponents,
+                                                   .navalVictories     = state->navalVictories });
             if (!active->restoreLogged)
             {
                 active->restoreLogged = true;
