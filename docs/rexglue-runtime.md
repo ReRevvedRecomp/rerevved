@@ -832,7 +832,7 @@ Assets tab): A discards them and closes the screen, B keeps editing. With edits
 on several tabs the Packages question comes first and, once discarded, the Assets
 and then the Maps question follow on their tabs (no key or pad press acts on it until a
 frame has drawn it, and its buttons ignore a click on that frame), as F2 asks about the mods and then the asset
-overrides; the screen closes after the last answer. B on Options or
+overrides; the screen closes after the last answer. B on Settings or
 Achievements with pending changes switches to the Mods page, to the tab with
 edits (Packages first), and asks the same question. Opening the F1 Settings window over pending Mods
 changes does the same: an open picker, pick-up or question ends first,
@@ -849,7 +849,7 @@ the lock is read every frame before any input acts. A grab ends when the saved
 loadout changes under it: an unmoved grab follows the new loadout, a moved one
 keeps its order as pending edits. A key or pad press acts only after both
 strips have settled, and is dropped if a click or the wheel changed the page or
-the Options tab in the same frame. While the question
+the Settings tab in the same frame. While the question
 is up, only A and B act. The multiplayer lock (`SetModLoadoutLockProvider`, from
 `gameplay_session::RuleReplacementAllowed`) shows the provider's reason, "Mods
 can't be changed during a multiplayer game.", in the footer, dims the rows, and
