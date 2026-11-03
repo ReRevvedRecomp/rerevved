@@ -2291,7 +2291,7 @@ behavior. Standard Rules freezes native values at setup.
 
 ## Custom achievements
 
-The title adds thirty-one achievements to the SDK catalog, 1715 gamerscore in
+The title adds thirty-one achievements to the SDK catalog, 1615 gamerscore in
 total. Native XDBF achievement IDs are 16-bit, so these IDs cannot collide with
 them. `App::OnPostLoadXexImage` registers them after the XEX catalog is loaded
 and before the guest launches. Registration reports success only when all
@@ -2325,7 +2325,7 @@ title XDBF image identified by the Image entry is shown instead.
 | `0x10014` | `Culture Club` | 75 | 9 | `pedia.FPK/wond_shakespearestheatre.dds` |
 | `0x10015` | `Iron Man` | 75 | 13 | `pedia.FPK/res_iron.dds` |
 | `0x10016` | `Overtime` | 10 | 51 | `pedia.FPK/tech_navigation.dds` |
-| `0x10017` | `World at War` | 100 | 4 | `pedia.FPK/wond_theinternet.dds` |
+| `0x10017` | `World at War` | 50 | 4 | `pedia.FPK/wond_theinternet.dds` |
 | `0x10018` | `Continental Drift` | 25 | 30 | `pedia.FPK/unit_galley.dds` |
 | `0x10019` | `Island in the Sun` | 25 | 23 | `pedia.FPK/unit_galleon.dds` |
 | `0x1001A` | `Smoke on the Water` | 25 | 26 | `pedia.FPK/unit_submarine.dds` |
@@ -2333,7 +2333,7 @@ title XDBF image identified by the Image entry is shown instead.
 | `0x1001C` | `Weather With You` | 25 | 25 | `Common0.FPK/tech_astronomy.dds` |
 | `0x1001D` | `Around the World` | 25 | 34 | `pedia.FPK/tech_globalization.dds` |
 | `0x1001E` | `The Bay Harbor Butcher` | 50 | 24 | `pedia.FPK/bldg_harbor.dds` |
-| `0x1001F` | `Morte Eterna` | 100 | 35 | `pedia.FPK/unit_great_general.dds` |
+| `0x1001F` | `Morte Eterna` | 50 | 35 | `pedia.FPK/unit_great_general.dds` |
 
 ### Victory achievements
 
@@ -2382,7 +2382,7 @@ Network games are excluded from every predicate.
 | `0x1001B` | Any scenario of pack `rerevved-matchups`, any difficulty and victory type |
 | `0x1001C` | Any scenario of pack `rerevved-climates`, any difficulty and victory type |
 | `0x1001D` | Any scenario of pack `rerevved-real-world`, any difficulty and victory type |
-| `0x1001F` | Domination victory (type 1), Deity, no native economy, all five handicaps 100, Always At War on, map `rr_europe` of pack `rerevved-real-world` |
+| `0x1001F` | Domination victory (type 1), Deity, Always At War on, map `rr_europe` of pack `rerevved-real-world` |
 
 The map pack is identified from the scenario word `0x8312B8D4` (-1 in an
 ordinary game). A value of 100 or more is looked up in the scenarios that

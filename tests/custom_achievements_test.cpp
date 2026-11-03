@@ -222,7 +222,7 @@ TEST_CASE("custom_achievement_metadata", "[ctest][custom-achievements]")
     CHECK(info.id == achievements::kConcentratedPowerOfWillId);
     CHECK(info.id > 0xFFFF);
     CHECK(info.label == "200% Concentrated Power of Will");
-    CHECK(info.description == "Win a game on Deity with all five AI Handicaps set to 200% for the entire game.");
+    CHECK(info.description == "Win a game on Deity with all five AI Handicaps set to 200%.");
     CHECK(info.unachieved_description == info.description);
     CHECK(info.gamerscore == 250);
     CHECK(info.icon_path == "fpk:Common0.FPK/gov_revolution.dds");
@@ -674,7 +674,7 @@ TEST_CASE("custom_achievement_metadata_of_all_thirty_one", "[ctest][custom-achie
         { 0x10014, "Culture Club", 75, 9 },
         { 0x10015, "Iron Man", 75, 13 },
         { 0x10016, "Overtime", 10, 51 },
-        { 0x10017, "World at War", 100, 4 },
+        { 0x10017, "World at War", 50, 4 },
         { 0x10018, "Continental Drift", 25, 30 },
         { 0x10019, "Island in the Sun", 25, 23 },
         { 0x1001A, "Smoke on the Water", 25, 26 },
@@ -682,7 +682,7 @@ TEST_CASE("custom_achievement_metadata_of_all_thirty_one", "[ctest][custom-achie
         { 0x1001C, "Weather With You", 25, 25 },
         { 0x1001D, "Around the World", 25, 34 },
         { 0x1001E, "The Bay Harbor Butcher", 50, 24 },
-        { 0x1001F, "Morte Eterna", 100, 35 },
+        { 0x1001F, "Morte Eterna", 50, 35 },
     };
     const auto all = achievements::AllAchievements();
     REQUIRE(all.size() == std::size(rows));
@@ -701,13 +701,13 @@ TEST_CASE("custom_achievement_metadata_of_all_thirty_one", "[ctest][custom-achie
         CHECK(std::string_view(achievements::AchievementName(rows[i].id)) == rows[i].label);
         total += all[i].gamerscore;
     }
-    CHECK(total == 1715);
+    CHECK(total == 1615);
     CHECK(all[3].icon_path == "fpk:pedia.FPK/gov_fundamentalism.dds");
     CHECK(std::string_view(achievements::AchievementName(0x1FFFF)) == "unknown");
     CHECK(achievements::ConcentratedPowerOfWill().label == all[0].label);
     CHECK(achievements::OneToRule().label == all[1].label);
     CHECK(achievements::TheirRageIsWithinYourControl().label == all[2].label);
-    CHECK(all[8].description == "Win a technology victory on or before 100 BC.");
+    CHECK(all[8].description == "Win a Technology Victory on or before 100 BC.");
     CHECK(all[13].description == "Win a Game of the Week on Week 36428.");
 }
 
@@ -1121,7 +1121,7 @@ TEST_CASE("custom_achievement_map_pack_wins", "[ctest][custom-achievements]")
 
 TEST_CASE("custom_achievement_morte_eterna_on_europe", "[ctest][custom-achievements]")
 {
-    auto context        = withHandicaps(tracked(1), 100);
+    auto context        = tracked(1);
     context.alwaysAtWar = true;
     context.packId      = "rerevved-real-world";
     context.mapName     = "rr_europe";
@@ -1149,15 +1149,11 @@ TEST_CASE("custom_achievement_morte_eterna_on_europe", "[ctest][custom-achieveme
         {
             c.victoryType = 2;
         }));
-    CHECK(rejects(
+    CHECK_FALSE(rejects(
         [](auto& c)
         {
             c.policy.goldBonusPercent = 101;
-        }));
-    CHECK(rejects(
-        [](auto& c)
-        {
-            c.nativeEconomy = true;
+            c.nativeEconomy           = true;
         }));
     CHECK(rejects(
         [](auto& c)
