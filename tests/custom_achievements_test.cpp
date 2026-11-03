@@ -1323,6 +1323,14 @@ TEST_CASE("custom_achievement_history_records", "[ctest][custom-achievements]")
         CHECK(achievements::CurrentProgress().firstFoundingTurn == 0);
     }
 
+    SECTION("a later starting era rules out a late first founding")
+    {
+        achievements::BeginNewGame(false, false);
+        achievements::RecordStartingEraApplied();
+        achievements::RecordCityFounded(100);
+        CHECK(achievements::CurrentProgress().firstFoundingTurn == 0);
+    }
+
     SECTION("a huge turn is bounded so the sidecar stays writable")
     {
         achievements::BeginNewGame(false, false);

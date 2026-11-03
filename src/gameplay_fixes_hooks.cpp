@@ -1,4 +1,5 @@
 #include "ai_civilizations.h"
+#include "custom_achievements.h"
 #include "gameplay_fixes.h"
 #include "gameplay_session_settings.h"
 
@@ -264,17 +265,26 @@ bool SkipExtendedTurnLimitDeadline()
 // Only new-game scenario -1 takes the frozen era.
 void ApplyStartingEra(PPCRegister& r31)
 {
-    namespace gf      = rerevved::gameplay_fixes;
-    const int32_t era = gf::StartingEraForGame();
-    if (rerevved::gameplay_session::SetupActive() && gf::AppliesStartingEra(era, calendarWord(kScenario)))
+    namespace gf = rerevved::gameplay_fixes;
+    if (!rerevved::gameplay_session::SetupActive())
     {
-        auto* field         = REX_KERNEL_MEMORY()->TranslateVirtual<uint8_t*>(r31.u32 + 0x1C);
+        return;
+    }
+    const int32_t era   = gf::StartingEraForGame();
+    auto*         field = REX_KERNEL_MEMORY()->TranslateVirtual<uint8_t*>(r31.u32 + 0x1C);
+    if (gf::AppliesStartingEra(era, calendarWord(kScenario)))
+    {
         field[0]            = static_cast<uint8_t>(era >> 8);
         field[1]            = static_cast<uint8_t>(era);
         const int32_t year  = gf::StartingEraYear(era);
         auto*         start = REX_KERNEL_MEMORY()->TranslateVirtual<uint8_t*>(r31.u32 + 0x3E);
         start[0]            = static_cast<uint8_t>(year >> 8);
         start[1]            = static_cast<uint8_t>(year);
+    }
+    // Scenarios such as Beta Centauri specify their own later era.
+    if (((field[0] << 8) | field[1]) != gf::kStartingEraNative)
+    {
+        rerevved::custom_achievements::RecordStartingEraApplied();
     }
 }
 

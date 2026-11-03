@@ -2346,7 +2346,7 @@ Network games are excluded from every predicate.
 | `0x10008` | Tracked history and no unit moved onto a deep Ocean tile, any difficulty |
 | `0x10009` | Technology victory (type 2), year 100 BC or earlier, any difficulty |
 | `0x1000C` | Game of the Week, Deity, year before 3000 BC |
-| `0x1000D` | Deity, tracked history, first city founded on turn 100 or later |
+| `0x1000D` | Deity, tracked history, Ancient start, first city founded on turn 100 or later |
 | `0x1000E` | Game of the Week on week 36428, any difficulty |
 | `0x1000F` | Deity, tracked history, no battle fought |
 | `0x10010` | Domination victory (type 1), Deity, 6 AI opponents at setup |
@@ -2386,7 +2386,9 @@ practice game never sets the flag, so it earns no Game of the Week achievements.
 every field to unknown (history untracked, AI count -1), and a valid schema 2 or 5 sidecar restores the saved
 fields. A game loaded from a schema 1 sidecar or without a sidecar never
 qualifies for a whole-game achievement. The first founding turn keeps only the
-first city.
+first city. For a later-era start from Starting Era or a scenario such as
+Beta Centauri, setup records turn 0 because those games start near
+or past turn 100.
 
 `IsDeepOcean` reads the current terrain plane (`0x8312B288`, index
 `40 * x + y`): a tile is deep when it and all eight neighbours, with x

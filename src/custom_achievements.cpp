@@ -418,6 +418,11 @@ void RecordCityFounded(int32_t turn) noexcept
     }
 }
 
+void RecordStartingEraApplied() noexcept
+{
+    RecordCityFounded(0);
+}
+
 AwardResult RecordTemplarDiscovery(int32_t year, const IsUnlockedFn& isUnlocked, const UnlockFn& unlock)
 {
     return awardId(kHalcyonTemplarId, year <= kTemplarLastYear, isUnlocked, unlock);

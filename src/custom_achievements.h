@@ -197,6 +197,7 @@ void RecordUnitBuilt() noexcept;
 void RecordBattle() noexcept;
 void RecordDeepOceanEntry() noexcept;
 void RecordCityFounded(int32_t turn) noexcept; // keeps only the first, turn >= 0
+void RecordStartingEraApplied() noexcept;      // a later era starts near turn 100, so Ye Are Idle needs Ancient
 
 // Event achievements award immediately through the SDK and log "Custom achievement unlocked: <name>".
 AwardResult RecordTemplarDiscovery(int32_t year, const IsUnlockedFn& isUnlocked, const UnlockFn& unlock);
