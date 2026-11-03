@@ -414,7 +414,7 @@ The art is one 64x64 uncompressed DDS per key under
 `scripts/build_keyboard_icons.py` builds the files from the keycap PNGs in
 `thirdparty/xelu-prompts` and its `--check` mode compares them byte for byte.
 `src/keyboard_icons.cpp` lists the shipped key names and validates each file.
-The Options page takes its Keyboard prompt keys from the same list. A
+The Settings page takes its Keyboard prompt keys from the same list. A
 shoulder or trigger slot gets the keycap centered, unscaled, on a transparent
 canvas of the retail image's size, 128x64 or 64x128, built at startup.
 
@@ -473,7 +473,7 @@ preload to finish.
 
 The `game_language` setting holds an Xbox language ID: 1 English, 3 German,
 4 French, 5 Spanish or 6 Italian, the languages the disc has text for. It
-defaults to 1 and requires a restart; the Options page shows it as
+defaults to 1 and requires a restart; the Settings page shows it as
 **Language**, the first row of the General tab, as does F1. `App::ConstructRuntime` calls
 `game_language::ApplyAtBoot` after the config loads and before the runtime is
 created, which copies the value to the SDK's `user_language` once. The game
@@ -501,12 +501,12 @@ list. It is always on. Exit Game asks the same retail quit question as Exit to
 the Main Menu; only its Yes row quits, through the same path as the window's
 close button. No or Back on the quit question returns to Special Functions.
 
-**Change Options.** (both lists) opens the Options page, a full-screen page the
+**Change Options.** (both lists) opens the Settings page, a full-screen page the
 title draws with ImGui over the running game, in place of the retail Options
 screen. Special Functions stays up underneath, and B on the page returns to it
 with its header and legend unchanged.
-The screen has a page strip (Options, Mods, Achievements) under a banner that names
-the current page, centered. The Options page has a tab strip (General, Gameplay,
+The screen has a page strip (Settings, Mods, Achievements) under a banner that names
+the current page, centered. The Settings page has a tab strip (General, Gameplay,
 Notifications, Online, Controls, Display and Audio; a tab with no qualifying
 setting is left out), one panel with the current tab's
 `Label ... Value` rows under the F1 window's section headers (AI Handicaps,
@@ -525,7 +525,7 @@ titles with LT and RT at its ends, and LT and RT (or Q and E) step between
 pages, wrapping from the last to the first. A click on a title or on a shoulder prompt, or the
 wheel over the strip, works as on the tab strip. The strip is hidden while only
 one page is registered. Each page remembers its highlighted row and scroll
-while the screen is open; opening the screen always lands on Options. The
+while the screen is open; opening the screen always lands on Settings. The
 highlighted row is a
 full-width blue bar with the game's gold arrow (`goldarrow.dds`, turned to point
 left) at each end of its value, dimmed when the value cannot move that way; the
@@ -556,7 +556,7 @@ strip, a vector body in two blues, a dark outer border and a thin light inner
 line, and scrolls inside it without a scroll bar. The title strip holds the
 Mods and Achievements counts and is left out first when a short screen needs the
 room (`options_skin::ChromeFor`, which then shrinks the margin, banner, strips
-and footer toward their floors to keep three Options rows). When the list can scroll
+and footer toward their floors to keep three Settings rows). When the list can scroll
 further up or down, the panel's right edge shows an LS glyph (`ls.dds` for
 Xbox, `ps3ls.dds` for PlayStation) with a gold arrow (`goldarrow.dds`, turned
 up or down) in the title strip and at the bottom; the Keyboard family has no LS
@@ -578,7 +578,7 @@ is open. B (or Escape) closes
 the page and returns to the menu it was opened from. Moving the mouse over a
 row highlights it, a click on an arrow steps, a click on a tab title switches
 to that tab, and the wheel scrolls the current tab. The right stick scrolls
-the list on screen on every page (Options, Mods, Achievements) one row at a time,
+the list on screen on every page (Settings, Mods, Achievements) one row at a time,
 as the Civilopedia does: a tilt past the deadzone (`StickRepeat`) steps at once
 and repeats while held, and the scroll stops at the first and last row (no wrap,
 `options_skin::StepScroll`). The highlight stays on its row, so it can scroll out
@@ -1051,7 +1051,7 @@ through a UI job the guest waits for.
 
 ## Main menu Options
 
-The main menu's **Options** row opens the Options page in place of the retail
+The main menu's **Options** row opens the Settings page in place of the retail
 Options screen. B on the page returns to the main menu with its focus and
 legend as they were; the menu does not react to the pad while the page is up.
 

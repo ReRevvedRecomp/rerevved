@@ -105,7 +105,7 @@ TEST_CASE("title_text_has_english_for_every_string", "[ctest][title-text]")
         CHECK_FALSE(tt::Entry(id, tt::Language::kEnglish).empty());
     }
     CHECK(tt::Entry(tt::Id::kExitGameRow, tt::Language::kEnglish) == "Exit Game");
-    CHECK(tt::Entry(tt::Id::kPageOptions, tt::Language::kEnglish) == "Options");
+    CHECK(tt::Entry(tt::Id::kPageOptions, tt::Language::kEnglish) == "Settings");
     CHECK(tt::Entry(tt::Id::kPageAchievements, tt::Language::kEnglish) == "Achievements");
     CHECK(tt::Entry(tt::Id::kAchievementsSummary, tt::Language::kEnglish) == "{0} of {1} unlocked");
     CHECK(tt::Entry(tt::Id::kPageMods, tt::Language::kEnglish) == "Mods");

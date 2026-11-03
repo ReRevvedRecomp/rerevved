@@ -13,7 +13,7 @@ namespace
 // Columns: English, German, French, Spanish, Italian. Empty translations use English, and \u escapes keep the source ASCII.
 constexpr std::array<Row, kIdCount> kIdRows{ {
     { "title.exit_game_row", { "Exit Game", "Spiel beenden", "Quitter le jeu", "Salir del juego", "Esci dal gioco" }, "Special Functions menu row, shown last. Game text path." },
-    { "page.options", { "Options", "Optionen", "Options", "Opciones", "Opzioni" }, "Page strip title and banner of the Options page. One short word." },
+    { "page.options", { "Settings", "Einstellungen", "Paramètres", "Ajustes", "Impostazioni" }, "Page strip title and banner of the Settings page. One short word." },
     { "page.achievements", { "Achievements", "Erfolge", "Succ\u00e8s", "Logros", "Obiettivi" }, "Page strip title and banner of the Achievements page. One short word." },
     { "achievements.summary", { "{0} of {1} unlocked", "{0} von {1} freigeschaltet", "{0} sur {1} d\u00e9verrouill\u00e9s", "{0} de {1} desbloqueados", "{0} su {1} sbloccati" }, "Panel title strip of the Achievements page. {0} unlocked, {1} total." },
     { "achievements.score", { "{0}G of {1}G", "{0}G von {1}G", "{0}G sur {1}G", "{0}G de {1}G", "{0}G su {1}G" }, "Right end of the same strip. {0} gamerscore earned, {1} possible; G is the gamerscore symbol." },

@@ -1,4 +1,4 @@
-// Options, Mods and Achievements pages; reads ImGui keys directly, independent of ImGui focus.
+// Settings, Mods and Achievements pages; reads ImGui keys directly, independent of ImGui focus.
 
 #include "options_page.h"
 
