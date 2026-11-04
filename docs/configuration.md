@@ -80,8 +80,8 @@ change applies only to the next new game. Single player keeps the difficulty
 chosen at game setup, and a loaded save never applies the host's value.
 
 **Spaceship Scenes** (Notifications, on by default) shows the rocket
-scene of every spaceship part, yours included; turn it off to skip them. In a multiplayer game every player
-uses the host's value; otherwise your own setting applies, also to a Game of the
+scene of every spaceship part, yours included; turn it off to skip them. Multiplayer games always
+show them; otherwise your own setting applies, also to a Game of the
 Week. Part scenes already running are not affected by a change.
 
 **Allow Saving** (Gameplay > Game of the Week, off by default) lets you save and

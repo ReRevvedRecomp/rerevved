@@ -11,7 +11,10 @@ namespace rerevved::gameplay_session
 {
 
 // The network mod loadout lock reason must match exactly for translation.
-inline constexpr std::string_view kModsLockedReason = "Mods can't be changed during a multiplayer game.";
+inline constexpr std::string_view kModsLockedReason        = "Mods can't be changed during a multiplayer game.";
+inline constexpr std::string_view kHostSettingLockedReason = "Set by the host for this multiplayer game.";
+// Lobby bytes are frozen when the host opens the lobby, so the host's later edits only arrive at game start.
+inline constexpr std::string_view kHostSettingLobbyReason = "Set by the host. The host can still change it until the game starts.";
 
 enum class SetupKind
 {
@@ -39,6 +42,35 @@ constexpr SetupKind ClassifySetupMode(int32_t mode) noexcept
     }
 }
 
+// A file load runs inside a save sidecar transaction; a network stream transfer does not.
+enum class LoadCase
+{
+    FileLoad,
+    NetworkRestore,
+    NetworkNoSnapshot,
+};
+
+constexpr LoadCase ClassifyLoad(bool sidecarTransaction, bool networkGame, bool hostSnapshot) noexcept
+{
+    return sidecarTransaction || !networkGame ? LoadCase::FileLoad
+           : hostSnapshot                     ? LoadCase::NetworkRestore
+                                              : LoadCase::NetworkNoSnapshot;
+}
+
+constexpr std::string_view LoadCaseName(LoadCase loadCase) noexcept
+{
+    switch (loadCase)
+    {
+        case LoadCase::FileLoad:
+            return "file load";
+        case LoadCase::NetworkRestore:
+            return "network restore";
+        case LoadCase::NetworkNoSnapshot:
+            return "network restore without host snapshot";
+    }
+    return "unknown";
+}
+
 // Prepare before native new-game initialization and before freezing gameplay settings.
 host_settings::GameSnapshot Prepare(bool networkGame, uint32_t setup, int32_t mode);
 // The seed writer precedes outer setup. Retain even failed attempts until setup
@@ -50,9 +82,12 @@ uint32_t                                           AcceptedWeeklyWeek() noexcept
 void                                               Publish(const host_settings::GameSnapshot& snapshot, bool networkGame);
 bool                                               ApplyNewGame(const host_settings::GameSnapshot& snapshot, bool networkGame, int32_t mode);
 std::shared_ptr<const host_settings::HostSettings> ForNetworkGame() noexcept;
-void                                               ResetOnLoad() noexcept;
-std::unique_lock<std::recursive_mutex>             LockRuleBoundary();
-bool                                               RuleReplacementAllowed() noexcept;
+void                                               ResetOnLoad(LoadCase loadCase = LoadCase::FileLoad) noexcept;
+// Local settings are never read; a null host restores the native defaults.
+int32_t                                RestoreNetworkPolicy(const host_settings::HostSettings* host) noexcept;
+bool                                   NetworkGameActive() noexcept;
+std::unique_lock<std::recursive_mutex> LockRuleBoundary();
+bool                                   RuleReplacementAllowed() noexcept;
 
 // A rejected snapshot uses the native inner setup failure return. The outer
 // setup owner retains its own failure cleanup and menu transition.

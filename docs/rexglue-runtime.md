@@ -1095,15 +1095,14 @@ Shutdown closes the page through the app, as for every page.
 
 The `combat_speed` setting accepts `normal` or `fast` and defaults to `normal`.
 `fast` uses the guest's native faster combat presentation pace while preserving
-resolution and completion.
+resolution and completion. Network games always use the normal pace.
 
 ## Unit movement setting
 
 The live `unit_movement` setting (Gameplay, after Combat Speed) accepts `normal`,
 `fast` or `instant` and defaults to `normal`. It is a presentation
-preference. A network game uses the host's value, carried in the host
-settings and frozen at `ApplyNewGame`, so every peer moves units the same way; single
-player uses the live setting. Two hooks in the coordinate updater `0x82D5FFC8` read the
+preference. Network games always use `normal`, so every peer moves units the
+same way; single player uses the live setting. Two hooks in the coordinate updater `0x82D5FFC8` read the
 setting each update. Both leave the shared frame time, cooldowns, game-state flags,
 movement budget, tile position, destination, lifecycle and busy flags to the native
 code.
@@ -2154,9 +2153,8 @@ setting is not saved in the sidecar, and single player is unchanged.
 
 `spaceship_scenes` is a bool setting, on by default, shown as the first row
 of F1 **Notifications**, **Spaceship Scenes**. Turning it off skips the rocket scene of
-every spaceship part, including the player's own. A network game plays the host's
-value, carried in the host settings and frozen at `ApplyNewGame`; single player and
-Game of the Week use the live preference. The preference is sampled once per part
+every spaceship part, including the player's own. Network games always play the
+scenes; single player and Game of the Week use the live preference. The preference is sampled once per part
 request, so a change never affects an actor already running.
 
 The pending-part caller in `sub_82D1D1C0` requests a type 24 actor with

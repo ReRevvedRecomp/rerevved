@@ -11,6 +11,9 @@
 
 #include <rex/ui/overlay/settings_layout.h>
 
+#include "gameplay_fixes.h"
+#include "gameplay_session_settings.h"
+
 namespace
 {
 
@@ -62,10 +65,157 @@ std::unordered_map<std::string, std::string> retailVolumeChoices()
     return choices;
 }
 
+using rerevved::host_settings::HostSettings;
+
+std::string boolText(bool value)
+{
+    return value ? "true" : "false";
+}
+
+struct HostRow
+{
+    std::string_view name;
+    std::string (*text)(const HostSettings&);
+};
+
+// Includes the local-only settings the host forces off and the presentation speeds that stay native.
+constexpr HostRow kHostRows[] = {
+    { "ai_civilizations", [](const HostSettings& host)
+      {
+          return std::to_string(host.aiCivilizations);
+      } },
+    { "raging_barbarians", [](const HostSettings& host)
+      {
+          return boolText(host.ragingBarbarians);
+      } },
+    { "one_city_challenge", [](const HostSettings& host)
+      {
+          return boolText(host.oneCityChallenge);
+      } },
+    { "resources", [](const HostSettings& host)
+      {
+          return std::to_string(host.resources);
+      } },
+    { "ai_research_bonus_percent", [](const HostSettings& host)
+      {
+          return std::to_string(host.aiResearchBonusPercent);
+      } },
+    { "ai_production_bonus_percent", [](const HostSettings& host)
+      {
+          return std::to_string(host.aiProductionBonusPercent);
+      } },
+    { "ai_gold_bonus_percent", [](const HostSettings& host)
+      {
+          return std::to_string(host.aiGoldBonusPercent);
+      } },
+    { "ai_food_bonus_percent", [](const HostSettings& host)
+      {
+          return std::to_string(host.aiFoodBonusPercent);
+      } },
+    { "ai_culture_bonus_percent", [](const HostSettings& host)
+      {
+          return std::to_string(host.aiCultureBonusPercent);
+      } },
+    { "domination_min_turns", [](const HostSettings& host)
+      {
+          return std::to_string(host.dominationMinimumTurns);
+      } },
+    { "combat_speed", [](const HostSettings&)
+      {
+          return std::string("normal");
+      } },
+    { "turn_limit", [](const HostSettings& host)
+      {
+          return std::string(rerevved::gameplay_fixes::TurnLimitName(host.turnLimit));
+      } },
+    { "starting_era", [](const HostSettings& host)
+      {
+          return std::string(rerevved::gameplay_fixes::StartingEraName(host.startingEra));
+      } },
+    { "multiplayer_ai_difficulty", [](const HostSettings& host)
+      {
+          return std::string(rerevved::gameplay_fixes::MultiplayerAiDifficultyName(host.multiplayerAiDifficulty));
+      } },
+    { "spaceship_scenes", [](const HostSettings&)
+      {
+          return boolText(true);
+      } },
+    { "unit_movement", [](const HostSettings&)
+      {
+          return std::string("normal");
+      } },
+    { "always_at_war", [](const HostSettings&)
+      {
+          return boolText(false);
+      } },
+    { "gotw_custom_week", [](const HostSettings& host)
+      {
+          return boolText(host.gotwCustomWeek);
+      } },
+    { "gotw_week", [](const HostSettings& host)
+      {
+          return host.gotwCustomWeek ? std::to_string(host.gotwWeek) : std::string();
+      } },
+    { "gotw_standard_rules", [](const HostSettings& host)
+      {
+          return boolText(host.gotwStandardRules);
+      } },
+    { "gotw_allow_saving", [](const HostSettings&)
+      {
+          return boolText(false);
+      } },
+    { "gotw_custom_civilization", [](const HostSettings&)
+      {
+          return boolText(false);
+      } },
+    { "gotw_civilization", [](const HostSettings&)
+      {
+          return std::string("0");
+      } },
+};
+
 } // namespace
+
+std::optional<rex::ui::SettingsRowLock> rerevved::HostRowLock(const host_settings::HostSettings* host, std::string_view name)
+{
+    static const HostSettings native;
+    for (const HostRow& row : kHostRows)
+    {
+        if (row.name == name)
+        {
+            return rex::ui::SettingsRowLock{ row.text(host ? *host : native), std::string(gameplay_session::kHostSettingLockedReason) };
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<rex::ui::SettingsRowLock> rerevved::LobbyRowLock(const rex::session_data::Status& status, std::string_view name)
+{
+    if (status.state != rex::session_data::State::kReceived)
+    {
+        return std::nullopt;
+    }
+    const auto host = host_settings::Decode(status.bytes);
+    if (!host)
+    {
+        return std::nullopt;
+    }
+    auto lock = HostRowLock(&*host, name);
+    if (lock)
+    {
+        lock->reason = std::string(gameplay_session::kHostSettingLobbyReason);
+    }
+    return lock;
+}
 
 void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
 {
+    layout.row_lock = [](std::string_view name) -> std::optional<rex::ui::SettingsRowLock>
+    {
+        if (!gameplay_session::NetworkGameActive())
+            return LobbyRowLock(rex::session_data::Current(), name);
+        return HostRowLock(gameplay_session::ForNetworkGame().get(), name);
+    };
     layout.tabs = {
         { "General", { { "", { "game_language", "show_fps_counter", "skip_intro_movie", "open_log_folder" } } } },
         { "Gameplay",

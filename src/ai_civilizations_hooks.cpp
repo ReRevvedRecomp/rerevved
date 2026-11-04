@@ -12,7 +12,9 @@
 #include "gameplay_session_settings.h"
 #include "gotw_settings.h"
 #include "occ_hooks.h"
+#include "occ_settings.h"
 #include "raging_barbarians_hooks.h"
+#include "raging_barbarians_settings.h"
 #include "save_sidecar.h"
 #include "start_resources_runtime.h"
 
@@ -169,6 +171,35 @@ void logExpandedSetup(const uint8_t* base)
                 distinct);
 }
 
+void logLoadCase(rerevved::gameplay_session::LoadCase loadCase)
+{
+    namespace session = rerevved::gameplay_session;
+    if (loadCase == session::LoadCase::FileLoad)
+    {
+        REXLOG_INFO("Load reset: case={}", session::LoadCaseName(loadCase));
+        return;
+    }
+    if (loadCase == session::LoadCase::NetworkNoSnapshot)
+    {
+        REXLOG_ERROR("Load reset: case={}; policy is native: occ=off raging_barbarians=off no AI bonuses", session::LoadCaseName(loadCase));
+        return;
+    }
+    const auto economy = rerevved::ai_economy::ForGame();
+    REXLOG_INFO("Load reset: case={} occ={} raging_barbarians={} ai_bonus={}/{}/{}/{}/{} resources={} turn_limit={} domination_min={} removed_mask=0x{:08X}",
+                session::LoadCaseName(loadCase),
+                rerevved::occ::ForGame()->enabled,
+                rerevved::raging_barbarians::Evaluate(0).enabled,
+                economy.researchBonusPercent,
+                economy.productionBonusPercent,
+                economy.goldBonusPercent,
+                economy.foodBonusPercent,
+                economy.cultureBonusPercent,
+                rerevved::start_resources::ForGame(),
+                rerevved::gameplay_fixes::TurnLimitForGame(),
+                rerevved::gameplay_fixes::RestoredDominationMinimum(),
+                removedMask.load());
+}
+
 } // namespace
 
 bool rerevved::ai_civilizations::IsRemovedCivilization(uint32_t player)
@@ -213,13 +244,19 @@ REX_HOOK_RAW(sub_82D11AD8)
 // Before the load path's serializer call in sub_82D86400.
 void ResetAiCivilizationsOnLoad()
 {
-    rerevved::gameplay_session::ResetOnLoad();
+    namespace session   = rerevved::gameplay_session;
+    const auto host     = session::ForNetworkGame();
+    const auto loadCase = session::ClassifyLoad(rerevved::save_sidecar::FileLoadActive(), session::NetworkGameActive(), host != nullptr);
+    session::ResetOnLoad(loadCase);
     // A practice save restores its Game of the Week state after this reset.
     rerevved::gotw::ResetForLoad();
     ai_civs::ResetOnLoad();
     rerevved::ai_economy::ResetForLoad();
-    rerevved::start_resources::ResetOnLoad();
-    removedMask.store(0);
+    if (loadCase != session::LoadCase::NetworkRestore)
+    {
+        rerevved::start_resources::ResetOnLoad();
+        removedMask.store(0);
+    }
     FreezeRagingBarbariansForGame();
     FreezeOccForGame();
     rerevved::gameplay_fixes::NoteGameLoad();
@@ -227,4 +264,9 @@ void ResetAiCivilizationsOnLoad()
     rerevved::custom_achievements::ResetProgress();
     rerevved::custom_achievement_combat::ResetCombatObservers();
     rerevved::save_sidecar::RestoreAfterLoadReset();
+    if (loadCase != session::LoadCase::FileLoad)
+    {
+        rerevved::start_resources::RestoreForGame(session::RestoreNetworkPolicy(host.get()));
+    }
+    logLoadCase(loadCase);
 }

@@ -8,9 +8,12 @@
 #include "occ_settings.h"
 #include "raging_barbarians_settings.h"
 #include "registry_scope.hpp"
+#include "resource_identity_overrides.h"
 #include "rules_fixtures.hpp"
 
+#include <array>
 #include <catch2/catch_test_macros.hpp>
+#include <optional>
 #include <rex/cvar.h>
 #include <span>
 #include <string>
@@ -72,6 +75,39 @@ struct RestorePolicies
         rerevved::gameplay_fixes::RestoreAlwaysAtWar(atWar);
     }
 };
+
+std::optional<int32_t> runLoadReset(session::LoadCase loadCase)
+{
+    const auto host = session::ForNetworkGame();
+    session::ResetOnLoad(loadCase);
+    rerevved::ai_economy::ResetForLoad();
+    rerevved::raging_barbarians::FreezeForGame();
+    rerevved::occ::FreezeForGame();
+    rerevved::gameplay_fixes::NoteGameLoad();
+    if (loadCase == session::LoadCase::FileLoad)
+    {
+        return std::nullopt;
+    }
+    return session::RestoreNetworkPolicy(host.get());
+}
+
+void useLocalPolicy()
+{
+    REXCVAR_SET(one_city_challenge, true);
+    REXCVAR_SET(raging_barbarians, true);
+    REXCVAR_SET(ai_research_bonus_percent, 11);
+    REXCVAR_SET(ai_production_bonus_percent, 12);
+    REXCVAR_SET(ai_gold_bonus_percent, 13);
+    REXCVAR_SET(ai_food_bonus_percent, 14);
+    REXCVAR_SET(ai_culture_bonus_percent, 15);
+}
+
+void publishHostGame(const host::HostSettings& settings)
+{
+    const auto snapshot = host::ResolveForGame(true, { rex::session_data::State::kReceived, host::Encode(settings), true }, {});
+    REQUIRE(snapshot.settings);
+    session::ApplyNewGame(snapshot, true, 6);
+}
 
 } // namespace
 
@@ -400,4 +436,126 @@ TEST_CASE("weekly week binds to the latch that follows its own preparation", "[c
         session::ResetOnLoad();
         CHECK(session::AcceptedWeeklyWeek() == 0);
     }
+}
+
+TEST_CASE("only a load outside a sidecar transaction in a network game restores", "[ctest][host-settings]")
+{
+    using session::LoadCase;
+    CHECK(session::ClassifyLoad(true, true, true) == LoadCase::FileLoad);
+    CHECK(session::ClassifyLoad(true, true, false) == LoadCase::FileLoad);
+    CHECK(session::ClassifyLoad(false, false, false) == LoadCase::FileLoad);
+    CHECK(session::ClassifyLoad(false, true, true) == LoadCase::NetworkRestore);
+    CHECK(session::ClassifyLoad(false, true, false) == LoadCase::NetworkNoSnapshot);
+}
+
+TEST_CASE("a network restore keeps every host value whatever the local settings hold", "[ctest][host-settings]")
+{
+    RestorePolicies restore;
+    REREVVED_RESTORE_CVAR(one_city_challenge);
+    REREVVED_RESTORE_CVAR(raging_barbarians);
+    REREVVED_RESTORE_CVAR(ai_research_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_production_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_gold_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_food_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_culture_bonus_percent);
+
+    host::HostSettings settings;
+    settings.oneCityChallenge         = true;
+    settings.ragingBarbarians         = true;
+    settings.resources                = 3;
+    settings.aiResearchBonusPercent   = 50;
+    settings.aiProductionBonusPercent = 40;
+    settings.aiGoldBonusPercent       = 25;
+    settings.aiFoodBonusPercent       = 75;
+    settings.aiCultureBonusPercent    = 200;
+    settings.dominationMinimumTurns   = 5;
+    settings.turnLimit                = 3;
+    publishHostGame(settings);
+    const auto hostSnapshot = session::ForNetworkGame();
+    REQUIRE(hostSnapshot);
+    const std::array overrides = { rerevved::resource_identity_overrides::Record{ 403, 18 } };
+    REQUIRE(rerevved::resource_identity_overrides::Publish(overrides));
+    const auto publishedOverrides = rerevved::resource_identity_overrides::Current();
+
+    REXCVAR_SET(one_city_challenge, false);
+    REXCVAR_SET(raging_barbarians, false);
+    REXCVAR_SET(ai_research_bonus_percent, 0);
+    REXCVAR_SET(ai_production_bonus_percent, 0);
+    REXCVAR_SET(ai_gold_bonus_percent, 0);
+    REXCVAR_SET(ai_food_bonus_percent, 0);
+    REXCVAR_SET(ai_culture_bonus_percent, 0);
+
+    const auto loadCase = session::ClassifyLoad(false, true, session::ForNetworkGame() != nullptr);
+    REQUIRE(loadCase == session::LoadCase::NetworkRestore);
+    const auto resources = runLoadReset(loadCase);
+
+    CHECK(session::ForNetworkGame() == hostSnapshot);
+    CHECK((rerevved::ai_economy::ForGame() == rerevved::ai_economy::Policy{ 50, 40, 25, 75, 200 }));
+    CHECK(rerevved::occ::ForGame()->enabled);
+    CHECK(rerevved::raging_barbarians::Evaluate(0).enabled);
+    CHECK(resources == 3);
+    CHECK(rerevved::gameplay_fixes::TurnLimitForGame() == 3);
+    CHECK(rerevved::gameplay_fixes::RestoredDominationMinimum() == 5);
+    CHECK(rerevved::resource_identity_overrides::Current() == publishedOverrides);
+
+    rerevved::resource_identity_overrides::Clear();
+}
+
+TEST_CASE("a file load in a network session still resets to local settings", "[ctest][host-settings]")
+{
+    RestorePolicies restore;
+    REREVVED_RESTORE_CVAR(one_city_challenge);
+    REREVVED_RESTORE_CVAR(raging_barbarians);
+    REREVVED_RESTORE_CVAR(ai_research_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_production_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_gold_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_food_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_culture_bonus_percent);
+
+    host::HostSettings settings;
+    settings.ragingBarbarians       = true;
+    settings.aiResearchBonusPercent = 50;
+    settings.dominationMinimumTurns = 5;
+    settings.turnLimit              = 3;
+    publishHostGame(settings);
+    useLocalPolicy();
+    REXCVAR_SET(raging_barbarians, false);
+
+    const auto loadCase = session::ClassifyLoad(true, true, session::ForNetworkGame() != nullptr);
+    REQUIRE(loadCase == session::LoadCase::FileLoad);
+    CHECK_FALSE(runLoadReset(loadCase));
+
+    CHECK_FALSE(session::ForNetworkGame());
+    CHECK((rerevved::ai_economy::ForGame() == rerevved::ai_economy::Policy{}));
+    CHECK(rerevved::occ::ForGame()->enabled);
+    CHECK_FALSE(rerevved::raging_barbarians::Evaluate(0).enabled);
+    CHECK(rerevved::gameplay_fixes::TurnLimitForGame() == 0);
+    CHECK(rerevved::gameplay_fixes::RestoredDominationMinimum() == 0);
+}
+
+TEST_CASE("a network restore without a host snapshot takes native defaults", "[ctest][host-settings]")
+{
+    RestorePolicies restore;
+    REREVVED_RESTORE_CVAR(one_city_challenge);
+    REREVVED_RESTORE_CVAR(raging_barbarians);
+    REREVVED_RESTORE_CVAR(ai_research_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_production_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_gold_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_food_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_culture_bonus_percent);
+    session::ResetOnLoad();
+    useLocalPolicy();
+    rerevved::gameplay_fixes::RestoreTurnLimit(2);
+
+    const auto loadCase = session::ClassifyLoad(false, true, session::ForNetworkGame() != nullptr);
+    REQUIRE(loadCase == session::LoadCase::NetworkNoSnapshot);
+    const auto resources = runLoadReset(loadCase);
+
+    CHECK_FALSE(session::ForNetworkGame());
+    CHECK((rerevved::ai_economy::ForGame() == rerevved::ai_economy::Policy{}));
+    CHECK_FALSE(rerevved::occ::ForGame()->enabled);
+    CHECK_FALSE(rerevved::raging_barbarians::Evaluate(0).enabled);
+    CHECK(resources == 0);
+    CHECK(rerevved::gameplay_fixes::TurnLimitForGame() == 0);
+    CHECK(rerevved::gameplay_fixes::RestoredDominationMinimum() == 0);
 }

@@ -192,8 +192,8 @@ void PublishGameplayState()
 
 void ApplyCombatPaceOverride()
 {
-    const auto host = rerevved::gameplay_session::ForNetworkGame();
-    if (host ? host->combatSpeed != 1 : REXCVAR_GET(combat_speed) != "fast")
+    // Network games keep the native pace, so every peer runs the same presentation.
+    if (rerevved::gameplay_session::NetworkGameActive() || REXCVAR_GET(combat_speed) != "fast")
     {
         return;
     }

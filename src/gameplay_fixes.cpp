@@ -21,7 +21,7 @@ REXCVAR_DEFINE_STRING(multiplayer_ai_difficulty, "king", "ReRevved", "Difficulty
 
 REXCVAR_DEFINE_BOOL(always_at_war, false, "ReRevved", "Keep every civilization at war for the next single-player new game; peace can never be made. Network games and Game of the Week ignore it");
 
-REXCVAR_DEFINE_BOOL(spaceship_scenes, true, "ReRevved", "Show the in-world rocket scene when a spaceship part is completed. Applies to each new part; a network game plays the host's value");
+REXCVAR_DEFINE_BOOL(spaceship_scenes, true, "ReRevved", "Show the in-world rocket scene when a spaceship part is completed. Applies to each new part; network games always show it");
 
 namespace rerevved::gameplay_fixes
 {
@@ -40,6 +40,16 @@ template <size_t N>
 int32_t indexOf(const std::array<std::string_view, N>& names, std::string_view text) noexcept
 {
     return static_cast<int32_t>(std::ranges::find(names, text) - names.begin());
+}
+
+constexpr std::array<std::string_view, 5> kTurnLimitNames   = { "2100", "2200", "2300", "2500", "unlimited" };
+constexpr std::array<std::string_view, 5> kStartingEraNames = { "ancient", "medieval", "industrial", "modern", "future" };
+constexpr std::array<std::string_view, 3> kDifficultyNames  = { "king", "emperor", "deity" };
+
+template <size_t N>
+std::string_view nameAt(const std::array<std::string_view, N>& names, int32_t index) noexcept
+{
+    return index >= 0 && static_cast<size_t>(index) < N ? names[static_cast<size_t>(index)] : names[0];
 }
 
 } // namespace
@@ -80,8 +90,12 @@ int32_t TurnLimitForGame() noexcept
 
 int32_t ParseTurnLimit(std::string_view text) noexcept
 {
-    constexpr std::array<std::string_view, 5> names = { "2100", "2200", "2300", "2500", "unlimited" };
-    return indexOf(names, text);
+    return indexOf(kTurnLimitNames, text);
+}
+
+std::string_view TurnLimitName(int32_t limit) noexcept
+{
+    return nameAt(kTurnLimitNames, limit);
 }
 
 void RestoreAlwaysAtWar(bool enabled) noexcept
@@ -106,8 +120,12 @@ int32_t StartingEraForGame() noexcept
 
 int32_t ParseStartingEra(std::string_view text) noexcept
 {
-    constexpr std::array<std::string_view, 5> names = { "ancient", "medieval", "industrial", "modern", "future" };
-    return indexOf(names, text);
+    return indexOf(kStartingEraNames, text);
+}
+
+std::string_view StartingEraName(int32_t era) noexcept
+{
+    return nameAt(kStartingEraNames, era);
 }
 
 void RestoreMultiplayerAiDifficulty(int32_t difficulty) noexcept
@@ -122,8 +140,12 @@ int32_t MultiplayerAiDifficultyForGame() noexcept
 
 int32_t ParseMultiplayerAiDifficulty(std::string_view text) noexcept
 {
-    constexpr std::array<std::string_view, 3> names = { "king", "emperor", "deity" };
-    return kMultiplayerAiDifficultyNative + indexOf(names, text);
+    return kMultiplayerAiDifficultyNative + indexOf(kDifficultyNames, text);
+}
+
+std::string_view MultiplayerAiDifficultyName(int32_t difficulty) noexcept
+{
+    return nameAt(kDifficultyNames, difficulty - kMultiplayerAiDifficultyNative);
 }
 
 bool ShortenedMinimumAllowed() noexcept

@@ -87,6 +87,9 @@ private:
     std::optional<State> state_;
 };
 
+// False for a network stream restore, which reaches the load reset without a transaction.
+bool FileLoadActive() noexcept;
+
 // Called last by ResetAiCivilizationsOnLoad, before native visual readers run.
 void RestoreAfterLoadReset() noexcept;
 

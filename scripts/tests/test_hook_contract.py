@@ -3290,7 +3290,7 @@ class HookContractTests(unittest.TestCase):
             r'\{ "", \{ [^}]*"turn_limit", "starting_era", "ai_civilizations", "always_at_war" \} \}',
         )
         self.assertIn('{ "ai_civilizations", Audience::kPlayer }', settings)
-        self.assertEqual(settings.count('"ai_civilizations"'), 5)
+        self.assertEqual(settings.count('"ai_civilizations"'), 6)
 
         source = AI_CIV_SOURCE.read_text(encoding="utf-8")
         override = source.split("REX_HOOK_RAW(sub_82D11AD8)", 1)[1]
@@ -3350,10 +3350,9 @@ class HookContractTests(unittest.TestCase):
             override.index("__imp__sub_82D11AD8(ctx, base);"),
         )
         reset = source.split("void ResetAiCivilizationsOnLoad()", 1)[1]
-        self.assertTrue(
-            reset.lstrip().startswith(
-                "{\n    rerevved::gameplay_session::ResetOnLoad();"
-            )
+        self.assertLess(
+            reset.index("session::ResetOnLoad(loadCase);"),
+            reset.index("rerevved::gotw::ResetForLoad();"),
         )
         gate = setup.split("REX_HOOK_RAW(sub_82D217C8)", 1)[1]
         self.assertIn("gameplay_session::SetupBlocked()", gate)

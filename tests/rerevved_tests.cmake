@@ -168,6 +168,7 @@ add_executable(rerevved_tests
     tests/main_menu_options_test.cpp
     tests/options_modal_test.cpp
     tests/native_settings_test.cpp
+    tests/overlay_row_lock_test.cpp
     tests/retail_audio_test.cpp
     tests/game_language_test.cpp
     tests/gotw_practice_test.cpp

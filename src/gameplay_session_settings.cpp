@@ -6,6 +6,7 @@
 #include "mod_script_rules.h"
 #include "occ_settings.h"
 #include "raging_barbarians_settings.h"
+#include "resource_settings.h"
 
 #include <chrono>
 #include <mutex>
@@ -207,16 +208,36 @@ std::unique_lock<std::recursive_mutex> LockRuleBoundary()
     return std::unique_lock(ruleBoundary);
 }
 
-bool RuleReplacementAllowed() noexcept
-try
+namespace
+{
+
+bool networkByte()
 {
     auto*              kernel  = REX_KERNEL_STATE();
     auto*              memory  = kernel ? kernel->memory() : nullptr;
     constexpr uint32_t address = 0x8314F10B;
     auto*              heap    = memory ? memory->LookupHeap(address) : nullptr;
-    const bool         network = heap &&
-                                 (static_cast<uint32_t>(heap->QueryRangeAccess(address, address)) & static_cast<uint32_t>(rex::memory::PageAccess::kReadOnly)) != 0 &&
-                                 *memory->TranslateVirtual<const uint8_t*>(address) != 0;
+    return heap &&
+           (static_cast<uint32_t>(heap->QueryRangeAccess(address, address)) & static_cast<uint32_t>(rex::memory::PageAccess::kReadOnly)) != 0 &&
+           *memory->TranslateVirtual<const uint8_t*>(address) != 0;
+}
+
+} // namespace
+
+bool NetworkGameActive() noexcept
+try
+{
+    return networkByte();
+}
+catch (...)
+{
+    return false;
+}
+
+bool RuleReplacementAllowed() noexcept
+try
+{
+    const bool network = networkByte();
     return rex::session_data::Current().state == rex::session_data::State::kNone ||
            (!network && !ForNetworkGame());
 }
@@ -269,19 +290,40 @@ std::shared_ptr<const host_settings::HostSettings> ForNetworkGame() noexcept
     return networkSettings;
 }
 
-void ResetOnLoad() noexcept
+void ResetOnLoad(LoadCase loadCase) noexcept
 try
 {
     // Saved policies remain authoritative on load. A new network game must
     // authenticate its own snapshot rather than reuse the previous session.
     const auto boundary = LockRuleBoundary();
-    StoreNetworkSettings(nullptr);
+    if (loadCase != LoadCase::NetworkRestore)
+    {
+        StoreNetworkSettings(nullptr);
+    }
     weeklyAttempt      = {};
     acceptedWeeklyWeek = 0;
     SuspendModRulesForGame(false);
 }
 catch (...)
 {
+    // No exception may escape a guest load boundary.
+}
+
+int32_t RestoreNetworkPolicy(const host_settings::HostSettings* host) noexcept
+try
+{
+    const auto boundary = LockRuleBoundary();
+    ai_economy::RestoreForGame(host ? ai_economy::Policy{ host->aiResearchBonusPercent, host->aiProductionBonusPercent, host->aiGoldBonusPercent, host->aiFoodBonusPercent, host->aiCultureBonusPercent } : ai_economy::Policy{});
+    raging_barbarians::RestoreForGame(host && host->ragingBarbarians);
+    occ::RestoreForGame({ host && host->oneCityChallenge, occ::kMinimumPopulation });
+    // NoteGameLoad has cleared both; a restored minimum stands in for the shortened one.
+    gameplay_fixes::RestoreTurnLimit(host ? host->turnLimit : gameplay_fixes::kTurnLimitNative);
+    gameplay_fixes::RestoreDominationMinimum(host ? host->dominationMinimumTurns : 0);
+    return host ? static_cast<int32_t>(resource_settings::FromConfig(host->resources)) : static_cast<int32_t>(resource_settings::Mode::Normal);
+}
+catch (...)
+{
+    return static_cast<int32_t>(resource_settings::Mode::Normal);
 }
 
 SetupGate::SetupGate(bool admitted, bool newGame) noexcept
