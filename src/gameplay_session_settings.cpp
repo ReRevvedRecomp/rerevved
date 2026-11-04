@@ -282,7 +282,6 @@ try
 }
 catch (...)
 {
-    // No exception may escape a guest load boundary.
 }
 
 SetupGate::SetupGate(bool admitted, bool newGame) noexcept
