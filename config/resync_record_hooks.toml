@@ -1,0 +1,24 @@
+# Read-only repair record hooks (src/resync_record_hooks.cpp); the original instruction always runs next.
+
+# Type 55 case after sub_82CD4CF0 returns: r31 is the received scalar, r3 the fresh local one.
+[[midasm_hook]]
+address = 0x82CDEC68
+name = "ObserveResyncExchangeScalar"
+registers = ["r31", "r3"]
+
+# Type 55 case before the seed compare: r15 is the received seed, r11 the local seed.
+[[midasm_hook]]
+address = 0x82CDEC94
+name = "ObserveResyncExchangeSeed"
+registers = ["r15", "r11"]
+
+# Rejoin of the compare paths after both flag stores; emits the exchange line.
+[[midasm_hook]]
+address = 0x82CDECB4
+name = "ReportResyncExchange"
+
+# Return of sub_82D8CB28 for one target: r3 is the queue result, r31 the target index, r1 the frame.
+[[midasm_hook]]
+address = 0x82D90088
+name = "ObserveResyncSnapshotQueued"
+registers = ["r1", "r3", "r31"]

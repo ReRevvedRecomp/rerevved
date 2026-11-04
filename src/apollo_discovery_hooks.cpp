@@ -136,6 +136,11 @@ Outcome grant(rex::runtime::ThreadState* thread, rex::runtime::FunctionDispatche
 
 } // namespace
 
+uint32_t ApolloPendingCount() noexcept
+{
+    return pending.load(std::memory_order_relaxed);
+}
+
 void ResetApolloDiscovery() noexcept
 try
 {

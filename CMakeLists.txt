@@ -363,6 +363,9 @@ set(REREVVED_SOURCES
     src/system_link_trace.cpp
     src/system_link_trace.h
     src/system_link_trace_hooks.cpp
+    src/resync_record.cpp
+    src/resync_record.h
+    src/resync_record_hooks.cpp
     src/network_admission.cpp
     src/network_admission.h
     src/network_admission_hooks.cpp
