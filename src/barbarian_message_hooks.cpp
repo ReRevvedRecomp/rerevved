@@ -3,6 +3,7 @@
 
 #include "ai_civilizations.h"
 #include "barbarian_messages.h"
+#include "gameplay_session_settings.h"
 
 #include <rex/cvar.h>
 #include <rex/ppc.h>
@@ -21,7 +22,7 @@ thread_local rerevved::barbarian_messages::LeaderMessageGate gate;
 // that natively skips to 0x82CD4738.
 bool SkipBarbarianContactMessage()
 {
-    return !REXCVAR_GET(show_barbarian_messages);
+    return !REXCVAR_GET(show_barbarian_messages) && !rerevved::gameplay_session::NetworkGameActive();
 }
 
 // In sub_82CC85D0 after its prologue. r12 still holds the entry LR that the

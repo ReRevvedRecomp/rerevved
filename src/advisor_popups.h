@@ -10,7 +10,7 @@
 namespace rerevved::advisor_popups
 {
 
-inline constexpr std::array<std::string_view, 15> kGroupCvars{
+inline constexpr std::array<std::string_view, 14> kGroupCvars{
     "show_popup_rival_war_peace",
     "show_popup_rival_government",
     "show_popup_city_captures",
@@ -25,7 +25,6 @@ inline constexpr std::array<std::string_view, 15> kGroupCvars{
     "show_popup_villages",
     "show_popup_save_reminder",
     "show_popup_trophy_room",
-    "show_popup_government_available",
 };
 
 struct Site
@@ -52,7 +51,6 @@ inline constexpr Site kSites[] = {
     { 0x82E66AE0, 3 },
     { 0x82D11370, 3 },
     { 0x82CE1244, 4 },
-    { 0x82D1775C, 4 },
     { 0x82CC7414, 5 },
     { 0x82D85B14, 5 },
     { 0x82D1B374, 5 },
@@ -88,7 +86,6 @@ inline constexpr Site kSites[] = {
     { 0x82CF5D20, 10 },
     { 0x82CF3DC4, 10 },
     { 0x82D06FCC, 10 },
-    { 0x82D17470, 10 },
     { 0x82D1DEBC, 10 },
     { 0x82CED234, 10 },
     { 0x82D0AA70, 10 },
@@ -99,7 +96,6 @@ inline constexpr Site kSites[] = {
     { 0x82D08448, 11 },
     { 0x82D1D3A0, 12 },
     { 0x82D083E0, 13 },
-    { 0x82CEB298, 14 },
 };
 
 // The group whose call site returns to returnAddress (the show's entry LR,

@@ -12,6 +12,7 @@ Close ReRevved before editing the file directly.
   Challenge, Earliest Domination, Turn Limit, Starting Era, AI civilizations, Always At War, AI Handicaps,
   and Game of the Week.
 - **Notifications**: Spaceship Scenes, research prompts, advisor pop-ups, and Barbarian messages. Each is on by default; turn a row off to hide it.
+  New government prompts and Wonder completions always show, and online games always show the first Barbarian message.
   Turning off **Save Reminder** hides the prompt; it does not save the game.
 - **Online**: AI Difficulty (Multiplayer), connection status, player name, relay invite, and Discord options.
   See [Online play](online-play.md).

@@ -3143,7 +3143,7 @@ class HookContractTests(unittest.TestCase):
 
         table = ADVISOR_POPUP_TABLE.read_text(encoding="utf-8")
         cvars = re.findall(r'"(show_popup_[a-z_]+)"', table)
-        self.assertEqual(len(cvars), 15)
+        self.assertEqual(len(cvars), 14)
         app = APP_SOURCE.read_text(encoding="utf-8")
         source = ADVISOR_POPUP_SOURCE.read_text(encoding="utf-8")
         self.assertIn("SuppressAdvisorPopupShow(", source)
@@ -3213,7 +3213,10 @@ class HookContractTests(unittest.TestCase):
         source = BARBARIAN_MESSAGE_SOURCE.read_text(encoding="utf-8")
         for hook in hooks:
             self.assertIn(hook["name"] + "(", source)
-        self.assertIn("return !REXCVAR_GET(show_barbarian_messages);", source)
+        self.assertIn(
+            "return !REXCVAR_GET(show_barbarian_messages) && !rerevved::gameplay_session::NetworkGameActive();",
+            source,
+        )
         self.assertIn("!REXCVAR_GET(show_village_barbarian_messages) &&", source)
         table = BARBARIAN_MESSAGE_TABLE.read_text(encoding="utf-8")
         sites = re.search(r"kVillageSites\[\] = \{(.*?)\};", table, re.S)

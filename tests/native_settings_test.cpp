@@ -288,7 +288,7 @@ TEST_CASE("native_settings_rows_keep_the_f1_order_and_captions", "[ctest][native
                                                                      "Custom Civilization: Off" });
 
     const auto notifications = captionsOf(model, "Notifications");
-    CHECK(notifications.size() == 19);
+    CHECK(notifications.size() == 18);
     CHECK(notifications.front() == "Spaceship Scenes: Off");
     CHECK(notifications[1] == "Research Advisor Prompt: Off");
     CHECK(notifications.back() == "Trophy Room Offer: Off");

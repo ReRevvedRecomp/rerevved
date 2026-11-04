@@ -215,7 +215,7 @@ REXCVAR_DEFINE_BOOL(show_popup_rival_war_peace, true, "ReRevved", "Show reports 
 REXCVAR_DEFINE_BOOL(show_popup_rival_government, true, "ReRevved", "Show reports of other civilizations changing government");
 REXCVAR_DEFINE_BOOL(show_popup_city_captures, true, "ReRevved", "Show reports of cities taken or recaptured");
 REXCVAR_DEFINE_BOOL(show_popup_victory_warnings, true, "ReRevved", "Show warnings that a rival is close to a victory or that the game is ending");
-REXCVAR_DEFINE_BOOL(show_popup_rival_great_people, true, "ReRevved", "Show reports of rival Great People and completed Wonders");
+REXCVAR_DEFINE_BOOL(show_popup_rival_great_people, true, "ReRevved", "Show reports of rival Great People");
 REXCVAR_DEFINE_BOOL(show_popup_rankings, true, "ReRevved", "Show strongest economy, greatest city and culture conversion reports");
 REXCVAR_DEFINE_BOOL(show_popup_artifacts, true, "ReRevved", "Show artifact rumors and ancient site discoveries");
 REXCVAR_DEFINE_BOOL(show_popup_combat_reports, true, "ReRevved", "Show Great General, capture, promotion and SDI reports");
@@ -225,8 +225,7 @@ REXCVAR_DEFINE_BOOL(show_popup_discoveries, true, "ReRevved", "Show new technolo
 REXCVAR_DEFINE_BOOL(show_popup_villages, true, "ReRevved", "Show the result of entering a village");
 REXCVAR_DEFINE_BOOL(show_popup_save_reminder, true, "ReRevved", "Show the save reminder. Turning it off does not save the game.");
 REXCVAR_DEFINE_BOOL(show_popup_trophy_room, true, "ReRevved", "Offer to visit the Trophy Room");
-REXCVAR_DEFINE_BOOL(show_popup_government_available, true, "ReRevved", "Ask to change government when a new one becomes available; when off, keep the current one");
-REXCVAR_DEFINE_BOOL(show_barbarian_messages, true, "ReRevved", "Show the Barbarian leader message on first contact with a Barbarian tribe");
+REXCVAR_DEFINE_BOOL(show_barbarian_messages, true, "ReRevved", "Show the Barbarian leader message on first contact with a Barbarian tribe. A network game always shows it");
 REXCVAR_DEFINE_BOOL(show_village_barbarian_messages, true, "ReRevved", "Show the Barbarian leader message that names the reward for capturing a Barbarian village; the reward is granted either way");
 REXCVAR_DEFINE_INT32(ai_civilizations, 4, "ReRevved", "Number of AI civilizations in a new game. A game with one human keeps at least one AI civilization. Multiplayer uses the host's value for all players, reduced so the humans, AI and Barbarians fit in eight slots")
     .range(0, 6);

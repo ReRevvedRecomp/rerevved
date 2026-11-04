@@ -24,8 +24,8 @@ void testTableShape()
         CHECK(site.address % 4 == 0);
         groups.insert(site.group);
     }
-    UNSCOPED_INFO("65 call sites");
-    CHECK(addresses.size() == 65);
+    UNSCOPED_INFO("62 call sites");
+    CHECK(addresses.size() == 62);
     UNSCOPED_INFO("every group has a site");
     CHECK(groups.size() == kGroupCvars.size());
 }
@@ -34,8 +34,12 @@ void testLookupUsesReturnAddress()
 {
     UNSCOPED_INFO("war news site maps to its group");
     CHECK(GroupForReturn(0x82CC89BC + 4) == 0);
-    UNSCOPED_INFO("government prompt maps to its group");
-    CHECK(GroupForReturn(0x82CEB298 + 4) == 14);
+    UNSCOPED_INFO("government prompt always shows");
+    CHECK(GroupForReturn(0x82CEB298 + 4) == -1);
+    UNSCOPED_INFO("own Wonder completion always shows");
+    CHECK(GroupForReturn(0x82D17470 + 4) == -1);
+    UNSCOPED_INFO("rival Wonder completion always shows");
+    CHECK(GroupForReturn(0x82D1775C + 4) == -1);
     UNSCOPED_INFO("the call address itself is not a return address");
     CHECK(GroupForReturn(0x82CC89BC) == -1);
     // The research prompt and the Special Functions menu keep native behavior.

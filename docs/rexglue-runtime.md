@@ -2238,19 +2238,21 @@ player opens, is unchanged.
 
 ## Advisor pop-ups
 
-F1 **Notifications** also lists 15 `show_popup_*` settings, each default `true`.
+F1 **Notifications** also lists 14 `show_popup_*` settings, each default `true`.
 Turning one off skips one group of advisor notices, for example rival war and peace
 news, combat reports or village outcomes. A skipped notice is not shown and
-the game continues as if it had been closed. Three of them answer a question:
-turning off `show_popup_save_reminder` does not save, `show_popup_trophy_room`
-does not open the Trophy Room, and `show_popup_government_available` keeps the
-current government. `src/advisor_popups.h` lists the call sites in each group. Other
-advisor screens, including the Special Functions menu, are unchanged.
+the game continues without the notice's scene work. Two of them answer a question:
+turning off `show_popup_save_reminder` does not save, and `show_popup_trophy_room`
+does not open the Trophy Room. `src/advisor_popups.h` lists the call sites in each group. Other
+advisor screens, including the Special Functions menu, are unchanged. The new government
+prompt and own and rival Wonder completions always show: the free government switch needs
+the prompt's answer, and hiding a Wonder completion leaves the city's scaffolding up.
 
 Two more default-`true` settings control the Barbarian leader message.
 Turning off `show_barbarian_messages` skips the message shown on first contact with a
 Barbarian tribe; the game treats that tribe as not yet introduced, so the
-message can appear at a later contact once the setting is turned back on.
+message can appear at a later contact once the setting is turned back on. A
+network game always shows it, because the skip changes contact bookkeeping.
 Turning off `show_village_barbarian_messages` skips the message shown after capturing a
 Barbarian village, which names the reward; the reward is still granted.
 `src/barbarian_messages.h` lists the village call sites.
