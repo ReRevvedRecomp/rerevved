@@ -363,6 +363,14 @@ set(REREVVED_SOURCES
     src/system_link_trace.cpp
     src/system_link_trace.h
     src/system_link_trace_hooks.cpp
+    src/network_admission.cpp
+    src/network_admission.h
+    src/network_admission_hooks.cpp
+    src/network_admission_hooks.h
+    src/join_refusal_hooks.cpp
+    src/join_refusal_hooks.h
+    src/lobby_content_watch.cpp
+    src/lobby_content_watch.h
     src/research_prompt.h
     src/research_prompt_hooks.cpp
     src/advisor_popups.h

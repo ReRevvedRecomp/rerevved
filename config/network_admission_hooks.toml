@@ -1,0 +1,5 @@
+# Admit a network new game before the state owner (0x82E2B138) acts on key 2; r31 is APP, r30 the update result.
+[[midasm_hook]]
+address = 0x82E2B16C
+name = "AdmitNetworkGameStart"
+registers = ["r1", "r13", "r30", "r31", "fpscr"]

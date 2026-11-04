@@ -5,7 +5,9 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <string>
 #include <string_view>
+#include <vector>
 
 namespace rerevved::gameplay_session
 {
@@ -73,6 +75,15 @@ constexpr std::string_view LoadCaseName(LoadCase loadCase) noexcept
 
 // Prepare before native new-game initialization and before freezing gameplay settings.
 host_settings::GameSnapshot Prepare(bool networkGame, uint32_t setup, int32_t mode);
+
+struct Admission
+{
+    bool        admitted = false;
+    std::string diagnostic; // The refusal text shown to the player.
+};
+
+// Changes no game state, so a refusal leaves the previous game intact.
+Admission AdmitNetworkGame(uint32_t setup, int32_t mode);
 // The seed writer precedes outer setup. Retain even failed attempts until setup
 // consumes them, so later preference edits cannot authorize a different seed.
 // Return captured settings for the first seed latch. AcceptedWeeklyWeek is its
@@ -87,6 +98,7 @@ void                                               ResetOnLoad(LoadCase loadCase
 int32_t                                RestoreNetworkPolicy(const host_settings::HostSettings* host) noexcept;
 bool                                   NetworkGameActive() noexcept;
 std::unique_lock<std::recursive_mutex> LockRuleBoundary();
+std::unique_lock<std::recursive_mutex> TryLockRuleBoundary();
 bool                                   RuleReplacementAllowed() noexcept;
 
 // A rejected snapshot uses the native inner setup failure return. The outer
@@ -111,7 +123,10 @@ namespace detail
 {
 
 using SnapshotProvider = host_settings::GameSnapshot (*)(bool networkGame);
-host_settings::GameSnapshot                Prepare(bool networkGame, uint32_t setup, int32_t mode, SnapshotProvider capture);
+// A changed or missing token drops the staged snapshot.
+using StampProvider = std::optional<std::vector<uint8_t>> (*)();
+Admission                                  AdmitNetworkGame(uint32_t setup, int32_t mode, SnapshotProvider capture, StampProvider stamp);
+host_settings::GameSnapshot                Prepare(bool networkGame, uint32_t setup, int32_t mode, SnapshotProvider capture, StampProvider stamp = nullptr);
 std::optional<host_settings::HostSettings> PrepareWeekly(uint32_t setup, std::optional<int32_t> mode, SnapshotProvider capture) noexcept;
 
 } // namespace detail

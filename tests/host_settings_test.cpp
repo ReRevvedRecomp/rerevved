@@ -263,7 +263,7 @@ void testMismatch()
     CHECK(DescribeModMismatch(host, older) == "Keshik Movement: different version");
 
     UNSCOPED_INFO("several differences are listed by id");
-    CHECK(DescribeModMismatch(host, {}) == "Hills Production: host on, you off; Keshik Movement: host on, you off");
+    CHECK(DescribeModMismatch(host, {}) == "Hills Production: host on, you off. Keshik Movement: host on, you off");
 
     const std::vector<ModRef> hostWithoutNames = { { "hills_production", "1.0", "" } };
     UNSCOPED_INFO("a mod without a display name shows its id");
@@ -277,7 +277,7 @@ void testMismatch()
     CHECK(DescribeModMismatch(host, host, true) == "The host's full mod list could not be checked");
     UNSCOPED_INFO("a truncated host list reports host-only mods and the unchecked note");
     CHECK(DescribeModMismatch(host, { host[1] }, true) ==
-          "Hills Production: host on, you off; the host's full mod list could not be checked");
+          "Hills Production: host on, you off. The host's full mod list could not be checked");
     UNSCOPED_INFO("a complete matching host list says nothing");
     CHECK(DescribeModMismatch(host, host, false).empty());
 
@@ -287,8 +287,8 @@ void testMismatch()
         many.push_back({ id, "1", "" });
     }
     UNSCOPED_INFO("a long list of differences is cut");
-    CHECK(DescribeModMismatch(many, {}) == "a: host on, you off; b: host on, you off; c: host on, you off; "
-                                           "d: host on, you off; and 2 more");
+    CHECK(DescribeModMismatch(many, {}) == "a: host on, you off. b: host on, you off. c: host on, you off. "
+                                           "d: host on, you off. 2 more mods differ");
 }
 
 void testLocalMods()
@@ -611,4 +611,106 @@ TEST_CASE("host_settings keeps the Game of the Week civilization local", "[ctest
     REQUIRE(decoded);
     CHECK(!decoded->gotwCustomCivilization);
     CHECK(decoded->gotwCivilization == 0);
+}
+
+TEST_CASE("host_settings lobby warning names the mods when the lists compare", "[ctest][host-settings]")
+{
+    HostSettings host       = sample();
+    host.rulesDigestPresent = true;
+    host.rulesDigest.fill(7);
+    HostSettings local = host;
+    auto         lobby = statusWith(State::kReceived, Encode(host));
+    lobby.game_ready   = false;
+    CHECK_FALSE(CheckLobbyContent(lobby, local));
+
+    local.mods.pop_back();
+    auto warning = CheckLobbyContent(lobby, local);
+    REQUIRE(warning);
+    CHECK(warning->title == "Mods differ from the host");
+    CHECK(warning->message == "Keshik Movement: host on, you off. Match the host's mods to play this game.");
+
+    local      = host;
+    local.mods = { { "hills_production", "1.3.0", "Hills Production" }, { "keshik_movement", "0.4.1", "Keshik Movement" }, { "zebra", "1", "Zebra" } };
+    warning    = CheckLobbyContent(lobby, local);
+    REQUIRE(warning);
+    CHECK(warning->title == "Mods differ from the host");
+    CHECK(warning->message == "Hills Production: different version. Zebra: host off, you on. Match the host's mods to play this game.");
+}
+
+TEST_CASE("host_settings lobby warning says the content differs when it cannot name mods", "[ctest][host-settings]")
+{
+    HostSettings host       = sample();
+    host.rulesDigestPresent = true;
+    host.rulesDigest.fill(7);
+    const auto generic = [](const std::optional<LobbyWarning>& warning)
+    {
+        REQUIRE(warning);
+        CHECK(warning->title == "Mods or rules differ");
+        CHECK(warning->message == "Your mods or rules must match the host's before the game can start.");
+    };
+    auto lobby       = statusWith(State::kReceived, Encode(host));
+    lobby.game_ready = false;
+
+    HostSettings otherDigest = host;
+    otherDigest.rulesDigest[0] ^= 1;
+    generic(CheckLobbyContent(lobby, otherDigest));
+
+    HostSettings unverified       = host;
+    unverified.rulesDigestPresent = false;
+    generic(CheckLobbyContent(lobby, unverified));
+
+    HostSettings localTruncated  = host;
+    localTruncated.modsTruncated = true;
+    generic(CheckLobbyContent(lobby, localTruncated));
+
+    HostSettings hostTruncated  = host;
+    hostTruncated.modsTruncated = true;
+    auto truncatedLobby         = statusWith(State::kReceived, Encode(hostTruncated));
+    truncatedLobby.game_ready   = false;
+    generic(CheckLobbyContent(truncatedLobby, host));
+
+    auto old       = statusWith(State::kReceived, { 1, 4, 0, 0 });
+    old.game_ready = false;
+    generic(CheckLobbyContent(old, host));
+}
+
+TEST_CASE("host_settings lobby warning waits for lobby bytes and runs the admission comparison", "[ctest][host-settings]")
+{
+    HostSettings host       = sample();
+    host.rulesDigestPresent = true;
+    host.rulesDigest.fill(7);
+    HostSettings differing = host;
+    differing.mods.pop_back();
+
+    for (const State state : { State::kNone, State::kHost, State::kPending, State::kUnavailable })
+    {
+        auto status       = statusWith(state, Encode(host));
+        status.game_ready = false;
+        CHECK_FALSE(CheckLobbyContent(status, differing));
+    }
+    auto ready = statusWith(State::kReceived, Encode(host));
+    CHECK(ready.game_ready);
+    CHECK_FALSE(CheckLobbyContent(ready, differing));
+
+    const HostSettings locals[] = { host, differing, [&]
+                                    {
+                                        auto digest = host;
+                                        digest.rulesDigest[3] ^= 1;
+                                        return digest;
+                                    }(),
+                                    [&]
+                                    {
+                                        auto none = host;
+                                        none.mods.clear();
+                                        none.rulesDigestPresent = false;
+                                        return none;
+                                    }() };
+    for (const auto& local : locals)
+    {
+        auto status       = statusWith(State::kReceived, Encode(host));
+        status.game_ready = false;
+        const bool warns  = CheckLobbyContent(status, local).has_value();
+        status.game_ready = true;
+        CHECK(warns == (ResolveForGame(true, status, local).state == SnapshotState::Incompatible));
+    }
 }

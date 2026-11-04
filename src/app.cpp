@@ -88,6 +88,7 @@
 #include "host_settings.h"
 #include "keybind_defaults.h"
 #include "keyboard_icons.h"
+#include "lobby_content_watch.h"
 #include "main_menu_logo_asset.h"
 #include "map_packs.h"
 #include "maps_tab.h"
@@ -1306,6 +1307,7 @@ void App::OnPostSetup()
     }
 
     rerevved::StartPresence();
+    rerevved::lobby_content_watch::Start();
 
     // Keep the internal app name lowercase and brand the window title separately.
     window()->SetTitle(rendererBackend == rerevved::gpu::RendererBackend::Native
@@ -1495,6 +1497,7 @@ void App::OnShutdown()
     rerevved::gpu::diagnostics::StopLabelAdapterCapture();
 #endif
     rerevved::StopPresence();
+    rerevved::lobby_content_watch::Stop();
     nativeRenderer.Shutdown();
 }
 
@@ -1556,6 +1559,7 @@ bool App::OnWindowCloseRequested()
     rerevved::gpu::diagnostics::StopLabelAdapterCapture();
 #endif
     rerevved::StopPresence();
+    rerevved::lobby_content_watch::Stop();
     nativeRenderer.Shutdown();
     return true;
 }
@@ -2899,6 +2903,7 @@ void App::hardExitAfterMissedVblankJoin()
     REXLOG_ERROR("Native vblank thread missed its join; hard-exiting before Runtime teardown");
     // The SDK's Discord thread must be joined before rexruntime.dll detaches.
     rerevved::StopPresence();
+    rerevved::lobby_content_watch::Stop();
     rex::FlushLogging();
     std::_Exit(0);
 }
@@ -3105,6 +3110,7 @@ void App::OnBeforeHardExit()
     // The SDK's Discord thread must be joined before the DLL detaches; the
     // native close path reaches here without OnShutdown. Repeated calls are no-ops.
     rerevved::StopPresence();
+    rerevved::lobby_content_watch::Stop();
 }
 
 void App::OnKeyDown(rex::ui::KeyEvent& event)

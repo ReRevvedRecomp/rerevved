@@ -2207,7 +2207,7 @@ setup mode before entering `SetupGate`: 1/2 are local, 3 is a load, and 4/5/6
 are network games. Loads pass through without new-game policies or AI removal.
 Unknown modes reject. On rejection, the `sub_82D217C8` hook returns `-1`, so the
 native failure path skips successful setup and recount. An error and the
-**Cannot start this game** notification report the reason.
+**Can't start this game** notification report the reason.
 
 After startup and every committed live Apply, the
 [application callback](../src/app.cpp) publishes active package IDs and versions

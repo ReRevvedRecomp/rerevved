@@ -378,7 +378,7 @@ void RunNativeNewGameSetup(PPCContext& context, uint8_t* base)
     if (!snapshot.settings)
     {
         REXLOG_ERROR("Gameplay settings: setup rejected: {}", snapshot.diagnostic);
-        rex::ui::PostNotification("Cannot start this game", snapshot.diagnostic);
+        rex::ui::PostNotification("Can't start this game", snapshot.diagnostic);
         __imp__sub_82D25170(context, base);
         return;
     }

@@ -68,6 +68,9 @@ The host's gameplay settings apply to everyone, and Settings shows them locked
 once you join. A player whose mods differ from the host's can't ready up: enable
 the same mods in F2, restart, and join again.
 Ranked Match finds no games.
+The host must stay until the game ends. The game can't pass hosting to another
+player, so if the host leaves, everyone has to quit. Keep the host's script
+window open as well; closing it disconnects everyone.
 
 CAN'T HOST?
 

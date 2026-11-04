@@ -56,7 +56,7 @@ the host's countdown can't start until that player matches or leaves.
 
 New-game setup waits up to 15 seconds for authenticated settings prepared for
 that game. Missing, old, invalid, incomplete, or incompatible settings block
-setup, as do different or unverified mod rules. The game shows **Cannot start
+setup, as do different or unverified mod rules. The game shows **Can't start
 this game** and logs the reason. Correct the settings or loadout before retrying.
 If session freshness cannot be established, recreate the session. See
 [Mods](mods.md#enable-or-change-mods) to apply Lua changes after leaving a session.
