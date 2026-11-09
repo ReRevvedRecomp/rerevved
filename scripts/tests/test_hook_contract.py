@@ -5385,7 +5385,7 @@ class AlwaysAtWarHookContractTests(unittest.TestCase):
 
     def test_hook_table(self) -> None:
         hooks = self.hooks()
-        self.assertEqual(len(hooks), 18)
+        self.assertEqual(len(hooks), 19)
         addresses = [hook["address"] for hook in hooks]
         self.assertEqual(len(set(addresses)), len(addresses))
         by_address = {hook["address"]: hook for hook in hooks}
@@ -5416,6 +5416,12 @@ class AlwaysAtWarHookContractTests(unittest.TestCase):
         for address in (0x82CCA61C, 0x82CCAB9C, 0x82CCAFBC):
             self.assertEqual(by_address[address]["name"], "RefuseContactChoice")
             self.assertEqual(by_address[address]["registers"], ["r3", "r28", "r19"])
+        for address, registers in (
+            (0x82CD1ED8, ["r3", "r26", "r23"]),
+            (0x82CD38B4, ["r3", "r30", "r23"]),
+        ):
+            self.assertEqual(by_address[address]["name"], "RefuseGoldContact")
+            self.assertEqual(by_address[address]["registers"], registers)
         self.assertEqual(by_address[0x82D033C8]["registers"], ["r31", "r30", "r29"])
         self.assertEqual(by_address[0x82D25580]["name"], "SilenceAiContact")
         self.assertEqual(by_address[0x82D25580]["registers"], ["r31", "r29"])
