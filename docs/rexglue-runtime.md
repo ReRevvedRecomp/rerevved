@@ -1826,7 +1826,7 @@ The midasm hooks in `config/gameplay_hooks.toml` repair native behavior; the
 Always At War hooks are in `config/always_at_war_hooks.toml`.
 The Domination minimum is controlled by a setting. `src/gameplay_fixes.h`
 holds their selection and arithmetic. Static evidence is in rerevved-research manifests `science-completion.json`,
-`technology-prompt-callers.json`, `spaceship-launch-arrival-year-boundary.json`,
+`technology-prompt-callers.json`, `spaceship-launch-arrival-year.json`,
 `technology-first-discovery-rewards.json` and `economy-bonus-corrections.json`.
 
 - **AI research choice.** The computer-player branch of the technology prompt
@@ -1847,7 +1847,7 @@ holds their selection and arithmetic. Static evidence is in rerevved-research ma
   a matching reply and a city lost to that opponent. The hook at `0x82CBF668`
   skips that bit for ordinary AI players. The Democracy, war, self, Barbarian,
   visible-city and population-above-6 gates, target choice, SDI and dispatch
-  are unchanged. Evidence: `ai-nuclear-weapon-gates.json`.
+  are unchanged. Evidence: `ai-nuclear-weapon-requirements.json`.
 - **Domination minimum turns.** See below.
 - **Ceremonial Burial's free Temple.** The native recipient score for a
   Temple equals city population, but its recipient gate requires a score
