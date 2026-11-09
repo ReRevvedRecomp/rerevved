@@ -1378,6 +1378,33 @@ load using live settings with no identity overrides. Repeat with an autosave;
 capture of host paths, digest readability after finalization and autosave coverage
 remain runtime gates.
 
+## Save slots
+
+`save_slots` (int, default 99, clamped to 10..99) is the number of manual save
+slots. One picker class serves the in-game Save list and both Load lists, so the
+hooks in [`save_slot_hooks.toml`](../config/save_slot_hooks.toml) widen that
+class: the creators' allocation, the record vector, the content enumerator size,
+the empty-slot placeholder loop, the `save%d` name builder, the record labels
+and the id filter. The constructor's record resize `0x821C08A0` has 10 compiled
+in, so its replacement inserts the records from the prototype instead. Every
+hook that indexes records is bounded by the vector's actual size. The used-slot
+and row counters are replaced so the native "10 means full" tests mean full at
+N. The enumerator always holds 99 plus 64 entries, for the config file, up to 50
+numbered autosaves and the war, quit and AI saves, so lowering N cannot hide
+saves already on disk. Records 11 and 13 take the ordinary `Save @NUM` label
+instead of the native autosave names. The value is read on first use and cached,
+because the record vector size must not change while a list exists. The id
+filter leaves out the war autosave, which the native parser also gives id 11. At
+10 every other hook defers to the native path. The slot id parser and autosave
+naming are unchanged. The [implementation](../src/save_slot_hooks.cpp) reads the
+picker's record vector and the math lives in
+[`save_slots.cpp`](../src/save_slots.cpp).
+
+Runtime acceptance: slot 11 saves and loads, slots 12 and 14 keep ordinary
+labels, and a full list offers no empty row. With 99 saves, both lists open,
+slot 99 loads and saves, and no empty row is offered. Remaining runtime gate:
+autosaves beside the new slots.
+
 ## Gameplay Raging Barbarians
 
 F1 **Gameplay > Raging Barbarians** is a checkbox, off by default. The boolean

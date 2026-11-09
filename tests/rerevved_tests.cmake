@@ -116,6 +116,7 @@ add_executable(rerevved_tests
     src/unit_sale_value.cpp
     src/unit_sale_hooks.cpp
     src/save_sidecar.cpp
+    src/save_slots.cpp
     src/start_resources.cpp
     src/system_link_trace.cpp
     src/resync_record.cpp
@@ -206,6 +207,7 @@ add_executable(rerevved_tests
     tests/rush_cost_test.cpp
     tests/unit_sale_value_test.cpp
     tests/save_sidecar_test.cpp
+    tests/save_slots_test.cpp
     tests/start_resources_test.cpp
     tests/system_link_trace_test.cpp
     tests/terrain_yield_rules_test.cpp

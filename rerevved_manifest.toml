@@ -36,6 +36,7 @@ includes = [
     "config/custom_achievement_combat_hooks.toml",
     "config/gotw_hooks.toml",
     "config/save_sidecar_hooks.toml",
+    "config/save_slot_hooks.toml",
     "config/native_progress_hooks.toml",
     "config/native_tiling_probe_hooks.toml",
     "config/native_resource_hooks.toml",

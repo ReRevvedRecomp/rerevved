@@ -1,0 +1,67 @@
+# One picker class (constructor 0x82DDC898) serves every save and load list; its buffer is always sized for 99 slots.
+
+# Before each creator's call to the allocator 0x82D3DBA0, with the size in r3.
+[[midasm_hook]]
+address = 0x82D83254
+name = "GrowSaveListObject"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82D8353C
+name = "GrowSaveListObject"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82E4F360
+name = "GrowSaveListObject"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82E4F5F0
+name = "GrowSaveListObject"
+registers = ["r3"]
+
+# Before XamContentCreateEnumerator, with the entry count in r7 (was 11).
+[[midasm_hook]]
+address = 0x82DDEB7C
+name = "SizeSaveEnumerator"
+registers = ["r7"]
+
+[[midasm_hook]]
+address = 0x82DDE014
+name = "SizeSaveEnumerator"
+registers = ["r7"]
+
+# Placeholder fill: r31 is the record offset, r30 the picker; continue at the loop head 0x82DDED28.
+[[midasm_hook]]
+address = 0x82DDED84
+name = "FillMoreSavePlaceholders"
+registers = ["r31", "r30"]
+jump_address_on_true = 0x82DDED28
+
+# Empty-slot name builder 0x82DDB9E0: r30 is the slot; the "save%d" path starts at 0x82DDBA18.
+[[midasm_hook]]
+address = 0x82DDB9FC
+name = "NameExtraSaveSlot"
+registers = ["r30"]
+jump_address_on_true = 0x82DDBA18
+
+# Record labels: r28 is the slot; ids 11 and 13 branch to the autosave names, the "Save @NUM" path follows.
+[[midasm_hook]]
+address = 0x82DDD988
+name = "NameExtraSaveRecord"
+registers = ["r28"]
+jump_address_on_true = 0x82DDD9B0
+
+[[midasm_hook]]
+address = 0x82DDE6A8
+name = "NameExtraSaveRecord"
+registers = ["r28"]
+jump_address_on_true = 0x82DDE6D0
+
+# Enumeration filter 0x82DDDEA0: r29 is the slot id, r30 the content entry, r31 the picker; the kept path continues at 0x82DDDF00.
+[[midasm_hook]]
+address = 0x82DDDEF8
+name = "KeepExtraSaveSlot"
+registers = ["r29", "r30", "r31"]
+jump_address_on_true = 0x82DDDF00
