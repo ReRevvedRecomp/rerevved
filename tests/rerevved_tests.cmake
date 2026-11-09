@@ -118,6 +118,10 @@ add_executable(rerevved_tests
     src/save_sidecar.cpp
     src/start_resources.cpp
     src/system_link_trace.cpp
+    src/resync_record.cpp
+    src/network_admission.cpp
+    src/join_refusal_hooks.cpp
+    src/lobby_content_watch.cpp
     src/terrain_yield_rules.cpp
     src/terrain_yield_rules_hooks.cpp
     src/unique_era_abilities.cpp
@@ -168,6 +172,7 @@ add_executable(rerevved_tests
     tests/main_menu_options_test.cpp
     tests/options_modal_test.cpp
     tests/native_settings_test.cpp
+    tests/overlay_row_lock_test.cpp
     tests/retail_audio_test.cpp
     tests/game_language_test.cpp
     tests/gotw_practice_test.cpp
@@ -195,6 +200,9 @@ add_executable(rerevved_tests
     tests/resource_settings_test.cpp
     tests/retail_ui_art_test.cpp
     tests/rules_bundle_test.cpp
+    tests/resync_record_test.cpp
+    tests/network_admission_test.cpp
+    tests/lobby_content_watch_test.cpp
     tests/rush_cost_test.cpp
     tests/unit_sale_value_test.cpp
     tests/save_sidecar_test.cpp
@@ -303,8 +311,13 @@ add_test(NAME gotw_contract COMMAND ${Python3_EXECUTABLE} -B
     ${CMAKE_CURRENT_SOURCE_DIR}/scripts/tests/test_gotw_contract.py)
 add_test(NAME city_founding_unit_contract COMMAND ${Python3_EXECUTABLE} -B
     ${CMAKE_CURRENT_SOURCE_DIR}/scripts/tests/test_city_founding_unit_contract.py)
+add_test(NAME resync_record_contract COMMAND ${Python3_EXECUTABLE} -B
+    ${CMAKE_CURRENT_SOURCE_DIR}/scripts/tests/test_resync_record_contract.py)
+add_test(NAME network_admission_contract COMMAND ${Python3_EXECUTABLE} -B
+    ${CMAKE_CURRENT_SOURCE_DIR}/scripts/tests/test_network_admission_contract.py)
 foreach(_python_contract IN ITEMS
     save_sidecar_contract resource_settings_contract raging_barbarians_contract capital_grace_contract
-    occ_contract gotw_contract city_founding_unit_contract)
+    occ_contract gotw_contract city_founding_unit_contract resync_record_contract
+    network_admission_contract)
     set_property(TEST ${_python_contract} APPEND PROPERTY LABELS python-contract)
 endforeach()

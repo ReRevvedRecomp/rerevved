@@ -44,4 +44,8 @@ includes = [
     "config/native_completion_probe_hooks.toml",
     "config/scene_probe_hooks.toml",
     "config/system_link_trace_hooks.toml",
+    "config/resync_record_hooks.toml",
+    "config/network_admission_hooks.toml",
+    "config/join_refusal_hooks.toml",
+    "config/lobby_ready_hooks.toml",
 ]

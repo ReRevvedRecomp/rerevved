@@ -419,7 +419,7 @@ private:
         {
             // The accepted digest no longer describes the effective rules.
             host_settings::InvalidateLocalModSnapshot();
-            Notify("Mods not restored", "Mod rules could not be restored. Open F2 Mods and apply your mods again.");
+            Notify("Mods not restored", "Mod rules could not be restored. Press F2 to open Mods and apply your mods again.");
         }
     }
 

@@ -99,6 +99,25 @@ struct GameSnapshot
     std::string                 diagnostic;
 };
 
+enum class ContentMismatch
+{
+    None,
+    Mods,  // A list is truncated or the loadouts differ.
+    Rules, // The content digest is missing on either side or different.
+};
+
+// The lobby warning runs the same comparison as game-start admission.
+ContentMismatch CompareContent(const HostSettings& host, const HostSettings& local);
+
+struct LobbyWarning
+{
+    std::string title;
+    std::string message;
+};
+
+// Lobby bytes are not game-ready data, so a mismatch here only warns; admission still decides at game start.
+std::optional<LobbyWarning> CheckLobbyContent(const rex::session_data::Status& status, const HostSettings& local);
+
 // Call after SDK PrepareForGame/WaitForHostData, before freezing gameplay settings.
 // Treat the returned owned value as immutable. No local gameplay fallback is
 // returned if the network fails or mod content is unverified or different.

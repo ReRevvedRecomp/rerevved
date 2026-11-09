@@ -12,7 +12,11 @@
 #include "gameplay_session_settings.h"
 #include "gotw_settings.h"
 #include "occ_hooks.h"
+#include "occ_settings.h"
 #include "raging_barbarians_hooks.h"
+#include "raging_barbarians_settings.h"
+#include "resource_identity_overrides.h"
+#include "resync_record.h"
 #include "save_sidecar.h"
 #include "start_resources_runtime.h"
 
@@ -39,6 +43,8 @@ namespace ai_civs = rerevved::ai_civilizations;
 // Slots removed in the current game. Not saved: a load clears it, and the
 // next new game replaces it.
 std::atomic<uint32_t> removedMask{ 0 };
+
+std::atomic<uint32_t> apolloPendingAtLoad{ 0 };
 
 uint8_t loadU8(const uint8_t* base, uint32_t address)
 {
@@ -169,6 +175,39 @@ void logExpandedSetup(const uint8_t* base)
                 distinct);
 }
 
+void logLoadCase(rerevved::gameplay_session::LoadCase loadCase)
+{
+    namespace session                       = rerevved::gameplay_session;
+    const uint32_t apolloPendingBeforeReset = apolloPendingAtLoad.load();
+    const uint32_t overridesDigest          = rerevved::resync_record::OverridesDigest(*rerevved::resource_identity_overrides::Current());
+    if (loadCase == session::LoadCase::FileLoad)
+    {
+        REXLOG_INFO("Load reset: case={} overrides_digest=0x{:08X} apollo_pending_before_reset={}", session::LoadCaseName(loadCase), overridesDigest, apolloPendingBeforeReset);
+        return;
+    }
+    if (loadCase == session::LoadCase::NetworkNoSnapshot)
+    {
+        REXLOG_ERROR("Load reset: case={}; policy is native: occ=off raging_barbarians=off no AI bonuses overrides_digest=0x{:08X} apollo_pending_before_reset={}", session::LoadCaseName(loadCase), overridesDigest, apolloPendingBeforeReset);
+        return;
+    }
+    const auto economy = rerevved::ai_economy::ForGame();
+    REXLOG_INFO("Load reset: case={} occ={} raging_barbarians={} ai_bonus={}/{}/{}/{}/{} resources={} turn_limit={} domination_min={} removed_mask=0x{:08X} overrides_digest=0x{:08X} apollo_pending_before_reset={}",
+                session::LoadCaseName(loadCase),
+                rerevved::occ::ForGame()->enabled,
+                rerevved::raging_barbarians::Evaluate(0).enabled,
+                economy.researchBonusPercent,
+                economy.productionBonusPercent,
+                economy.goldBonusPercent,
+                economy.foodBonusPercent,
+                economy.cultureBonusPercent,
+                rerevved::start_resources::ForGame(),
+                rerevved::gameplay_fixes::TurnLimitForGame(),
+                rerevved::gameplay_fixes::RestoredDominationMinimum(),
+                removedMask.load(),
+                overridesDigest,
+                apolloPendingBeforeReset);
+}
+
 } // namespace
 
 bool rerevved::ai_civilizations::IsRemovedCivilization(uint32_t player)
@@ -213,13 +252,20 @@ REX_HOOK_RAW(sub_82D11AD8)
 // Before the load path's serializer call in sub_82D86400.
 void ResetAiCivilizationsOnLoad()
 {
-    rerevved::gameplay_session::ResetOnLoad();
+    namespace session   = rerevved::gameplay_session;
+    const auto host     = session::ForNetworkGame();
+    const auto loadCase = session::ClassifyLoad(rerevved::save_sidecar::FileLoadActive(), session::NetworkGameActive(), host != nullptr);
+    apolloPendingAtLoad.store(ApolloPendingCount());
+    session::ResetOnLoad(loadCase);
     // A practice save restores its Game of the Week state after this reset.
     rerevved::gotw::ResetForLoad();
     ai_civs::ResetOnLoad();
     rerevved::ai_economy::ResetForLoad();
-    rerevved::start_resources::ResetOnLoad();
-    removedMask.store(0);
+    if (loadCase != session::LoadCase::NetworkRestore)
+    {
+        rerevved::start_resources::ResetOnLoad();
+        removedMask.store(0);
+    }
     FreezeRagingBarbariansForGame();
     FreezeOccForGame();
     rerevved::gameplay_fixes::NoteGameLoad();
@@ -227,4 +273,9 @@ void ResetAiCivilizationsOnLoad()
     rerevved::custom_achievements::ResetProgress();
     rerevved::custom_achievement_combat::ResetCombatObservers();
     rerevved::save_sidecar::RestoreAfterLoadReset();
+    if (loadCase != session::LoadCase::FileLoad)
+    {
+        rerevved::start_resources::RestoreForGame(session::RestoreNetworkPolicy(host.get()));
+    }
+    logLoadCase(loadCase);
 }

@@ -96,6 +96,8 @@ PYTHON_CONTRACTS = (
     "occ_contract",
     "gotw_contract",
     "city_founding_unit_contract",
+    "resync_record_contract",
+    "network_admission_contract",
 )
 SCHEDULING_TAG = re.compile(r"^(native_gpu|run_serial|timeout-[0-9]+)$")
 CASE = re.compile(r'TEST_CASE\(\s*"([^"]+)"\s*,\s*"([^"]*)"\s*\)')

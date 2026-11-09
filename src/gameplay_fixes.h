@@ -149,7 +149,8 @@ constexpr bool ExtendsTurnLimit(int32_t limit) noexcept
     return limit > kTurnLimitNative && limit < kTurnLimitUnlimited;
 }
 
-int32_t ParseTurnLimit(std::string_view text) noexcept;
+int32_t          ParseTurnLimit(std::string_view text) noexcept;
+std::string_view TurnLimitName(int32_t limit) noexcept;
 
 void    RestoreTurnLimit(int32_t limit) noexcept;
 int32_t TurnLimitForGame() noexcept;
@@ -200,7 +201,8 @@ constexpr int32_t StartingEraYear(int32_t era) noexcept
     return kYears[era];
 }
 
-int32_t ParseStartingEra(std::string_view text) noexcept;
+int32_t          ParseStartingEra(std::string_view text) noexcept;
+std::string_view StartingEraName(int32_t era) noexcept;
 
 void    RestoreStartingEra(int32_t era) noexcept;
 int32_t StartingEraForGame() noexcept;
@@ -214,7 +216,8 @@ constexpr bool IsValidMultiplayerAiDifficulty(int32_t difficulty) noexcept
     return difficulty >= kMultiplayerAiDifficultyNative && difficulty <= kMultiplayerAiDifficultyDeity;
 }
 
-int32_t ParseMultiplayerAiDifficulty(std::string_view text) noexcept;
+int32_t          ParseMultiplayerAiDifficulty(std::string_view text) noexcept;
+std::string_view MultiplayerAiDifficultyName(int32_t difficulty) noexcept;
 
 void    RestoreMultiplayerAiDifficulty(int32_t difficulty) noexcept;
 int32_t MultiplayerAiDifficultyForGame() noexcept;
@@ -324,6 +327,12 @@ constexpr UnitMovement ParseUnitMovement(std::string_view text) noexcept
 {
     return text == "fast" ? UnitMovement::Fast : text == "instant" ? UnitMovement::Instant
                                                                    : UnitMovement::Normal;
+}
+
+constexpr std::string_view UnitMovementName(UnitMovement movement) noexcept
+{
+    return movement == UnitMovement::Fast ? "fast" : movement == UnitMovement::Instant ? "instant"
+                                                                                       : "normal";
 }
 
 constexpr int32_t kFastMovementFactor = 3;

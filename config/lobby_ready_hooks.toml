@@ -1,0 +1,6 @@
+# Refuse a guest's ready press when admission would refuse the game; runs in the press handler 0x82E4C988 before it reads the ready flag.
+[[midasm_hook]]
+address = 0x82E4C9D0
+name = "RefuseLobbyReady"
+registers = []
+jump_address_on_true = 0x82E4CB18
