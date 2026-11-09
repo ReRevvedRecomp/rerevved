@@ -96,6 +96,12 @@ sidecar, even with the save sidecar setting off. Automatic saves are not
 resumable: they load without practice rules and never count toward the weekly
 results. A practice save whose sidecar is later lost loads as an ordinary game.
 
+The in-game Save list and both Load lists offer 99 manual slots. The config-only
+key `save_slots` sets the number, from 10 to 99; 10 keeps the original list. It
+is read when the first list opens, so restart after changing it. The Save list
+shows the existing saves plus one empty slot, never a row of empty slots. Slots
+beyond 10 are ordinary native saves named `save10` and up.
+
 ### AI handicaps
 
 The Gameplay settings include **AI Research Bonus**, **AI Production Bonus**,

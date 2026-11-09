@@ -505,6 +505,9 @@ list(APPEND REREVVED_SOURCES
     src/save_sidecar.h
     src/save_sidecar.cpp
     src/save_sidecar_hooks.cpp
+    src/save_slots.h
+    src/save_slots.cpp
+    src/save_slot_hooks.cpp
     src/resource_settings.h
     src/resource_settings.cpp
     src/start_resources.h
