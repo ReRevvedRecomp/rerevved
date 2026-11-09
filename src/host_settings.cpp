@@ -323,7 +323,7 @@ GameSnapshot ResolveForGame(bool networkGame, const rex::session_data::Status& s
     using State = rex::session_data::State;
     if (status.state == State::kPending)
     {
-        return { SnapshotState::Pending, {}, "Waiting for the host's game settings" };
+        return { SnapshotState::Pending, {}, "The host's game settings did not arrive in time" };
     }
     if (status.state != State::kHost && status.state != State::kReceived)
     {
@@ -331,23 +331,59 @@ GameSnapshot ResolveForGame(bool networkGame, const rex::session_data::Status& s
     }
     if (!status.game_ready)
     {
-        return { SnapshotState::Pending, {}, "The host has not prepared this game's settings" };
+        return { SnapshotState::Pending, {}, "This game's settings are not ready on the host's PC" };
     }
     const auto host = Decode(status.bytes);
     if (!host)
     {
-        return { SnapshotState::Incompatible, {}, "The host's gameplay snapshot is missing, old or invalid" };
+        return { SnapshotState::Incompatible, {}, "The host's copy of the gameplay settings is missing, out of date or invalid" };
     }
-    if (host->modsTruncated || local.modsTruncated || !DescribeModMismatch(host->mods, local.mods).empty())
+    switch (CompareContent(*host, local))
     {
-        return { SnapshotState::Incompatible, {}, "The host's complete mod loadout does not match" };
-    }
-    if ((!host->mods.empty() || !local.mods.empty() || host->rulesDigestPresent || local.rulesDigestPresent) &&
-        (!host->rulesDigestPresent || !local.rulesDigestPresent || host->rulesDigest != local.rulesDigest))
-    {
-        return { SnapshotState::Incompatible, {}, "The host's rule content is different or unverified" };
+        case ContentMismatch::Mods:
+            return { SnapshotState::Incompatible, {}, "The host's full set of mods does not match" };
+        case ContentMismatch::Rules:
+            return { SnapshotState::Incompatible, {}, "The host's rules differ or have not been checked" };
+        case ContentMismatch::None:
+            break;
     }
     return { status.state == State::kHost ? SnapshotState::Host : SnapshotState::Received, *host, {} };
+}
+
+ContentMismatch CompareContent(const HostSettings& host, const HostSettings& local)
+{
+    if (host.modsTruncated || local.modsTruncated || !DescribeModMismatch(host.mods, local.mods).empty())
+    {
+        return ContentMismatch::Mods;
+    }
+    if ((!host.mods.empty() || !local.mods.empty() || host.rulesDigestPresent || local.rulesDigestPresent) &&
+        (!host.rulesDigestPresent || !local.rulesDigestPresent || host.rulesDigest != local.rulesDigest))
+    {
+        return ContentMismatch::Rules;
+    }
+    return ContentMismatch::None;
+}
+
+std::optional<LobbyWarning> CheckLobbyContent(const rex::session_data::Status& status, const HostSettings& local)
+{
+    if (status.state != rex::session_data::State::kReceived || status.game_ready)
+    {
+        return std::nullopt;
+    }
+    const auto host = Decode(status.bytes);
+    if (host && CompareContent(*host, local) == ContentMismatch::None)
+    {
+        return std::nullopt;
+    }
+    if (host && !host->modsTruncated && !local.modsTruncated)
+    {
+        const std::string names = DescribeModMismatch(host->mods, local.mods);
+        if (!names.empty())
+        {
+            return LobbyWarning{ "Mods differ from the host", names + ". Match the host's mods to play this game." };
+        }
+    }
+    return LobbyWarning{ "Mods or rules differ", "Your mods or rules must match the host's before the game can start." };
 }
 
 std::string DescribeModMismatch(const std::vector<ModRef>& host, const std::vector<ModRef>& local, bool hostTruncated)
@@ -392,17 +428,17 @@ std::string DescribeModMismatch(const std::vector<ModRef>& host, const std::vect
     std::string text;
     for (size_t index = 0; index < issues.size() && index < kMaxListedIssues; ++index)
     {
-        text += index == 0 ? "" : "; ";
+        text += index == 0 ? "" : ". ";
         text += issues[index];
     }
     if (issues.size() > kMaxListedIssues)
     {
-        text += "; and " + std::to_string(issues.size() - kMaxListedIssues) + " more";
+        text += ". " + std::to_string(issues.size() - kMaxListedIssues) + " more mods differ";
     }
     if (hostTruncated)
     {
         text += text.empty() ? "The host's full mod list could not be checked"
-                             : "; the host's full mod list could not be checked";
+                             : ". The host's full mod list could not be checked";
     }
     return text;
 }

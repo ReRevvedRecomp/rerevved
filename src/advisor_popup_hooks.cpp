@@ -20,7 +20,6 @@ REXCVAR_DECLARE(bool, show_popup_discoveries);
 REXCVAR_DECLARE(bool, show_popup_villages);
 REXCVAR_DECLARE(bool, show_popup_save_reminder);
 REXCVAR_DECLARE(bool, show_popup_trophy_room);
-REXCVAR_DECLARE(bool, show_popup_government_available);
 
 namespace
 {
@@ -58,8 +57,6 @@ bool GroupHidden(int group)
             return !REXCVAR_GET(show_popup_save_reminder);
         case 13:
             return !REXCVAR_GET(show_popup_trophy_room);
-        case 14:
-            return !REXCVAR_GET(show_popup_government_available);
         default:
             return false;
     }

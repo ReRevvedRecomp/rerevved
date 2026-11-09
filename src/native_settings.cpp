@@ -97,7 +97,6 @@ constexpr auto kSpecs = std::to_array<Spec>({
     { "show_popup_artifacts", Kind::kBool, Applies::kLive, {}, {} },
     { "show_popup_spy_reports", Kind::kBool, Applies::kLive, {}, {} },
     { "show_popup_victory_warnings", Kind::kBool, Applies::kLive, {}, {} },
-    { "show_popup_government_available", Kind::kBool, Applies::kLive, {}, {} },
     { "show_barbarian_messages", Kind::kBool, Applies::kLive, {}, {} },
     { "show_popup_trophy_room", Kind::kBool, Applies::kLive, {}, {} },
 

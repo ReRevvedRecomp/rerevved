@@ -11,6 +11,9 @@
 
 #include <rex/ui/overlay/settings_layout.h>
 
+#include "gameplay_fixes.h"
+#include "gameplay_session_settings.h"
+
 namespace
 {
 
@@ -62,10 +65,157 @@ std::unordered_map<std::string, std::string> retailVolumeChoices()
     return choices;
 }
 
+using rerevved::host_settings::HostSettings;
+
+std::string boolText(bool value)
+{
+    return value ? "true" : "false";
+}
+
+struct HostRow
+{
+    std::string_view name;
+    std::string (*text)(const HostSettings&);
+};
+
+// Includes the local-only settings the host forces off and the presentation speeds that stay native.
+constexpr HostRow kHostRows[] = {
+    { "ai_civilizations", [](const HostSettings& host)
+      {
+          return std::to_string(host.aiCivilizations);
+      } },
+    { "raging_barbarians", [](const HostSettings& host)
+      {
+          return boolText(host.ragingBarbarians);
+      } },
+    { "one_city_challenge", [](const HostSettings& host)
+      {
+          return boolText(host.oneCityChallenge);
+      } },
+    { "resources", [](const HostSettings& host)
+      {
+          return std::to_string(host.resources);
+      } },
+    { "ai_research_bonus_percent", [](const HostSettings& host)
+      {
+          return std::to_string(host.aiResearchBonusPercent);
+      } },
+    { "ai_production_bonus_percent", [](const HostSettings& host)
+      {
+          return std::to_string(host.aiProductionBonusPercent);
+      } },
+    { "ai_gold_bonus_percent", [](const HostSettings& host)
+      {
+          return std::to_string(host.aiGoldBonusPercent);
+      } },
+    { "ai_food_bonus_percent", [](const HostSettings& host)
+      {
+          return std::to_string(host.aiFoodBonusPercent);
+      } },
+    { "ai_culture_bonus_percent", [](const HostSettings& host)
+      {
+          return std::to_string(host.aiCultureBonusPercent);
+      } },
+    { "domination_min_turns", [](const HostSettings& host)
+      {
+          return std::to_string(host.dominationMinimumTurns);
+      } },
+    { "combat_speed", [](const HostSettings&)
+      {
+          return std::string("normal");
+      } },
+    { "turn_limit", [](const HostSettings& host)
+      {
+          return std::string(rerevved::gameplay_fixes::TurnLimitName(host.turnLimit));
+      } },
+    { "starting_era", [](const HostSettings& host)
+      {
+          return std::string(rerevved::gameplay_fixes::StartingEraName(host.startingEra));
+      } },
+    { "multiplayer_ai_difficulty", [](const HostSettings& host)
+      {
+          return std::string(rerevved::gameplay_fixes::MultiplayerAiDifficultyName(host.multiplayerAiDifficulty));
+      } },
+    { "spaceship_scenes", [](const HostSettings&)
+      {
+          return boolText(true);
+      } },
+    { "unit_movement", [](const HostSettings&)
+      {
+          return std::string("normal");
+      } },
+    { "always_at_war", [](const HostSettings&)
+      {
+          return boolText(false);
+      } },
+    { "gotw_custom_week", [](const HostSettings& host)
+      {
+          return boolText(host.gotwCustomWeek);
+      } },
+    { "gotw_week", [](const HostSettings& host)
+      {
+          return host.gotwCustomWeek ? std::to_string(host.gotwWeek) : std::string();
+      } },
+    { "gotw_standard_rules", [](const HostSettings& host)
+      {
+          return boolText(host.gotwStandardRules);
+      } },
+    { "gotw_allow_saving", [](const HostSettings&)
+      {
+          return boolText(false);
+      } },
+    { "gotw_custom_civilization", [](const HostSettings&)
+      {
+          return boolText(false);
+      } },
+    { "gotw_civilization", [](const HostSettings&)
+      {
+          return std::string("0");
+      } },
+};
+
 } // namespace
+
+std::optional<rex::ui::SettingsRowLock> rerevved::HostRowLock(const host_settings::HostSettings* host, std::string_view name)
+{
+    static const HostSettings native;
+    for (const HostRow& row : kHostRows)
+    {
+        if (row.name == name)
+        {
+            return rex::ui::SettingsRowLock{ row.text(host ? *host : native), std::string(gameplay_session::kHostSettingLockedReason) };
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<rex::ui::SettingsRowLock> rerevved::LobbyRowLock(const rex::session_data::Status& status, std::string_view name)
+{
+    if (status.state != rex::session_data::State::kReceived)
+    {
+        return std::nullopt;
+    }
+    const auto host = host_settings::Decode(status.bytes);
+    if (!host)
+    {
+        return std::nullopt;
+    }
+    auto lock = HostRowLock(&*host, name);
+    if (lock)
+    {
+        lock->reason = std::string(gameplay_session::kHostSettingLobbyReason);
+    }
+    return lock;
+}
 
 void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
 {
+    layout.row_lock = [](std::string_view name) -> std::optional<rex::ui::SettingsRowLock>
+    {
+        if (!gameplay_session::NetworkGameActive())
+            return LobbyRowLock(rex::session_data::Current(), name);
+        return HostRowLock(gameplay_session::ForNetworkGame().get(), name);
+    };
     layout.tabs = {
         { "General", { { "", { "game_language", "show_fps_counter", "skip_intro_movie", "open_log_folder" } } } },
         { "Gameplay",
@@ -76,7 +226,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
           } },
         { "Notifications",
           {
-              { "", { "spaceship_scenes", "show_research_prompt", "show_popup_city_status", "show_popup_discoveries", "show_popup_combat_reports", "show_popup_rival_great_people", "show_popup_rankings", "show_popup_rival_war_peace", "show_popup_save_reminder", "show_popup_villages", "show_village_barbarian_messages", "show_popup_city_captures", "show_popup_rival_government", "show_popup_artifacts", "show_popup_spy_reports", "show_popup_victory_warnings", "show_popup_government_available", "show_barbarian_messages", "show_popup_trophy_room" } },
+              { "", { "spaceship_scenes", "show_research_prompt", "show_popup_city_status", "show_popup_discoveries", "show_popup_combat_reports", "show_popup_rival_great_people", "show_popup_rankings", "show_popup_rival_war_peace", "show_popup_save_reminder", "show_popup_villages", "show_village_barbarian_messages", "show_popup_city_captures", "show_popup_rival_government", "show_popup_artifacts", "show_popup_spy_reports", "show_popup_victory_warnings", "show_barbarian_messages", "show_popup_trophy_room" } },
           } },
         { "Online",
           {
@@ -215,7 +365,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "show_popup_rival_government", "Show notices when other civilizations change government." },
         { "show_popup_city_captures", "Show notices when cities are taken or recaptured." },
         { "show_popup_victory_warnings", "Show warnings about rivals nearing victory." },
-        { "show_popup_rival_great_people", "Show notices about rival Great People and Wonders." },
+        { "show_popup_rival_great_people", "Show notices about rival Great People." },
         { "show_popup_rankings", "Show rankings, greatest city notices and culture flips." },
         { "show_popup_artifacts", "Show artifact rumors and ancient site discoveries." },
         { "show_popup_combat_reports", "Show notices about Great Generals, captures and promotions." },
@@ -225,8 +375,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "show_popup_villages", "Show advisor notices after entering villages." },
         { "show_popup_save_reminder", "Show save reminders. Turning this off does not save your game." },
         { "show_popup_trophy_room", "Show invitations to visit the Trophy Room." },
-        { "show_popup_government_available", "Show the new government prompt. Off keeps your current government." },
-        { "show_barbarian_messages", "Show the Barbarian leader's greeting when you first meet a tribe." },
+        { "show_barbarian_messages", "Show the Barbarian leader's greeting when you first meet a tribe. Online games always show it." },
         { "show_village_barbarian_messages", "Show Barbarian reward messages. The reward is granted either way." },
         // Online.
         { "system_link_status", "Your current connection to the local network or relay." },
@@ -322,7 +471,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "show_popup_rival_government", "Rival Government Changes" },
         { "show_popup_city_captures", "City Capture Reports" },
         { "show_popup_victory_warnings", "Victory Race Warnings" },
-        { "show_popup_rival_great_people", "Rival Great People and Wonders" },
+        { "show_popup_rival_great_people", "Rival Great People" },
         { "show_popup_rankings", "Rankings and Culture News" },
         { "show_popup_artifacts", "Artifact and Ancient Site News" },
         { "show_popup_combat_reports", "Combat Reports" },
@@ -332,7 +481,6 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "show_popup_villages", "Village Outcomes" },
         { "show_popup_save_reminder", "Save Reminder" },
         { "show_popup_trophy_room", "Trophy Room Offer" },
-        { "show_popup_government_available", "New Government Prompt" },
         { "show_barbarian_messages", "Barbarian Leader Messages" },
         { "show_village_barbarian_messages", "Village Barbarian Messages" },
         { "ai_civilizations", "AI Civilizations" },

@@ -297,12 +297,11 @@ void ApplyMultiplayerAiDifficulty(PPCRegister& r11)
     }
 }
 
-// Network games use the frozen host value, otherwise the live preference.
+// Network games keep the native scenes, so every peer runs the same presentation.
 void TagSpaceshipActor(PPCRegister& owner, PPCRegister& slot)
 {
     namespace gf    = rerevved::gameplay_fixes;
-    const auto host = rerevved::gameplay_session::ForNetworkGame();
-    const bool skip = host ? host->skipSpaceshipScenes : !REXCVAR_GET(spaceship_scenes);
+    const bool skip = !rerevved::gameplay_session::NetworkGameActive() && !REXCVAR_GET(spaceship_scenes);
     if (!skip)
     {
         return;
@@ -386,7 +385,7 @@ rerevved::gameplay_fixes::UnitMovement unitMovementSettingValue()
     return unitMovementSetting.load(std::memory_order_relaxed);
 }
 
-// Network games use the host value so peers move alike.
+// Network games keep native movement, so every peer moves alike.
 // Unit type is byte 1 of the 84-byte record at [r1+112] + r24.
 rerevved::gameplay_fixes::UnitMovement unitMovementFor(PPCRegister& sp, PPCRegister& recordOffset)
 {
@@ -394,15 +393,11 @@ rerevved::gameplay_fixes::UnitMovement unitMovementFor(PPCRegister& sp, PPCRegis
     uint32_t table   = 0;
     uint8_t  type    = 0;
     uint8_t  network = 0;
-    if (!readGuestU8(rerevved::ai_civilizations::kNetworkGameByte, network))
+    if (!readGuestU8(rerevved::ai_civilizations::kNetworkGameByte, network) || network != 0)
     {
         return gf::UnitMovement::Normal;
     }
-    // No snapshot means native movement.
-    const auto host = network != 0 ? rerevved::gameplay_session::ForNetworkGame() : nullptr;
-    const auto mode = network == 0 ? unitMovementSettingValue()
-                      : host       ? static_cast<gf::UnitMovement>(host->unitMovement)
-                                   : gf::UnitMovement::Normal;
+    const auto mode = unitMovementSettingValue();
     if (mode == gf::UnitMovement::Normal ||
         !readGuestU32(sp.u32 + 112, table) ||
         !readGuestU8(table + recordOffset.u32 + 1, type) || !gf::AcceleratesMovingUnit(static_cast<int8_t>(type)))
@@ -440,6 +435,7 @@ void ApplyDominationMinimumTurns(PPCRegister& r9)
     const int32_t restored = rerevved::gameplay_fixes::RestoredDominationMinimum();
     const int32_t minimum  = host && rerevved::gameplay_fixes::ShortenedMinimumAllowed() ? host->dominationMinimumTurns
                              : restored                                                  ? restored
+                             : rerevved::gameplay_session::NetworkGameActive()           ? rerevved::gameplay_fixes::kNativeDominationMinimumTurns
                                                                                          : rerevved::gameplay_fixes::DominationMinimumTurns(
                                                                                                rex::cvar::Query<std::string>("domination_min_turns"), rerevved::gameplay_fixes::ShortenedMinimumAllowed());
     const int32_t elapsed  = r9.s32;

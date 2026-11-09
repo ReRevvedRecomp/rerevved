@@ -36,6 +36,7 @@ includes = [
     "config/custom_achievement_combat_hooks.toml",
     "config/gotw_hooks.toml",
     "config/save_sidecar_hooks.toml",
+    "config/save_slot_hooks.toml",
     "config/native_progress_hooks.toml",
     "config/native_tiling_probe_hooks.toml",
     "config/native_resource_hooks.toml",
@@ -44,4 +45,8 @@ includes = [
     "config/native_completion_probe_hooks.toml",
     "config/scene_probe_hooks.toml",
     "config/system_link_trace_hooks.toml",
+    "config/resync_record_hooks.toml",
+    "config/network_admission_hooks.toml",
+    "config/join_refusal_hooks.toml",
+    "config/lobby_ready_hooks.toml",
 ]

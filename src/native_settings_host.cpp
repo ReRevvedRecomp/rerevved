@@ -93,7 +93,13 @@ public:
 
     std::optional<FlagState> Read(std::string_view key) override
     {
-        return ReadFlag(key);
+        auto state = ReadFlag(key);
+        if (state && host_.layout->row_lock)
+        {
+            if (const auto lock = host_.layout->row_lock(key))
+                state->value = lock->value;
+        }
+        return state;
     }
 
     std::optional<std::vector<Choice>> MonitorChoices() override
@@ -105,6 +111,8 @@ public:
 
     ApplyStatus Apply(std::string_view key, std::string_view raw) override
     {
+        if (host_.layout->row_lock && host_.layout->row_lock(key))
+            return ApplyStatus::kRejected;
         return ApplyAndSave(key, raw, host_.configPath);
     }
 

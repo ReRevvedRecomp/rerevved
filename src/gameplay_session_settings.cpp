@@ -6,6 +6,7 @@
 #include "mod_script_rules.h"
 #include "occ_settings.h"
 #include "raging_barbarians_settings.h"
+#include "resource_settings.h"
 
 #include <chrono>
 #include <mutex>
@@ -95,6 +96,17 @@ struct WeeklyAttempt
 };
 
 WeeklyAttempt weeklyAttempt;
+
+struct StagedAdmission
+{
+    bool                                active = false;
+    uint32_t                            setup  = 0;
+    int32_t                             mode   = 0;
+    std::optional<std::vector<uint8_t>> stamp;
+    host_settings::GameSnapshot         snapshot;
+};
+
+StagedAdmission stagedAdmission;
 // Week latched by the weekly attempt consumed by the last accepted Game of the Week
 // Prepare call, or 0 if none.
 uint32_t acceptedWeeklyWeek = 0;
@@ -111,14 +123,78 @@ host_settings::GameSnapshot captureSettings(bool networkGame)
     return host_settings::ResolveForGame(false, {}, local);
 }
 
+std::optional<std::vector<uint8_t>> currentStamp()
+{
+    const auto status = rex::session_data::Current();
+    if ((status.state != rex::session_data::State::kHost && status.state != rex::session_data::State::kReceived) || !status.game_ready)
+    {
+        return std::nullopt;
+    }
+    auto       stamp = status.bytes;
+    const auto local = host_settings::Encode(host_settings::LocalSettings());
+    stamp.insert(stamp.end(), local.begin(), local.end());
+    return stamp;
+}
+
+std::optional<host_settings::GameSnapshot> takeStagedAdmission(uint32_t setup, int32_t mode, detail::StampProvider stamp)
+{
+    auto       staged = std::exchange(stagedAdmission, {});
+    const bool bound  = staged.active && staged.setup == setup && staged.mode == mode;
+    if (!bound || !staged.snapshot.settings)
+    {
+        return std::nullopt;
+    }
+    if (stamp != nullptr)
+    {
+        const auto now = stamp();
+        if (!now || !staged.stamp || *now != *staged.stamp)
+        {
+            return std::nullopt;
+        }
+    }
+    return std::move(staged.snapshot);
+}
+
 } // namespace
 
 host_settings::GameSnapshot Prepare(bool networkGame, uint32_t setup, int32_t mode)
 {
-    return detail::Prepare(networkGame, setup, mode, captureSettings);
+    return detail::Prepare(networkGame, setup, mode, captureSettings, currentStamp);
 }
 
-host_settings::GameSnapshot detail::Prepare(bool networkGame, uint32_t setup, int32_t mode, SnapshotProvider capture)
+Admission AdmitNetworkGame(uint32_t setup, int32_t mode)
+{
+    return detail::AdmitNetworkGame(setup, mode, captureSettings, currentStamp);
+}
+
+Admission detail::AdmitNetworkGame(uint32_t setup, int32_t mode, SnapshotProvider capture, StampProvider stamp)
+{
+    const auto boundary = LockRuleBoundary();
+    stagedAdmission     = {};
+    if (ClassifySetupMode(mode) != SetupKind::Network)
+    {
+        return { false, "This game setup is unavailable or not supported" };
+    }
+    // Host data arriving during a capture changes the stamp, so a second capture is normal.
+    for (int attempt = 0; attempt < 2; ++attempt)
+    {
+        const auto stampBefore = stamp != nullptr ? stamp() : std::nullopt;
+        auto       snapshot    = capture(true);
+        if (!snapshot.settings)
+        {
+            return { false, std::move(snapshot.diagnostic) };
+        }
+        const auto stampAfter = stamp != nullptr ? stamp() : std::nullopt;
+        if (stampBefore == stampAfter)
+        {
+            stagedAdmission = { true, setup, mode, stampAfter, std::move(snapshot) };
+            return { true, {} };
+        }
+    }
+    return { false, "The host's game settings changed while they were being checked" };
+}
+
+host_settings::GameSnapshot detail::Prepare(bool networkGame, uint32_t setup, int32_t mode, SnapshotProvider capture, StampProvider stamp)
 {
     const auto boundary = LockRuleBoundary();
     const auto kind     = ClassifySetupMode(mode);
@@ -145,7 +221,7 @@ host_settings::GameSnapshot detail::Prepare(bool networkGame, uint32_t setup, in
         }
         if (!snapshot.settings && snapshot.diagnostic.empty())
         {
-            snapshot.diagnostic = "The weekly seed's gameplay settings could not be prepared for this setup";
+            snapshot.diagnostic = "This week's gameplay settings could not be prepared for this setup";
         }
         return snapshot;
     }
@@ -153,7 +229,19 @@ host_settings::GameSnapshot detail::Prepare(bool networkGame, uint32_t setup, in
     StoreNetworkSettings(nullptr);
     if (kind == SetupKind::Unknown || networkGame != (kind == SetupKind::Network))
     {
-        return { host_settings::SnapshotState::Missing, {}, "The current game setup mode is unavailable or unsupported" };
+        stagedAdmission = {};
+        return { host_settings::SnapshotState::Missing, {}, "This game setup is unavailable or not supported" };
+    }
+    if (networkGame)
+    {
+        if (auto admitted = takeStagedAdmission(setup, mode, stamp))
+        {
+            return std::move(*admitted);
+        }
+    }
+    else
+    {
+        stagedAdmission = {};
     }
     return capture(networkGame);
 }
@@ -207,16 +295,41 @@ std::unique_lock<std::recursive_mutex> LockRuleBoundary()
     return std::unique_lock(ruleBoundary);
 }
 
-bool RuleReplacementAllowed() noexcept
-try
+std::unique_lock<std::recursive_mutex> TryLockRuleBoundary()
+{
+    return std::unique_lock(ruleBoundary, std::try_to_lock);
+}
+
+namespace
+{
+
+bool networkByte()
 {
     auto*              kernel  = REX_KERNEL_STATE();
     auto*              memory  = kernel ? kernel->memory() : nullptr;
     constexpr uint32_t address = 0x8314F10B;
     auto*              heap    = memory ? memory->LookupHeap(address) : nullptr;
-    const bool         network = heap &&
-                                 (static_cast<uint32_t>(heap->QueryRangeAccess(address, address)) & static_cast<uint32_t>(rex::memory::PageAccess::kReadOnly)) != 0 &&
-                                 *memory->TranslateVirtual<const uint8_t*>(address) != 0;
+    return heap &&
+           (static_cast<uint32_t>(heap->QueryRangeAccess(address, address)) & static_cast<uint32_t>(rex::memory::PageAccess::kReadOnly)) != 0 &&
+           *memory->TranslateVirtual<const uint8_t*>(address) != 0;
+}
+
+} // namespace
+
+bool NetworkGameActive() noexcept
+try
+{
+    return networkByte();
+}
+catch (...)
+{
+    return false;
+}
+
+bool RuleReplacementAllowed() noexcept
+try
+{
+    const bool network = networkByte();
     return rex::session_data::Current().state == rex::session_data::State::kNone ||
            (!network && !ForNetworkGame());
 }
@@ -269,20 +382,41 @@ std::shared_ptr<const host_settings::HostSettings> ForNetworkGame() noexcept
     return networkSettings;
 }
 
-void ResetOnLoad() noexcept
+void ResetOnLoad(LoadCase loadCase) noexcept
 try
 {
     // Saved policies remain authoritative on load. A new network game must
     // authenticate its own snapshot rather than reuse the previous session.
     const auto boundary = LockRuleBoundary();
-    StoreNetworkSettings(nullptr);
+    if (loadCase != LoadCase::NetworkRestore)
+    {
+        StoreNetworkSettings(nullptr);
+    }
     weeklyAttempt      = {};
     acceptedWeeklyWeek = 0;
+    stagedAdmission    = {};
     SuspendModRulesForGame(false);
 }
 catch (...)
 {
     // No exception may escape a guest load boundary.
+}
+
+int32_t RestoreNetworkPolicy(const host_settings::HostSettings* host) noexcept
+try
+{
+    const auto boundary = LockRuleBoundary();
+    ai_economy::RestoreForGame(host ? ai_economy::Policy{ host->aiResearchBonusPercent, host->aiProductionBonusPercent, host->aiGoldBonusPercent, host->aiFoodBonusPercent, host->aiCultureBonusPercent } : ai_economy::Policy{});
+    raging_barbarians::RestoreForGame(host && host->ragingBarbarians);
+    occ::RestoreForGame({ host && host->oneCityChallenge, occ::kMinimumPopulation });
+    // NoteGameLoad has cleared both; a restored minimum stands in for the shortened one.
+    gameplay_fixes::RestoreTurnLimit(host ? host->turnLimit : gameplay_fixes::kTurnLimitNative);
+    gameplay_fixes::RestoreDominationMinimum(host ? host->dominationMinimumTurns : 0);
+    return host ? static_cast<int32_t>(resource_settings::FromConfig(host->resources)) : static_cast<int32_t>(resource_settings::Mode::Normal);
+}
+catch (...)
+{
+    return static_cast<int32_t>(resource_settings::Mode::Normal);
 }
 
 SetupGate::SetupGate(bool admitted, bool newGame) noexcept

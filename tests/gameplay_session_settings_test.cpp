@@ -8,9 +8,12 @@
 #include "occ_settings.h"
 #include "raging_barbarians_settings.h"
 #include "registry_scope.hpp"
+#include "resource_identity_overrides.h"
 #include "rules_fixtures.hpp"
 
+#include <array>
 #include <catch2/catch_test_macros.hpp>
+#include <optional>
 #include <rex/cvar.h>
 #include <span>
 #include <string>
@@ -72,6 +75,39 @@ struct RestorePolicies
         rerevved::gameplay_fixes::RestoreAlwaysAtWar(atWar);
     }
 };
+
+std::optional<int32_t> runLoadReset(session::LoadCase loadCase)
+{
+    const auto host = session::ForNetworkGame();
+    session::ResetOnLoad(loadCase);
+    rerevved::ai_economy::ResetForLoad();
+    rerevved::raging_barbarians::FreezeForGame();
+    rerevved::occ::FreezeForGame();
+    rerevved::gameplay_fixes::NoteGameLoad();
+    if (loadCase == session::LoadCase::FileLoad)
+    {
+        return std::nullopt;
+    }
+    return session::RestoreNetworkPolicy(host.get());
+}
+
+void useLocalPolicy()
+{
+    REXCVAR_SET(one_city_challenge, true);
+    REXCVAR_SET(raging_barbarians, true);
+    REXCVAR_SET(ai_research_bonus_percent, 11);
+    REXCVAR_SET(ai_production_bonus_percent, 12);
+    REXCVAR_SET(ai_gold_bonus_percent, 13);
+    REXCVAR_SET(ai_food_bonus_percent, 14);
+    REXCVAR_SET(ai_culture_bonus_percent, 15);
+}
+
+void publishHostGame(const host::HostSettings& settings)
+{
+    const auto snapshot = host::ResolveForGame(true, { rex::session_data::State::kReceived, host::Encode(settings), true }, {});
+    REQUIRE(snapshot.settings);
+    session::ApplyNewGame(snapshot, true, 6);
+}
 
 } // namespace
 
@@ -400,4 +436,354 @@ TEST_CASE("weekly week binds to the latch that follows its own preparation", "[c
         session::ResetOnLoad();
         CHECK(session::AcceptedWeeklyWeek() == 0);
     }
+}
+
+TEST_CASE("only a load outside a sidecar transaction in a network game restores", "[ctest][host-settings]")
+{
+    using session::LoadCase;
+    CHECK(session::ClassifyLoad(true, true, true) == LoadCase::FileLoad);
+    CHECK(session::ClassifyLoad(true, true, false) == LoadCase::FileLoad);
+    CHECK(session::ClassifyLoad(false, false, false) == LoadCase::FileLoad);
+    CHECK(session::ClassifyLoad(false, true, true) == LoadCase::NetworkRestore);
+    CHECK(session::ClassifyLoad(false, true, false) == LoadCase::NetworkNoSnapshot);
+}
+
+TEST_CASE("a network restore keeps every host value whatever the local settings hold", "[ctest][host-settings]")
+{
+    RestorePolicies restore;
+    REREVVED_RESTORE_CVAR(one_city_challenge);
+    REREVVED_RESTORE_CVAR(raging_barbarians);
+    REREVVED_RESTORE_CVAR(ai_research_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_production_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_gold_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_food_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_culture_bonus_percent);
+
+    host::HostSettings settings;
+    settings.oneCityChallenge         = true;
+    settings.ragingBarbarians         = true;
+    settings.resources                = 3;
+    settings.aiResearchBonusPercent   = 50;
+    settings.aiProductionBonusPercent = 40;
+    settings.aiGoldBonusPercent       = 25;
+    settings.aiFoodBonusPercent       = 75;
+    settings.aiCultureBonusPercent    = 200;
+    settings.dominationMinimumTurns   = 5;
+    settings.turnLimit                = 3;
+    publishHostGame(settings);
+    const auto hostSnapshot = session::ForNetworkGame();
+    REQUIRE(hostSnapshot);
+    const std::array overrides = { rerevved::resource_identity_overrides::Record{ 403, 18 } };
+    REQUIRE(rerevved::resource_identity_overrides::Publish(overrides));
+    const auto publishedOverrides = rerevved::resource_identity_overrides::Current();
+
+    REXCVAR_SET(one_city_challenge, false);
+    REXCVAR_SET(raging_barbarians, false);
+    REXCVAR_SET(ai_research_bonus_percent, 0);
+    REXCVAR_SET(ai_production_bonus_percent, 0);
+    REXCVAR_SET(ai_gold_bonus_percent, 0);
+    REXCVAR_SET(ai_food_bonus_percent, 0);
+    REXCVAR_SET(ai_culture_bonus_percent, 0);
+
+    const auto loadCase = session::ClassifyLoad(false, true, session::ForNetworkGame() != nullptr);
+    REQUIRE(loadCase == session::LoadCase::NetworkRestore);
+    const auto resources = runLoadReset(loadCase);
+
+    CHECK(session::ForNetworkGame() == hostSnapshot);
+    CHECK((rerevved::ai_economy::ForGame() == rerevved::ai_economy::Policy{ 50, 40, 25, 75, 200 }));
+    CHECK(rerevved::occ::ForGame()->enabled);
+    CHECK(rerevved::raging_barbarians::Evaluate(0).enabled);
+    CHECK(resources == 3);
+    CHECK(rerevved::gameplay_fixes::TurnLimitForGame() == 3);
+    CHECK(rerevved::gameplay_fixes::RestoredDominationMinimum() == 5);
+    CHECK(rerevved::resource_identity_overrides::Current() == publishedOverrides);
+
+    rerevved::resource_identity_overrides::Clear();
+}
+
+TEST_CASE("a file load in a network session still resets to local settings", "[ctest][host-settings]")
+{
+    RestorePolicies restore;
+    REREVVED_RESTORE_CVAR(one_city_challenge);
+    REREVVED_RESTORE_CVAR(raging_barbarians);
+    REREVVED_RESTORE_CVAR(ai_research_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_production_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_gold_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_food_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_culture_bonus_percent);
+
+    host::HostSettings settings;
+    settings.ragingBarbarians       = true;
+    settings.aiResearchBonusPercent = 50;
+    settings.dominationMinimumTurns = 5;
+    settings.turnLimit              = 3;
+    publishHostGame(settings);
+    useLocalPolicy();
+    REXCVAR_SET(raging_barbarians, false);
+
+    const auto loadCase = session::ClassifyLoad(true, true, session::ForNetworkGame() != nullptr);
+    REQUIRE(loadCase == session::LoadCase::FileLoad);
+    CHECK_FALSE(runLoadReset(loadCase));
+
+    CHECK_FALSE(session::ForNetworkGame());
+    CHECK((rerevved::ai_economy::ForGame() == rerevved::ai_economy::Policy{}));
+    CHECK(rerevved::occ::ForGame()->enabled);
+    CHECK_FALSE(rerevved::raging_barbarians::Evaluate(0).enabled);
+    CHECK(rerevved::gameplay_fixes::TurnLimitForGame() == 0);
+    CHECK(rerevved::gameplay_fixes::RestoredDominationMinimum() == 0);
+}
+
+TEST_CASE("a network restore without a host snapshot takes native defaults", "[ctest][host-settings]")
+{
+    RestorePolicies restore;
+    REREVVED_RESTORE_CVAR(one_city_challenge);
+    REREVVED_RESTORE_CVAR(raging_barbarians);
+    REREVVED_RESTORE_CVAR(ai_research_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_production_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_gold_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_food_bonus_percent);
+    REREVVED_RESTORE_CVAR(ai_culture_bonus_percent);
+    session::ResetOnLoad();
+    useLocalPolicy();
+    rerevved::gameplay_fixes::RestoreTurnLimit(2);
+
+    const auto loadCase = session::ClassifyLoad(false, true, session::ForNetworkGame() != nullptr);
+    REQUIRE(loadCase == session::LoadCase::NetworkNoSnapshot);
+    const auto resources = runLoadReset(loadCase);
+
+    CHECK_FALSE(session::ForNetworkGame());
+    CHECK((rerevved::ai_economy::ForGame() == rerevved::ai_economy::Policy{}));
+    CHECK_FALSE(rerevved::occ::ForGame()->enabled);
+    CHECK_FALSE(rerevved::raging_barbarians::Evaluate(0).enabled);
+    CHECK(resources == 0);
+    CHECK(rerevved::gameplay_fixes::TurnLimitForGame() == 0);
+    CHECK(rerevved::gameplay_fixes::RestoredDominationMinimum() == 0);
+}
+
+namespace
+{
+
+std::optional<std::vector<uint8_t>> sessionStamp;
+
+std::optional<std::vector<uint8_t>> currentStamp()
+{
+    return sessionStamp;
+}
+
+host::HostSettings hostGame()
+{
+    host::HostSettings settings;
+    settings.aiCivilizations        = 3;
+    settings.aiResearchBonusPercent = 25;
+    settings.turnLimit              = 2;
+    settings.mods                   = { { "hills_production", "1.2.0", "Hills Production" } };
+    settings.rulesDigestPresent     = true;
+    settings.rulesDigest.fill(0x5A);
+    return settings;
+}
+
+host::GameSnapshot receivedFrom(const host::HostSettings& hostSettings, const host::HostSettings& local)
+{
+    return host::ResolveForGame(true, { rex::session_data::State::kReceived, host::Encode(hostSettings), true }, local);
+}
+
+constexpr uint32_t kSetup = 0x83000000;
+
+} // namespace
+
+TEST_CASE("early network admission changes no game state", "[ctest][host-settings]")
+{
+    RestorePolicies restore;
+    session::ResetOnLoad();
+    publishHostGame({});
+    const auto published = session::ForNetworkGame();
+    REQUIRE(published);
+    rerevved::ai_economy::RestoreForGame({ 60, 70 });
+    const auto weeklyWeek = session::AcceptedWeeklyWeek();
+
+    preparationCalls = 0;
+    sessionStamp     = std::vector<uint8_t>{ 1 };
+    preparedSnapshot = receivedFrom(hostGame(), hostGame());
+    REQUIRE(preparedSnapshot.settings);
+    const auto admitted = session::detail::AdmitNetworkGame(kSetup, 6, capturePrepared, currentStamp);
+
+    CHECK(admitted.admitted);
+    CHECK(admitted.diagnostic.empty());
+    CHECK(preparationCalls == 1);
+    CHECK(session::ForNetworkGame() == published);
+    CHECK((rerevved::ai_economy::ForGame() == rerevved::ai_economy::Policy{ 60, 70 }));
+    CHECK(session::AcceptedWeeklyWeek() == weeklyWeek);
+    CHECK_FALSE(session::SetupBlocked());
+}
+
+TEST_CASE("early network admission refuses with the game-start diagnostics", "[ctest][host-settings]")
+{
+    RestorePolicies restore;
+    session::ResetOnLoad();
+    sessionStamp = std::vector<uint8_t>{ 1 };
+
+    host::HostSettings noMods = hostGame();
+    noMods.mods.clear();
+    host::HostSettings otherDigest = hostGame();
+    otherDigest.rulesDigest.fill(0x5B);
+    host::HostSettings truncated = hostGame();
+    truncated.modsTruncated      = true;
+
+    struct Refusal
+    {
+        host::GameSnapshot snapshot;
+        const char*        diagnostic;
+    };
+
+    const Refusal refusals[] = {
+        { receivedFrom(hostGame(), noMods), "The host's full set of mods does not match" },
+        { receivedFrom(hostGame(), otherDigest), "The host's rules differ or have not been checked" },
+        { receivedFrom(truncated, hostGame()), "The host's full set of mods does not match" },
+        { host::ResolveForGame(true, {}, hostGame()), "The host's game settings are unavailable" },
+        { host::ResolveForGame(true, { rex::session_data::State::kReceived, { 0x08 }, true }, hostGame()), "The host's copy of the gameplay settings is missing, out of date or invalid" },
+        { host::ResolveForGame(true, { rex::session_data::State::kReceived, host::Encode(hostGame()), false }, hostGame()), "This game's settings are not ready on the host's PC" },
+    };
+    for (const auto& refusal : refusals)
+    {
+        CAPTURE(refusal.diagnostic);
+        preparationCalls  = 0;
+        preparedSnapshot  = refusal.snapshot;
+        const auto result = session::detail::AdmitNetworkGame(kSetup, 6, capturePrepared, currentStamp);
+        CHECK_FALSE(result.admitted);
+        CHECK(result.diagnostic == refusal.diagnostic);
+        CHECK(result.diagnostic == refusal.snapshot.diagnostic);
+        CHECK(preparationCalls == 1);
+
+        preparedSnapshot = receivedFrom(hostGame(), hostGame());
+        const auto next  = session::detail::Prepare(true, kSetup, 6, capturePrepared, currentStamp);
+        CHECK(preparationCalls == 2);
+        CHECK(next.settings);
+    }
+
+    preparationCalls  = 0;
+    const auto local  = session::detail::AdmitNetworkGame(kSetup, 1, capturePrepared, currentStamp);
+    const auto loaded = session::detail::AdmitNetworkGame(kSetup, 3, capturePrepared, currentStamp);
+    CHECK_FALSE(local.admitted);
+    CHECK_FALSE(loaded.admitted);
+    CHECK(local.diagnostic == "This game setup is unavailable or not supported");
+    CHECK(preparationCalls == 0);
+}
+
+TEST_CASE("an admitted network snapshot is consumed once by its own setup", "[ctest][host-settings]")
+{
+    RestorePolicies restore;
+    session::ResetOnLoad();
+    const auto accepted = receivedFrom(hostGame(), hostGame());
+    REQUIRE(accepted.settings);
+    const auto admit = [&]
+    {
+        preparedSnapshot = accepted;
+        sessionStamp     = std::vector<uint8_t>{ 1, 2, 3 };
+        preparationCalls = 0;
+        REQUIRE(session::detail::AdmitNetworkGame(kSetup, 5, capturePrepared, currentStamp).admitted);
+        REQUIRE(preparationCalls == 1);
+        preparedSnapshot = receivedFrom({}, {});
+    };
+    const int32_t defaultAi = host::HostSettings{}.aiCivilizations;
+
+    SECTION("the matching setup receives the exact snapshot without a second capture")
+    {
+        admit();
+        const auto consumed = session::detail::Prepare(true, kSetup, 5, capturePrepared, currentStamp);
+        CHECK(preparationCalls == 1);
+        CHECK(consumed.state == accepted.state);
+        REQUIRE(consumed.settings);
+        CHECK(host::Encode(*consumed.settings) == host::Encode(*accepted.settings));
+        CHECK(consumed.settings->aiCivilizations == 3);
+        CHECK(consumed.settings->aiResearchBonusPercent == 25);
+        CHECK(consumed.settings->mods.size() == 1);
+        CHECK(consumed.settings->rulesDigest[0] == 0x5A);
+
+        const auto again = session::detail::Prepare(true, kSetup, 5, capturePrepared, currentStamp);
+        CHECK(preparationCalls == 2);
+        REQUIRE(again.settings);
+        CHECK(again.settings->aiCivilizations == defaultAi);
+    }
+    SECTION("another setup, mode or session identity captures instead")
+    {
+        admit();
+        CHECK(session::detail::Prepare(true, kSetup + 0x1000, 5, capturePrepared, currentStamp).settings->aiCivilizations == defaultAi);
+        CHECK(preparationCalls == 2);
+        admit();
+        CHECK(session::detail::Prepare(true, kSetup, 6, capturePrepared, currentStamp).settings->aiCivilizations == defaultAi);
+        CHECK(preparationCalls == 2);
+        admit();
+        sessionStamp = std::vector<uint8_t>{ 1, 2, 4 };
+        CHECK(session::detail::Prepare(true, kSetup, 5, capturePrepared, currentStamp).settings->aiCivilizations == defaultAi);
+        CHECK(preparationCalls == 2);
+        admit();
+        sessionStamp = std::nullopt;
+        CHECK(session::detail::Prepare(true, kSetup, 5, capturePrepared, currentStamp).settings->aiCivilizations == defaultAi);
+        CHECK(preparationCalls == 2);
+    }
+    SECTION("a load reset drops the staged snapshot")
+    {
+        admit();
+        session::ResetOnLoad();
+        CHECK(session::detail::Prepare(true, kSetup, 5, capturePrepared, currentStamp).settings->aiCivilizations == defaultAi);
+        CHECK(preparationCalls == 2);
+    }
+    SECTION("a local setup never takes a network admission")
+    {
+        admit();
+        preparedSnapshot = { host::SnapshotState::Local, host::HostSettings{}, {} };
+        CHECK(session::detail::Prepare(false, kSetup, 1, capturePrepared, currentStamp).settings);
+        CHECK(preparationCalls == 2);
+    }
+}
+
+TEST_CASE("a session change during admission capture captures again", "[ctest][host-settings]")
+{
+    RestorePolicies restore;
+    session::ResetOnLoad();
+    const auto accepted = receivedFrom(hostGame(), hostGame());
+    REQUIRE(accepted.settings);
+    preparedSnapshot    = accepted;
+    sessionStamp        = std::vector<uint8_t>{ 1 };
+    preparationCalls    = 0;
+    const auto changing = [](bool) -> host::GameSnapshot
+    {
+        ++preparationCalls;
+        if (preparationCalls == 1)
+        {
+            sessionStamp = std::vector<uint8_t>{ 2 };
+        }
+        return preparedSnapshot;
+    };
+    REQUIRE(session::detail::AdmitNetworkGame(kSetup, 5, changing, currentStamp).admitted);
+    REQUIRE(preparationCalls == 2);
+
+    const auto next = session::detail::Prepare(true, kSetup, 5, capturePrepared, currentStamp);
+    CHECK(preparationCalls == 2);
+    REQUIRE(next.settings);
+    CHECK(next.settings->aiCivilizations == accepted.settings->aiCivilizations);
+}
+
+TEST_CASE("a session that keeps changing during admission is refused", "[ctest][host-settings]")
+{
+    RestorePolicies restore;
+    session::ResetOnLoad();
+    const auto accepted = receivedFrom(hostGame(), hostGame());
+    REQUIRE(accepted.settings);
+    preparedSnapshot    = accepted;
+    sessionStamp        = std::vector<uint8_t>{ 1 };
+    preparationCalls    = 0;
+    const auto changing = [](bool) -> host::GameSnapshot
+    {
+        ++preparationCalls;
+        sessionStamp = std::vector<uint8_t>{ static_cast<uint8_t>(preparationCalls + 1) };
+        return preparedSnapshot;
+    };
+    const auto result = session::detail::AdmitNetworkGame(kSetup, 5, changing, currentStamp);
+    CHECK_FALSE(result.admitted);
+    CHECK(result.diagnostic == "The host's game settings changed while they were being checked");
+    CHECK(preparationCalls == 2);
+
+    CHECK(session::detail::Prepare(true, kSetup, 5, capturePrepared, currentStamp).settings);
+    CHECK(preparationCalls == 3);
 }

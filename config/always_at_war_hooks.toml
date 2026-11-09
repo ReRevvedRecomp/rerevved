@@ -64,6 +64,12 @@ address = 0x82CD1ED8
 name = "RefuseGoldContact"
 registers = ["r3", "r26", "r23"]
 
+# 0x82CCEFA8 peace-for-gold chooser (gold 25..200): nonzero takes the war write at 0x82CD3904.
+[[midasm_hook]]
+address = 0x82CD38B4
+name = "RefuseGoldContact"
+registers = ["r3", "r30", "r23"]
+
 # 0x82CCBED0 (r28, r26): Democracy response and consumed choice 1 take the native war write.
 [[midasm_hook]]
 address = 0x82CCC930

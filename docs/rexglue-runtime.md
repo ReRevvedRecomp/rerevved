@@ -1095,15 +1095,14 @@ Shutdown closes the page through the app, as for every page.
 
 The `combat_speed` setting accepts `normal` or `fast` and defaults to `normal`.
 `fast` uses the guest's native faster combat presentation pace while preserving
-resolution and completion.
+resolution and completion. Network games always use the normal pace.
 
 ## Unit movement setting
 
 The live `unit_movement` setting (Gameplay, after Combat Speed) accepts `normal`,
 `fast` or `instant` and defaults to `normal`. It is a presentation
-preference. A network game uses the host's value, carried in the host
-settings and frozen at `ApplyNewGame`, so every peer moves units the same way; single
-player uses the live setting. Two hooks in the coordinate updater `0x82D5FFC8` read the
+preference. Network games always use `normal`, so every peer moves units the
+same way; single player uses the live setting. Two hooks in the coordinate updater `0x82D5FFC8` read the
 setting each update. Both leave the shared frame time, cooldowns, game-state flags,
 movement budget, tile position, destination, lifecycle and busy flags to the native
 code.
@@ -1378,6 +1377,33 @@ behaviors against the saved values. A save made before sidecar support must
 load using live settings with no identity overrides. Repeat with an autosave;
 capture of host paths, digest readability after finalization and autosave coverage
 remain runtime gates.
+
+## Save slots
+
+`save_slots` (int, default 99, clamped to 10..99) is the number of manual save
+slots. One picker class serves the in-game Save list and both Load lists, so the
+hooks in [`save_slot_hooks.toml`](../config/save_slot_hooks.toml) widen that
+class: the creators' allocation, the record vector, the content enumerator size,
+the empty-slot placeholder loop, the `save%d` name builder, the record labels
+and the id filter. The constructor's record resize `0x821C08A0` has 10 compiled
+in, so its replacement inserts the records from the prototype instead. Every
+hook that indexes records is bounded by the vector's actual size. The used-slot
+and row counters are replaced so the native "10 means full" tests mean full at
+N. The enumerator always holds 99 plus 64 entries, for the config file, up to 50
+numbered autosaves and the war, quit and AI saves, so lowering N cannot hide
+saves already on disk. Records 11 and 13 take the ordinary `Save @NUM` label
+instead of the native autosave names. The value is read on first use and cached,
+because the record vector size must not change while a list exists. The id
+filter leaves out the war autosave, which the native parser also gives id 11. At
+10 every other hook defers to the native path. The slot id parser and autosave
+naming are unchanged. The [implementation](../src/save_slot_hooks.cpp) reads the
+picker's record vector and the math lives in
+[`save_slots.cpp`](../src/save_slots.cpp).
+
+Runtime acceptance: slot 11 saves and loads, slots 12 and 14 keep ordinary
+labels, and a full list offers no empty row. With 99 saves, both lists open,
+slot 99 loads and saves, and no empty row is offered. Remaining runtime gate:
+autosaves beside the new slots.
 
 ## Gameplay Raging Barbarians
 
@@ -2154,9 +2180,8 @@ setting is not saved in the sidecar, and single player is unchanged.
 
 `spaceship_scenes` is a bool setting, on by default, shown as the first row
 of F1 **Notifications**, **Spaceship Scenes**. Turning it off skips the rocket scene of
-every spaceship part, including the player's own. A network game plays the host's
-value, carried in the host settings and frozen at `ApplyNewGame`; single player and
-Game of the Week use the live preference. The preference is sampled once per part
+every spaceship part, including the player's own. Network games always play the
+scenes; single player and Game of the Week use the live preference. The preference is sampled once per part
 request, so a change never affects an actor already running.
 
 The pending-part caller in `sub_82D1D1C0` requests a type 24 actor with
@@ -2209,7 +2234,7 @@ setup mode before entering `SetupGate`: 1/2 are local, 3 is a load, and 4/5/6
 are network games. Loads pass through without new-game policies or AI removal.
 Unknown modes reject. On rejection, the `sub_82D217C8` hook returns `-1`, so the
 native failure path skips successful setup and recount. An error and the
-**Cannot start this game** notification report the reason.
+**Can't start this game** notification report the reason.
 
 After startup and every committed live Apply, the
 [application callback](../src/app.cpp) publishes active package IDs and versions
@@ -2240,19 +2265,21 @@ player opens, is unchanged.
 
 ## Advisor pop-ups
 
-F1 **Notifications** also lists 15 `show_popup_*` settings, each default `true`.
+F1 **Notifications** also lists 14 `show_popup_*` settings, each default `true`.
 Turning one off skips one group of advisor notices, for example rival war and peace
 news, combat reports or village outcomes. A skipped notice is not shown and
-the game continues as if it had been closed. Three of them answer a question:
-turning off `show_popup_save_reminder` does not save, `show_popup_trophy_room`
-does not open the Trophy Room, and `show_popup_government_available` keeps the
-current government. `src/advisor_popups.h` lists the call sites in each group. Other
-advisor screens, including the Special Functions menu, are unchanged.
+the game continues without the notice's scene work. Two of them answer a question:
+turning off `show_popup_save_reminder` does not save, and `show_popup_trophy_room`
+does not open the Trophy Room. `src/advisor_popups.h` lists the call sites in each group. Other
+advisor screens, including the Special Functions menu, are unchanged. The new government
+prompt and own and rival Wonder completions always show: the free government switch needs
+the prompt's answer, and hiding a Wonder completion leaves the city's scaffolding up.
 
 Two more default-`true` settings control the Barbarian leader message.
 Turning off `show_barbarian_messages` skips the message shown on first contact with a
 Barbarian tribe; the game treats that tribe as not yet introduced, so the
-message can appear at a later contact once the setting is turned back on.
+message can appear at a later contact once the setting is turned back on. A
+network game always shows it, because the skip changes contact bookkeeping.
 Turning off `show_village_barbarian_messages` skips the message shown after capturing a
 Barbarian village, which names the reward; the reward is still granted.
 `src/barbarian_messages.h` lists the village call sites.

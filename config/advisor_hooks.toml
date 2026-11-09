@@ -45,7 +45,7 @@ registers = ["r1"]
 jump_address_on_true = 0x82CE87A8
 
 # Hidden advisor shows use the native cleanup exit, which clears buffers and
-# returns -1. The three prompt callers interpret -1 as decline.
+# returns -1. The two prompt callers interpret -1 as decline.
 
 # Call sites: advisor_popups.h; show: sub_82CE8338; cleanup: 0x82CE87A8.
 

@@ -332,6 +332,11 @@ void restorePractice(const rerevved::gotw::PracticeBlock& block) noexcept
 namespace rerevved::save_sidecar
 {
 
+bool FileLoadActive() noexcept
+{
+    return active && active->load;
+}
+
 void RestoreAfterLoadReset() noexcept
 {
     if (!active || !active->load)

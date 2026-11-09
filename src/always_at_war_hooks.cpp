@@ -199,7 +199,7 @@ bool RefuseRetainedContact(PPCRegister& sp)
     return refuses("retained_contact", static_cast<int32_t>(word(sp.u32 + 1668)), static_cast<int32_t>(word(sp.u32 + 1676)));
 }
 
-// Nonzero takes native war write 0x82CD206C before any transfer.
+// Nonzero takes a native war write (0x82CD206C, 0x82CD3904) before D24F98 moves gold.
 void RefuseGoldContact(PPCRegister& choice, PPCRegister& p, PPCRegister& q)
 {
     if (refuses("gold", p.s32, q.s32))

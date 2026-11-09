@@ -3143,7 +3143,7 @@ class HookContractTests(unittest.TestCase):
 
         table = ADVISOR_POPUP_TABLE.read_text(encoding="utf-8")
         cvars = re.findall(r'"(show_popup_[a-z_]+)"', table)
-        self.assertEqual(len(cvars), 15)
+        self.assertEqual(len(cvars), 14)
         app = APP_SOURCE.read_text(encoding="utf-8")
         source = ADVISOR_POPUP_SOURCE.read_text(encoding="utf-8")
         self.assertIn("SuppressAdvisorPopupShow(", source)
@@ -3213,7 +3213,10 @@ class HookContractTests(unittest.TestCase):
         source = BARBARIAN_MESSAGE_SOURCE.read_text(encoding="utf-8")
         for hook in hooks:
             self.assertIn(hook["name"] + "(", source)
-        self.assertIn("return !REXCVAR_GET(show_barbarian_messages);", source)
+        self.assertIn(
+            "return !REXCVAR_GET(show_barbarian_messages) && !rerevved::gameplay_session::NetworkGameActive();",
+            source,
+        )
         self.assertIn("!REXCVAR_GET(show_village_barbarian_messages) &&", source)
         table = BARBARIAN_MESSAGE_TABLE.read_text(encoding="utf-8")
         sites = re.search(r"kVillageSites\[\] = \{(.*?)\};", table, re.S)
@@ -3290,7 +3293,7 @@ class HookContractTests(unittest.TestCase):
             r'\{ "", \{ [^}]*"turn_limit", "starting_era", "ai_civilizations", "always_at_war" \} \}',
         )
         self.assertIn('{ "ai_civilizations", Audience::kPlayer }', settings)
-        self.assertEqual(settings.count('"ai_civilizations"'), 5)
+        self.assertEqual(settings.count('"ai_civilizations"'), 6)
 
         source = AI_CIV_SOURCE.read_text(encoding="utf-8")
         override = source.split("REX_HOOK_RAW(sub_82D11AD8)", 1)[1]
@@ -3350,10 +3353,9 @@ class HookContractTests(unittest.TestCase):
             override.index("__imp__sub_82D11AD8(ctx, base);"),
         )
         reset = source.split("void ResetAiCivilizationsOnLoad()", 1)[1]
-        self.assertTrue(
-            reset.lstrip().startswith(
-                "{\n    rerevved::gameplay_session::ResetOnLoad();"
-            )
+        self.assertLess(
+            reset.index("session::ResetOnLoad(loadCase);"),
+            reset.index("rerevved::gotw::ResetForLoad();"),
         )
         gate = setup.split("REX_HOOK_RAW(sub_82D217C8)", 1)[1]
         self.assertIn("gameplay_session::SetupBlocked()", gate)
@@ -5383,7 +5385,7 @@ class AlwaysAtWarHookContractTests(unittest.TestCase):
 
     def test_hook_table(self) -> None:
         hooks = self.hooks()
-        self.assertEqual(len(hooks), 18)
+        self.assertEqual(len(hooks), 19)
         addresses = [hook["address"] for hook in hooks]
         self.assertEqual(len(set(addresses)), len(addresses))
         by_address = {hook["address"]: hook for hook in hooks}
@@ -5414,6 +5416,12 @@ class AlwaysAtWarHookContractTests(unittest.TestCase):
         for address in (0x82CCA61C, 0x82CCAB9C, 0x82CCAFBC):
             self.assertEqual(by_address[address]["name"], "RefuseContactChoice")
             self.assertEqual(by_address[address]["registers"], ["r3", "r28", "r19"])
+        for address, registers in (
+            (0x82CD1ED8, ["r3", "r26", "r23"]),
+            (0x82CD38B4, ["r3", "r30", "r23"]),
+        ):
+            self.assertEqual(by_address[address]["name"], "RefuseGoldContact")
+            self.assertEqual(by_address[address]["registers"], registers)
         self.assertEqual(by_address[0x82D033C8]["registers"], ["r31", "r30", "r29"])
         self.assertEqual(by_address[0x82D25580]["name"], "SilenceAiContact")
         self.assertEqual(by_address[0x82D25580]["registers"], ["r31", "r29"])

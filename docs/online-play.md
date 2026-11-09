@@ -31,10 +31,13 @@ use its invite codes and start ReRevved yourself.
 
 For each new multiplayer game, the host supplies AI civilization count, Resources,
 Raging Barbarians, One City Challenge, the five AI bonus percentages,
-Earliest Domination, Turn Limit, Starting Era, AI difficulty, Spaceship Scenes, Unit Movement, Game of the Week choices, and combat speed. AI civilization
+Earliest Domination, Turn Limit, Starting Era, AI difficulty and Game of the Week choices. AI civilization
 count goes up to 6 online; it is reduced so the humans, AI civilizations and Barbarians fit in eight participants (AI = min(request, 7 - humans)). These values apply to that game without changing
 the other players' saved settings. Set the host's choices before starting the game.
-Always At War is a single-player setting; network games ignore it.
+Always At War is a single-player setting; network games ignore it. Network
+games always use normal combat speed and unit movement and show Spaceship Scenes.
+Joined players see these settings locked in F1. In the lobby they show the values
+from when the host opened it, and the host can still change them until the game starts.
 The Apollo Discovery Bonuses fix is always on and applies in network games too
 (Game of the Week excepted); each peer drains on its own frame timing, with no peer barrier.
 
@@ -48,10 +51,12 @@ Every player must apply the same Lua packages, versions, order, and rule content
 before joining. The game compares active package IDs and versions plus a digest
 of the decoded Lua loadout. Native DLL loadouts cannot pass this content check.
 The host does not install or enable packages on other players' machines.
+A player whose loadout differs sees a warning on joining and can't ready up, so
+the host's countdown can't start until that player matches or leaves.
 
 New-game setup waits up to 15 seconds for authenticated settings prepared for
 that game. Missing, old, invalid, incomplete, or incompatible settings block
-setup, as do different or unverified mod rules. The game shows **Cannot start
+setup, as do different or unverified mod rules. The game shows **Can't start
 this game** and logs the reason. Correct the settings or loadout before retrying.
 If session freshness cannot be established, recreate the session. See
 [Mods](mods.md#enable-or-change-mods) to apply Lua changes after leaving a session.

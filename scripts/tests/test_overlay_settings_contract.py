@@ -24,7 +24,6 @@ NOTIFICATION_ORDER = [
     "show_popup_artifacts",
     "show_popup_spy_reports",
     "show_popup_victory_warnings",
-    "show_popup_government_available",
     "show_barbarian_messages",
     "show_popup_trophy_room",
 ]

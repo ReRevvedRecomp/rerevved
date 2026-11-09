@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(rerevved VERSION 0.7.0 LANGUAGES C CXX)
+project(rerevved VERSION 0.7.1 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -363,6 +363,17 @@ set(REREVVED_SOURCES
     src/system_link_trace.cpp
     src/system_link_trace.h
     src/system_link_trace_hooks.cpp
+    src/resync_record.cpp
+    src/resync_record.h
+    src/resync_record_hooks.cpp
+    src/network_admission.cpp
+    src/network_admission.h
+    src/network_admission_hooks.cpp
+    src/network_admission_hooks.h
+    src/join_refusal_hooks.cpp
+    src/join_refusal_hooks.h
+    src/lobby_content_watch.cpp
+    src/lobby_content_watch.h
     src/research_prompt.h
     src/research_prompt_hooks.cpp
     src/advisor_popups.h
@@ -494,6 +505,9 @@ list(APPEND REREVVED_SOURCES
     src/save_sidecar.h
     src/save_sidecar.cpp
     src/save_sidecar_hooks.cpp
+    src/save_slots.h
+    src/save_slots.cpp
+    src/save_slot_hooks.cpp
     src/resource_settings.h
     src/resource_settings.cpp
     src/start_resources.h

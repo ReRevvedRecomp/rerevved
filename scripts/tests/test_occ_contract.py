@@ -202,9 +202,61 @@ class OccContractTests(unittest.TestCase):
             "occ::RestoreForGame({ !standardRules && settings.oneCityChallenge", session
         )
         load = (ROOT / "src/ai_civilizations_hooks.cpp").read_text(encoding="utf-8")
-        load = load.split("void ResetAiCivilizationsOnLoad()", 1)[1].split("}", 1)[0]
+        load = load.split("void ResetAiCivilizationsOnLoad()", 1)[1].split("\n}\n", 1)[
+            0
+        ]
         self.assertEqual(load.count("FreezeOccForGame();"), 1)
         self.assertIn("FreezeRagingBarbariansForGame();", load)
+
+    def test_load_hook_keeps_host_policy_on_network_restore(self):
+        hooks = (ROOT / "src/ai_civilizations_hooks.cpp").read_text(encoding="utf-8")
+        load = hooks.split("void ResetAiCivilizationsOnLoad()", 1)[1].split("\n}\n", 1)[
+            0
+        ]
+        classify = (
+            "session::ClassifyLoad(rerevved::save_sidecar::FileLoadActive(), "
+            "session::NetworkGameActive(), host != nullptr)"
+        )
+        self.assertIn(classify, load)
+        self.assertLess(
+            load.index("ForNetworkGame()"),
+            load.index("session::ResetOnLoad(loadCase);"),
+        )
+        self.assertLess(
+            load.index(classify), load.index("session::ResetOnLoad(loadCase);")
+        )
+        guarded = load.split("if (loadCase != session::LoadCase::NetworkRestore)", 1)[1]
+        guarded = guarded.split("}", 1)[0]
+        self.assertIn("rerevved::start_resources::ResetOnLoad();", guarded)
+        self.assertIn("removedMask.store(0);", guarded)
+        restore = "rerevved::start_resources::RestoreForGame(session::RestoreNetworkPolicy(host.get()));"
+        self.assertIn("if (loadCase != session::LoadCase::FileLoad)", load)
+        self.assertLess(
+            load.index("gameplay_fixes::NoteGameLoad();"), load.index(restore)
+        )
+        self.assertLess(load.index("RestoreAfterLoadReset();"), load.index(restore))
+        self.assertLess(load.index(restore), load.index("logLoadCase(loadCase);"))
+        self.assertIn(
+            "REXLOG_ERROR(", hooks.split("void logLoadCase(", 1)[1].split("\n}\n", 1)[0]
+        )
+
+    def test_network_games_never_fall_back_to_local_settings(self):
+        for name, needle in (
+            (
+                "src/rerevved_hooks.cpp",
+                "NetworkGameActive() || REXCVAR_GET(combat_speed)",
+            ),
+            (
+                "src/gameplay_fixes_hooks.cpp",
+                "!rerevved::gameplay_session::NetworkGameActive() && !REXCVAR_GET(spaceship_scenes)",
+            ),
+            (
+                "src/gameplay_fixes_hooks.cpp",
+                "NetworkGameActive() ? rerevved::gameplay_fixes::kNativeDominationMinimumTurns",
+            ),
+        ):
+            source = " ".join((ROOT / name).read_text(encoding="utf-8").split())
+            self.assertIn(needle, source, name)
 
     def test_guard_precedes_read_and_uses_original_counts(self):
         source = HOOKS.read_text(encoding="utf-8")

@@ -1,0 +1,6 @@
+# Runs before `cmpwi cr6,r9,2` in the join policy 0x82D89678; r9 is the current state key and key 2 refuses.
+[[midasm_hook]]
+address = 0x82D89740
+name = "RefuseJoinInProgress"
+registers = ["r3", "r9"]
+jump_address_on_true = 0x82D897B8

@@ -121,7 +121,9 @@ class SaveSidecarContractTests(unittest.TestCase):
 
     def test_restore_after_every_reset_and_freeze(self):
         reset = (ROOT / "src/ai_civilizations_hooks.cpp").read_text(encoding="utf-8")
-        reset = reset.split("void ResetAiCivilizationsOnLoad()", 1)[1].split("}", 1)[0]
+        reset = reset.split("void ResetAiCivilizationsOnLoad()", 1)[1].split(
+            "\n}\n", 1
+        )[0]
         restore = "rerevved::save_sidecar::RestoreAfterLoadReset();"
         for call in (
             "rerevved::gotw::ResetForLoad();",
@@ -131,7 +133,10 @@ class SaveSidecarContractTests(unittest.TestCase):
             "FreezeOccForGame();",
         ):
             self.assertLess(reset.index(call), reset.index(restore))
-        self.assertTrue(reset.rstrip().endswith(restore))
+        after = reset.split(restore, 1)[1]
+        self.assertTrue(
+            after.lstrip().startswith("if (loadCase != session::LoadCase::FileLoad)")
+        )
         publish = self.hooks.split("void RestoreAfterLoadReset() noexcept", 1)[1].split(
             "} // namespace rerevved::save_sidecar", 1
         )[0]

@@ -12,6 +12,7 @@ Close ReRevved before editing the file directly.
   Challenge, Earliest Domination, Turn Limit, Starting Era, AI civilizations, Always At War, AI Handicaps,
   and Game of the Week.
 - **Notifications**: Spaceship Scenes, research prompts, advisor pop-ups, and Barbarian messages. Each is on by default; turn a row off to hide it.
+  New government prompts and Wonder completions always show, and online games always show the first Barbarian message.
   Turning off **Save Reminder** hides the prompt; it does not save the game.
 - **Online**: AI Difficulty (Multiplayer), connection status, player name, relay invite, and Discord options.
   See [Online play](online-play.md).
@@ -80,8 +81,8 @@ change applies only to the next new game. Single player keeps the difficulty
 chosen at game setup, and a loaded save never applies the host's value.
 
 **Spaceship Scenes** (Notifications, on by default) shows the rocket
-scene of every spaceship part, yours included; turn it off to skip them. In a multiplayer game every player
-uses the host's value; otherwise your own setting applies, also to a Game of the
+scene of every spaceship part, yours included; turn it off to skip them. Multiplayer games always
+show them; otherwise your own setting applies, also to a Game of the
 Week. Part scenes already running are not affected by a change.
 
 **Allow Saving** (Gameplay > Game of the Week, off by default) lets you save and
@@ -94,6 +95,12 @@ from the main menu. Every save made during a practice game writes its gameplay
 sidecar, even with the save sidecar setting off. Automatic saves are not
 resumable: they load without practice rules and never count toward the weekly
 results. A practice save whose sidecar is later lost loads as an ordinary game.
+
+The in-game Save list and both Load lists offer 99 manual slots. The config-only
+key `save_slots` sets the number, from 10 to 99; 10 keeps the original list. It
+is read when the first list opens, so restart after changing it. The Save list
+shows the existing saves plus one empty slot, never a row of empty slots. Slots
+beyond 10 are ordinary native saves named `save10` and up.
 
 ### AI handicaps
 
