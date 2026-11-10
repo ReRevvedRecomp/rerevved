@@ -70,10 +70,10 @@ The Audio section also has Music, Effects, Advisor Speech and Leader Speech
 volumes from 0 to 9. They apply at once and are reapplied every time the
 game loads your profile.
 The first tab, General, sets the game's language after a restart and holds
-the FPS counter, Skip Intro and **Open Log Folder**. The Online tab
-shows the connection status and has the Profile Name and Invite Code, which
-open a text entry (a keyboard on screen for a gamepad); Invite Code also has
-Paste and Copy buttons.
+the Profile Name, FPS counter, Skip Intro and **Open Log Folder**. The Online
+tab shows the connection status and has the Invite Code. Profile Name and
+Invite Code open a text entry (a keyboard on screen for a gamepad); Invite Code
+also has Paste and Copy buttons.
 The Controls tab also lists the controller keybinds and the overlay hotkeys:
 press A or click a row, then press the new key (hold Shift, Ctrl or Alt for a
 combination on a controller key); Esc or B cancels, X or Delete clears and Y or

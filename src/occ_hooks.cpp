@@ -220,7 +220,7 @@ bool GuardOccAiChoice(PPCRegister& stack, PPCRegister& ordinal)
     {
         return false;
     }
-    // Evidence: https://github.com/ReRevvedRecomp/rerevved-research/blob/main/manifests/occ-settler-production-gates.json
+    // Evidence: https://github.com/ReRevvedRecomp/rerevved-research/blob/main/manifests/occ-settler-production-requirements.json
     // (aiSelectionContract).
     // Saved prefix P and post-wonder total N' survive in the original argument slots.
     const int32_t prefix = std::bit_cast<int32_t>(readWord(uint64_t{ stack.u32 } + 580));

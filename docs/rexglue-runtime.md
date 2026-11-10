@@ -129,7 +129,8 @@ overrides. Each is a `maps/<id>/asset-pack.toml` package whose only asset is
 two enabled packs claim the same archive entry, map name, or scenario ID, the
 earlier one wins. An optional `[map_pack]` manifest table with `slot` and
 `scenarios = [{ id, name }]` is display metadata only; the archive stays
-authoritative. Changes apply on the next launch; see
+authoritative. A save made on a pack scenario loads while its pack is enabled
+and reads "Not Available" otherwise. Changes apply on the next launch; see
 [`map_packs.h`](../src/map_packs.h). Release archives include the map packs
 from `rerevved-mods`. They start disabled; enable them in the Maps tab.
 
@@ -618,7 +619,7 @@ the rest, with kinds of their own; F1 and this page read one layout:
 |---|---|---|---|
 | General (last) | Open Log Folder | `open_log_folder` | Action: the value column holds an Open button (A glyph); A, or a click on the button, runs the command once, and nothing is saved. F1 lists it in General too. |
 | Online (top) | Connection Status | `system_link_status` | Read-only text, read again about twice a second while the page is shown. The words are the SDK's own (English). A does nothing. |
-| Online (top) | Profile Name | `system_link_profile_name` | Text: A opens the text entry. Up to 15 letters, digits, spaces, `-`, `_` or `.`. Restart-only. An empty name reads "Default". |
+| General | Profile Name | `system_link_profile_name` | Text: A opens the text entry. Up to 15 letters, digits, spaces, `-`, `_` or `.`. Restart-only. An empty name reads "Default". |
 | Online > Connection | Invite Code | `system_link_invite` | Text: A opens the text entry. Letters, digits, `-` and spaces (the SDK ignores separators inside a code), up to 1024 characters; a canonical code is at most 580. Restart-only. The row reads only "Set" or "Not set", beside a Paste button (X, Ctrl+V) and a Copy button (Y, Ctrl+C); the footer lists both while the row is highlighted. |
 
 The invite code is a credential. The model never copies it into a row, a
@@ -1825,7 +1826,7 @@ The midasm hooks in `config/gameplay_hooks.toml` repair native behavior; the
 Always At War hooks are in `config/always_at_war_hooks.toml`.
 The Domination minimum is controlled by a setting. `src/gameplay_fixes.h`
 holds their selection and arithmetic. Static evidence is in rerevved-research manifests `science-completion.json`,
-`technology-prompt-callers.json`, `spaceship-launch-arrival-year-boundary.json`,
+`technology-prompt-callers.json`, `spaceship-launch-arrival-year.json`,
 `technology-first-discovery-rewards.json` and `economy-bonus-corrections.json`.
 
 - **AI research choice.** The computer-player branch of the technology prompt
@@ -1846,7 +1847,7 @@ holds their selection and arithmetic. Static evidence is in rerevved-research ma
   a matching reply and a city lost to that opponent. The hook at `0x82CBF668`
   skips that bit for ordinary AI players. The Democracy, war, self, Barbarian,
   visible-city and population-above-6 gates, target choice, SDI and dispatch
-  are unchanged. Evidence: `ai-nuclear-weapon-gates.json`.
+  are unchanged. Evidence: `ai-nuclear-weapon-requirements.json`.
 - **Domination minimum turns.** See below.
 - **Ceremonial Burial's free Temple.** The native recipient score for a
   Temple equals city population, but its recipient gate requires a score
@@ -2671,7 +2672,6 @@ startup, so edits made in a running session apply at the next launch.
 | Group | Row | Setting | Meaning |
 |---|---|---|---|
 | (top) | Connection Status | `system_link_status` | Read-only connection status for this session |
-| (top) | Profile Name | `system_link_profile_name` | Optional player name, up to 15 letters, digits, spaces, `-`, `_` or `.` |
 | Connection | Invite Code | `system_link_invite` | Invite code from the relay host; a nonempty code selects relay mode |
 | Connection | Direct LAN | `system_link_lan_enabled` | Direct LAN mode; cannot be combined with an invite |
 | Connection | Peer-to-Peer | `system_link_direct` | Direct UDP to other relay players, with the relay as fallback; off by default, relay mode only |
@@ -2679,8 +2679,10 @@ startup, so edits made in a running session apply at the next launch.
 | Discord | Rich Presence | `discord_activity` | Shows ReRevved as the Discord activity; on by default |
 | Discord | Join Button | `discord_invites` | Discord join button while hosting Player Match through the relay; on by default |
 
-A pasted invite applies when the field loses focus or Enter is pressed. An
-empty name becomes `Player-XXXX`. On the first System Link launch, the SDK
+A pasted invite applies when the field loses focus or Enter is pressed. The
+player name is **Profile Name** (`system_link_profile_name`) in **General**; it
+also names the offline profile, and an empty name becomes `Player-XXXX` in
+System Link and `User` otherwise. On the first System Link launch, the SDK
 creates a random identity and saves it as `system_link_xuid` in the active
 profile's `rerevved.toml`; a configured value is kept. A second copy on the same
 PC needs its own `--profile=<id>` so that it has a separate identity.

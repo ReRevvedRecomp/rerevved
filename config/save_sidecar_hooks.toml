@@ -1,4 +1,4 @@
-# Evidence: https://github.com/ReRevvedRecomp/rerevved-research/blob/main/docs/reference/save-storage.md#sidecar-intervention-edges
+# Evidence: https://github.com/ReRevvedRecomp/rerevved-research/blob/main/docs/reference/setup/save-storage.md#sidecar-intervention-edges
 # Before the deserializer bctrl, whose native return address is 0x82D844CC.
 [[midasm_hook]]
 address = 0x82D844C8

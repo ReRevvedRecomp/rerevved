@@ -268,6 +268,33 @@ std::string ContentName(std::string_view packId)
     return name;
 }
 
+std::optional<int32_t> SaveScenarioId(std::string_view header)
+{
+    size_t fields = 1;
+    size_t last   = 0;
+    for (size_t at = 0; at < header.size(); ++at)
+    {
+        if (header[at] == ',')
+        {
+            ++fields;
+            last = at + 1;
+        }
+    }
+    if (fields != kSaveHeaderFields)
+    {
+        return std::nullopt;
+    }
+    int32_t     id     = 0;
+    const char* begin  = header.data() + last;
+    const char* end    = header.data() + header.size();
+    const auto  result = std::from_chars(begin, end, id);
+    if (result.ec != std::errc{} || result.ptr != end)
+    {
+        return std::nullopt;
+    }
+    return id;
+}
+
 std::string CheckPackFiles(const std::filesystem::path& assetsRoot)
 {
     const auto      archive = std::filesystem::path(kPackDirectory) / kArchiveName;

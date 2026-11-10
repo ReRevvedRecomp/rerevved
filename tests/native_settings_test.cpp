@@ -265,7 +265,7 @@ TEST_CASE("native_settings_rows_keep_the_f1_order_and_captions", "[ctest][native
     FakeServices     services;
     ns::OptionsModel model(services);
 
-    CHECK(captionsOf(model, "General") == std::vector<std::string>{ "FPS Counter: Off", "Skip Intro: Off", "Open Log Folder: Open" });
+    CHECK(captionsOf(model, "General") == std::vector<std::string>{ "Profile Name: Default", "FPS Counter: Off", "Skip Intro: Off", "Open Log Folder: Open" });
 
     CHECK(captionsOf(model, "Gameplay") == std::vector<std::string>{ "Combat Speed: Normal",
                                                                      "Unit Movement: Normal",
@@ -295,7 +295,6 @@ TEST_CASE("native_settings_rows_keep_the_f1_order_and_captions", "[ctest][native
 
     CHECK(captionsOf(model, "Online") == std::vector<std::string>{ "AI Difficulty (Multiplayer): King",
                                                                    "Connection Status: Off",
-                                                                   "Profile Name: Default",
                                                                    "Invite Code: Not set",
                                                                    "Direct LAN: Off",
                                                                    "Peer-to-Peer: Off",
@@ -1574,7 +1573,7 @@ TEST_CASE("options_model_offers_the_game_language_as_a_restart_row", "[ctest][na
 
     REQUIRE_FALSE(model.Sections().empty());
     CHECK(model.Sections().front().title == "General");
-    CHECK(captionsOf(model, "General") == std::vector<std::string>{ "Language: English", "FPS Counter: Off", "Skip Intro: Off", "Open Log Folder: Open" });
+    CHECK(captionsOf(model, "General") == std::vector<std::string>{ "Language: English", "Profile Name: Default", "FPS Counter: Off", "Skip Intro: Off", "Open Log Folder: Open" });
     CHECK(model.Row(0)->key == "game_language");
 
     const auto& row = selectRow(model, "game_language");
@@ -1906,16 +1905,18 @@ TEST_CASE("options_model_a_status_row_is_read_only_and_follows_the_registry", "[
     CHECK(selectRow(model, "system_link_status").Caption() == "-");
 }
 
-TEST_CASE("options_model_the_online_rows_label_and_time_the_text_rows", "[ctest][native-settings]")
+TEST_CASE("options_model_labels_and_times_the_text_rows", "[ctest][native-settings]")
 {
     FakeServices     services;
     ns::OptionsModel model(services);
-    const auto&      online = model.Sections()[3];
+    const auto&      general = model.Sections()[0];
+    REQUIRE(general.title == "General");
+    CHECK(general.rows[0].label == "Profile Name");
+    CHECK(general.rows[0].timing == ns::Timing::kRestart);
+    const auto& online = model.Sections()[3];
     REQUIRE(online.title == "Online");
-    CHECK(online.rows[2].label == "Profile Name");
-    CHECK(online.rows[3].label == "Invite Code");
+    CHECK(online.rows[2].label == "Invite Code");
     CHECK(online.rows[2].timing == ns::Timing::kRestart);
-    CHECK(online.rows[3].timing == ns::Timing::kRestart);
 }
 
 TEST_CASE("options_model_a_text_row_opens_an_entry_and_applies_the_text", "[ctest][native-settings]")

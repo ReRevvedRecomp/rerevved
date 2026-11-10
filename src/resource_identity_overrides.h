@@ -11,7 +11,7 @@ namespace rerevved::resource_identity_overrides
 {
 
 // Native rows in coordinate-remainder order; Grassland has four entries.
-// Evidence: https://github.com/ReRevvedRecomp/rerevved-research/blob/main/docs/reference/resource-definitions.md#terrain-and-coordinate-lookup
+// Evidence: https://github.com/ReRevvedRecomp/rerevved-research/blob/main/docs/reference/gameplay/resource-definitions.md#terrain-and-coordinate-lookup
 inline constexpr int kIdentities[7][4] = {
     { 10, 16, 18, -1 }, { 0, 20, 19, 11 }, { 8, 13, 14, -1 }, { 5, 9, 17, -1 }, { 1, 3, 6, -1 }, { 2, 4, 12, -1 }, { 7, 15, 21, -1 }
 };
@@ -41,7 +41,7 @@ constexpr uint8_t       kSchemaVersion = 1;
 std::vector<uint8_t>    Serialize(const Snapshot& snapshot);
 std::optional<Snapshot> Deserialize(std::span<const uint8_t> bytes);
 
-// Evidence: https://github.com/ReRevvedRecomp/rerevved-research/blob/main/docs/reference/resource-identity-overrides.md#override-and-fresh-visual-creation
+// Evidence: https://github.com/ReRevvedRecomp/rerevved-research/blob/main/docs/reference/gameplay/resource-identity-overrides.md#override-and-fresh-visual-creation
 uint64_t CoordinateSum(const Snapshot& snapshot, uint32_t tileIndex, int8_t terrain, uint64_t nativeSum);
 
 } // namespace rerevved::resource_identity_overrides

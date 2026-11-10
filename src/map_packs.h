@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <filesystem>
+#include <optional>
 
 #include <rex/system/asset_overlay_catalog.h>
 
@@ -84,5 +85,14 @@ struct ScenarioOwner
 
 // The registered pack that supplied this scenario ID, or null.
 const ScenarioOwner* FindScenarioOwner(int32_t scenarioId);
+
+// A save header is twelve comma-separated numbers ending in the scenario ID (-1 for a standard game).
+inline constexpr size_t kSaveHeaderFields = 12;
+
+// The scenario ID of a save header line, or nullopt when the line is not a save header.
+std::optional<int32_t> SaveScenarioId(std::string_view header);
+
+// Required-content bits 0-2 name the retail Wonder packs; higher bits name the scenario's source pack.
+inline constexpr uint32_t kSaveWonderPackBits = 0x7;
 
 } // namespace rerevved::map_packs

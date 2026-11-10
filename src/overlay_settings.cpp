@@ -217,7 +217,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         return HostRowLock(gameplay_session::ForNetworkGame().get(), name);
     };
     layout.tabs = {
-        { "General", { { "", { "game_language", "show_fps_counter", "skip_intro_movie", "open_log_folder" } } } },
+        { "General", { { "", { "game_language", "system_link_profile_name", "show_fps_counter", "skip_intro_movie", "open_log_folder" } } } },
         { "Gameplay",
           {
               { "", { "combat_speed", "unit_movement", "resources", "raging_barbarians", "one_city_challenge", "domination_min_turns", "turn_limit", "starting_era", "ai_civilizations", "always_at_war" } },
@@ -230,7 +230,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
           } },
         { "Online",
           {
-              { "", { "multiplayer_ai_difficulty", "system_link_status", "system_link_profile_name" } },
+              { "", { "multiplayer_ai_difficulty", "system_link_status" } },
               { "Connection", { "system_link_invite", "system_link_lan_enabled", "system_link_direct" } },
               { "Matchmaking", { "live_sessions" } },
               { "Discord", { "discord_activity", "discord_invites" } },

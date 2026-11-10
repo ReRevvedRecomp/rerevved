@@ -227,7 +227,7 @@ Result Apply(resource_settings::FrozenSelection& selection, World& world)
                 }
                 else
                 {
-                    // Evidence: https://github.com/ReRevvedRecomp/rerevved-research/blob/main/docs/reference/resource-placement.md#legendary-identity-choices
+                    // Evidence: https://github.com/ReRevvedRecomp/rerevved-research/blob/main/docs/reference/gameplay/resource-placement.md#legendary-identity-choices
                     constexpr int pools[7][3] = { { 18, -1, -1 }, { 0, 19, 20 }, { 8, 13, -1 }, { 9, -1, -1 }, { 1, -1, -1 }, { 12, -1, -1 }, { 15, 21, -1 } };
                     constexpr int counts[7]   = { 1, 3, 2, 1, 1, 1, 2 };
                     placement.ordinal         = pools[tile.terrain][draw % counts[tile.terrain]];

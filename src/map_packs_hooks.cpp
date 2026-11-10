@@ -22,6 +22,7 @@
 REX_EXTERN(__imp__sub_82E2C890);
 REX_EXTERN(__imp__sub_82E29570);
 REX_EXTERN(__imp__sub_82E2A5F0);
+REX_EXTERN(__imp__sub_82CC29B8);
 
 namespace
 {
@@ -33,7 +34,13 @@ using rex::X_RESULT;
 constexpr uint32_t kMapPackScanBit   = 0x80000000u;
 constexpr uint32_t kScanOwnerMaskOff = 8;
 
+// Parsed save header record: text pointer (length at pointer - 4) and required-content mask.
+constexpr uint32_t kSaveHeaderTextOff = 4;
+constexpr uint32_t kSaveHeaderMaskOff = 24;
+constexpr uint32_t kMaxSaveHeaderText = 128;
+
 std::atomic<bool> mapPacksRegistered{ false };
+std::atomic<bool> saveMaskLogged{ false };
 // Set for the rescan owner's own scan call only; nested owners save and restore it.
 thread_local bool scanBitPending = false;
 
@@ -206,4 +213,38 @@ REX_HOOK_RAW(sub_82E2A5F0)
 {
     __imp__sub_82E2A5F0(ctx, base);
     ctx.r3.u64 = ctx.r3.u32 & ~kMapPackScanBit;
+}
+
+// A save on a pack scenario records a scenario pack bit that no installed content supplies, so the Load list refuses it.
+REX_HOOK_RAW(sub_82CC29B8)
+{
+    const uint32_t record = ctx.r6.u32;
+    __imp__sub_82CC29B8(ctx, base);
+    if (!record || !ctx.r3.u32)
+    {
+        return;
+    }
+    auto*          maskAt = base + record + kSaveHeaderMaskOff;
+    const uint32_t mask   = rex::memory::load_and_swap<uint32_t>(maskAt);
+    const uint32_t text   = rex::memory::load_and_swap<uint32_t>(base + record + kSaveHeaderTextOff);
+    if (!(mask & ~map_packs::kSaveWonderPackBits) || text < 4)
+    {
+        return;
+    }
+    const uint32_t length = rex::memory::load_and_swap<uint32_t>(base + text - 4);
+    if (!length || length > kMaxSaveHeaderText)
+    {
+        return;
+    }
+    const auto  scenario = map_packs::SaveScenarioId({ reinterpret_cast<const char*>(base + text), length });
+    const auto* owner    = scenario ? map_packs::FindScenarioOwner(*scenario) : nullptr;
+    if (!owner)
+    {
+        return;
+    }
+    rex::memory::store_and_swap<uint32_t>(maskAt, mask & map_packs::kSaveWonderPackBits);
+    if (!saveMaskLogged.exchange(true))
+    {
+        REXLOG_INFO("Map pack '{}' supplies scenario {}: save content mask {:08X} accepted", owner->pack, *scenario, mask);
+    }
 }
