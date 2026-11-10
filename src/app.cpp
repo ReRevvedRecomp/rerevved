@@ -37,6 +37,7 @@
 #include <rex/discord_rpc.h>
 #include <rex/filesystem.h>
 #include <rex/graphics/xenos_fence_trace.h>
+#include <rex/input/input_system.h>
 #include <rex/logging.h>
 #include <rex/runtime.h>
 #include <rex/session_data.h>
@@ -1204,6 +1205,11 @@ void App::OnPostLoadXexImage()
 void App::OnPostSetup()
 {
     rex::ReXApp::OnPostSetup();
+    // Only guest user 0 has a profile; a pad on another slot loops the game's sign-in prompt.
+    if (auto* input = dynamic_cast<rex::input::InputSystem*>(runtime()->input_system()))
+    {
+        input->SetDeviceAssignment(std::make_unique<rex::input::SharedAssignment>());
+    }
     // A waiting Keybind row captures keys before ImGui and input drivers.
     window()->AddInputListener(&keybindCapture, rerevved::keybind_capture::kListenerZ);
     runtime()->SetModLoadoutChangedCallback([this]

@@ -20,6 +20,8 @@ Close ReRevved before editing the file directly.
   controller input in the background, Button Icons, and overlay hotkeys.
   **Button Icons** chooses which button icons the game shows, after a
   restart. **Auto** shows PlayStation icons if the
+  Every connected controller plays as player one, so a second or virtual
+  controller cannot be left without a profile.
   controller you last used, or else the first one connected, is a PlayStation
   controller, and Xbox icons for any other controller. With no controller
   connected at launch it shows keyboard icons. **Keyboard** always shows them;
