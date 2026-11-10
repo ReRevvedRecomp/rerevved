@@ -153,6 +153,17 @@ TEST_CASE("map packs refuse a clash with an earlier accepted pack", "[ctest][map
     CHECK(rerevved::map_packs::ContentName("island") == "rr_island");
 }
 
+TEST_CASE("map pack save headers name their scenario", "[ctest][map-packs]")
+{
+    using rerevved::map_packs::SaveScenarioId;
+    CHECK(SaveScenarioId("100,10,-4000,2,8,11,10,2026,0,47,0,105") == 105);
+    CHECK(SaveScenarioId("100,12,-4000,4,29,11,9,2026,17,15,0,-1") == -1);
+    CHECK_FALSE(SaveScenarioId("100,10,-4000,2,8,11,10,2026,0,47,105"));
+    CHECK_FALSE(SaveScenarioId("100,10,-4000,2,8,11,10,2026,0,47,0,105x"));
+    CHECK_FALSE(SaveScenarioId("100,10,-4000,2,8,11,10,2026,0,47,0,"));
+    CHECK_FALSE(SaveScenarioId(""));
+}
+
 TEST_CASE("map packs hold only their DLC archive", "[ctest][map-packs]")
 {
     namespace fs     = std::filesystem;

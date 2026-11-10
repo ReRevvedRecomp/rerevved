@@ -129,7 +129,8 @@ overrides. Each is a `maps/<id>/asset-pack.toml` package whose only asset is
 two enabled packs claim the same archive entry, map name, or scenario ID, the
 earlier one wins. An optional `[map_pack]` manifest table with `slot` and
 `scenarios = [{ id, name }]` is display metadata only; the archive stays
-authoritative. Changes apply on the next launch; see
+authoritative. A save made on a pack scenario loads while its pack is enabled
+and reads "Not Available" otherwise. Changes apply on the next launch; see
 [`map_packs.h`](../src/map_packs.h). Release archives include the map packs
 from `rerevved-mods`. They start disabled; enable them in the Maps tab.
 
