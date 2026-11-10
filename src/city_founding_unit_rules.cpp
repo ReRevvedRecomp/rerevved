@@ -213,7 +213,7 @@ Outcome Apply(World& world, Input input)
     {
         return result;
     }
-    // Evidence: https://github.com/ReRevvedRecomp/rerevved-research/blob/main/docs/reference/city-militia-scout.md#title-implementer-contract
+    // Evidence: https://github.com/ReRevvedRecomp/rerevved-research/blob/main/docs/reference/gameplay/city-militia-scout.md#title-implementer-contract
     // Use the saved entry LR; mode and the live LR do not identify founding.
     result.decision = Decision::InvalidFrame;
     uint32_t x      = 0;

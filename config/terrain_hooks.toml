@@ -1,4 +1,4 @@
-# Evidence: https://github.com/ReRevvedRecomp/rerevved-research/blob/main/docs/reference/resource-identity-overrides.md
+# Evidence: https://github.com/ReRevvedRecomp/rerevved-research/blob/main/docs/reference/gameplay/resource-identity-overrides.md
 # Before native terrain load/remainder matching; all native access gates remain.
 [[midasm_hook]]
 address = 0x82CF15C4

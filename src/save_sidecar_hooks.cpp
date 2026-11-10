@@ -180,7 +180,7 @@ sidecar::State captureState(bool manual)
 
 } // namespace
 
-// Evidence: https://github.com/ReRevvedRecomp/rerevved-research/blob/main/docs/reference/save-storage.md#sidecar-intervention-edges
+// Evidence: https://github.com/ReRevvedRecomp/rerevved-research/blob/main/docs/reference/setup/save-storage.md#sidecar-intervention-edges
 // The wrapper bounds the pending restore to this native load, including failures.
 REX_HOOK_RAW(sub_82D84238)
 {
