@@ -48,8 +48,9 @@ To use a code instead:
 4. Check Connection Status in F1 > Online. After a few seconds it should read
    "Relay: connected as 198.18.x.y".
 
-Optional settings: Profile Name accepts 1-15 characters: letters, digits,
-spaces, hyphens, underscores, or periods. Empty gives Player-XXXX.
+Optional settings: Profile Name, in F1 > General, accepts 1-15 characters:
+letters, digits, spaces, hyphens, underscores, or periods. Empty gives
+Player-XXXX online.
 Peer-to-Peer lets two players who enable it try a direct connection with
 relay fallback. A random player identity is created and saved automatically
 on the first online launch.

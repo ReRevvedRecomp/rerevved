@@ -95,6 +95,7 @@ class OverlaySettingsContractTests(unittest.TestCase):
                     "",
                     [
                         "game_language",
+                        "system_link_profile_name",
                         "show_fps_counter",
                         "skip_intro_movie",
                         "open_log_folder",
@@ -112,7 +113,6 @@ class OverlaySettingsContractTests(unittest.TestCase):
                 [
                     "multiplayer_ai_difficulty",
                     "system_link_status",
-                    "system_link_profile_name",
                 ],
             ),
         )
