@@ -218,10 +218,34 @@ takes effect after restart.
 Settings outside the curated layout can be set in the config file, on the
 command line or in the console, subject to their persistence policy.
 
+## 4:3 display aspect
+
+`display_aspect` value `4:3`, shown as **4:3** under Aspect Ratio, runs the
+game in its own 4:3 layout. The game's display setup `0x82E2A4B8` (`r4`, `r5`
+and `r6` point at the width, height and widescreen byte it fills from
+`XGetVideoMode`) forces any mode of 720 lines or more to 1280x720 widescreen,
+so the 4:3 layout exists only below 720 lines. It keeps a smaller mode as
+reported, lays the interface out for 4:3 when the widescreen byte is clear,
+and widens a widescreen 480-line mode to 856.
+
+The value is read once at startup, before the graphics system reads the guest
+video mode. With `4:3` it sets `video_mode_width` and `video_mode_height` to
+640 and 480 as application defaults, below config, environment and
+command-line values. `src/display_aspect_narrow_hooks.cpp` hooks the display
+setup after its original body and, only in such a run and only below 720
+lines, clears the widescreen byte and restores a 480-line mode to 640 wide.
+Automatic Render Resolution uses the guest mode, so it picks whole multiples
+of 640x480. The ultrawide modes stay original for the whole run, since the
+widening assumes the 1280x720 image. A change to or from `4:3` applies at the
+next start.
+
+The main menu and the map view were seen in this layout at 640x482. The game
+shows the main menu movie at its 16:9 scale and crops its sides.
+
 ## Ultrawide display aspect
 
-`display_aspect` accepts `original`, `auto`, `21:9` and `32:9`, shown in F1 as
-**Aspect Ratio** choices **16:9**, **Ultrawide**, **21:9** and **32:9**. It
+`display_aspect` accepts `original`, `4:3`, `auto`, `21:9` and `32:9`, shown in F1 as
+**Aspect Ratio** choices **16:9**, **4:3**, **Ultrawide**, **21:9** and **32:9**. It
 defaults to `original`. `21:9` and `32:9` request that fixed aspect through the
 custom-aspect path and ignore `display_aspect_custom`.
 `display_aspect_custom` is config-only and empty by default. It holds a

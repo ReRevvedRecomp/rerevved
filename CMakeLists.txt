@@ -131,6 +131,7 @@ set(REREVVED_SOURCES
     src/display_aspect.h
     src/display_aspect_hooks.cpp
     src/display_aspect_hooks.h
+    src/display_aspect_narrow_hooks.cpp
     src/portable_mode.cpp
     src/portable_mode.h
     src/gpu/guest_gpu_service.cpp

@@ -866,6 +866,8 @@ bool App::SetupEnvironment()
     }
     REXLOG_INFO("ReRevved renderer selected: {}",
                 rerevved::gpu::RendererBackendName(rendererBackend));
+    // Before the graphics system reads the guest video mode.
+    rerevved::display_aspect::LatchNarrow();
 
 #if REREVVED_DEVELOPER
     const std::string adapterOutput = REXCVAR_GET(native_guest_adapter_output);
