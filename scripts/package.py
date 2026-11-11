@@ -52,6 +52,10 @@ KEYBOARD_ICON_FILES = tuple(f"{name}.dds" for name in KEYBOARD_ICON_KEYS)
 
 XELU_NOTICES = ("Readme.txt", "PROVENANCE.md")
 
+# SDL loads the community controller mappings from beside the executable.
+CONTROLLER_DB = "gamecontrollerdb.txt"
+CONTROLLER_DB_NOTICES = ("LICENSE",)
+
 # First-party Lua mods shipped disabled under mods/.
 BUNDLED_MODS = (
     "cataphracts-defense",
@@ -97,6 +101,8 @@ def expected_entries(platform):
     files |= {f"asset-overrides/{name}" for name in BUNDLED_ASSET_FILES}
     files |= {f"{KEYBOARD_ICON_DIR}/{name}" for name in KEYBOARD_ICON_FILES}
     files |= {f"licenses/xelu-prompts-{name}" for name in XELU_NOTICES}
+    files.add(CONTROLLER_DB)
+    files |= {f"licenses/sdl-gamecontrollerdb-{name}" for name in CONTROLLER_DB_NOTICES}
     for package_id in BUNDLED_MODS:
         files |= {f"mods/{package_id}/{name}" for name in MOD_FILES}
     for map_id in BUNDLED_MAPS:
@@ -479,6 +485,17 @@ def main():
         if not source.is_file():
             raise SystemExit(f"error: missing Xelu notice: {source}")
         shutil.copy2(source, licenses / f"xelu-prompts-{filename}")
+    controller_db = REPO / "thirdparty" / "sdl-gamecontrollerdb"
+    for filename in (CONTROLLER_DB, *CONTROLLER_DB_NOTICES):
+        if not (controller_db / filename).is_file():
+            raise SystemExit(
+                f"error: missing controller mapping file: {controller_db / filename}"
+            )
+    shutil.copy2(controller_db / CONTROLLER_DB, stage / CONTROLLER_DB)
+    for filename in CONTROLLER_DB_NOTICES:
+        shutil.copy2(
+            controller_db / filename, licenses / f"sdl-gamecontrollerdb-{filename}"
+        )
 
     # No mod_order.txt ships, so every bundled mod starts disabled.
     for package_id in BUNDLED_MODS:

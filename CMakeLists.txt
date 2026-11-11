@@ -753,6 +753,12 @@ add_custom_command(TARGET rerevved POST_BUILD
         "$<TARGET_FILE_DIR:rerevved>/button-icons/xelu-light"
     COMMENT "Staging keyboard button icons"
     VERBATIM)
+add_custom_command(TARGET rerevved POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/sdl-gamecontrollerdb/gamecontrollerdb.txt"
+        "$<TARGET_FILE_DIR:rerevved>/gamecontrollerdb.txt"
+    COMMENT "Staging SDL controller mappings"
+    VERBATIM)
 set(REREVVED_NATIVE_PRESENT_CATALOG "" CACHE PATH "Admitted native presentation shader catalog")
 include(CTest)
 if(BUILD_TESTING)

@@ -348,6 +348,16 @@ viewport clipping, content-generation bumps for resolve-written and scaled
 frontbuffers, resize and fullscreen surface-size updates, Direct3D 12 and
 Vulkan parity, and label, cursor and picking alignment.
 
+## Controller mappings
+
+Builds and release packages place the community SDL controller database
+`gamecontrollerdb.txt` next to the executable. It adds mappings for pads that
+SDL's built-in table lacks. The title sets the SDK's `hid_mappings_file`
+default to that file's path, so the database loads whatever working directory
+a launcher uses; a config, environment or command-line value still takes
+precedence. The `thirdparty/sdl-gamecontrollerdb` submodule pins the upstream
+commit, and packages carry its zlib notice under `licenses`.
+
 ## Button icons
 
 The `button_icons` setting accepts `auto`, `xbox`, `playstation` or `keyboard`,
