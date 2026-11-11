@@ -720,6 +720,11 @@ void App::OnConfigurePaths(rex::PathConfig& paths)
 {
     // Apply before config loading and the System Link startup snapshot.
     rex::cvar::SetFlagAsApplicationDefault("live_sessions", "true");
+    // The SDK resolves this file against the working directory, which a
+    // launcher may not set to the game folder holding the packaged copy.
+    rex::cvar::SetFlagAsApplicationDefault(
+        "hid_mappings_file",
+        rex::path_to_utf8(rex::filesystem::GetExecutableFolder() / "gamecontrollerdb.txt"));
     rerevved::keybind_defaults::Apply();
 
     // Keep user state outside a potentially read-only install directory.
