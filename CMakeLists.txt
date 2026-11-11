@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(rerevved VERSION 0.7.1 LANGUAGES C CXX)
+project(rerevved VERSION 0.7.2 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -752,6 +752,12 @@ add_custom_command(TARGET rerevved POST_BUILD
         "${CMAKE_CURRENT_SOURCE_DIR}/assets/button-icons/xelu-light"
         "$<TARGET_FILE_DIR:rerevved>/button-icons/xelu-light"
     COMMENT "Staging keyboard button icons"
+    VERBATIM)
+add_custom_command(TARGET rerevved POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/sdl-gamecontrollerdb/gamecontrollerdb.txt"
+        "$<TARGET_FILE_DIR:rerevved>/gamecontrollerdb.txt"
+    COMMENT "Staging SDL controller mappings"
     VERBATIM)
 set(REREVVED_NATIVE_PRESENT_CATALOG "" CACHE PATH "Admitted native presentation shader catalog")
 include(CTest)

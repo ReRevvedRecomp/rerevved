@@ -52,6 +52,8 @@ NORMAL_FILES = (
         "asset-overrides/rerevved-logo/assets/file-data/GFX_MainMenu_logo.dds",
         "licenses/xelu-prompts-Readme.txt",
         "licenses/xelu-prompts-PROVENANCE.md",
+        "gamecontrollerdb.txt",
+        "licenses/sdl-gamecontrollerdb-LICENSE",
     }
     | MOD_NAMES
     | MAP_NAMES
@@ -155,6 +157,15 @@ class PackageTests(unittest.TestCase):
                 self.assertIn(
                     b"CC0",
                     archive.read(f"{archive_root}/licenses/xelu-prompts-Readme.txt"),
+                )
+                self.assertEqual(
+                    archive.read(f"{archive_root}/gamecontrollerdb.txt"),
+                    (
+                        REPO
+                        / "thirdparty"
+                        / "sdl-gamecontrollerdb"
+                        / "gamecontrollerdb.txt"
+                    ).read_bytes(),
                 )
             self.assertIn(prefix + "rerevved-logo/asset-pack.toml", names)
             self.assertIn(
