@@ -240,7 +240,10 @@ widening assumes the 1280x720 image. A change to or from `4:3` applies at the
 next start.
 
 The main menu and the map view were seen in this layout at 640x482. The game
-shows the main menu movie at its 16:9 scale and crops its sides.
+shows the main menu movie at its 16:9 scale and crops its sides, which cuts a
+logo that fills its 1024x256 texture. In a 4:3 run the selected main-menu
+logo, bundled or from a package, is therefore shrunk to 85% about its center
+when it is resolved at startup, with a transparent border.
 
 ## Ultrawide display aspect
 
