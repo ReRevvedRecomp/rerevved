@@ -1102,6 +1102,29 @@ prompt or a `F+4` other than `R` at the accept also sends the accept to the
 retail callback. The hook's record of the page ends when the page does.
 Shutdown closes the page through the app, as for every page.
 
+## Main menu Exit Game
+
+The main menu gains **Exit Game** as its last row, under **Options**. It is
+always on and quits at once, through the same path as the window's close
+button.
+
+The row is the retail movie's own sixth slot. `GFX_MainMenu.gfx` carries six
+rows, `focus0_mc` to `focus5_mc`; its `SetText` shows the sixth and raises the
+movie's `FocusCount` from 5 to 6 when it receives row `5`, so Up and Down wrap
+through the row and it highlights as the retail rows do. Main-menu initializer
+`0x82E516F0` (`r3 = M`) sends rows `0` to `4` as `0x82C4E858(M, "SetText",
+format, row, text)` with each text from `0x82E6A430` and the text manager
+`U32[0x8314F2C8]`. `src/main_menu_options_hooks.cpp` hooks the initializer
+after its original body and sends row `5` the same way, with the text in the
+game language, only when `M`'s table is `0x82139CBC`. A text that cannot be
+allocated keeps the five retail rows.
+
+An accept on the row reaches the row callback `0x82E51560` with the descriptor
+text `5`, which the retail callback compares with its five rows and ignores.
+The hook plays cue `1001` and quits when the descriptor is exactly `5` and the
+menu state passes the checks of the Options row, apart from the host bindings.
+Otherwise the retail callback runs.
+
 ## Combat settings
 
 The `combat_speed` setting accepts `normal` or `fast` and defaults to `normal`.
