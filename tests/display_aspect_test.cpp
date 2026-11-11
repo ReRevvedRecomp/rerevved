@@ -96,7 +96,7 @@ TEST_CASE("display_aspect values parse and fixed presets resolve to exact ratios
     CHECK(da::ParseMode("custom") == da::Mode::Custom);
     CHECK(da::ParseMode("21:9") == da::Mode::Custom);
     CHECK(da::ParseMode("32:9") == da::Mode::Custom);
-    for (const char* unknown : { "", "22:9", "16:9", "21:9 ", "Auto" })
+    for (const char* unknown : { "", "22:9", "16:9", "21:9 ", "Auto", "4:3" })
     {
         INFO(unknown);
         CHECK(da::ParseMode(unknown) == da::Mode::Original);
@@ -117,6 +117,15 @@ TEST_CASE("display_aspect values parse and fixed presets resolve to exact ratios
     CHECK(r32.aspect == da::Aspect{ 32, 9 });
     CHECK(static_cast<double>(r32.aspect.x) / r32.aspect.y == 32.0 / 9.0);
     CHECK(r32.k == 0.5f);
+}
+
+TEST_CASE("the 4:3 preset keeps a mode below 720 lines out of widescreen", "[ctest][display-aspect][local-fast]")
+{
+    // Retail widens a widescreen 480-line mode to 856.
+    CHECK(da::CorrectNarrowSetup({ 856, 480, true }) == da::GuestMode{ 640, 480, false });
+    CHECK(da::CorrectNarrowSetup({ 640, 480, false }) == da::GuestMode{ 640, 480, false });
+    CHECK(da::CorrectNarrowSetup({ 944, 708, true }) == da::GuestMode{ 944, 708, false });
+    CHECK(da::CorrectNarrowSetup({ 1280, 720, true }) == da::GuestMode{ 1280, 720, true });
 }
 
 TEST_CASE("requests at or below 16:9 and unknown surfaces stay original", "[ctest][display-aspect][local-fast]")

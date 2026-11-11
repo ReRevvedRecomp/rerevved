@@ -163,6 +163,13 @@ Only recognized gameplay views widen. A movie detected after a wide frame
 begins can keep subsequent frames at 16:9 until Aspect Ratio or the custom
 value changes.
 
+**4:3** uses the game's own 4:3 layout for displays of that shape. The game
+then renders from a 640x480 base, **Render Resolution** offers 640x480,
+1280x960 and 1920x1440, and wider windows show bars at the sides. Changing to
+or from **4:3** takes effect after a restart, and the Ultrawide choices do
+not widen the view until then. Explicit `video_mode_width` and
+`video_mode_height` values override the 640x480 base.
+
 Monitor, Window Size, Render Resolution, Upscaling, and Anti-Aliasing require
 a restart. Select **Save**, exit, and launch again after changing them.
 Explicit `window_width` and `window_height` values in the config or command

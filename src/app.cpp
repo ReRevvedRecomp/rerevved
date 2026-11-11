@@ -866,6 +866,8 @@ bool App::SetupEnvironment()
     }
     REXLOG_INFO("ReRevved renderer selected: {}",
                 rerevved::gpu::RendererBackendName(rendererBackend));
+    // Before the graphics system reads the guest video mode.
+    rerevved::display_aspect::LatchNarrow();
 
 #if REREVVED_DEVELOPER
     const std::string adapterOutput = REXCVAR_GET(native_guest_adapter_output);
@@ -1235,7 +1237,9 @@ void App::OnPostSetup()
     // Resolve selected package assets after the SDK has built the loadout and
     // before the guest main thread is resumed.
     (void)rerevved::main_menu_logo::ResolveSelectedLogo(
-        runtime()->active_asset_overlays());
+        runtime()->active_asset_overlays(),
+        nullptr,
+        rerevved::display_aspect::NarrowLatched() ? rerevved::main_menu_logo::kNarrowScale : 1.0f);
     rerevved::map_packs::RegisterSelected(rerevved::map_packs::SelectEnabled(
         runtime()->user_data_root(),
         rex::filesystem::GetExecutableFolder() / rerevved::map_packs::kMapsDirectory));

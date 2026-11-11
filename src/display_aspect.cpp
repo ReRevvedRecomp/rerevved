@@ -19,8 +19,8 @@
 
 #include "gpu/renderer_backend.h"
 
-REXCVAR_DEFINE_STRING(display_aspect, "original", "ReRevved", "Ultrawide presentation: original keeps 16:9, auto matches the window or display_aspect_custom, 21:9 and 32:9 fix the shape")
-    .allowed({ "original", "auto", "21:9", "32:9" });
+REXCVAR_DEFINE_STRING(display_aspect, "original", "ReRevved", "Picture shape: original keeps 16:9, 4:3 uses the game's 4:3 layout after a restart, auto matches the window or display_aspect_custom, 21:9 and 32:9 fix the shape")
+    .allowed({ "original", "4:3", "auto", "21:9", "32:9" });
 REXCVAR_DEFINE_STRING(display_aspect_custom, "", "ReRevved", "Optional aspect for display_aspect=auto as numerator:denominator, for example 21:9 or 3440:1440; empty matches the window");
 REXCVAR_DEFINE_BOOL(display_aspect_debug_scissor, true, "ReRevved", "Diagnostic: false skips ultrawide scissor compression while retaining viewport or affine correction")
     .audience(rex::cvar::Audience::kHidden);
@@ -146,6 +146,16 @@ std::string_view FixedPresetAspect(std::string_view text) noexcept
     if (text == "21:9" || text == "32:9")
         return text;
     return {};
+}
+
+GuestMode CorrectNarrowSetup(GuestMode retail) noexcept
+{
+    if (retail.height >= kForcedHeight)
+        return retail;
+    retail.widescreen = false;
+    if (retail.height == kNarrowHeight)
+        retail.width = kNarrowWidth;
+    return retail;
 }
 
 std::string_view ModeToken(Mode mode) noexcept
@@ -802,6 +812,7 @@ void emit(State& s, fmt::format_string<Args...> format, Args&&... args)
 
 std::atomic<Mode> gMode{ Mode::Original };
 std::atomic<bool> gProbe{ false };
+std::atomic<bool> gNarrow{ false };
 
 Settings readSettings()
 {
@@ -816,6 +827,9 @@ Settings readSettings()
     // The config-only override turns Ultrawide into a fixed aspect.
     else if (settings.mode == Mode::Auto && !settings.custom.empty())
         settings.mode = Mode::Custom;
+    // The widening assumes the 1280x720 guest image.
+    if (NarrowLatched())
+        settings.mode = Mode::Original;
     return settings;
 }
 
@@ -1364,6 +1378,23 @@ void Initialize(std::string_view titleRevision, std::string_view sdkRevision)
     recomputeActive();
 }
 
+void LatchNarrow()
+{
+    const bool narrow = rex::cvar::Query<std::string>("display_aspect") == kNarrowPreset;
+    gNarrow.store(narrow, std::memory_order_relaxed);
+    if (!narrow)
+        return;
+    // Below config, environment and command-line values.
+    rex::cvar::SetFlagAsApplicationDefault("video_mode_width", std::to_string(kNarrowWidth));
+    rex::cvar::SetFlagAsApplicationDefault("video_mode_height", std::to_string(kNarrowHeight));
+    REXLOG_INFO("Display aspect: 4:3 selected; guest video mode defaults to {}x{}", kNarrowWidth, kNarrowHeight);
+}
+
+bool NarrowLatched() noexcept
+{
+    return gNarrow.load(std::memory_order_relaxed);
+}
+
 void Shutdown()
 {
     State&          s = state();
@@ -1732,6 +1763,7 @@ void ResetForTesting()
 {
     State&          s = state();
     std::lock_guard lock(s.mutex);
+    gNarrow.store(false, std::memory_order_relaxed);
     s.initialized = false;
     s.shutdown    = false;
     s.view        = FrameView{};

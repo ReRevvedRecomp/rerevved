@@ -79,6 +79,30 @@ Mode ParseMode(std::string_view text) noexcept;
 std::string_view FixedPresetAspect(std::string_view text) noexcept;
 std::string_view ModeToken(Mode mode) noexcept;
 
+// display_aspect "4:3" selects the game's own 4:3 layout. Display setup 0x82E2A4B8 keeps a reported mode below 720
+// lines and lays the interface out for 4:3 when its widescreen byte is clear; it widens a widescreen 480-line mode to 856.
+inline constexpr std::string_view kNarrowPreset = "4:3";
+inline constexpr uint32_t         kNarrowWidth  = 640;
+inline constexpr uint32_t         kNarrowHeight = 480;
+inline constexpr uint32_t         kForcedHeight = 720;
+
+struct GuestMode
+{
+    uint32_t width      = 0;
+    uint32_t height     = 0;
+    bool     widescreen = false;
+
+    bool operator==(const GuestMode&) const = default;
+};
+
+// The retail-derived mode as the 4:3 preset keeps it; 720 lines or more is unchanged.
+GuestMode CorrectNarrowSetup(GuestMode retail) noexcept;
+
+// Reads display_aspect once, before the graphics system starts: the 4:3 preset makes 640x480 the default guest video
+// mode for this run. Later changes of the setting take effect at the next start.
+void LatchNarrow();
+bool NarrowLatched() noexcept;
+
 // True when a is wider than 16:9, by integer cross-product.
 bool IsWiderThanOriginal(Aspect aspect) noexcept;
 
