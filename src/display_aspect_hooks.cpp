@@ -45,7 +45,9 @@ constexpr uint32_t kCameraViewport      = 0x114;
 constexpr uint32_t kRendererCacheCamera = 0xB0;
 constexpr uint32_t kRendererG           = 0xB8;
 constexpr uint32_t kGfxViewportX        = 0x3168;
+constexpr uint32_t kGfxViewportY        = 0x316C;
 constexpr uint32_t kGfxViewportWidth    = 0x3170;
+constexpr uint32_t kGfxViewportHeight   = 0x3174;
 constexpr uint32_t kGfxScissorState     = 12676;
 constexpr uint32_t kGfxScissorEnable    = 11856;
 // The viewport record sub_82302F60 builds on its stack for sub_826903A0: x, y,
@@ -57,6 +59,13 @@ constexpr uint32_t kHookRenderer = 0x823528D8;
 constexpr uint32_t kHookOwner    = 0x823AF9C8;
 constexpr uint32_t kHookBuild    = 0x8250BA00;
 constexpr uint32_t kHookGfxBegin = 0x82302F60;
+
+// Renderer cache key of a frame's correction. The vertical axis is negative,
+// so equal scales on different axes still rebuild.
+float cacheScale(const da::FrameView& view)
+{
+    return view.axis == da::Axis::Vertical ? -view.k : view.k;
+}
 
 //------------------------------------------------------------ guest memory
 
@@ -587,7 +596,7 @@ REX_HOOK_RAW(sub_823528D8)
         const bool  tracked   = da::CameraTracked(camera);
         const bool  vtableOk  = !tracked && (inWorld || untracked) && da::CameraVtableAccepted(readCamera(camera).vtable);
         const bool  candidate = tracked || vtableOk;
-        const float wanted    = inWorld ? view.k : 1.0f;
+        const float wanted    = inWorld ? cacheScale(view) : 1.0f;
         if (candidate && da::CacheNeedsRebuild(camera, wanted, view.interval))
         {
             uint32_t cached = 0;
@@ -660,10 +669,13 @@ REX_HOOK_RAW(sub_8250BA00)
     const bool eligible = view.wide && reason == da::Reason::World;
 
     const float       scale     = view.wide ? view.k : (da::ProbeEnabled() ? da::ProbeScale() : 1.0f);
+    const da::Axis    axis      = view.wide ? view.axis : da::Axis::Horizontal;
+    const uint32_t    pair      = kCameraFrustum + static_cast<uint32_t>(da::FrustumPairOffset(axis));
+    const size_t      pairAt    = da::FrustumPairOffset(axis);
     da::FrustumBytes  corrected = read.frustum;
     da::FrustumStatus status    = da::FrustumStatus::Orthographic;
     if (read.frustumOk && (eligible || da::ProbeEnabled()))
-        status = da::CorrectFrustumBytes(read.frustum, scale, corrected);
+        status = da::CorrectFrustumBytes(read.frustum, scale, corrected, axis);
 
     // The guard slot is reserved before any write, so a full stack refuses the
     // correction instead of leaving a mutated camera unguarded.
@@ -674,9 +686,9 @@ REX_HOOK_RAW(sub_8250BA00)
         reserved = tCorrected.Push(camera);
         if (reserved)
         {
-            // Only the left and right words change; the originals are restored
-            // from the saved copy after the call.
-            applied = writeBytes(camera + kCameraFrustum, corrected.data(), 8);
+            // Only the corrected axis's pair of words changes; the originals
+            // are restored from the saved copy after the call.
+            applied = writeBytes(camera + pair, corrected.data() + pairAt, 8);
         }
     }
     if (eligible && !applied)
@@ -693,8 +705,8 @@ REX_HOOK_RAW(sub_8250BA00)
     if (applied)
     {
         da::FrustumBytes current{};
-        if (readBytes(camera + kCameraFrustum, current.data(), 8) &&
-            std::memcmp(current.data(), corrected.data(), 8) == 0 && writeBytes(camera + kCameraFrustum, read.frustum.data(), 8))
+        if (readBytes(camera + pair, current.data(), 8) && std::memcmp(current.data(), corrected.data() + pairAt, 8) == 0 &&
+            writeBytes(camera + pair, read.frustum.data() + pairAt, 8))
         {
             restored = 1;
         }
@@ -705,7 +717,7 @@ REX_HOOK_RAW(sub_8250BA00)
         }
     }
     if (camera != 0 && (applied || da::CameraTracked(camera)))
-        da::NoteCacheBuilt(camera, applied ? view.k : 1.0f, view.interval);
+        da::NoteCacheBuilt(camera, applied ? cacheScale(view) : 1.0f, view.interval);
     da::CountCameraBuild(applied);
     observe(kHookBuild, camera, lr, read, applied, restored, &corrected, applied ? da::Reason::World : reason);
 }
@@ -833,10 +845,11 @@ namespace
 
 // sub_8268F9C0 clips the canonical request at G+12676 to the viewport. Compress
 // it first; with the scissor test off the viewport is the scissor, unchanged.
-bool compressedViewportScissor(uint32_t g, float k, const da::Rect& rect, da::Rect& out)
+bool compressedViewportScissor(uint32_t g, float k, da::Axis axis, const da::Rect& rect, da::Rect& out)
 {
-    out             = rect;
-    uint32_t enable = 0;
+    const bool vertical = axis == da::Axis::Vertical;
+    out                 = rect;
+    uint32_t enable     = 0;
     if (!readU32(g + kGfxScissorEnable, enable))
         return false;
     if (enable == 0)
@@ -844,17 +857,25 @@ bool compressedViewportScissor(uint32_t g, float k, const da::Rect& rect, da::Re
     float                   x = 0;
     float                   w = 0;
     std::array<uint32_t, 4> request{};
-    bool                    ok = readFloat(g + kGfxViewportX, x) && readFloat(g + kGfxViewportWidth, w) && std::isfinite(x) && std::isfinite(w) && std::fabs(x) < 1.0e6f &&
-                                 std::fabs(w) < 1.0e6f;
+    bool                    ok = readFloat(g + (vertical ? kGfxViewportY : kGfxViewportX), x) && readFloat(g + (vertical ? kGfxViewportHeight : kGfxViewportWidth), w) &&
+                                 std::isfinite(x) && std::isfinite(w) && std::fabs(x) < 1.0e6f && std::fabs(w) < 1.0e6f;
     for (size_t index = 0; ok && index < request.size(); ++index)
         ok = readU32(g + kGfxScissorState + static_cast<uint32_t>(index) * 4, request[index]);
     if (!ok)
         return false;
     const da::ViewportSpan span{ static_cast<int32_t>(x), static_cast<int32_t>(w) };
     const da::Rect         raw{ static_cast<int32_t>(request[0]), static_cast<int32_t>(request[1]), static_cast<int32_t>(request[2]), static_cast<int32_t>(request[3]) };
-    const da::Rect         clipped = da::CorrectScissorInViewport(raw, span, k);
-    out.left                       = clipped.left;
-    out.right                      = clipped.right;
+    const da::Rect         clipped = da::CorrectScissorInViewport(raw, span, k, axis);
+    if (vertical)
+    {
+        out.top    = clipped.top;
+        out.bottom = clipped.bottom;
+    }
+    else
+    {
+        out.left  = clipped.left;
+        out.right = clipped.right;
+    }
     return true;
 }
 
@@ -954,13 +975,15 @@ void CompressDisplayAspectGfxViewport(PPCRegister& r1, PPCRegister& r3, PPCRegis
         ok = readU32(record + static_cast<uint32_t>(index) * 4, words[index]);
     if (ok)
     {
-        decision = "bad_viewport";
-        if (da::CompressViewportSpan(static_cast<int32_t>(words[0]), static_cast<int32_t>(words[2]), view.k, span))
+        const size_t   first  = view.axis == da::Axis::Vertical ? 1 : 0;
+        const uint32_t origin = record + static_cast<uint32_t>(first) * 4;
+        decision              = "bad_viewport";
+        if (da::CompressViewportSpan(static_cast<int32_t>(words[first]), static_cast<int32_t>(words[first + 2]), view.k, span, view.axis))
         {
             decision = "write_failed";
-            if (writeU32(record, static_cast<uint32_t>(span.x)))
+            if (writeU32(origin, static_cast<uint32_t>(span.x)))
             {
-                if (writeU32(record + 8, static_cast<uint32_t>(span.width)))
+                if (writeU32(origin + 8, static_cast<uint32_t>(span.width)))
                 {
                     scope->viewportCompressed = true;
                     scope->viewportPatched    = true;
@@ -970,7 +993,7 @@ void CompressDisplayAspectGfxViewport(PPCRegister& r1, PPCRegister& r3, PPCRegis
                 }
                 else
                 {
-                    writeU32(record, words[0]);
+                    writeU32(origin, words[first]);
                 }
             }
         }
@@ -1000,8 +1023,8 @@ void RestoreDisplayAspectGfxViewportRecord(PPCRegister& r1) noexcept
     if (!scope || !scope->viewportPatched || scope->viewportStack != r1.u32 + kGfxViewportRecord)
         return;
     scope->viewportPatched = false;
-    writeU32(scope->viewportStack, scope->viewportOriginal[0]);
-    writeU32(scope->viewportStack + 8, scope->viewportOriginal[2]);
+    for (uint32_t index = 0; index < 4; ++index)
+        writeU32(scope->viewportStack + index * 4, scope->viewportOriginal[index]);
 }
 
 void CorrectDisplayAspectGfxAffine(PPCRegister& r1, PPCRegister& r10) noexcept
@@ -1040,6 +1063,10 @@ void CorrectDisplayAspectGfxAffine(PPCRegister& r1, PPCRegister& r10) noexcept
         covered = admitted && admittedScope->viewportCompressed;
         if (covered)
             decision = "viewport";
+        // Only the horizontal row is corrected here; a vertical scope without
+        // a compressed viewport is refused.
+        else if (admitted && view.axis == da::Axis::Vertical)
+            decision = "vertical_unsupported";
         else if (admitted)
         {
             da::Affine affine;
@@ -1131,13 +1158,15 @@ void CorrectDisplayAspectGfxScissor(PPCRegister& r1, PPCRegister& r3, PPCRegiste
                 da::Rect out{};
                 bool     ready = true;
                 if (!scope->viewportCompressed)
-                    out = da::CorrectScissor(rect, view.k);
+                    out = da::CorrectScissor(rect, view.k, view.axis);
                 else
-                    ready = compressedViewportScissor(r3.u32, view.k, rect, out);
+                    ready = compressedViewportScissor(r3.u32, view.k, view.axis, rect, out);
                 if (ready)
                 {
                     r4.s64                = out.left;
+                    r5.s64                = out.top;
                     r6.s64                = out.right;
+                    r7.s64                = out.bottom;
                     scope->scissorTouched = true;
                     applied               = true;
                     decision              = "applied";

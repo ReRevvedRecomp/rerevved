@@ -424,7 +424,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "renderer", { { "xenos", "Xenos" }, { "native", "Native (Experimental)" } } },
         { "window_size", { { "", "Default (1280x720)" }, { "maximized", "Maximized" } } },
         { "button_icons", { { "auto", "Auto" }, { "xbox", "Xbox" }, { "playstation", "PlayStation" }, { "keyboard", "Keyboard" } } },
-        { "display_aspect", { { "original", "16:9" }, { "4:3", "4:3" }, { "auto", "Ultrawide" }, { "21:9", "21:9" }, { "32:9", "32:9" } } },
+        { "display_aspect", { { "original", "16:9" }, { "16:10", "16:10" }, { "4:3", "4:3" }, { "auto", "Ultrawide" }, { "21:9", "21:9" }, { "32:9", "32:9" } } },
         { "ai_civilizations", { { "0", "None (Multiplayer)" }, { "1", "1" }, { "2", "2" }, { "3", "3" }, { "4", "4 (Default)" }, { "5", "5" }, { "6", "6" } } },
         { "multiplayer_ai_difficulty", { { "king", "King" }, { "emperor", "Emperor" }, { "deity", "Deity" } } },
         { "gotw_civilization", { { "0", "Roman" }, { "1", "Egyptian" }, { "2", "Greek" }, { "3", "Spanish" }, { "4", "German" }, { "5", "Russian" }, { "6", "Chinese" }, { "7", "American" }, { "8", "Japanese" }, { "9", "French" }, { "10", "Indian" }, { "11", "Arabian" }, { "12", "Aztec" }, { "13", "Zulu" }, { "14", "Mongolian" }, { "15", "English" } } },
