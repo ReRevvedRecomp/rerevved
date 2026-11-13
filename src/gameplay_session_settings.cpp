@@ -34,6 +34,7 @@ HostSettings LocalSettings()
     settings.aiGoldBonusPercent       = rex::cvar::Query<int32_t>("ai_gold_bonus_percent");
     settings.aiFoodBonusPercent       = rex::cvar::Query<int32_t>("ai_food_bonus_percent");
     settings.aiCultureBonusPercent    = rex::cvar::Query<int32_t>("ai_culture_bonus_percent");
+    settings.technologyCostMultiplier = rex::cvar::Query<int32_t>("technology_cost_multiplier");
     gameplay_fixes::ParseDominationMinimumTurns(rex::cvar::Query<std::string>("domination_min_turns"), settings.dominationMinimumTurns);
     settings.combatSpeed             = rex::cvar::Query<std::string>("combat_speed") == "fast";
     settings.turnLimit               = gameplay_fixes::ParseTurnLimit(rex::cvar::Query<std::string>("turn_limit"));
@@ -356,7 +357,7 @@ bool ApplyNewGame(const host_settings::GameSnapshot& snapshot, bool networkGame,
     const auto& settings      = *snapshot.settings;
     const bool  standardRules = gotw::FreezeStandardRules(mode, settings.gotwStandardRules);
     ai_economy::FreezeForGame(standardRules);
-    ai_economy::RestoreForGame(standardRules ? ai_economy::Policy{} : ai_economy::Policy{ settings.aiResearchBonusPercent, settings.aiProductionBonusPercent, settings.aiGoldBonusPercent, settings.aiFoodBonusPercent, settings.aiCultureBonusPercent });
+    ai_economy::RestoreForGame(standardRules ? ai_economy::Policy{} : ai_economy::Policy{ settings.aiResearchBonusPercent, settings.aiProductionBonusPercent, settings.aiGoldBonusPercent, settings.aiFoodBonusPercent, settings.aiCultureBonusPercent, settings.technologyCostMultiplier });
     raging_barbarians::RestoreForGame(!standardRules && settings.ragingBarbarians);
     occ::RestoreForGame({ !standardRules && settings.oneCityChallenge, occ::kMinimumPopulation });
     // The effective AI count and latched week are recorded after native setup in RunNativeNewGameSetup.
@@ -406,7 +407,7 @@ int32_t RestoreNetworkPolicy(const host_settings::HostSettings* host) noexcept
 try
 {
     const auto boundary = LockRuleBoundary();
-    ai_economy::RestoreForGame(host ? ai_economy::Policy{ host->aiResearchBonusPercent, host->aiProductionBonusPercent, host->aiGoldBonusPercent, host->aiFoodBonusPercent, host->aiCultureBonusPercent } : ai_economy::Policy{});
+    ai_economy::RestoreForGame(host ? ai_economy::Policy{ host->aiResearchBonusPercent, host->aiProductionBonusPercent, host->aiGoldBonusPercent, host->aiFoodBonusPercent, host->aiCultureBonusPercent, host->technologyCostMultiplier } : ai_economy::Policy{});
     raging_barbarians::RestoreForGame(host && host->ragingBarbarians);
     occ::RestoreForGame({ host && host->oneCityChallenge, occ::kMinimumPopulation });
     // NoteGameLoad has cleared both; a restored minimum stands in for the shortened one.

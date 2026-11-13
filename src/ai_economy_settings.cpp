@@ -16,6 +16,8 @@ REXCVAR_DEFINE_INT32(ai_food_bonus_percent, 0, "ReRevved", "AI food bonus percen
     .range(0, 200);
 REXCVAR_DEFINE_INT32(ai_culture_bonus_percent, 0, "ReRevved", "AI culture bonus percentage for the next new game; multiplayer uses the host's value; 0 keeps native culture")
     .range(0, 200);
+REXCVAR_DEFINE_INT32(technology_cost_multiplier, 1, "ReRevved", "Technology cost multiplier for every civilization in the next new game; multiplayer uses the host's value; 1 keeps native costs")
+    .range(1, 100);
 
 namespace rerevved::ai_economy
 {
@@ -33,7 +35,15 @@ bool validBonus(int32_t bonus) noexcept
     return bonus >= 0 && bonus <= kMaxBonusPercent;
 }
 
-// One byte per field, in Policy order.
+bool validTechnologyCost(int32_t multiplier) noexcept
+{
+    return multiplier >= 1 && multiplier <= kMaxTechnologyCostMultiplier;
+}
+
+// One byte per bonus in Policy order, then the technology cost multiplier minus one at shift 40,
+// so the zero word is the native policy.
+constexpr unsigned kTechnologyCostShift = 40;
+
 uint64_t encode(Policy policy) noexcept
 {
     uint64_t encoded = 0;
@@ -43,6 +53,7 @@ uint64_t encode(Policy policy) noexcept
         encoded |= static_cast<uint64_t>(bonus) << shift;
         shift += 8;
     }
+    encoded |= static_cast<uint64_t>(policy.technologyCostMultiplier - 1) << kTechnologyCostShift;
     return encoded;
 }
 
@@ -52,7 +63,7 @@ Policy decode(uint64_t encoded) noexcept
     {
         return static_cast<int32_t>((encoded >> (index * 8)) & 0xFF);
     };
-    return { field(0), field(1), field(2), field(3), field(4) };
+    return { field(0), field(1), field(2), field(3), field(4), static_cast<int32_t>((encoded >> kTechnologyCostShift) & 0xFF) + 1 };
 }
 
 } // namespace
@@ -60,7 +71,7 @@ Policy decode(uint64_t encoded) noexcept
 bool IsValid(Policy policy) noexcept
 {
     return validBonus(policy.researchBonusPercent) && validBonus(policy.productionBonusPercent) && validBonus(policy.goldBonusPercent) &&
-           validBonus(policy.foodBonusPercent) && validBonus(policy.cultureBonusPercent);
+           validBonus(policy.foodBonusPercent) && validBonus(policy.cultureBonusPercent) && validTechnologyCost(policy.technologyCostMultiplier);
 }
 
 void RestoreForGame(Policy policy) noexcept
@@ -71,7 +82,7 @@ void RestoreForGame(Policy policy) noexcept
 void FreezeForGame(bool standardRules) noexcept
 {
     RestoreForGame(standardRules ? Policy{}
-                                 : Policy{ REXCVAR_GET(ai_research_bonus_percent), REXCVAR_GET(ai_production_bonus_percent), REXCVAR_GET(ai_gold_bonus_percent), REXCVAR_GET(ai_food_bonus_percent), REXCVAR_GET(ai_culture_bonus_percent) });
+                                 : Policy{ REXCVAR_GET(ai_research_bonus_percent), REXCVAR_GET(ai_production_bonus_percent), REXCVAR_GET(ai_gold_bonus_percent), REXCVAR_GET(ai_food_bonus_percent), REXCVAR_GET(ai_culture_bonus_percent), REXCVAR_GET(technology_cost_multiplier) });
     loading.store(false, std::memory_order_release);
 }
 
@@ -149,6 +160,15 @@ int32_t ScaleCost(int32_t nativeCost, int32_t bonusPercent) noexcept
         return nativeCost;
     }
     return static_cast<int32_t>(std::max<int64_t>(1, static_cast<int64_t>(nativeCost) * 100 / (100 + bonusPercent)));
+}
+
+int32_t ScaleTechnologyCost(int32_t nativeCost, int32_t multiplier) noexcept
+{
+    if (nativeCost <= 0 || multiplier == 1 || !validTechnologyCost(multiplier))
+    {
+        return nativeCost;
+    }
+    return static_cast<int32_t>(std::min<int64_t>(std::numeric_limits<int32_t>::max(), static_cast<int64_t>(nativeCost) * multiplier));
 }
 
 int32_t ScaleUnitScalar(int32_t nativeScalar, int32_t factor, int32_t bonusPercent) noexcept

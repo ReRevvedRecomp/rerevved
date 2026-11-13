@@ -45,6 +45,7 @@ constexpr uint32_t kWeatherWithYouId          = 0x1001C;
 constexpr uint32_t kAroundTheWorldId          = 0x1001D;
 constexpr uint32_t kBayHarborButcherId        = 0x1001E;
 constexpr uint32_t kMorteEternaId             = 0x1001F;
+constexpr uint32_t kEternalWarId              = 0x10020;
 
 constexpr int32_t kDeityDifficulty       = 4;
 constexpr int32_t kBarbarianDefeatTarget = 50;
@@ -157,6 +158,7 @@ bool QualifiesClashOfTheTitans(const VictoryContext& context) noexcept;
 bool QualifiesWeatherWithYou(const VictoryContext& context) noexcept;
 bool QualifiesAroundTheWorld(const VictoryContext& context) noexcept;
 bool QualifiesMorteEterna(const VictoryContext& context) noexcept;
+bool QualifiesEternalWar(const VictoryContext& context) noexcept;
 
 // Registers the achievements with the SDK catalog. Returns false unless every
 // one registers, such as when no runtime is live.

@@ -128,14 +128,24 @@ bool rerevved::ai_economy::NativeCostsRequired() noexcept
     return !flag || (*flag != 0 && !gameplay_session::ForNetworkGame());
 }
 
-void ApplyAiResearchCostPercent(PPCRegister& technology, PPCRegister& player, PPCRegister& cost)
+void ApplyResearchCostPercent(PPCRegister& technology, PPCRegister& player, PPCRegister& cost)
 {
-    const auto policy = rerevved::ai_economy::ForGame();
-    if (policy.researchBonusPercent == 0 || technology.s32 < 1 || technology.s32 > 47 || cost.s32 <= 0 || !ordinaryAi(player.s32))
+    if (technology.s32 < 1 || technology.s32 > 47 || cost.s32 <= 0 || rerevved::ai_economy::NativeCostsRequired())
     {
         return;
     }
-    cost.s64 = rerevved::ai_economy::ScaleCost(cost.s32, policy.researchBonusPercent);
+    const auto policy  = rerevved::ai_economy::ForGame();
+    const bool aiBonus = policy.researchBonusPercent != 0 && ordinaryAi(player.s32);
+    if (policy.technologyCostMultiplier == 1 && !aiBonus)
+    {
+        return;
+    }
+    int32_t scaled = rerevved::ai_economy::ScaleTechnologyCost(cost.s32, policy.technologyCostMultiplier);
+    if (aiBonus)
+    {
+        scaled = rerevved::ai_economy::ScaleCost(scaled, policy.researchBonusPercent);
+    }
+    cost.s64 = scaled;
 }
 
 void ApplyAiUnitProductionCostPercent(PPCRegister& cityOffset, PPCRegister& unitType, PPCRegister& scalar)

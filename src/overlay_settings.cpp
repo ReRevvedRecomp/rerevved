@@ -133,6 +133,10 @@ constexpr HostRow kHostRows[] = {
       {
           return std::string(rerevved::gameplay_fixes::StartingEraName(host.startingEra));
       } },
+    { "technology_cost_multiplier", [](const HostSettings& host)
+      {
+          return std::to_string(host.technologyCostMultiplier);
+      } },
     { "multiplayer_ai_difficulty", [](const HostSettings& host)
       {
           return std::string(rerevved::gameplay_fixes::MultiplayerAiDifficultyName(host.multiplayerAiDifficulty));
@@ -221,7 +225,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "General", { { "", { "game_language", "system_link_profile_name", "show_fps_counter", "skip_intro_movie", "open_log_folder" } } } },
         { "Gameplay",
           {
-              { "", { "combat_speed", "unit_movement", "resources", "raging_barbarians", "one_city_challenge", "domination_min_turns", "turn_limit", "starting_era", "ai_civilizations", "always_at_war" } },
+              { "", { "combat_speed", "unit_movement", "resources", "raging_barbarians", "one_city_challenge", "domination_min_turns", "turn_limit", "starting_era", "technology_cost_multiplier", "ai_civilizations", "always_at_war" } },
               { "AI Handicaps", { "ai_research_bonus_percent", "ai_production_bonus_percent", "ai_gold_bonus_percent", "ai_food_bonus_percent", "ai_culture_bonus_percent" } },
               { "Game of the Week", { "gotw_standard_rules", "gotw_allow_saving", "gotw_custom_week", "gotw_week", "gotw_custom_civilization", "gotw_civilization" } },
           } },
@@ -301,6 +305,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "domination_min_turns", Audience::kPlayer },
         { "turn_limit", Audience::kPlayer },
         { "starting_era", Audience::kPlayer },
+        { "technology_cost_multiplier", Audience::kPlayer },
         { "always_at_war", Audience::kPlayer },
         { "gotw_custom_week", Audience::kPlayer },
         { "gotw_week", Audience::kPlayer },
@@ -354,6 +359,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "domination_min_turns", "Set the minimum turns before a Domination victory in new games." },
         { "turn_limit", "Set the year a game ends by turn limit." },
         { "starting_era", "Set the era a new game begins in." },
+        { "technology_cost_multiplier", "Multiply the cost of every technology by this amount." },
         { "always_at_war", "Enable to keep every civilization at war." },
         { "gotw_custom_week", "Enable to play a different week's game instead of this week's." },
         { "gotw_custom_civilization", "Enable to play Game of the Week as the civilization you choose." },
@@ -431,6 +437,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "domination_min_turns", { { "10", "10 Turns (3000 BC)" }, { "5", "5 Turns (3500 BC)" } } },
         { "turn_limit", { { "2100", "2100 AD" }, { "2200", "2200 AD" }, { "2300", "2300 AD" }, { "2500", "2500 AD" }, { "unlimited", "Unlimited" } } },
         { "starting_era", { { "ancient", "Ancient" }, { "medieval", "Medieval" }, { "industrial", "Industrial" }, { "modern", "Modern" }, { "future", "Future" } } },
+        { "technology_cost_multiplier", { { "1", "1x" }, { "2", "2x" }, { "3", "3x" }, { "5", "5x" }, { "10", "10x" }, { "20", "20x" }, { "50", "50x" }, { "100", "100x" } } },
         { "resources", { { "0", "Normal" }, { "1", "Balanced" }, { "3", "Legendary" } } },
         { "retail_music_volume", retailVolumeChoices() },
         { "retail_effects_volume", retailVolumeChoices() },
@@ -500,6 +507,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "domination_min_turns", "Earliest Domination" },
         { "turn_limit", "Turn Limit" },
         { "starting_era", "Starting Era" },
+        { "technology_cost_multiplier", "Technology Cost" },
         { "always_at_war", "Always At War" },
         { "gotw_custom_week", "Week" },
         { "gotw_week", "Week" },

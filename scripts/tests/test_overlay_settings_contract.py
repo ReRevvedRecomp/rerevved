@@ -59,6 +59,7 @@ class OverlaySettingsContractTests(unittest.TestCase):
                         "domination_min_turns",
                         "turn_limit",
                         "starting_era",
+                        "technology_cost_multiplier",
                         "ai_civilizations",
                         "always_at_war",
                     ],
@@ -122,6 +123,10 @@ class OverlaySettingsContractTests(unittest.TestCase):
             ("skip_intro_movie", "Enable to skip the opening scenes at startup."),
             ("turn_limit", "Set the year a game ends by turn limit."),
             ("starting_era", "Set the era a new game begins in."),
+            (
+                "technology_cost_multiplier",
+                "Multiply the cost of every technology by this amount.",
+            ),
             ("ai_civilizations", "Set the number of AI opponents."),
             ("always_at_war", "Enable to keep every civilization at war."),
             (
