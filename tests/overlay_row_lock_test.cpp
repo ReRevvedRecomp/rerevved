@@ -31,6 +31,7 @@ host::HostSettings hostWithEveryFieldChanged()
     settings.aiGoldBonusPercent       = 30;
     settings.aiFoodBonusPercent       = 40;
     settings.aiCultureBonusPercent    = 50;
+    settings.technologyCostMultiplier = 15;
     settings.dominationMinimumTurns   = 5;
     settings.combatSpeed              = 1;
     settings.turnLimit                = 4;
@@ -87,6 +88,7 @@ TEST_CASE("host_row_lock_shows_the_host_value_as_cvar_text", "[ctest][native-set
                               { "ai_gold_bonus_percent", "30" },
                               { "ai_food_bonus_percent", "40" },
                               { "ai_culture_bonus_percent", "50" },
+                              { "technology_cost_multiplier", "15" },
                               { "domination_min_turns", "5" },
                               { "combat_speed", "normal" },
                               { "turn_limit", "unlimited" },
@@ -115,6 +117,7 @@ TEST_CASE("host_row_lock_without_a_snapshot_shows_the_native_defaults", "[ctest]
                             { "ai_gold_bonus_percent", "0" },
                             { "ai_food_bonus_percent", "0" },
                             { "ai_culture_bonus_percent", "0" },
+                            { "technology_cost_multiplier", "1" },
                             { "domination_min_turns", "10" },
                             { "combat_speed", "normal" },
                             { "turn_limit", "2100" },
@@ -193,6 +196,10 @@ TEST_CASE("every_wire_field_moves_a_settings_row", "[ctest][native-settings]")
         { "aiGoldBonusPercent", [](host::HostSettings& s)
           {
               s.aiGoldBonusPercent = 5;
+          } },
+        { "technologyCostMultiplier", [](host::HostSettings& s)
+          {
+              s.technologyCostMultiplier = 5;
           } },
         { "aiFoodBonusPercent", [](host::HostSettings& s)
           {

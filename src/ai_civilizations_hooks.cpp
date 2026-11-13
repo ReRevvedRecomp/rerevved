@@ -191,7 +191,7 @@ void logLoadCase(rerevved::gameplay_session::LoadCase loadCase)
         return;
     }
     const auto economy = rerevved::ai_economy::ForGame();
-    REXLOG_INFO("Load reset: case={} occ={} raging_barbarians={} ai_bonus={}/{}/{}/{}/{} resources={} turn_limit={} domination_min={} removed_mask=0x{:08X} overrides_digest=0x{:08X} apollo_pending_before_reset={}",
+    REXLOG_INFO("Load reset: case={} occ={} raging_barbarians={} ai_bonus={}/{}/{}/{}/{} technology_cost={} resources={} turn_limit={} domination_min={} removed_mask=0x{:08X} overrides_digest=0x{:08X} apollo_pending_before_reset={}",
                 session::LoadCaseName(loadCase),
                 rerevved::occ::ForGame()->enabled,
                 rerevved::raging_barbarians::Evaluate(0).enabled,
@@ -200,6 +200,7 @@ void logLoadCase(rerevved::gameplay_session::LoadCase loadCase)
                 economy.goldBonusPercent,
                 economy.foodBonusPercent,
                 economy.cultureBonusPercent,
+                economy.technologyCostMultiplier,
                 rerevved::start_resources::ForGame(),
                 rerevved::gameplay_fixes::TurnLimitForGame(),
                 rerevved::gameplay_fixes::RestoredDominationMinimum(),

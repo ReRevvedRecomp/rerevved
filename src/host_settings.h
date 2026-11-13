@@ -49,6 +49,7 @@ struct HostSettings
     int32_t                 aiGoldBonusPercent       = 0;
     int32_t                 aiFoodBonusPercent       = 0;
     int32_t                 aiCultureBonusPercent    = 0;
+    int32_t                 technologyCostMultiplier = 1;
     int32_t                 dominationMinimumTurns   = 10;
     int32_t                 combatSpeed              = 0; // 0 normal, 1 fast. Presentation only.
     int32_t                 turnLimit                = 0;
@@ -68,13 +69,13 @@ struct HostSettings
     std::array<uint8_t, 32> rulesDigest{}; // SHA-256 of accepted normalized rule content.
 };
 
-// Format 8 has a fixed gameplay header and optional content digest, followed
+// Format 9 has a fixed gameplay header and optional content digest, followed
 // by sorted mods with length-prefixed id, version and display name fields.
 // Normalize local selections before publication. Decode rejects noncanonical values.
 // The local-only Game of the Week civilization is never serialized.
 // Gameplay bit 0x20 must equal Raging bit 0x01: peers must support capital grace.
 // Domination turns are 5 or 10; turn limit and starting era are indices 0-4, multiplayer AI difficulty 2-4,
-// spaceship scene skip 0-1 and unit movement 0-2.
+// spaceship scene skip 0-1, unit movement 0-2 and technology cost multiplier 1-100 (the last header byte).
 std::vector<uint8_t> Encode(const HostSettings& settings);
 
 HostSettings Normalize(HostSettings settings, bool networkGame = true);

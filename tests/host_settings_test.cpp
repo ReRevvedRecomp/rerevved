@@ -71,7 +71,7 @@ void testRoundTrip()
     UNSCOPED_INFO("the encoding fits the channel");
     CHECK(bytes.size() <= rex::session_data::kMaxBytes);
     UNSCOPED_INFO("the first byte is the format version");
-    CHECK(bytes[0] == 8);
+    CHECK(bytes[0] == 9);
 
     const auto decoded = Decode(bytes);
     UNSCOPED_INFO("an encoding decodes");
@@ -173,8 +173,11 @@ void testRejection()
     CHECK(!Decode(std::vector<uint8_t>{ 1, 2, 0 }).has_value());
 
     auto version = good;
-    version[0]   = 9;
+    version[0]   = 10;
     UNSCOPED_INFO("an unknown version is rejected");
+    CHECK(!Decode(version).has_value());
+    version[0] = 8;
+    UNSCOPED_INFO("the version 8 payload without a technology cost is rejected");
     CHECK(!Decode(version).has_value());
     version[0] = 7;
     UNSCOPED_INFO("the version 7 payload without a unit movement is rejected");
@@ -228,7 +231,7 @@ void testRejection()
     UNSCOPED_INFO("the encoder always sorts");
     CHECK(Decode(Encode(unsorted)).has_value());
     auto swapped = Encode(unsorted);
-    std::swap(swapped[27], swapped[32]);
+    std::swap(swapped[28], swapped[33]);
     UNSCOPED_INFO("mods out of id order are rejected");
     CHECK(!Decode(swapped).has_value());
 }
@@ -404,6 +407,7 @@ TEST_CASE("host_settings gameplay snapshot validates complete policy", "[ctest][
     selected.multiplayerAiDifficulty  = 4;
     selected.skipSpaceshipScenes      = true;
     selected.unitMovement             = 2;
+    selected.technologyCostMultiplier = 100;
     selected.gotwCustomWeek           = true;
     selected.gotwWeek                 = 123456;
     selected.gotwSeed                 = 210;
@@ -474,6 +478,7 @@ TEST_CASE("host_settings gameplay snapshot validates complete policy", "[ctest][
     CHECK(decoded->multiplayerAiDifficulty == 4);
     CHECK(decoded->skipSpaceshipScenes);
     CHECK(decoded->unitMovement == 2);
+    CHECK(decoded->technologyCostMultiplier == 100);
     CHECK(decoded->gotwCustomWeek);
     CHECK(decoded->gotwWeek == 123456);
     CHECK(decoded->gotwSeed == 210);
@@ -482,7 +487,7 @@ TEST_CASE("host_settings gameplay snapshot validates complete policy", "[ctest][
     CHECK(Encode(*decoded) == bytes);
 
     for (const auto [offset, value] : std::vector<std::pair<size_t, uint8_t>>{
-             { 1, 7 }, { 5, 2 }, { 6, 201 }, { 7, 201 }, { 8, 201 }, { 9, 201 }, { 10, 201 }, { 11, 2 }, { 12, 2 }, { 21, 5 }, { 22, 5 }, { 23, 1 }, { 23, 5 }, { 24, 2 }, { 25, 3 } })
+             { 1, 7 }, { 5, 2 }, { 6, 201 }, { 7, 201 }, { 8, 201 }, { 9, 201 }, { 10, 201 }, { 11, 2 }, { 12, 2 }, { 21, 5 }, { 22, 5 }, { 23, 1 }, { 23, 5 }, { 24, 2 }, { 25, 3 }, { 26, 0 }, { 26, 101 } })
     {
         auto invalid    = bytes;
         invalid[offset] = value;
@@ -555,6 +560,7 @@ TEST_CASE("host_settings normalizes local selections before encoding", "[ctest][
     local.dominationMinimumTurns   = 1;
     local.combatSpeed              = -1;
     local.unitMovement             = 7;
+    local.technologyCostMultiplier = 500;
     local.gotwCustomWeek           = true;
     local.gotwWeek                 = 1;
     local.gotwSeed                 = 99;
@@ -570,6 +576,9 @@ TEST_CASE("host_settings normalizes local selections before encoding", "[ctest][
     CHECK(encoded->dominationMinimumTurns == 10);
     CHECK(encoded->combatSpeed == 0);
     CHECK(encoded->unitMovement == 2);
+    CHECK(encoded->technologyCostMultiplier == 100);
+    local.technologyCostMultiplier = 0;
+    CHECK(Normalize(local).technologyCostMultiplier == 1);
     CHECK(encoded->gotwWeek == 1);
     CHECK(encoded->gotwSeed == 2);
     local.gotwWeek         = 0xFFFFFFFFu;

@@ -80,14 +80,15 @@ std::map<std::string, ns::FlagState> defaultFlags()
     std::map<std::string, ns::FlagState> flags;
     for (const auto key : ns::CuratedKeys())
         flags[std::string(key)] = boolState(false);
-    flags["combat_speed"]              = enumState("normal", { "normal", "fast" });
-    flags["unit_movement"]             = enumState("normal", { "normal", "fast", "instant" });
-    flags["resources"]                 = intState("0", 0, 3);
-    flags["domination_min_turns"]      = enumState("10", { "10", "5" });
-    flags["turn_limit"]                = enumState("2100", { "2100", "2200", "2300", "2500", "unlimited" });
-    flags["starting_era"]              = enumState("ancient", { "ancient", "medieval", "industrial", "modern", "future" });
-    flags["ai_civilizations"]          = intState("4", 0, 6);
-    flags["multiplayer_ai_difficulty"] = enumState("king", { "king", "emperor", "deity" });
+    flags["combat_speed"]               = enumState("normal", { "normal", "fast" });
+    flags["unit_movement"]              = enumState("normal", { "normal", "fast", "instant" });
+    flags["resources"]                  = intState("0", 0, 3);
+    flags["domination_min_turns"]       = enumState("10", { "10", "5" });
+    flags["turn_limit"]                 = enumState("2100", { "2100", "2200", "2300", "2500", "unlimited" });
+    flags["starting_era"]               = enumState("ancient", { "ancient", "medieval", "industrial", "modern", "future" });
+    flags["technology_cost_multiplier"] = intState("1", 1, 100);
+    flags["ai_civilizations"]           = intState("4", 0, 6);
+    flags["multiplayer_ai_difficulty"]  = enumState("king", { "king", "emperor", "deity" });
     for (const char* key : { "ai_research_bonus_percent", "ai_production_bonus_percent", "ai_gold_bonus_percent", "ai_food_bonus_percent", "ai_culture_bonus_percent" })
         flags[key] = intState("0", 0, 200);
     flags["gotw_civilization"]                        = intState("0", 0, 15);
@@ -275,6 +276,7 @@ TEST_CASE("native_settings_rows_keep_the_f1_order_and_captions", "[ctest][native
                                                                      "Earliest Domination: 10 Turns (3000 BC)",
                                                                      "Turn Limit: 2100 AD",
                                                                      "Starting Era: Ancient",
+                                                                     "Technology Cost: 1x",
                                                                      "AI Civilizations: 4 (Default)",
                                                                      "Always At War: Off",
                                                                      "AI Research Bonus: 0",
@@ -788,6 +790,10 @@ TEST_CASE("options_model_lists_the_curated_rows_by_category", "[ctest][native-se
     CHECK(model.Row(model.RowCount()) == nullptr);
     CHECK(gameplay.rows.front().group.empty());
     CHECK(selectRow(model, "ai_research_bonus_percent").group == "AI Handicaps");
+    CHECK(selectRow(model, "technology_cost_multiplier").group.empty());
+    const auto starting = std::ranges::find(gameplay.rows, "starting_era", &ns::OptionRow::key);
+    REQUIRE(starting != gameplay.rows.end());
+    CHECK((starting + 1)->key == "technology_cost_multiplier");
     CHECK(selectRow(model, "gotw_standard_rules").group == "Game of the Week");
     model.Select(0);
 
@@ -966,6 +972,21 @@ TEST_CASE("options_model_picker_applies_the_cursor_row_or_closes_unchanged", "[c
     REQUIRE(model.Activate() == ns::OptionsModel::Press::kOpenPicker);
     CHECK_FALSE(model.CommitPicker());
     CHECK(services.applied.size() == 1);
+}
+
+TEST_CASE("options_model_steps_the_technology_cost_multipliers", "[ctest][native-settings]")
+{
+    FakeServices     services;
+    ns::OptionsModel model(services);
+    const auto&      row = selectRow(model, "technology_cost_multiplier");
+    REQUIRE(row.choices.size() == 8);
+    CHECK_FALSE(row.UsesPicker());
+    CHECK(row.choices[0].raw == "1");
+    CHECK(row.choices[7].raw == "100");
+    CHECK(row.choices[7].caption == "100x");
+    CHECK(row.Caption() == "1x");
+    CHECK(model.Step(1));
+    CHECK(services.applied.back().second == "2");
 }
 
 TEST_CASE("options_model_keeps_a_current_value_that_is_not_a_preset", "[ctest][native-settings]")

@@ -17,7 +17,7 @@ driver never modifies that checkout.
   [Raging Barbarians](#gameplay-raging-barbarians),
   [One City Challenge](#gameplay-one-city-challenge),
   [gameplay fixes](#gameplay-fixes), [Turn Limit](#gameplay-turn-limit),
-  [Starting Era](#gameplay-starting-era),
+  [Starting Era](#gameplay-starting-era), [Technology Cost](#technology-cost),
   [Always At War](#gameplay-always-at-war),
   [Apollo Discovery Bonuses](#gameplay-apollo-discovery-bonuses),
   [Multiplayer AI Difficulty](#gameplay-multiplayer-ai-difficulty),
@@ -637,7 +637,7 @@ the captured pad, since the SDK does not map them to ImGui keys.
 
 The rows are the curated settings of `src/native_settings.cpp`: bool settings,
 settings with a fixed set of choices, and numeric settings with presets (the
-five AI bonus percentages 0, 25, 50, 100, 200; Volume 0, 25, 50, 75, 100; Mouse
+five AI bonus percentages 0, 25, 50, 100, 200; Technology Cost 1, 2, 3, 5, 10, 20, 50, 100 shown as 1x to 100x; Volume 0, 25, 50, 75, 100; Mouse
 Sensitivity 0.50, 1.00, 1.50, 2.00, 4.00). Order, labels, choice labels and
 tooltips come from `ConfigureSettingsLayout` in `src/overlay_settings.cpp`;
 type, allowed values, range and lifecycle come from the cvar registry. A bool
@@ -1371,11 +1371,11 @@ fallback, a following Normal game and GOTW Standard Rules with Legendary selecte
 ## Save sidecar
 
 `save_sidecar` (default `true`) controls whether the host stores gameplay
-state separately for each save. The payload stores schema version 7, or 3 for a Game of the Week practice save, the frozen
+state separately for each save. The payload stores schema version 8, or 3 for a Game of the Week practice save, the frozen
 Resources selection, sorted unique Balanced or Legendary identity overrides, the frozen Raging
 Barbarians boolean, the fixed One City Challenge enabled state and minimum
 population, the effective AI research, production, gold, food and culture bonus
-percentages, the frozen Turn Limit index (0 to 4, schema 5 and later), the frozen Always At War boolean (schema 6 and later), and custom achievement progress: whether One
+percentages, the technology cost multiplier (schema 8, one byte at state offset +21, 1 to 100), the frozen Turn Limit index (0 to 4, schema 5 and later), the frozen Always At War boolean (schema 6 and later), and custom achievement progress: whether One
 City Challenge was enabled at game setup (only possible while it is enabled), the Barbarian defeat count, 0 to
 50, the ships sunk count (schema 7, one byte at state offset +20, 0 to 255), and the whole-game history (tracked flag, unit built, battle fought, deep
 Ocean entered, first founding turn and initial AI opponent count). Schema 1
@@ -1384,9 +1384,9 @@ the identity overrides. It uses native AI values and gives no progress: One
 City Challenge not from setup, a count of 0 and untracked history. Schema 2 is
 a payload without Turn Limit; schema 5 stores its byte after the initial AI
 count; schema 6 adds the Always At War byte (0 or 1, any other value rejects the
-sidecar) after it; schema 7 adds the ships sunk byte after that, making the fixed
-state 21 bytes. Schemas 1 to 4 load the native 2100 limit, schemas 1 to 5
-load with Always At War off, and schemas 1 to 6 load a ships sunk count of 0. Schema 3 is
+sidecar) after it; schema 7 adds the ships sunk byte after that; schema 8 adds the
+technology cost multiplier byte, making the fixed state 22 bytes. Schemas 1 to 4 load the native 2100 limit, schemas 1 to 5
+load with Always At War off, schemas 1 to 6 load a ships sunk count of 0, and schemas 1 to 7 load a technology cost multiplier of 1. Schema 3 is
 schema 2 with one Game of the Week block inserted after the fixed state and
 before the resource identity records, written only for a manual save in a
 practice game. Schema 3 itself means a block is present: one flag byte
@@ -1400,7 +1400,7 @@ isolation-only marker, written by any save of a practice game, or of a game that
 loaded as isolated, that carries no block (an automatic save, a manual one whose
 block is unavailable, or a resave of an isolated load). It holds no week, seed,
 civilization or rules; a load that finds it claims the origin and is isolated,
-never resumed. Other games write schema 7, and their autosaves are unchanged.
+never resumed. Other games write schema 8, and their autosaves are unchanged.
 New games freeze the effective gameplay selections, including standard GOTW
 values.
 
@@ -2280,13 +2280,13 @@ count.
 ## Multiplayer gameplay snapshots
 
 [Online play](online-play.md#gameplay-settings-and-mods) describes the player
-settings and compatibility requirements. The version-8 title payload in
+settings and compatibility requirements. The version-9 title payload in
 [host_settings.cpp](../src/host_settings.cpp) carries AI count from 0 to 6,
 Resources, Raging Barbarians, OCC, the AI research, production, gold, food and
-culture bonus percentages (0 to 200), Domination minimum turns (5 or 10), combat
+culture bonus percentages (0 to 200), the technology cost multiplier (1 to 100, the byte after the unit movement byte), Domination minimum turns (5 or 10), combat
 speed, the Turn Limit index (0 to 4), the Starting Era index (0 to 4), the
 multiplayer AI difficulty (2, 3 or 4), the spaceship scene skip (0 or 1), unit movement (0 normal, 1 fast, 2 instant)
-in the last header byte, and Game of the Week selections. Peers reject any other version.
+and Game of the Week selections. Peers reject any other version.
 The override applies to that game and leaves local CVars unchanged.
 
 Before gameplay settings are frozen for a new game,
@@ -2294,7 +2294,7 @@ Before gameplay settings are frozen for a new game,
 `PrepareForGame` and waits up to 15 seconds for a ready authenticated snapshot.
 Lobby bytes do not satisfy this requirement. The host captures its current
 provider for each game. Joiners request that game's fresh snapshot.
-`ResolveForGame` requires ready host or received status, a valid version-8
+`ResolveForGame` requires ready host or received status, a valid version-9
 payload, complete matching package IDs and versions, and matching verified Lua
 digests when mod content is present. Old, missing, malformed, truncated or
 unverified data rejects setup without a local gameplay fallback.
@@ -2358,13 +2358,14 @@ Barbarian village, which names the reward; the reward is still granted.
 
 [AI handicaps](configuration.md#ai-handicaps) describes the player settings and
 save policy. The three cost hooks run after native research, unit scalar and
-non-unit cost composition. Units keep the existing identity rule before the
+non-unit cost composition. The research hook also applies the technology cost multiplier. Units keep the existing identity rule before the
 AI scalar adjustment. Positive costs have a floor. Unsupported player layouts
-and unsupported item IDs retain native results.
+and unsupported item IDs keep the native result, apart from the technology cost
+multiplier, which applies to every player.
 
 Cost scaling multiplies the native cost by 100, divides by 100 plus the bonus,
-and truncates, with a minimum of one for positive costs. Research scales the
-final native technology cost after existing modifiers and rounding. Units
+and truncates, with a minimum of one for positive costs. For an AI player, research scales the
+final technology cost after existing modifiers, rounding and the technology cost multiplier. Units
 scale the native scalar after existing discounts and mod rules, then multiply
 by the unit's production factor and divide by two. Integer rounding can change
 the displayed reduction; an already positive cost stays positive. Buildings
@@ -2386,6 +2387,23 @@ the changed values.
 
 New network games use the prepared host bonuses. Network loads keep native
 behavior. Standard Rules freezes native values at setup.
+
+## Technology cost
+
+`technology_cost_multiplier` (1 to 100, default 1) multiplies every technology's
+research cost for every civilization in the next new game. A new multiplayer
+game uses the host's value. Standard Rules use native costs, and so does a
+network load that has no host snapshot. [Technology Cost](configuration.md#settings) in the player guide
+describes the setting.
+
+`ApplyResearchCostPercent` runs at `0x82CF1058`, after the native final
+multiplier of the research cost, with the technology in r25, the player in r26
+and the cost in r3. Technologies 1 to 47 with a positive cost are scaled; other
+technologies, nonpositive costs and native-cost sessions keep the native result.
+The cost becomes `cost * multiplier` in 64-bit arithmetic, capped at the largest
+32-bit value. A base cost of 20 becomes 2000 at 100x. The AI research bonus then
+divides that result for an ordinary AI player. The frozen policy stores the
+multiplier minus one in one byte, so the zero word is the native policy.
 
 ## Custom achievements
 

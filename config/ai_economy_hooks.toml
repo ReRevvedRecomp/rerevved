@@ -1,7 +1,7 @@
-# Apply the research bonus after the native final multiplier.
+# Apply the technology cost multiplier and the AI research bonus after the native final multiplier.
 [[midasm_hook]]
 address = 0x82CF1058
-name = "ApplyAiResearchCostPercent"
+name = "ApplyResearchCostPercent"
 registers = ["r25", "r26", "r3"]
 
 # The identity rule at 0x82CF1268 precedes native mr r3,r28.

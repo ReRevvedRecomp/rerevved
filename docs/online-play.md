@@ -31,7 +31,7 @@ use its invite codes and start ReRevved yourself.
 
 For each new multiplayer game, the host supplies AI civilization count, Resources,
 Raging Barbarians, One City Challenge, the five AI bonus percentages,
-Earliest Domination, Turn Limit, Starting Era, AI difficulty and Game of the Week choices. AI civilization
+Earliest Domination, Turn Limit, Starting Era, Technology Cost, AI difficulty and Game of the Week choices. AI civilization
 count goes up to 6 online; it is reduced so the humans, AI civilizations and Barbarians fit in eight participants (AI = min(request, 7 - humans)). These values apply to that game without changing
 the other players' saved settings. Set the host's choices before starting the game.
 Always At War is a single-player setting; network games ignore it. Network
