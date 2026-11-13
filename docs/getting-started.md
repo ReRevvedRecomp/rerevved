@@ -50,7 +50,8 @@ Vulkan-capable GPU and macOS 13.3 or newer.
 - F3 opens Achievements.
 - F4 toggles the FPS counter.
 
-The main menu's **Options** opens the Settings page. In a game, the Special
+The main menu's **Options** opens the Settings page, and **Exit Game** under
+it closes the game. In a game, the Special
 Functions menu has **Exit Game**, and **Change Options.** opens the Settings
 page too. This full-screen page supports a controller or keyboard: Up
 and Down move between settings, Left and Right change the value, A toggles a

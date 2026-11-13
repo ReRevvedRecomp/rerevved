@@ -142,13 +142,16 @@ and applies immediately.
 **Aspect Ratio** defaults to **16:9**. **Ultrawide** widens supported gameplay
 views to match the window or monitor shape; **21:9** and **32:9** widen them to
 that fixed shape regardless of the window. Wide views keep the interface
-centered in a 16:9 region. The game's base resolution remains 1280x720.
+centered in a 16:9 region. **16:10** fits a 16:10 screen: gameplay shows a
+little more at the top and bottom, and the interface keeps its 16:9 shape in
+the middle. Menus and movies stay 16:9. The game's base resolution remains
+1280x720.
 **Render Resolution** controls the rendered detail.
 
 With **Ultrawide** selected, you can set `display_aspect_custom` in
 `rerevved.toml` to another fixed shape, such as `"3440:1440"`. This option is
-config-only and is ignored while **21:9** or **32:9** is selected. An invalid
-value or a shape no wider than 16:9 keeps 16:9. With no custom value, an unknown window size also keeps 16:9.
+config-only and is ignored while **16:10**, **21:9** or **32:9** is selected. An
+invalid value or exactly 16:9 keeps 16:9. With no custom value, an unknown window size also keeps 16:9.
 
 Ultrawide defaults `present_letterbox` to on and both safe areas to 100 to
 preserve the shape of 16:9 frames. Conflicting explicit values keep gameplay
@@ -162,6 +165,13 @@ objects in the extra width may be hidden by the game's visibility checks.
 Only recognized gameplay views widen. A movie detected after a wide frame
 begins can keep subsequent frames at 16:9 until Aspect Ratio or the custom
 value changes.
+
+**4:3** uses the game's own 4:3 layout for displays of that shape. The game
+then renders from a 640x480 base, **Render Resolution** offers 640x480,
+1280x960 and 1920x1440, and wider windows show bars at the sides. Changing to
+or from **4:3** takes effect after a restart, and the Ultrawide choices do
+not widen the view until then. Explicit `video_mode_width` and
+`video_mode_height` values override the 640x480 base.
 
 Monitor, Window Size, Render Resolution, Upscaling, and Anti-Aliasing require
 a restart. Select **Save**, exit, and launch again after changing them.

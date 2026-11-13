@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(rerevved VERSION 0.7.2 LANGUAGES C CXX)
+project(rerevved VERSION 0.7.3 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -131,6 +131,7 @@ set(REREVVED_SOURCES
     src/display_aspect.h
     src/display_aspect_hooks.cpp
     src/display_aspect_hooks.h
+    src/display_aspect_narrow_hooks.cpp
     src/portable_mode.cpp
     src/portable_mode.h
     src/gpu/guest_gpu_service.cpp

@@ -218,12 +218,40 @@ takes effect after restart.
 Settings outside the curated layout can be set in the config file, on the
 command line or in the console, subject to their persistence policy.
 
+## 4:3 display aspect
+
+`display_aspect` value `4:3`, shown as **4:3** under Aspect Ratio, runs the
+game in its own 4:3 layout. The game's display setup `0x82E2A4B8` (`r4`, `r5`
+and `r6` point at the width, height and widescreen byte it fills from
+`XGetVideoMode`) forces any mode of 720 lines or more to 1280x720 widescreen,
+so the 4:3 layout exists only below 720 lines. It keeps a smaller mode as
+reported, lays the interface out for 4:3 when the widescreen byte is clear,
+and widens a widescreen 480-line mode to 856.
+
+The value is read once at startup, before the graphics system reads the guest
+video mode. With `4:3` it sets `video_mode_width` and `video_mode_height` to
+640 and 480 as application defaults, below config, environment and
+command-line values. `src/display_aspect_narrow_hooks.cpp` hooks the display
+setup after its original body and, only in such a run and only below 720
+lines, clears the widescreen byte and restores a 480-line mode to 640 wide.
+Automatic Render Resolution uses the guest mode, so it picks whole multiples
+of 640x480. The ultrawide modes stay original for the whole run, since the
+widening assumes the 1280x720 image. A change to or from `4:3` applies at the
+next start.
+
+The main menu and the map view were seen in this layout at 640x482. The game
+shows the main menu movie at its 16:9 scale and crops its sides, which cuts a
+logo that fills its 1024x256 texture. In a 4:3 run the selected main-menu
+logo, bundled or from a package, is therefore shrunk to 85% about its center
+when it is resolved at startup, with a transparent border.
+
 ## Ultrawide display aspect
 
-`display_aspect` accepts `original`, `auto`, `21:9` and `32:9`, shown in F1 as
-**Aspect Ratio** choices **16:9**, **Ultrawide**, **21:9** and **32:9**. It
-defaults to `original`. `21:9` and `32:9` request that fixed aspect through the
-custom-aspect path and ignore `display_aspect_custom`.
+`display_aspect` accepts `original`, `16:10`, `4:3`, `auto`, `21:9` and `32:9`,
+shown in F1 as **Aspect Ratio** choices **16:9**, **16:10**, **4:3**,
+**Ultrawide**, **21:9** and **32:9**. It defaults to `original`. `16:10`, `21:9`
+and `32:9` request that fixed aspect through the custom-aspect path and ignore
+`display_aspect_custom`.
 `display_aspect_custom` is config-only and empty by default. It holds a
 `numerator:denominator` that `auto` uses instead of the window shape.
 `display_aspect_probe` defaults to `false`. Starting with `original` and the
@@ -234,14 +262,22 @@ camera frustums, compresses the Scaleform (GFx) interface into a centered 16:9
 region, and presents the frame at the target aspect. The native renderer is
 unaffected.
 
+A fixed aspect taller than 16:9, such as `16:10`, applies the same correction
+along the vertical axis: the top and bottom frustum words extend and the
+interface viewport and scissor compress vertically about the guest center. A
+vertical interface scope without a compressed viewport is refused. `auto` with
+no custom value never selects a taller shape.
+
 Integer cross-products determine whether the requested aspect is wider than
 16:9. With no custom value, `auto` uses the current presentation surface size;
 a minimized or unknown surface selects original. `display_aspect_custom`
 accepts two unsigned decimal integers separated by one colon, with surrounding
 ASCII whitespace trimmed. Zero, overflow and invalid text select original.
-An aspect of 16:9 or narrower also selects original.
+An aspect of exactly 16:9 also selects original, as does a window shape of 16:9
+or narrower.
 With `k` as 16:9 divided by the target, 21:9 gives
-16/21, 3440:1440 gives 32/43 and 32:9 gives 1/2.
+16/21, 3440:1440 gives 32/43 and 32:9 gives 1/2. For a taller target `k` is the
+target divided by 16:9, so 16:10 gives 9/10.
 `present_letterbox` on with both safe areas at 100 is the supported fit; the
 title sets those defaults when the setting is not `original` and keeps 16:9
 frames while explicit values conflict.
@@ -1101,6 +1137,29 @@ automatic transition `1`; it sets `R+0xC` and the manager's pending word
 prompt or a `F+4` other than `R` at the accept also sends the accept to the
 retail callback. The hook's record of the page ends when the page does.
 Shutdown closes the page through the app, as for every page.
+
+## Main menu Exit Game
+
+The main menu gains **Exit Game** as its last row, under **Options**. It is
+always on and quits at once, through the same path as the window's close
+button.
+
+The row is the retail movie's own sixth slot. `GFX_MainMenu.gfx` carries six
+rows, `focus0_mc` to `focus5_mc`; its `SetText` shows the sixth and raises the
+movie's `FocusCount` from 5 to 6 when it receives row `5`, so Up and Down wrap
+through the row and it highlights as the retail rows do. Main-menu initializer
+`0x82E516F0` (`r3 = M`) sends rows `0` to `4` as `0x82C4E858(M, "SetText",
+format, row, text)` with each text from `0x82E6A430` and the text manager
+`U32[0x8314F2C8]`. `src/main_menu_options_hooks.cpp` hooks the initializer
+after its original body and sends row `5` the same way, with the text in the
+game language, only when `M`'s table is `0x82139CBC`. A text that cannot be
+allocated keeps the five retail rows.
+
+An accept on the row reaches the row callback `0x82E51560` with the descriptor
+text `5`, which the retail callback compares with its five rows and ignores.
+The hook plays cue `1001` and quits when the descriptor is exactly `5` and the
+menu state passes the checks of the Options row, apart from the host bindings.
+Otherwise the retail callback runs.
 
 ## Combat settings
 

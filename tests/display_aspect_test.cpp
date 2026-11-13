@@ -94,9 +94,10 @@ TEST_CASE("display_aspect values parse and fixed presets resolve to exact ratios
     CHECK(da::ParseMode("original") == da::Mode::Original);
     CHECK(da::ParseMode("auto") == da::Mode::Auto);
     CHECK(da::ParseMode("custom") == da::Mode::Custom);
+    CHECK(da::ParseMode("16:10") == da::Mode::Custom);
     CHECK(da::ParseMode("21:9") == da::Mode::Custom);
     CHECK(da::ParseMode("32:9") == da::Mode::Custom);
-    for (const char* unknown : { "", "22:9", "16:9", "21:9 ", "Auto" })
+    for (const char* unknown : { "", "22:9", "16:9", "21:9 ", "Auto", "4:3" })
     {
         INFO(unknown);
         CHECK(da::ParseMode(unknown) == da::Mode::Original);
@@ -119,7 +120,16 @@ TEST_CASE("display_aspect values parse and fixed presets resolve to exact ratios
     CHECK(r32.k == 0.5f);
 }
 
-TEST_CASE("requests at or below 16:9 and unknown surfaces stay original", "[ctest][display-aspect][local-fast]")
+TEST_CASE("the 4:3 preset keeps a mode below 720 lines out of widescreen", "[ctest][display-aspect][local-fast]")
+{
+    // Retail widens a widescreen 480-line mode to 856.
+    CHECK(da::CorrectNarrowSetup({ 856, 480, true }) == da::GuestMode{ 640, 480, false });
+    CHECK(da::CorrectNarrowSetup({ 640, 480, false }) == da::GuestMode{ 640, 480, false });
+    CHECK(da::CorrectNarrowSetup({ 944, 708, true }) == da::GuestMode{ 944, 708, false });
+    CHECK(da::CorrectNarrowSetup({ 1280, 720, true }) == da::GuestMode{ 1280, 720, true });
+}
+
+TEST_CASE("16:9 requests, narrower windows and unknown surfaces stay original", "[ctest][display-aspect][local-fast]")
 {
     const auto expectOriginal = [](const da::Request& request, da::Reason reason)
     {
@@ -128,7 +138,6 @@ TEST_CASE("requests at or below 16:9 and unknown surfaces stay original", "[ctes
         CHECK(request.aspect == da::kOriginalAspect);
         CHECK(request.reason == reason);
     };
-    expectOriginal(da::ResolveRequestedAspect(da::Mode::Custom, "16:10", {}), da::Reason::NarrowAspect);
     expectOriginal(da::ResolveRequestedAspect(da::Mode::Custom, "16:9", {}), da::Reason::NarrowAspect);
     expectOriginal(da::ResolveRequestedAspect(da::Mode::Custom, "1920:1080", {}), da::Reason::NarrowAspect);
     expectOriginal(da::ResolveRequestedAspect(da::Mode::Custom, "21:x", {}), da::Reason::InvalidAspect);
@@ -136,6 +145,55 @@ TEST_CASE("requests at or below 16:9 and unknown surfaces stay original", "[ctes
     expectOriginal(da::ResolveRequestedAspect(da::Mode::Auto, "21:9", { 0, 1440 }), da::Reason::SurfaceUnknown);
     expectOriginal(da::ResolveRequestedAspect(da::Mode::Auto, "21:9", { 1920, 1200 }), da::Reason::NarrowAspect);
     expectOriginal(da::ResolveRequestedAspect(da::Mode::Original, "21:9", { 3440, 1440 }), da::Reason::Disabled);
+}
+
+TEST_CASE("a fixed aspect taller than 16:9 corrects the vertical axis", "[ctest][display-aspect][local-fast]")
+{
+    const auto tall = da::ResolveRequestedAspect(da::Mode::Custom, da::FixedPresetAspect("16:10"), {});
+    REQUIRE(tall.wide);
+    CHECK(tall.axis == da::Axis::Vertical);
+    CHECK(tall.aspect == da::Aspect{ 8, 5 });
+    CHECK(near(tall.k, 0.9));
+    CHECK(tall.reason == da::Reason::World);
+    CHECK(wideRequest(21, 9).axis == da::Axis::Horizontal);
+
+    auto in    = worldInputs();
+    in.request = tall;
+    CHECK(da::DecideFramePolicy(in).axis == da::Axis::Vertical);
+    in.key = da::kAttractKey;
+    CHECK(da::DecideFramePolicy(in).axis == da::Axis::Horizontal);
+
+    const auto scaled = da::ScaleFrustumVertical(frustum(-0.8f, 0.8f, 0.5f, -0.4f), tall.k);
+    REQUIRE(scaled.status == da::FrustumStatus::Ok);
+    CHECK(near(scaled.frustum.top, 0.05 + 0.45 / 0.9));
+    CHECK(near(scaled.frustum.bottom, 0.05 - 0.45 / 0.9));
+    CHECK(scaled.frustum.left == -0.8f);
+    CHECK(scaled.frustum.right == 0.8f);
+    CHECK(da::ScaleFrustumVertical(frustum(-0.8f, 0.8f, 0.5f, -0.4f), 1.5f).status == da::FrustumStatus::InvalidScale);
+
+    const auto       original = frustumBytes(-0.8f, 0.8f, 0.45f, -0.45f);
+    da::FrustumBytes corrected{};
+    REQUIRE(da::CorrectFrustumBytes(original, tall.k, corrected, da::Axis::Vertical) == da::FrustumStatus::Ok);
+    CHECK(da::FrustumPairOffset(da::Axis::Vertical) == 8);
+    CHECK(da::FrustumPairOffset(da::Axis::Horizontal) == 0);
+    CHECK(std::memcmp(corrected.data(), original.data(), 8) == 0);
+    CHECK(std::memcmp(corrected.data() + 16, original.data() + 16, original.size() - 16) == 0);
+    da::Frustum decoded;
+    bool        ortho = true;
+    REQUIRE(da::DecodeFrustum(corrected, decoded, ortho));
+    CHECK(near(decoded.top, 0.5));
+    CHECK(near(decoded.bottom, -0.5));
+
+    // The interface keeps 16:9 inside the taller picture: 36 guest lines free above and below.
+    CHECK(da::CorrectScissor(da::Rect{ 100, 0, 500, 720 }, tall.k, da::Axis::Vertical) == da::Rect{ 100, 36, 500, 684 });
+    CHECK(da::CorrectScissor(da::Rect{ 100, 300, 500, 300 }, tall.k, da::Axis::Vertical) == da::Rect{ 100, 300, 500, 300 });
+    da::ViewportSpan span;
+    REQUIRE(da::CompressViewportSpan(0, 720, tall.k, span, da::Axis::Vertical));
+    CHECK(span == da::ViewportSpan{ 36, 648 });
+    // The vertical span is bounded by the guest height, not its width.
+    CHECK_FALSE(da::CompressViewportSpan(10, 720, tall.k, span, da::Axis::Vertical));
+    CHECK(da::CorrectScissorInViewport(da::Rect{ 0, 0, 1280, 720 }, span, tall.k, da::Axis::Vertical) == da::Rect{ 0, 36, 1280, 684 });
+    CHECK(da::CorrectScissorInViewport(da::Rect{ 200, 360, 400, 460 }, span, tall.k, da::Axis::Vertical) == da::Rect{ 200, 360, 400, 450 });
 }
 
 TEST_CASE("horizontal scale follows the reduced target aspect", "[ctest][display-aspect][local-fast]")

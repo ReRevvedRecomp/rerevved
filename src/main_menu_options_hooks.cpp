@@ -1,6 +1,13 @@
-// Main-menu Options hooks, see main_menu_options.h: row callback 0x82E51560 (r3=M, r4=A) and frontend update 0x82C568C8.
+// Main-menu hooks, see main_menu_options.h: initializer 0x82E516F0 (r3=M), row callback 0x82E51560 (r3=M, r4=A)
+// and frontend update 0x82C568C8.
 
 #include <cstdint>
+#include <cstring>
+#include <map>
+#include <mutex>
+#include <optional>
+#include <string>
+#include <string_view>
 
 #include <rex/hook.h>
 #include <rex/logging.h>
@@ -9,12 +16,18 @@
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
 
+#include "game_language.h"
 #include "main_menu_options.h"
 #include "native_settings.h"
+#include "pause_menu.h"
+#include "title_text.h"
 
+REX_EXTERN(__imp__sub_82E516F0);
 REX_EXTERN(__imp__sub_82E51560);
 REX_EXTERN(__imp__sub_82C568C8);
+REX_EXTERN(sub_82C4E858);
 REX_EXTERN(sub_82E4E680);
+REX_EXTERN(sub_82E6A430);
 
 namespace
 {
@@ -23,6 +36,28 @@ namespace mo = rerevved::main_menu_options;
 namespace ns = rerevved::native_settings;
 
 mo::Session gSession;
+
+std::mutex                                   gTextMutex;
+std::map<std::string, uint32_t, std::less<>> gTexts;
+
+// Process-lifetime heap block per distinct text; allocation failure returns 0.
+uint32_t retainedText(std::string_view source)
+{
+    auto* memory = REX_KERNEL_MEMORY();
+    if (!memory)
+        return 0;
+    std::lock_guard lock(gTextMutex);
+    if (const auto found = gTexts.find(source); found != gTexts.end())
+        return found->second;
+    const uint32_t block = memory->SystemHeapAlloc(static_cast<uint32_t>(source.size() + 1));
+    if (block == 0)
+        return 0;
+    auto* bytes = memory->TranslateVirtual<char*>(block);
+    std::memcpy(bytes, source.data(), source.size());
+    bytes[source.size()] = '\0';
+    gTexts.emplace(std::string(source), block);
+    return block;
+}
 
 uint32_t loadU32(const uint8_t* base, uint32_t address)
 {
@@ -72,11 +107,14 @@ mo::Entry readEntry(const PPCContext& ctx, const uint8_t* base, const std::optio
     entry.parent        = loadU32(base, menu + mo::kParentField);
     const uint32_t text = descriptor != 0 ? loadU32(base, descriptor) : 0;
     if (text != 0)
-        entry.descriptorIsOptions = mo::IsOptionsDescriptor(
-            [&](uint32_t offset)
-            {
-                return readTextByte(base, text + offset);
-            });
+    {
+        const auto readByte = [&](uint32_t offset)
+        {
+            return readTextByte(base, text + offset);
+        };
+        entry.descriptorIsOptions = mo::IsOptionsDescriptor(readByte);
+        entry.descriptorIsExit    = mo::IsExitDescriptor(readByte);
+    }
     if (entry.parent == 0)
         return entry;
     entry.parentVtable = loadU32(base, entry.parent);
@@ -97,7 +135,47 @@ mo::Entry readEntry(const PPCContext& ctx, const uint8_t* base, const std::optio
     return entry;
 }
 
+// Keep the select sound; it ignores its first argument.
+void playCue(PPCContext& ctx, uint8_t* base, uint32_t parent)
+{
+    PPCContext cue = ctx;
+    cue.r3.u64     = parent;
+    cue.r4.u64     = mo::kCue;
+    sub_82E4E680(cue, base);
+    ctx.fpscr = cue.fpscr;
+}
+
 } // namespace
+
+// Run Original first so Exit Game follows the retail rows; the calls run on a copy so the caller's registers stay.
+REX_HOOK_RAW(sub_82E516F0)
+{
+    const uint32_t menu = ctx.r3.u32;
+    __imp__sub_82E516F0(ctx, base);
+    if (menu == 0 || loadU32(base, menu) != mo::kMenuVtable)
+        return;
+    const uint32_t manager = loadU32(base, mo::kTextManagerGlobal);
+    if (manager == 0)
+        return;
+    namespace tt        = rerevved::title_text;
+    const uint32_t text = retainedText(tt::Text(tt::Id::kExitGameRow, rerevved::game_language::ActiveId()));
+    if (text == 0)
+    {
+        REXLOG_WARN("Main menu: no text for the Exit Game row; keeping the retail rows");
+        return;
+    }
+    PPCContext call = ctx;
+    call.r3.u64     = manager;
+    call.r4.u64     = text;
+    sub_82E6A430(call, base);
+    call.r7.u64 = call.r3.u32;
+    call.r3.u64 = menu;
+    call.r4.u64 = mo::kSetTextMethod;
+    call.r5.u64 = mo::kSetTextFormat;
+    call.r6.u64 = mo::kExitRow;
+    sub_82C4E858(call, base);
+    ctx.fpscr = call.fpscr;
+}
 
 REX_HOOK_RAW(sub_82E51560)
 {
@@ -109,6 +187,11 @@ REX_HOOK_RAW(sub_82E51560)
             __imp__sub_82E51560(ctx, base);
             return;
         case mo::Route::kIgnore:
+            return;
+        case mo::Route::kExit:
+            REXLOG_INFO("Main menu: Exit Game accepted");
+            playCue(ctx, base, entry.parent);
+            rerevved::pause_menu::RequestQuit();
             return;
         case mo::Route::kPage:
             break;
@@ -123,12 +206,7 @@ REX_HOOK_RAW(sub_82E51560)
     }
     gSession.Begin(*page, entry.parent, managerPending(base));
     REXLOG_INFO("Main menu: Options opened the Options page");
-    // Keep the select sound without exiting; it ignores its first argument.
-    PPCContext cue = ctx;
-    cue.r3.u64     = entry.parent;
-    cue.r4.u64     = mo::kCue;
-    sub_82E4E680(cue, base);
-    ctx.fpscr = cue.fpscr;
+    playCue(ctx, base, entry.parent);
 }
 
 // Run Original first so the current state's update (R's virtual +8) sets transitions or prompts.

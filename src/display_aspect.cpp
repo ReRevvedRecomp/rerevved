@@ -19,8 +19,8 @@
 
 #include "gpu/renderer_backend.h"
 
-REXCVAR_DEFINE_STRING(display_aspect, "original", "ReRevved", "Ultrawide presentation: original keeps 16:9, auto matches the window or display_aspect_custom, 21:9 and 32:9 fix the shape")
-    .allowed({ "original", "auto", "21:9", "32:9" });
+REXCVAR_DEFINE_STRING(display_aspect, "original", "ReRevved", "Picture shape: original keeps 16:9, 4:3 uses the game's 4:3 layout after a restart, auto matches a wider window or display_aspect_custom, 16:10, 21:9 and 32:9 fix the shape")
+    .allowed({ "original", "16:10", "4:3", "auto", "21:9", "32:9" });
 REXCVAR_DEFINE_STRING(display_aspect_custom, "", "ReRevved", "Optional aspect for display_aspect=auto as numerator:denominator, for example 21:9 or 3440:1440; empty matches the window");
 REXCVAR_DEFINE_BOOL(display_aspect_debug_scissor, true, "ReRevved", "Diagnostic: false skips ultrawide scissor compression while retaining viewport or affine correction")
     .audience(rex::cvar::Audience::kHidden);
@@ -32,6 +32,11 @@ namespace
 {
 
 constexpr double kHalfWidth = kGuestWidth / 2.0;
+
+constexpr double guestExtent(Axis axis) noexcept
+{
+    return axis == Axis::Vertical ? double{ kGuestHeight } : double{ kGuestWidth };
+}
 
 bool isSpace(char c) noexcept
 {
@@ -143,9 +148,19 @@ Mode ParseMode(std::string_view text) noexcept
 
 std::string_view FixedPresetAspect(std::string_view text) noexcept
 {
-    if (text == "21:9" || text == "32:9")
+    if (text == "16:10" || text == "21:9" || text == "32:9")
         return text;
     return {};
+}
+
+GuestMode CorrectNarrowSetup(GuestMode retail) noexcept
+{
+    if (retail.height >= kForcedHeight)
+        return retail;
+    retail.widescreen = false;
+    if (retail.height == kNarrowHeight)
+        retail.width = kNarrowWidth;
+    return retail;
 }
 
 std::string_view ModeToken(Mode mode) noexcept
@@ -202,13 +217,15 @@ Request ResolveRequestedAspect(Mode mode, std::string_view custom, Surface surfa
             break;
         }
     }
-    if (!IsWiderThanOriginal(aspect))
+    const bool wider = IsWiderThanOriginal(aspect);
+    if (!wider && (mode != Mode::Custom || aspect == kOriginalAspect))
     {
         request.reason = Reason::NarrowAspect;
         return request;
     }
     request.aspect = aspect;
-    request.k      = HorizontalScale(aspect);
+    request.axis   = wider ? Axis::Horizontal : Axis::Vertical;
+    request.k      = wider ? HorizontalScale(aspect) : 1.0f / HorizontalScale(aspect);
     request.wide   = true;
     request.reason = Reason::World;
     return request;
@@ -246,6 +263,27 @@ FrustumResult ScaleFrustumHorizontal(const Frustum& frustum, float k) noexcept
     return result;
 }
 
+FrustumResult ScaleFrustumVertical(const Frustum& frustum, float k) noexcept
+{
+    FrustumResult result;
+    result.frustum = frustum;
+    if (!validScale(k))
+    {
+        result.status = FrustumStatus::InvalidScale;
+        return result;
+    }
+    result.status = ValidateFrustum(frustum);
+    if (result.status != FrustumStatus::Ok)
+        return result;
+
+    const double scale    = k;
+    const double middle   = (double{ frustum.top } + double{ frustum.bottom }) / 2.0;
+    const double half     = (double{ frustum.top } - double{ frustum.bottom }) / 2.0;
+    result.frustum.top    = static_cast<float>(middle + half / scale);
+    result.frustum.bottom = static_cast<float>(middle - half / scale);
+    return result;
+}
+
 bool IsSixteenByNineFrustum(const Frustum& f) noexcept
 {
     if (ValidateFrustum(f) != FrustumStatus::Ok || !(f.right > 0.0f) || !(f.top > 0.0f))
@@ -270,7 +308,7 @@ bool DecodeFrustum(const FrustumBytes& bytes, Frustum& frustum, bool& orthograph
     return true;
 }
 
-FrustumStatus CorrectFrustumBytes(const FrustumBytes& original, float k, FrustumBytes& corrected) noexcept
+FrustumStatus CorrectFrustumBytes(const FrustumBytes& original, float k, FrustumBytes& corrected, Axis axis) noexcept
 {
     corrected = original;
     Frustum frustum;
@@ -278,11 +316,20 @@ FrustumStatus CorrectFrustumBytes(const FrustumBytes& original, float k, Frustum
     DecodeFrustum(original, frustum, orthographic);
     if (orthographic)
         return FrustumStatus::Orthographic;
-    const FrustumResult result = ScaleFrustumHorizontal(frustum, k);
+    const bool          vertical = axis == Axis::Vertical;
+    const FrustumResult result   = vertical ? ScaleFrustumVertical(frustum, k) : ScaleFrustumHorizontal(frustum, k);
     if (result.status != FrustumStatus::Ok)
         return result.status;
-    storeBeFloat(corrected.data() + 0, result.frustum.left);
-    storeBeFloat(corrected.data() + 4, result.frustum.right);
+    if (vertical)
+    {
+        storeBeFloat(corrected.data() + 8, result.frustum.top);
+        storeBeFloat(corrected.data() + 12, result.frustum.bottom);
+    }
+    else
+    {
+        storeBeFloat(corrected.data() + 0, result.frustum.left);
+        storeBeFloat(corrected.data() + 4, result.frustum.right);
+    }
     return FrustumStatus::Ok;
 }
 
@@ -316,30 +363,47 @@ AffineResult CorrectGfxAffine(const Affine& affine, float viewportX, float viewp
     return result;
 }
 
-Rect CorrectScissor(const Rect& rect, float k) noexcept
+Rect CorrectScissor(const Rect& rect, float k, Axis axis) noexcept
 {
-    if (!validScale(k) || rect.right <= rect.left)
+    const bool    vertical = axis == Axis::Vertical;
+    const int32_t low      = vertical ? rect.top : rect.left;
+    const int32_t high     = vertical ? rect.bottom : rect.right;
+    if (!validScale(k) || high <= low)
         return rect;
-    const double scale = k;
-    const double left  = std::floor(kHalfWidth + scale * (static_cast<double>(rect.left) - kHalfWidth));
-    const double right = std::ceil(kHalfWidth + scale * (static_cast<double>(rect.right) - kHalfWidth));
-    Rect         out   = rect;
-    out.left           = static_cast<int32_t>(std::clamp(left, 0.0, double{ kGuestWidth }));
-    out.right          = static_cast<int32_t>(std::clamp(right, 0.0, double{ kGuestWidth }));
-    if (out.right <= out.left)
+    const double  extent = guestExtent(axis);
+    const double  center = extent / 2.0;
+    const double  scale  = k;
+    const double  first  = std::floor(center + scale * (static_cast<double>(low) - center));
+    const double  last   = std::ceil(center + scale * (static_cast<double>(high) - center));
+    const int32_t lo     = static_cast<int32_t>(std::clamp(first, 0.0, extent));
+    const int32_t hi     = static_cast<int32_t>(std::clamp(last, 0.0, extent));
+    if (hi <= lo)
         return rect;
+    Rect out = rect;
+    if (vertical)
+    {
+        out.top    = lo;
+        out.bottom = hi;
+    }
+    else
+    {
+        out.left  = lo;
+        out.right = hi;
+    }
     return out;
 }
 
-bool CompressViewportSpan(int32_t x, int32_t width, float k, ViewportSpan& out) noexcept
+bool CompressViewportSpan(int32_t x, int32_t width, float k, ViewportSpan& out, Axis axis) noexcept
 {
-    if (!validScale(k) || width <= 0 || x < 0 || int64_t{ x } + width > kGuestWidth)
+    const double extent = guestExtent(axis);
+    if (!validScale(k) || width <= 0 || x < 0 || static_cast<double>(x) + width > extent)
         return false;
-    const double scale = k;
-    const double left  = std::floor(kHalfWidth + scale * (static_cast<double>(x) - kHalfWidth));
-    const double right = std::ceil(kHalfWidth + scale * (static_cast<double>(x) + width - kHalfWidth));
-    const double lo    = std::clamp(left, 0.0, double{ kGuestWidth });
-    const double hi    = std::clamp(right, 0.0, double{ kGuestWidth });
+    const double center = extent / 2.0;
+    const double scale  = k;
+    const double first  = std::floor(center + scale * (static_cast<double>(x) - center));
+    const double last   = std::ceil(center + scale * (static_cast<double>(x) + width - center));
+    const double lo     = std::clamp(first, 0.0, extent);
+    const double hi     = std::clamp(last, 0.0, extent);
     if (!(hi > lo))
         return false;
     out.x     = static_cast<int32_t>(lo);
@@ -347,12 +411,20 @@ bool CompressViewportSpan(int32_t x, int32_t width, float k, ViewportSpan& out) 
     return true;
 }
 
-Rect CorrectScissorInViewport(const Rect& request, const ViewportSpan& compressed, float k) noexcept
+Rect CorrectScissorInViewport(const Rect& request, const ViewportSpan& compressed, float k, Axis axis) noexcept
 {
-    const Rect scaled = CorrectScissor(request, k);
+    const Rect scaled = CorrectScissor(request, k, axis);
     Rect       out    = request;
-    out.left          = std::max(compressed.x, scaled.left);
-    out.right         = std::min(compressed.x + compressed.width, scaled.right);
+    if (axis == Axis::Vertical)
+    {
+        out.top    = std::max(compressed.x, scaled.top);
+        out.bottom = std::min(compressed.x + compressed.width, scaled.bottom);
+    }
+    else
+    {
+        out.left  = std::max(compressed.x, scaled.left);
+        out.right = std::min(compressed.x + compressed.width, scaled.right);
+    }
     return out;
 }
 
@@ -364,6 +436,7 @@ PolicyDecision DecideFramePolicy(const PolicyInputs& in) noexcept
         decision.wide   = false;
         decision.aspect = kOriginalAspect;
         decision.k      = 1.0f;
+        decision.axis   = Axis::Horizontal;
         decision.reason = reason;
         return decision;
     };
@@ -400,6 +473,7 @@ PolicyDecision DecideFramePolicy(const PolicyInputs& in) noexcept
     decision.wide   = true;
     decision.aspect = in.request.aspect;
     decision.k      = in.request.k;
+    decision.axis   = in.request.axis;
     decision.reason = Reason::World;
     return decision;
 }
@@ -502,7 +576,7 @@ float HypotheticalScale(Mode mode, std::string_view custom, Surface surface) noe
     if (mode == Mode::Auto)
     {
         const Request request = ResolveRequestedAspect(Mode::Auto, custom, surface);
-        if (request.wide)
+        if (request.wide && request.axis == Axis::Horizontal)
             return request.k;
     }
     const auto parsed = ParseAspect(custom);
@@ -802,6 +876,7 @@ void emit(State& s, fmt::format_string<Args...> format, Args&&... args)
 
 std::atomic<Mode> gMode{ Mode::Original };
 std::atomic<bool> gProbe{ false };
+std::atomic<bool> gNarrow{ false };
 
 Settings readSettings()
 {
@@ -816,6 +891,9 @@ Settings readSettings()
     // The config-only override turns Ultrawide into a fixed aspect.
     else if (settings.mode == Mode::Auto && !settings.custom.empty())
         settings.mode = Mode::Custom;
+    // The widening assumes the 1280x720 guest image.
+    if (NarrowLatched())
+        settings.mode = Mode::Original;
     return settings;
 }
 
@@ -1130,6 +1208,7 @@ void freezeOriginal(State& s, Reason reason)
     v.wide       = false;
     v.aspect     = kOriginalAspect;
     v.k          = 1.0f;
+    v.axis       = Axis::Horizontal;
     v.reason     = reason;
     v.interval   = s.interval;
 }
@@ -1364,6 +1443,23 @@ void Initialize(std::string_view titleRevision, std::string_view sdkRevision)
     recomputeActive();
 }
 
+void LatchNarrow()
+{
+    const bool narrow = rex::cvar::Query<std::string>("display_aspect") == kNarrowPreset;
+    gNarrow.store(narrow, std::memory_order_relaxed);
+    if (!narrow)
+        return;
+    // Below config, environment and command-line values.
+    rex::cvar::SetFlagAsApplicationDefault("video_mode_width", std::to_string(kNarrowWidth));
+    rex::cvar::SetFlagAsApplicationDefault("video_mode_height", std::to_string(kNarrowHeight));
+    REXLOG_INFO("Display aspect: 4:3 selected; guest video mode defaults to {}x{}", kNarrowWidth, kNarrowHeight);
+}
+
+bool NarrowLatched() noexcept
+{
+    return gNarrow.load(std::memory_order_relaxed);
+}
+
 void Shutdown()
 {
     State&          s = state();
@@ -1458,6 +1554,7 @@ FrameView LatchFrame(const LatchInputs& inputs)
     v.wide                        = decision.wide;
     v.aspect                      = decision.aspect;
     v.k                           = decision.k;
+    v.axis                        = decision.axis;
     v.reason                      = decision.reason;
     v.interval                    = s.interval;
     v.mainCamera                  = inputs.incomingCamera;
@@ -1732,6 +1829,7 @@ void ResetForTesting()
 {
     State&          s = state();
     std::lock_guard lock(s.mutex);
+    gNarrow.store(false, std::memory_order_relaxed);
     s.initialized = false;
     s.shutdown    = false;
     s.view        = FrameView{};

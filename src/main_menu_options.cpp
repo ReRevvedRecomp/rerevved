@@ -5,9 +5,13 @@ namespace rerevved::main_menu_options
 
 Route ChooseRoute(const Entry& entry)
 {
-    if (!entry.hostBound || !entry.descriptorIsOptions || entry.parent == 0 || entry.menuVtable != kMenuVtable ||
-        entry.parentVtable != kParentVtable || entry.parentHandler != kParentHandler || entry.pending != 0 || entry.exiting != 0 ||
-        entry.currentState != entry.parent || entry.prompt != 0)
+    if (entry.parent == 0 || entry.menuVtable != kMenuVtable || entry.parentVtable != kParentVtable ||
+        entry.parentHandler != kParentHandler || entry.pending != 0 || entry.exiting != 0 || entry.currentState != entry.parent ||
+        entry.prompt != 0)
+        return Route::kRetail;
+    if (entry.descriptorIsExit)
+        return entry.pageOpen ? Route::kIgnore : Route::kExit;
+    if (!entry.hostBound || !entry.descriptorIsOptions)
         return Route::kRetail;
     return entry.pageOpen ? Route::kIgnore : Route::kPage;
 }

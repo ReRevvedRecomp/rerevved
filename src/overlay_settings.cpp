@@ -11,6 +11,7 @@
 
 #include <rex/ui/overlay/settings_layout.h>
 
+#include "display_aspect.h"
 #include "gameplay_fixes.h"
 #include "gameplay_session_settings.h"
 
@@ -397,7 +398,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "fullscreen", "Enable to fill your selected monitor with the game." },
         { "monitor", "Choose which monitor the game opens on." },
         { "window_size", "Choose the window size outside fullscreen." },
-        { "display_aspect", "Ultrawide shows more of the world on wide screens and keeps the interface centered." },
+        { "display_aspect", "Ultrawide shows more of the world on wide screens and keeps the interface centered. 4:3 takes effect after restart." },
         { "resolution_scale", "Choose how much detail the game renders. Auto matches your display." },
         { "vsync", "Enable to keep the game at its normal frame pacing." },
         { "present_effect", "Choose how the image is scaled and sharpened for your display." },
@@ -423,7 +424,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "renderer", { { "xenos", "Xenos" }, { "native", "Native (Experimental)" } } },
         { "window_size", { { "", "Default (1280x720)" }, { "maximized", "Maximized" } } },
         { "button_icons", { { "auto", "Auto" }, { "xbox", "Xbox" }, { "playstation", "PlayStation" }, { "keyboard", "Keyboard" } } },
-        { "display_aspect", { { "original", "16:9" }, { "auto", "Ultrawide" }, { "21:9", "21:9" }, { "32:9", "32:9" } } },
+        { "display_aspect", { { "original", "16:9" }, { "16:10", "16:10" }, { "4:3", "4:3" }, { "auto", "Ultrawide" }, { "21:9", "21:9" }, { "32:9", "32:9" } } },
         { "ai_civilizations", { { "0", "None (Multiplayer)" }, { "1", "1" }, { "2", "2" }, { "3", "3" }, { "4", "4 (Default)" }, { "5", "5" }, { "6", "6" } } },
         { "multiplayer_ai_difficulty", { { "king", "King" }, { "emperor", "Emperor" }, { "deity", "Deity" } } },
         { "gotw_civilization", { { "0", "Roman" }, { "1", "Egyptian" }, { "2", "Greek" }, { "3", "Spanish" }, { "4", "German" }, { "5", "Russian" }, { "6", "Chinese" }, { "7", "American" }, { "8", "Japanese" }, { "9", "French" }, { "10", "Indian" }, { "11", "Arabian" }, { "12", "Aztec" }, { "13", "Zulu" }, { "14", "Mongolian" }, { "15", "English" } } },
@@ -439,6 +440,9 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "game_language", { { "1", "English" }, { "3", "Deutsch" }, { "4", "Fran\u00e7ais" }, { "5", "Espa\u00f1ol" }, { "6", "Italiano" } } },
         { "present_effect", { { "cas", "CAS" }, { "fsr", "FSR" }, { "fsr2", "FSR 2" }, { "fsr3", "FSR 3" } } },
     };
+    // The 4:3 preset renders from 640x480.
+    if (rerevved::display_aspect::NarrowLatched())
+        layout.choice_labels["resolution_scale"] = { { "0", "Auto" }, { "1", "640x480" }, { "2", "1280x960" }, { "3", "1920x1440" } };
     layout.labels = {
         { "fullscreen", "Fullscreen" },
         { "resolution_scale", "Render Resolution" },

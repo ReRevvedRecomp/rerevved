@@ -47,6 +47,54 @@ TEST_CASE("main_menu_options_descriptor_is_exactly_4_and_its_terminator", "[ctes
     CHECK_FALSE(mo::IsOptionsDescriptor(bytes({ 0, 0 })));
 }
 
+TEST_CASE("main_menu_options_exit_descriptor_is_exactly_5_and_its_terminator", "[ctest][main-menu-options]")
+{
+    CHECK(mo::IsExitDescriptor(bytes({ '5', 0 })));
+    CHECK_FALSE(mo::IsExitDescriptor(bytes({ '4', 0 })));
+    CHECK_FALSE(mo::IsExitDescriptor(bytes({ '5', '5' })));
+    CHECK_FALSE(mo::IsExitDescriptor(bytes({ 0, 0 })));
+}
+
+TEST_CASE("main_menu_options_exit_accept_quits_only_from_the_settled_menu", "[ctest][main-menu-options]")
+{
+    auto row                = accepted();
+    row.descriptorIsOptions = false;
+    row.descriptorIsExit    = true;
+    CHECK(mo::ChooseRoute(row) == mo::Route::kExit);
+    row.hostBound = false;
+    CHECK(mo::ChooseRoute(row) == mo::Route::kExit);
+    {
+        auto entry     = row;
+        entry.pageOpen = true;
+        CHECK(mo::ChooseRoute(entry) == mo::Route::kIgnore);
+    }
+    {
+        auto entry    = row;
+        entry.pending = 36;
+        CHECK(mo::ChooseRoute(entry) == mo::Route::kRetail);
+    }
+    {
+        auto entry    = row;
+        entry.exiting = 1;
+        CHECK(mo::ChooseRoute(entry) == mo::Route::kRetail);
+    }
+    {
+        auto entry   = row;
+        entry.prompt = 0x83200000;
+        CHECK(mo::ChooseRoute(entry) == mo::Route::kRetail);
+    }
+    {
+        auto entry         = row;
+        entry.currentState = 0x83000100;
+        CHECK(mo::ChooseRoute(entry) == mo::Route::kRetail);
+    }
+    {
+        auto entry       = row;
+        entry.menuVtable = 0x82139CC0;
+        CHECK(mo::ChooseRoute(entry) == mo::Route::kRetail);
+    }
+}
+
 TEST_CASE("main_menu_options_descriptor_never_reads_past_a_boundary", "[ctest][main-menu-options]")
 {
     int                        reads = 0;

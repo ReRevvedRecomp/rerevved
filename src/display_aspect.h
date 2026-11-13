@@ -8,7 +8,8 @@
 #include <string_view>
 
 // Ultrawide keeps the 1280x720 guest buffer, widens eligible world cameras and
-// centers the interface in 16:9; unclassified frames stay 16:9.
+// centers the interface in 16:9; unclassified frames stay 16:9. A fixed shape
+// taller than 16:9 does the same along the vertical axis.
 namespace rerevved::display_aspect
 {
 
@@ -33,6 +34,14 @@ struct Aspect
 };
 
 inline constexpr Aspect kOriginalAspect{ 16, 9 };
+
+// The guest axis a correction extends: horizontal for a shape wider than 16:9,
+// vertical for a taller one.
+enum class Axis : uint8_t
+{
+    Horizontal,
+    Vertical,
+};
 
 enum class Mode : uint8_t
 {
@@ -72,12 +81,36 @@ std::string_view ReasonToken(Reason reason) noexcept;
 // Strict "numerator:denominator" of two unsigned decimal integers around one
 // colon, ASCII-trimmed, zero and 32-bit overflow rejected, reduced by the GCD.
 std::optional<Aspect> ParseAspect(std::string_view text) noexcept;
-// "21:9" and "32:9" select Mode::Custom with that aspect; unknown text is
-// Mode::Original.
+// "16:10", "21:9" and "32:9" select Mode::Custom with that aspect; unknown
+// text is Mode::Original.
 Mode ParseMode(std::string_view text) noexcept;
 // The fixed aspect a display_aspect preset value names, or empty.
 std::string_view FixedPresetAspect(std::string_view text) noexcept;
 std::string_view ModeToken(Mode mode) noexcept;
+
+// display_aspect "4:3" selects the game's own 4:3 layout. Display setup 0x82E2A4B8 keeps a reported mode below 720
+// lines and lays the interface out for 4:3 when its widescreen byte is clear; it widens a widescreen 480-line mode to 856.
+inline constexpr std::string_view kNarrowPreset = "4:3";
+inline constexpr uint32_t         kNarrowWidth  = 640;
+inline constexpr uint32_t         kNarrowHeight = 480;
+inline constexpr uint32_t         kForcedHeight = 720;
+
+struct GuestMode
+{
+    uint32_t width      = 0;
+    uint32_t height     = 0;
+    bool     widescreen = false;
+
+    bool operator==(const GuestMode&) const = default;
+};
+
+// The retail-derived mode as the 4:3 preset keeps it; 720 lines or more is unchanged.
+GuestMode CorrectNarrowSetup(GuestMode retail) noexcept;
+
+// Reads display_aspect once, before the graphics system starts: the 4:3 preset makes 640x480 the default guest video
+// mode for this run. Later changes of the setting take effect at the next start.
+void LatchNarrow();
+bool NarrowLatched() noexcept;
 
 // True when a is wider than 16:9, by integer cross-product.
 bool IsWiderThanOriginal(Aspect aspect) noexcept;
@@ -88,18 +121,21 @@ struct Surface
     uint32_t height = 0;
 };
 
-// The aspect the settings ask for. k scales the horizontal projection row:
-// 16:9 divided by the target aspect, 1 for original.
+// The aspect the settings ask for. k scales the projection row of `axis`: the
+// narrower of 16:9 and the target divided by the wider, 1 for original. `wide`
+// means a correction is requested on either axis.
 struct Request
 {
     Aspect aspect = kOriginalAspect;
     float  k      = 1.0f;
     bool   wide   = false;
+    Axis   axis   = Axis::Horizontal;
     // Why the request is original; World when it is wide.
     Reason reason = Reason::Disabled;
 };
 
-float   HorizontalScale(Aspect aspect) noexcept;
+float HorizontalScale(Aspect aspect) noexcept;
+// Auto never selects a shape taller than 16:9; only a fixed aspect does.
 Request ResolveRequestedAspect(Mode mode, std::string_view custom, Surface surface) noexcept;
 
 // Scale for a hypothetical record while no wide request is in force: the auto
@@ -142,6 +178,8 @@ bool IsSixteenByNineFrustum(const Frustum& frustum) noexcept;
 // Keeps the horizontal center and widens the half-span by 1/k; every other
 // field is unchanged. Computed from the given values only, never accumulated.
 FrustumResult ScaleFrustumHorizontal(const Frustum& frustum, float k) noexcept;
+// The same along the vertical axis: top and bottom move, left and right stay.
+FrustumResult ScaleFrustumVertical(const Frustum& frustum, float k) noexcept;
 
 // Guest camera frustum words at camera+0xF0: left, right, top, bottom, near,
 // far and the orthographic word, each big endian.
@@ -149,9 +187,16 @@ inline constexpr size_t kFrustumBytes = 28;
 using FrustumBytes                    = std::array<uint8_t, kFrustumBytes>;
 
 bool DecodeFrustum(const FrustumBytes& bytes, Frustum& frustum, bool& orthographic) noexcept;
-// Writes the horizontally scaled frustum into a copy of original; only the
-// left and right words differ from it.
-FrustumStatus CorrectFrustumBytes(const FrustumBytes& original, float k, FrustumBytes& corrected) noexcept;
+
+// Byte offset of the pair of frustum words an axis correction rewrites.
+constexpr size_t FrustumPairOffset(Axis axis) noexcept
+{
+    return axis == Axis::Vertical ? 8 : 0;
+}
+
+// Writes the frustum scaled along `axis` into a copy of original; only that
+// axis's pair of words differs from it.
+FrustumStatus CorrectFrustumBytes(const FrustumBytes& original, float k, FrustumBytes& corrected, Axis axis = Axis::Horizontal) noexcept;
 
 // The first three floats of the composed GFx matrix: the horizontal row.
 struct Affine
@@ -189,11 +234,12 @@ struct Rect
     bool operator==(const Rect&) const = default;
 };
 
-// Horizontal scissor correction about the guest center, rounded outward and
+// Scissor correction along `axis` about the guest center, rounded outward and
 // clamped to the guest output; an empty rectangle stays unchanged.
-Rect CorrectScissor(const Rect& rect, float k) noexcept;
+Rect CorrectScissor(const Rect& rect, float k, Axis axis = Axis::Horizontal) noexcept;
 
-// A hardware viewport span in guest pixels.
+// A hardware viewport span in guest pixels along one axis: x and width, or y
+// and height for Axis::Vertical.
 struct ViewportSpan
 {
     int32_t x     = 0;
@@ -204,12 +250,12 @@ struct ViewportSpan
 
 // Compresses a viewport span like CorrectScissor. False (out untouched) for an
 // invalid scale or a span that is empty or leaves the guest output.
-bool CompressViewportSpan(int32_t x, int32_t width, float k, ViewportSpan& out) noexcept;
+bool CompressViewportSpan(int32_t x, int32_t width, float k, ViewportSpan& out, Axis axis = Axis::Horizontal) noexcept;
 
 // The scissor the native viewport-and-scissor intersection gives after
 // CorrectScissor on an already compressed viewport: the compressed request
-// clipped to the compressed span, with top and bottom unchanged.
-Rect CorrectScissorInViewport(const Rect& request, const ViewportSpan& compressed, float k) noexcept;
+// clipped to the compressed span, with the other axis unchanged.
+Rect CorrectScissorInViewport(const Rect& request, const ViewportSpan& compressed, float k, Axis axis = Axis::Horizontal) noexcept;
 
 enum class MovieState : uint8_t
 {
@@ -246,6 +292,7 @@ struct PolicyDecision
     bool   wide   = false;
     Aspect aspect = kOriginalAspect;
     float  k      = 1.0f;
+    Axis   axis   = Axis::Horizontal;
     Reason reason = Reason::Disabled;
 };
 
@@ -494,6 +541,7 @@ struct FrameView
     bool     wide        = false;
     Aspect   aspect      = kOriginalAspect;
     float    k           = 1.0f;
+    Axis     axis        = Axis::Horizontal;
     uint64_t interval    = 0;
     uint32_t mainCamera  = 0;
     uint32_t frameOwner  = 0;

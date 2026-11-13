@@ -4,6 +4,8 @@
 // The row is OnAccept descriptor "4": callback 0x82E51560 calls parent R's virtual +0x30 (0x82D6BFD8),
 // which requests frontend transition 36 and plays cue 1001. Skipping the transition preserves the menu's focus and legend;
 // pad capture blocks menu input while the frontend state machine runs behind the page.
+// Exit Game is the movie's own sixth row: SetText(5, text) shows focus5_mc and raises the movie's FocusCount to 6.
+// An accept on it sends descriptor "5", which the retail callback matches to nothing.
 
 #include <array>
 #include <atomic>
@@ -35,15 +37,33 @@ constexpr uint32_t kManagerPromptField  = 0x2C;
 constexpr uint32_t kCueFunction = 0x82E4E680;
 constexpr uint32_t kCue         = 1001;
 
-// readByte(i) gives the descriptor byte or nothing; retail stops at NUL, so read the second byte only after a 4.
+// Initializer 0x82E516F0 (r3=M) sends rows 0..4 as 0x82C4E858(M, method, format, row, 0x82E6A430(text manager, text)).
+constexpr uint32_t kSetTextMethod     = 0x82123F50;
+constexpr uint32_t kSetTextFormat     = 0x821245A0;
+constexpr uint32_t kTextManagerGlobal = 0x8314F2C8;
+constexpr uint32_t kExitRow           = 5;
+
+// readByte(i) gives the descriptor byte or nothing; retail stops at NUL, so read the second byte only after the row digit.
 template <typename ReadByte>
-constexpr bool IsOptionsDescriptor(ReadByte&& readByte)
+constexpr bool IsRowDescriptor(ReadByte&& readByte, uint8_t digit)
 {
     const auto first = readByte(0);
-    if (!first || *first != '4')
+    if (!first || *first != digit)
         return false;
     const auto second = readByte(1);
     return second && *second == 0;
+}
+
+template <typename ReadByte>
+constexpr bool IsOptionsDescriptor(ReadByte&& readByte)
+{
+    return IsRowDescriptor(readByte, '4');
+}
+
+template <typename ReadByte>
+constexpr bool IsExitDescriptor(ReadByte&& readByte)
+{
+    return IsRowDescriptor(readByte, '0' + kExitRow);
 }
 
 struct Entry
@@ -58,17 +78,20 @@ struct Entry
     uint32_t currentState        = 0; // U32[F + 4]
     uint32_t prompt              = 0; // U32[F + 0x2C]
     bool     descriptorIsOptions = false;
+    bool     descriptorIsExit    = false;
     bool     pageOpen            = false;
 };
 
 enum class Route
 {
     kPage,
+    kExit,
     kIgnore,
     kRetail,
 };
 
 // The page route needs a validated descriptor, current parent R, no transition or prompt, and host bindings; otherwise retail.
+// The exit route needs the same menu state without the host bindings.
 Route ChooseRoute(const Entry& entry);
 
 // Opened and checked on the guest thread; no guest state survives a call.

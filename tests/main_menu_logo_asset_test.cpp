@@ -146,6 +146,51 @@ void TestValidWinnerIsRetained()
              payload && payload->at(128) == 0x42));
 }
 
+void TestScaleShrinksAboutTheCenter()
+{
+    namespace logo = rerevved::main_menu_logo;
+    auto source    = makeLogoDds(0);
+    for (size_t offset = 128; offset < source.size(); offset += 4)
+    {
+        source[offset + 0] = 10;
+        source[offset + 1] = 20;
+        source[offset + 2] = 30;
+        source[offset + 3] = 255;
+    }
+    UNSCOPED_INFO("a scale of 1 changed the logo");
+    REQUIRE(logo::ScaleLogo(source, 1.0f) == source);
+
+    const auto scaled = logo::ScaleLogo(source, 0.5f);
+    const auto pixel  = [&scaled](size_t x, size_t y)
+    {
+        return scaled.data() + 128 + (y * 1024 + x) * 4;
+    };
+    UNSCOPED_INFO("the header or size changed");
+    REQUIRE((scaled.size() == source.size() && std::memcmp(scaled.data(), source.data(), 128) == 0));
+    UNSCOPED_INFO("the center lost its texel");
+    REQUIRE((pixel(512, 128)[0] == 10 && pixel(512, 128)[1] == 20 && pixel(512, 128)[2] == 30 && pixel(512, 128)[3] == 255));
+    UNSCOPED_INFO("the image still covers the border");
+    REQUIRE((pixel(0, 0)[3] == 0 && pixel(1023, 255)[3] == 0 && pixel(200, 128)[3] == 0 && pixel(512, 40)[3] == 0));
+    UNSCOPED_INFO("the half-size image does not span the middle half");
+    REQUIRE((pixel(300, 100)[3] == 255 && pixel(700, 160)[3] == 255));
+}
+
+void TestScaledWinnerIsRetained()
+{
+    rerevved::main_menu_logo::ResetForTests();
+    rex::system::AssetOverlayResolution resolved;
+    resolved.package_id  = "top.mod";
+    resolved.bytes       = makeLogoDds(0);
+    resolved.bytes[131]  = 255;
+    resolverState.result = std::move(resolved);
+
+    std::vector<rex::system::AssetOverlayPackage> packages(1);
+    REQUIRE(rerevved::main_menu_logo::ResolveSelectedLogo(packages, &fakeResolver, rerevved::main_menu_logo::kNarrowScale));
+    rerevved::main_menu_logo::Payload payload;
+    UNSCOPED_INFO("the corner texel survived the shrink");
+    REQUIRE((rerevved::main_menu_logo::TryGetPayload(payload) && payload && payload->at(131) == 0));
+}
+
 } // namespace
 
 TEST_CASE("main_menu_logo_asset", "[ctest][main-menu-logo-asset]")
@@ -155,4 +200,6 @@ TEST_CASE("main_menu_logo_asset", "[ctest][main-menu-logo-asset]")
     TestMissingFallsBack();
     TestMalformedWinnerDoesNotFallThrough();
     TestValidWinnerIsRetained();
+    TestScaleShrinksAboutTheCenter();
+    TestScaledWinnerIsRetained();
 }
