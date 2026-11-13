@@ -914,7 +914,7 @@ drawn triangle as fallback.
 **Achievements page.** The third page lists every achievement the SDK catalog
 holds, from the same `AchievementManager` the F3 window reads (the catalog,
 `IsUnlocked` and `GetUnlockTime` of the live kernel state), so the XEX
-achievements and the thirty-one custom ones appear together. The order is the F3
+achievements and the thirty-two custom ones appear together. The order is the F3
 window's: the original achievements in catalog order, then the custom ones by
 ascending gamerscore, label and ID (`src/achievements_list.cpp`). As in F3, the
 page has two tabs, Original (the game's own achievements) and Custom, on a tab
@@ -2407,11 +2407,11 @@ multiplier minus one in one byte, so the zero word is the native policy.
 
 ## Custom achievements
 
-The title adds thirty-one achievements to the SDK catalog, 1615 gamerscore in
+The title adds thirty-two achievements to the SDK catalog, 1645 gamerscore in
 total. Native XDBF achievement IDs are 16-bit, so these IDs cannot collide with
 them. `App::OnPostLoadXexImage` registers them after the XEX catalog is loaded
 and before the guest launches. Registration reports success only when all
-thirty-one register. Each icon comes from the player's own game files.
+thirty-two register. Each icon comes from the player's own game files.
 Its `icon_path`, `fpk:<archive>/<entry>`, names a DDS in an FPK under
 `Resource/Common`, decoded at runtime by `retail_ui_art`. No retail bytes ship
 with the title. If the archive or entry is missing or decoding fails, the
@@ -2450,6 +2450,7 @@ title XDBF image identified by the Image entry is shown instead.
 | `0x1001D` | `Around the World` | 25 | 34 | `pedia.FPK/tech_globalization.dds` |
 | `0x1001E` | `The Bay Harbor Butcher` | 50 | 24 | `pedia.FPK/bldg_harbor.dds` |
 | `0x1001F` | `Morte Eterna` | 50 | 35 | `pedia.FPK/unit_great_general.dds` |
+| `0x10020` | `Eternal War` | 30 | 13 | `pedia.FPK/tech_ironworking.dds` |
 
 ### Victory achievements
 
@@ -2499,6 +2500,7 @@ Network games are excluded from every predicate.
 | `0x1001C` | Any scenario of pack `rerevved-climates`, any difficulty and victory type |
 | `0x1001D` | Any scenario of pack `rerevved-real-world`, any difficulty and victory type |
 | `0x1001F` | Domination victory (type 1), Deity, Always At War on, map `rr_europe` of pack `rerevved-real-world` |
+| `0x10020` | Deity, no native economy, Always At War on, technology cost multiplier 100, any victory type |
 
 The map pack is identified from the scenario word `0x8312B8D4` (-1 in an
 ordinary game). A value of 100 or more is looked up in the scenarios that

@@ -19,7 +19,7 @@ namespace
 std::mutex mutex;
 Progress   progress;
 
-// Total 1615G.
+// Total 1645G.
 struct Entry
 {
     uint32_t    id;
@@ -62,6 +62,7 @@ constexpr Entry kCatalog[] = {
     { kAroundTheWorldId, "Around the World", "Win a game on any map from the Real World map pack.", 25, 34, "fpk:pedia.FPK/tech_globalization.dds" },
     { kBayHarborButcherId, "The Bay Harbor Butcher", "Defeat 50 ships in a single game on Deity on any map from the Islands map pack.", 50, 24, "fpk:pedia.FPK/bldg_harbor.dds" },
     { kMorteEternaId, "Morte Eterna", "Win a Domination Victory on the Europe map on Deity with Always At War enabled.", 50, 35, "fpk:pedia.FPK/unit_great_general.dds" },
+    { kEternalWarId, "Eternal War", "Win a game on Deity with Always At War enabled and Technology Cost set to 100x.", 30, 13, "fpk:pedia.FPK/tech_ironworking.dds" },
 };
 
 rex::system::AchievementInfo makeInfo(const Entry& entry)
@@ -205,6 +206,7 @@ constexpr VictoryRule kVictoryRules[] = {
     { kWeatherWithYouId, QualifiesWeatherWithYou },
     { kAroundTheWorldId, QualifiesAroundTheWorld },
     { kMorteEternaId, QualifiesMorteEterna },
+    { kEternalWarId, QualifiesEternalWar },
 };
 
 bool inMap(Tile tile) noexcept
@@ -425,6 +427,12 @@ bool QualifiesMorteEterna(const VictoryContext& context) noexcept
 {
     return deity(context) && context.victoryType == 1 && context.alwaysAtWar && inPack(context, "rerevved-real-world") &&
            context.mapName == "rr_europe";
+}
+
+bool QualifiesEternalWar(const VictoryContext& context) noexcept
+{
+    return deity(context) && !context.nativeEconomy && context.alwaysAtWar &&
+           context.policy.technologyCostMultiplier == ai_economy::kMaxTechnologyCostMultiplier;
 }
 
 bool Register()
