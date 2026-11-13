@@ -10,7 +10,7 @@
 #include <rex/runtime.h>
 #include <rex/system/xmemory.h>
 
-void ApplyAiResearchCostPercent(PPCRegister& technology, PPCRegister& player, PPCRegister& cost);
+void ApplyResearchCostPercent(PPCRegister& technology, PPCRegister& player, PPCRegister& cost);
 void ApplyAiUnitProductionCostPercent(PPCRegister& cityOffset, PPCRegister& unitType, PPCRegister& scalar);
 void ApplyAiNonUnitProductionCostPercent(PPCRegister& cityOffset, PPCRegister& itemOffset, PPCRegister& cost);
 void ApplyAiGoldBonus(PPCRegister& stack, PPCRegister& owner, PPCRegister& value);
@@ -93,7 +93,7 @@ TEST_CASE("ai_economy_research_hook", "[ctest][ai-economy]")
     technology.u64 = 0x1234567800000004ull;
     player.u64     = 0x8765432100000001ull;
     cost.u64       = kOriginal;
-    ApplyAiResearchCostPercent(technology, player, cost);
+    ApplyResearchCostPercent(technology, player, cost);
     CHECK(cost.s64 == 33);
     CHECK(technology.u64 == 0x1234567800000004ull);
     CHECK(player.u64 == 0x8765432100000001ull);
@@ -102,7 +102,7 @@ TEST_CASE("ai_economy_research_hook", "[ctest][ai-economy]")
     {
         player.s64 = id;
         cost.u64   = kOriginal;
-        ApplyAiResearchCostPercent(technology, player, cost);
+        ApplyResearchCostPercent(technology, player, cost);
         CHECK(cost.u64 == kOriginal);
     }
     player.s64 = 1;
@@ -110,7 +110,7 @@ TEST_CASE("ai_economy_research_hook", "[ctest][ai-economy]")
     {
         technology.s64 = id;
         cost.u64       = kOriginal;
-        ApplyAiResearchCostPercent(technology, player, cost);
+        ApplyResearchCostPercent(technology, player, cost);
         CHECK(cost.u64 == kOriginal);
     }
     technology.s64 = 4;
@@ -118,26 +118,67 @@ TEST_CASE("ai_economy_research_hook", "[ctest][ai-economy]")
     {
         world.Word(0x8312E608, humans);
         cost.u64 = kOriginal;
-        ApplyAiResearchCostPercent(technology, player, cost);
+        ApplyResearchCostPercent(technology, player, cost);
         CHECK(cost.u64 == kOriginal);
     }
     world.Word(0x8312E608, 1);
     world.Word(0x82F700AC, 8);
     cost.u64 = kOriginal;
-    ApplyAiResearchCostPercent(technology, player, cost);
+    ApplyResearchCostPercent(technology, player, cost);
     CHECK(cost.u64 == kOriginal);
     world.Word(0x82F700AC, 6);
     world.Word(0x82F700B0, 4);
-    ApplyAiResearchCostPercent(technology, player, cost);
+    ApplyResearchCostPercent(technology, player, cost);
     CHECK(cost.u64 == kOriginal);
     world.Word(0x82F700B0, 5);
     cost.s64 = -1;
-    ApplyAiResearchCostPercent(technology, player, cost);
+    ApplyResearchCostPercent(technology, player, cost);
     CHECK(cost.s64 == -1);
     economy::RestoreForGame({ 200, 100 });
     cost.s64 = 1;
-    ApplyAiResearchCostPercent(technology, player, cost);
+    ApplyResearchCostPercent(technology, player, cost);
     CHECK(cost.s64 == 1);
+}
+
+TEST_CASE("ai_economy_technology_cost_hook", "[ctest][ai-economy]")
+{
+    World       world;
+    PPCRegister technology{}, player{}, cost{};
+    technology.s64 = 4;
+    player.s64     = 0;
+    cost.u64       = kOriginal;
+
+    // Humans pay the multiple only. The AI bonus divides the multiplied cost: 20 -> 2000 -> 666.
+    economy::RestoreForGame({ 200, 0, 0, 0, 0, 100 });
+    cost.s64 = 20;
+    ApplyResearchCostPercent(technology, player, cost);
+    CHECK(cost.s64 == 2000);
+    player.s64 = 1;
+    cost.s64   = 20;
+    ApplyResearchCostPercent(technology, player, cost);
+    CHECK(cost.s64 == 666);
+
+    economy::RestoreForGame({ 0, 0, 0, 0, 0, 5 });
+    cost.u64 = kOriginal;
+    ApplyResearchCostPercent(technology, player, cost);
+    CHECK(cost.s64 == 505);
+
+    for (const int32_t id : { 0, 48 })
+    {
+        technology.s64 = id;
+        cost.u64       = kOriginal;
+        ApplyResearchCostPercent(technology, player, cost);
+        CHECK(cost.u64 == kOriginal);
+    }
+    technology.s64 = 4;
+    cost.s64       = 0;
+    ApplyResearchCostPercent(technology, player, cost);
+    CHECK(cost.s64 == 0);
+
+    world.Byte(0x8314F10B, 1);
+    cost.u64 = kOriginal;
+    ApplyResearchCostPercent(technology, player, cost);
+    CHECK(cost.u64 == kOriginal);
 }
 
 TEST_CASE("ai_economy_production_hooks", "[ctest][ai-economy]")
@@ -213,7 +254,7 @@ TEST_CASE("ai_economy_expanded_layout_hooks", "[ctest][ai-economy]")
         player.s64 = owner;
         world.Byte(0x8314FE28 + 0xBC, static_cast<uint8_t>(owner));
         value.s64 = 101;
-        ApplyAiResearchCostPercent(technology, player, value);
+        ApplyResearchCostPercent(technology, player, value);
         CHECK(value.s64 == (ai ? 33 : 101));
         value.s64 = 5;
         ApplyAiUnitProductionCostPercent(city, unit, value);
@@ -259,7 +300,7 @@ TEST_CASE("ai_economy_native_and_loading_hooks", "[ctest][ai-economy]")
     const auto expectNative = [&]
     {
         value.u64 = kOriginal;
-        ApplyAiResearchCostPercent(technology, player, value);
+        ApplyResearchCostPercent(technology, player, value);
         CHECK(value.u64 == kOriginal);
         ApplyAiUnitProductionCostPercent(city, unit, value);
         CHECK(value.u64 == kOriginal);

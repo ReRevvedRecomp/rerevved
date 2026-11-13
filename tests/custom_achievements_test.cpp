@@ -641,7 +641,7 @@ TEST_CASE("custom_achievement_barbarian_defeats_continue_after_reload", "[ctest]
     CHECK(store.recordDefeat() == achievements::AwardResult::Unlocked);
 }
 
-TEST_CASE("custom_achievement_metadata_of_all_thirty_one", "[ctest][custom-achievements]")
+TEST_CASE("custom_achievement_metadata_of_all_thirty_two", "[ctest][custom-achievements]")
 {
     struct Row
     {
@@ -683,6 +683,7 @@ TEST_CASE("custom_achievement_metadata_of_all_thirty_one", "[ctest][custom-achie
         { 0x1001D, "Around the World", 25, 34 },
         { 0x1001E, "The Bay Harbor Butcher", 50, 24 },
         { 0x1001F, "Morte Eterna", 50, 35 },
+        { 0x10020, "Eternal War", 30, 13 },
     };
     const auto all = achievements::AllAchievements();
     REQUIRE(all.size() == std::size(rows));
@@ -701,7 +702,7 @@ TEST_CASE("custom_achievement_metadata_of_all_thirty_one", "[ctest][custom-achie
         CHECK(std::string_view(achievements::AchievementName(rows[i].id)) == rows[i].label);
         total += all[i].gamerscore;
     }
-    CHECK(total == 1615);
+    CHECK(total == 1645);
     CHECK(all[3].icon_path == "fpk:pedia.FPK/gov_fundamentalism.dds");
     CHECK(std::string_view(achievements::AchievementName(0x1FFFF)) == "unknown");
     CHECK(achievements::ConcentratedPowerOfWill().label == all[0].label);
@@ -1172,6 +1173,52 @@ TEST_CASE("custom_achievement_morte_eterna_on_europe", "[ctest][custom-achieveme
         }));
 }
 
+TEST_CASE("custom_achievement_eternal_war", "[ctest][custom-achievements]")
+{
+    auto context                            = tracked(3);
+    context.alwaysAtWar                     = true;
+    context.policy.technologyCostMultiplier = 100;
+    CHECK(achievements::QualifiesEternalWar(context));
+    CHECK(unlockedBy(context).contains(achievements::kEternalWarId));
+
+    const auto rejects = [&](auto change)
+    {
+        auto changed = context;
+        change(changed);
+        return !achievements::QualifiesEternalWar(changed);
+    };
+    CHECK(rejects(
+        [](auto& c)
+        {
+            c.difficulty = 3;
+        }));
+    CHECK(rejects(
+        [](auto& c)
+        {
+            c.networkGame = true;
+        }));
+    CHECK(rejects(
+        [](auto& c)
+        {
+            c.alwaysAtWar = false;
+        }));
+    CHECK(rejects(
+        [](auto& c)
+        {
+            c.policy.technologyCostMultiplier = 50;
+        }));
+    CHECK(rejects(
+        [](auto& c)
+        {
+            c.nativeEconomy = true;
+        }));
+    CHECK_FALSE(rejects(
+        [](auto& c)
+        {
+            c.victoryType = 1;
+        }));
+}
+
 TEST_CASE("custom_achievement_untracked_history_fails_whole_game_achievements", "[ctest][custom-achievements]")
 {
     // A load without a schema 2 sidecar: every history-based achievement fails even when
@@ -1232,7 +1279,7 @@ TEST_CASE("custom_achievement_victory_evaluates_every_predicate", "[ctest][custo
             });
     };
     const auto first = award();
-    CHECK(first.size() == 25);
+    CHECK(first.size() == 26);
     CHECK(unlocked == expected);
     CHECK(unlockCalls == static_cast<int>(expected.size()));
     uint32_t previous = 0;

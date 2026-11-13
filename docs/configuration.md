@@ -11,7 +11,7 @@ Close ReRevved before editing the file directly.
   Name** is your player name in single-player and online games, after a
   restart; an empty name reads "User" offline.
 - **Gameplay**: combat speed, unit movement, resources, Raging Barbarians, One City
-  Challenge, Earliest Domination, Turn Limit, Starting Era, AI civilizations, Always At War, AI Handicaps,
+  Challenge, Earliest Domination, Turn Limit, Starting Era, Technology Cost, AI civilizations, Always At War, AI Handicaps,
   and Game of the Week.
 - **Notifications**: Spaceship Scenes, research prompts, advisor pop-ups, and Barbarian messages. Each is on by default; turn a row off to hide it.
   New government prompts and Wonder completions always show, and online games always show the first Barbarian message.
@@ -63,6 +63,16 @@ Modern 24 and Future all 46 ordinary technologies, through the game's own starti
 value it started with, so a later change applies only to the next new game. A new
 multiplayer game uses the host's value for every player. A scenario and Game of
 the Week keep their own era, and a loaded save never grants technologies again.
+
+**Technology Cost** multiplies the research cost of every technology for every
+civilization, human or AI. It runs from 1x to 100x in presets of 1x, 2x, 3x, 5x,
+10x, 20x, 50x and 100x, and defaults to 1x, which keeps native costs. A base cost
+of 20 becomes 2000 at 100x. The multiplier applies before the AI Research Bonus.
+The value applies to the next new game and is saved with it. A new multiplayer
+game uses the host's value. Standard Rules use native costs. The gameplay
+sidecar holds the value; a save without it, and a Game of the Week practice
+save, loads 1x. The [runtime contract](rexglue-runtime.md#technology-cost)
+describes rounding.
 
 **Always At War** (off by default) keeps every civilization at war with every
 other one for the whole game; peace can never be made. The game keeps the value it

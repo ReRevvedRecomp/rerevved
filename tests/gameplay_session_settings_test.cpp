@@ -24,6 +24,7 @@ REXCVAR_DECLARE(bool, raging_barbarians);
 REXCVAR_DECLARE(bool, gotw_custom_week);
 REXCVAR_DECLARE(bool, gotw_standard_rules);
 REXCVAR_DECLARE(int32_t, ai_research_bonus_percent);
+REXCVAR_DECLARE(int32_t, technology_cost_multiplier);
 REXCVAR_DECLARE(int32_t, ai_production_bonus_percent);
 REXCVAR_DECLARE(int32_t, ai_gold_bonus_percent);
 REXCVAR_DECLARE(int32_t, ai_food_bonus_percent);
@@ -100,6 +101,7 @@ void useLocalPolicy()
     REXCVAR_SET(ai_gold_bonus_percent, 13);
     REXCVAR_SET(ai_food_bonus_percent, 14);
     REXCVAR_SET(ai_culture_bonus_percent, 15);
+    REXCVAR_SET(technology_cost_multiplier, 16);
 }
 
 void publishHostGame(const host::HostSettings& settings)
@@ -123,6 +125,7 @@ TEST_CASE("host gameplay policy precedes title freezes", "[ctest][host-settings]
     REREVVED_RESTORE_CVAR(ai_gold_bonus_percent);
     REREVVED_RESTORE_CVAR(ai_food_bonus_percent);
     REREVVED_RESTORE_CVAR(ai_culture_bonus_percent);
+    REREVVED_RESTORE_CVAR(technology_cost_multiplier);
     REXCVAR_SET(one_city_challenge, false);
     REXCVAR_SET(raging_barbarians, false);
     REXCVAR_SET(gotw_custom_week, false);
@@ -132,6 +135,7 @@ TEST_CASE("host gameplay policy precedes title freezes", "[ctest][host-settings]
     REXCVAR_SET(ai_gold_bonus_percent, 0);
     REXCVAR_SET(ai_food_bonus_percent, 0);
     REXCVAR_SET(ai_culture_bonus_percent, 0);
+    REXCVAR_SET(technology_cost_multiplier, 1);
 
     host::HostSettings settings;
     settings.aiCivilizations          = 2;
@@ -143,6 +147,7 @@ TEST_CASE("host gameplay policy precedes title freezes", "[ctest][host-settings]
     settings.aiGoldBonusPercent       = 25;
     settings.aiFoodBonusPercent       = 75;
     settings.aiCultureBonusPercent    = 200;
+    settings.technologyCostMultiplier = 30;
     settings.dominationMinimumTurns   = 5;
     settings.turnLimit                = 3;
     settings.startingEra              = 2;
@@ -164,7 +169,7 @@ TEST_CASE("host gameplay policy precedes title freezes", "[ctest][host-settings]
     CHECK_FALSE(rerevved::gameplay_fixes::AlwaysAtWarForGame());
     CHECK(session::ForNetworkGame()->skipSpaceshipScenes);
     CHECK(session::ForNetworkGame()->unitMovement == 1);
-    CHECK((rerevved::ai_economy::ForGame() == rerevved::ai_economy::Policy{ 50, 40, 25, 75, 200 }));
+    CHECK((rerevved::ai_economy::ForGame() == rerevved::ai_economy::Policy{ 50, 40, 25, 75, 200, 30 }));
     CHECK(rerevved::occ::ForGame()->enabled);
     CHECK(rerevved::raging_barbarians::Evaluate(0).enabled);
     CHECK_FALSE(REXCVAR_GET(one_city_challenge));
@@ -365,17 +370,20 @@ TEST_CASE("local settings read the AI bonus preferences", "[ctest][host-settings
     REREVVED_RESTORE_CVAR(ai_gold_bonus_percent);
     REREVVED_RESTORE_CVAR(ai_food_bonus_percent);
     REREVVED_RESTORE_CVAR(ai_culture_bonus_percent);
+    REREVVED_RESTORE_CVAR(technology_cost_multiplier);
     REXCVAR_SET(ai_research_bonus_percent, 10);
     REXCVAR_SET(ai_production_bonus_percent, 20);
     REXCVAR_SET(ai_gold_bonus_percent, 30);
     REXCVAR_SET(ai_food_bonus_percent, 40);
     REXCVAR_SET(ai_culture_bonus_percent, 200);
+    REXCVAR_SET(technology_cost_multiplier, 100);
     const auto local = host::LocalSettings();
     CHECK(local.aiResearchBonusPercent == 10);
     CHECK(local.aiProductionBonusPercent == 20);
     CHECK(local.aiGoldBonusPercent == 30);
     CHECK(local.aiFoodBonusPercent == 40);
     CHECK(local.aiCultureBonusPercent == 200);
+    CHECK(local.technologyCostMultiplier == 100);
 }
 
 TEST_CASE("weekly week binds to the latch that follows its own preparation", "[ctest][host-settings]")
@@ -458,6 +466,7 @@ TEST_CASE("a network restore keeps every host value whatever the local settings 
     REREVVED_RESTORE_CVAR(ai_gold_bonus_percent);
     REREVVED_RESTORE_CVAR(ai_food_bonus_percent);
     REREVVED_RESTORE_CVAR(ai_culture_bonus_percent);
+    REREVVED_RESTORE_CVAR(technology_cost_multiplier);
 
     host::HostSettings settings;
     settings.oneCityChallenge         = true;
@@ -468,6 +477,7 @@ TEST_CASE("a network restore keeps every host value whatever the local settings 
     settings.aiGoldBonusPercent       = 25;
     settings.aiFoodBonusPercent       = 75;
     settings.aiCultureBonusPercent    = 200;
+    settings.technologyCostMultiplier = 30;
     settings.dominationMinimumTurns   = 5;
     settings.turnLimit                = 3;
     publishHostGame(settings);
@@ -484,13 +494,14 @@ TEST_CASE("a network restore keeps every host value whatever the local settings 
     REXCVAR_SET(ai_gold_bonus_percent, 0);
     REXCVAR_SET(ai_food_bonus_percent, 0);
     REXCVAR_SET(ai_culture_bonus_percent, 0);
+    REXCVAR_SET(technology_cost_multiplier, 1);
 
     const auto loadCase = session::ClassifyLoad(false, true, session::ForNetworkGame() != nullptr);
     REQUIRE(loadCase == session::LoadCase::NetworkRestore);
     const auto resources = runLoadReset(loadCase);
 
     CHECK(session::ForNetworkGame() == hostSnapshot);
-    CHECK((rerevved::ai_economy::ForGame() == rerevved::ai_economy::Policy{ 50, 40, 25, 75, 200 }));
+    CHECK((rerevved::ai_economy::ForGame() == rerevved::ai_economy::Policy{ 50, 40, 25, 75, 200, 30 }));
     CHECK(rerevved::occ::ForGame()->enabled);
     CHECK(rerevved::raging_barbarians::Evaluate(0).enabled);
     CHECK(resources == 3);
@@ -511,6 +522,7 @@ TEST_CASE("a file load in a network session still resets to local settings", "[c
     REREVVED_RESTORE_CVAR(ai_gold_bonus_percent);
     REREVVED_RESTORE_CVAR(ai_food_bonus_percent);
     REREVVED_RESTORE_CVAR(ai_culture_bonus_percent);
+    REREVVED_RESTORE_CVAR(technology_cost_multiplier);
 
     host::HostSettings settings;
     settings.ragingBarbarians       = true;
@@ -543,6 +555,7 @@ TEST_CASE("a network restore without a host snapshot takes native defaults", "[c
     REREVVED_RESTORE_CVAR(ai_gold_bonus_percent);
     REREVVED_RESTORE_CVAR(ai_food_bonus_percent);
     REREVVED_RESTORE_CVAR(ai_culture_bonus_percent);
+    REREVVED_RESTORE_CVAR(technology_cost_multiplier);
     session::ResetOnLoad();
     useLocalPolicy();
     rerevved::gameplay_fixes::RestoreTurnLimit(2);

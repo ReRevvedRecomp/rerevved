@@ -133,7 +133,7 @@ SCENE_ALLOCATION_HOOKS = [
 EXPECTED_HOOKS = [
     {
         "address": 0x82CF1058,
-        "name": "ApplyAiResearchCostPercent",
+        "name": "ApplyResearchCostPercent",
         "registers": ["r25", "r26", "r3"],
     },
     {
@@ -2851,7 +2851,7 @@ class HookContractTests(unittest.TestCase):
             [
                 {
                     "address": 0x82CF1058,
-                    "name": "ApplyAiResearchCostPercent",
+                    "name": "ApplyResearchCostPercent",
                     "registers": ["r25", "r26", "r3"],
                 },
                 {
@@ -2887,7 +2887,7 @@ class HookContractTests(unittest.TestCase):
         for owner, hook, before, after in (
             (
                 "82CF0EE8",
-                "ApplyAiResearchCostPercent(ctx.r25, ctx.r26, ctx.r3);",
+                "ApplyResearchCostPercent(ctx.r25, ctx.r26, ctx.r3);",
                 "// mullw r3,r11,r30",
                 "ctx.r1.s64 = ctx.r1.s64 + 160;",
             ),
@@ -3290,7 +3290,7 @@ class HookContractTests(unittest.TestCase):
         )
         self.assertRegex(
             settings,
-            r'\{ "", \{ [^}]*"turn_limit", "starting_era", "ai_civilizations", "always_at_war" \} \}',
+            r'\{ "", \{ [^}]*"turn_limit", "starting_era", "technology_cost_multiplier", "ai_civilizations", "always_at_war" \} \}',
         )
         self.assertIn('{ "ai_civilizations", Audience::kPlayer }', settings)
         self.assertEqual(settings.count('"ai_civilizations"'), 6)

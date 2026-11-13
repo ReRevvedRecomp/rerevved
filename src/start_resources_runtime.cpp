@@ -386,7 +386,7 @@ void RunNativeNewGameSetup(PPCContext& context, uint8_t* base)
     const bool  standardRules = gameplay_session::ApplyNewGame(snapshot, network, mode);
     // The seed latch (0x82E76ED4) precedes outer setup. Only the latch from the attempt consumed by Prepare counts.
     const uint32_t weeklyWeek = mode == 2 ? gameplay_session::AcceptedWeeklyWeek() : 0;
-    REXLOG_INFO("GameplayFix: new game domination minimum={}", settings.dominationMinimumTurns);
+    REXLOG_INFO("GameplayFix: new game domination minimum={} technology_cost={}", settings.dominationMinimumTurns, standardRules ? 1 : settings.technologyCostMultiplier);
     SetupScope scope(standardRules, settings.resources);
 
     ai_civilizations::SetupScope civilizations(settings.aiCivilizations, standardRules, base, mode);

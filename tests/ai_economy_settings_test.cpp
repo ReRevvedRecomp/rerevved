@@ -11,6 +11,7 @@ REXCVAR_DECLARE(int32_t, ai_production_bonus_percent);
 REXCVAR_DECLARE(int32_t, ai_gold_bonus_percent);
 REXCVAR_DECLARE(int32_t, ai_food_bonus_percent);
 REXCVAR_DECLARE(int32_t, ai_culture_bonus_percent);
+REXCVAR_DECLARE(int32_t, technology_cost_multiplier);
 
 namespace
 {
@@ -112,13 +113,13 @@ TEST_CASE("ai_economy_standard_and_network_policy", "[ctest][ai-economy]")
 TEST_CASE("ai_economy_failed_load_preserves_policy", "[ctest][ai-economy]")
 {
     const PolicyReset reset;
-    economy::RestoreForGame({ 33, 67, 1, 2, 3 });
+    economy::RestoreForGame({ 33, 67, 1, 2, 3, 4 });
     {
         economy::LoadScope load;
         CHECK(economy::ForGame() == economy::Policy{});
         load.Finish(false);
     }
-    CHECK((economy::ForGame() == economy::Policy{ 33, 67, 1, 2, 3 }));
+    CHECK((economy::ForGame() == economy::Policy{ 33, 67, 1, 2, 3, 4 }));
 
     // Reaching the reset seam without metadata starts a game with native costs.
     {
@@ -208,4 +209,40 @@ TEST_CASE("ai_economy_yield_scaling", "[ctest][ai-economy]")
     CHECK(economy::ScaleYield(32767, 100) == 32767);
     CHECK(economy::ScaleYield(32768, 100) == 32768);
     CHECK(economy::ScaleYield(std::numeric_limits<int32_t>::max(), 200) == std::numeric_limits<int32_t>::max());
+}
+
+TEST_CASE("ai_economy_technology_cost_scaling", "[ctest][ai-economy]")
+{
+    CHECK(economy::ScaleTechnologyCost(20, 100) == 2000);
+    CHECK(economy::ScaleTechnologyCost(15, 2) == 30);
+    CHECK(economy::ScaleTechnologyCost(15, 1) == 15);
+    CHECK(economy::ScaleTechnologyCost(15, 0) == 15);
+    CHECK(economy::ScaleTechnologyCost(15, 101) == 15);
+    CHECK(economy::ScaleTechnologyCost(15, -1) == 15);
+    CHECK(economy::ScaleTechnologyCost(0, 100) == 0);
+    CHECK(economy::ScaleTechnologyCost(-4, 100) == -4);
+    CHECK(economy::ScaleTechnologyCost(std::numeric_limits<int32_t>::max(), 2) == std::numeric_limits<int32_t>::max());
+    CHECK(economy::ScaleTechnologyCost(std::numeric_limits<int32_t>::max() / 50, 100) == std::numeric_limits<int32_t>::max());
+}
+
+TEST_CASE("ai_economy_technology_cost_policy", "[ctest][ai-economy]")
+{
+    const PolicyReset reset;
+    REREVVED_RESTORE_CVAR(technology_cost_multiplier);
+    REXCVAR_SET(technology_cost_multiplier, 100);
+    economy::FreezeForGame();
+    CHECK(economy::ForGame().technologyCostMultiplier == 100);
+    CHECK(economy::ForSave(false).technologyCostMultiplier == 100);
+    economy::FreezeForGame(true);
+    CHECK(economy::ForGame() == economy::Policy{});
+    CHECK(economy::ForGame().technologyCostMultiplier == 1);
+
+    const economy::Policy mixed{ 200, 0, 0, 0, 200, 100 };
+    economy::RestoreForGame(mixed);
+    CHECK(economy::ForGame() == mixed);
+    economy::RestoreForGame({ 0, 0, 0, 0, 0, 101 });
+    CHECK(economy::ForGame() == economy::Policy{});
+    economy::RestoreForGame({ 0, 0, 0, 0, 0, 0 });
+    CHECK(economy::ForGame() == economy::Policy{});
+    CHECK_FALSE(economy::IsValid({ 0, 0, 0, 0, 0, 0 }));
 }

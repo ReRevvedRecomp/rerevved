@@ -6,7 +6,9 @@ namespace rerevved::ai_economy
 {
 
 // AI bonus percentages: 0 keeps native behavior, 200 is the maximum.
-constexpr int32_t kMaxBonusPercent = 200;
+// The technology cost multiplier applies to every civilization, 1 to 100.
+constexpr int32_t kMaxBonusPercent             = 200;
+constexpr int32_t kMaxTechnologyCostMultiplier = 100;
 
 struct Policy
 {
@@ -15,6 +17,7 @@ struct Policy
     int32_t goldBonusPercent                = 0;
     int32_t foodBonusPercent                = 0;
     int32_t cultureBonusPercent             = 0;
+    int32_t technologyCostMultiplier        = 1;
     bool    operator==(const Policy&) const = default;
 };
 
@@ -46,6 +49,9 @@ private:
 
 // Research and production bonuses divide the native cost by (1 + bonus / 100).
 int32_t ScaleCost(int32_t nativeCost, int32_t bonusPercent) noexcept;
+
+// Multiplies a positive technology cost by the multiplier, clamped to INT32_MAX.
+int32_t ScaleTechnologyCost(int32_t nativeCost, int32_t multiplier) noexcept;
 int32_t ScaleUnitScalar(int32_t nativeScalar, int32_t factor, int32_t bonusPercent) noexcept;
 
 // Gold, food and culture bonuses multiply a positive completed city

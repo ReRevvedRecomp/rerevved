@@ -17,10 +17,10 @@ namespace
 {
 
 // Gate built-in gameplay semantics as well as the serialized field layout.
-constexpr uint8_t kFormatVersion    = 8;
+constexpr uint8_t kFormatVersion    = 9;
 constexpr uint8_t kTruncatedFlag    = 0x01;
 constexpr uint8_t kCapitalGraceFlag = 0x20;
-constexpr size_t  kHeaderSize       = 26;
+constexpr size_t  kHeaderSize       = 27;
 constexpr size_t  kMaxFieldLength   = 255;
 constexpr size_t  kMaxModCount      = 255;
 constexpr size_t  kMaxListedIssues  = 4;
@@ -103,8 +103,9 @@ HostSettings Normalize(HostSettings settings, bool networkGame)
     {
         settings.dominationMinimumTurns = 10;
     }
-    settings.combatSpeed  = settings.combatSpeed == 1 ? 1 : 0;
-    settings.unitMovement = std::clamp(settings.unitMovement, int32_t{ 0 }, int32_t{ 2 });
+    settings.technologyCostMultiplier = std::clamp(settings.technologyCostMultiplier, 1, ai_economy::kMaxTechnologyCostMultiplier);
+    settings.combatSpeed              = settings.combatSpeed == 1 ? 1 : 0;
+    settings.unitMovement             = std::clamp(settings.unitMovement, int32_t{ 0 }, int32_t{ 2 });
     if (!settings.gotwCustomWeek || !gotw::IsValidWeek(settings.gotwWeek))
     {
         settings.gotwCustomWeek = false;
@@ -224,6 +225,7 @@ std::vector<uint8_t> Encode(const HostSettings& settings)
     out.push_back(static_cast<uint8_t>(normalized.multiplayerAiDifficulty));
     out.push_back(normalized.skipSpaceshipScenes ? 1 : 0);
     out.push_back(static_cast<uint8_t>(normalized.unitMovement));
+    out.push_back(static_cast<uint8_t>(normalized.technologyCostMultiplier));
     if (normalized.rulesDigestPresent)
     {
         out.insert(out.end(), normalized.rulesDigest.begin(), normalized.rulesDigest.end());
@@ -245,7 +247,8 @@ std::optional<HostSettings> Decode(std::span<const uint8_t> bytes)
         (bytes[5] != 0 && bytes[5] != 1 && bytes[5] != 3) || bytes[6] > ai_economy::kMaxBonusPercent || bytes[7] > ai_economy::kMaxBonusPercent ||
         bytes[8] > ai_economy::kMaxBonusPercent || bytes[9] > ai_economy::kMaxBonusPercent || bytes[10] > ai_economy::kMaxBonusPercent ||
         (bytes[11] != 5 && bytes[11] != 10) || bytes[12] > 1 || !gameplay_fixes::IsValidTurnLimit(bytes[21]) ||
-        !gameplay_fixes::IsValidStartingEra(bytes[22]) || !gameplay_fixes::IsValidMultiplayerAiDifficulty(bytes[23]) || bytes[24] > 1 || bytes[25] > 2)
+        !gameplay_fixes::IsValidStartingEra(bytes[22]) || !gameplay_fixes::IsValidMultiplayerAiDifficulty(bytes[23]) || bytes[24] > 1 || bytes[25] > 2 ||
+        bytes[26] < 1 || bytes[26] > ai_economy::kMaxTechnologyCostMultiplier)
     {
         return std::nullopt;
     }
@@ -271,6 +274,7 @@ std::optional<HostSettings> Decode(std::span<const uint8_t> bytes)
     settings.multiplayerAiDifficulty  = bytes[23];
     settings.skipSpaceshipScenes      = bytes[24] != 0;
     settings.unitMovement             = bytes[25];
+    settings.technologyCostMultiplier = bytes[26];
     for (unsigned index = 0; index < 4; ++index)
     {
         settings.gotwWeek |= uint32_t{ bytes[13 + index] } << (index * 8);

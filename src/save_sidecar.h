@@ -16,9 +16,10 @@ namespace rerevved::save_sidecar
 {
 
 // Schema 2 ordinary; 3 adds a practice block; 4 isolates other practice/isolated saves; 5 adds turn limit;
-// 6 adds Always At War; 7 adds the ships sunk count. Schemas 1 to 4 load the native turn limit;
-// schemas 1 to 5 load Always At War off, and schemas 1 to 6 load no ships sunk.
-constexpr uint8_t kSchemaVersion = 7;
+// 6 adds Always At War; 7 adds the ships sunk count; 8 adds the technology cost multiplier byte.
+// Schemas 1 to 4 load the native turn limit; schemas 1 to 5 load Always At War off, schemas 1 to 6 load no
+// ships sunk, and schemas 1 to 7 load a technology cost multiplier of 1.
+constexpr uint8_t kSchemaVersion = 8;
 
 struct State
 {
