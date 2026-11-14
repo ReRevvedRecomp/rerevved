@@ -736,6 +736,17 @@ for such a key `Apply` keeps the value and its source and sets the entry's
 default directly (`rex::cvar::GetRegistry()`, single-threaded startup), so a
 reset still restores the title's default.
 
+**Drag to Pan** (`mnk_mouse_drag`, SDK, default off) turns mouse motion into
+right stick deflection while the left button is held, against the mouse by
+default (`mnk_drag_invert`). **Drag Sensitivity** (`mnk_drag_sensitivity`)
+scales it, with presets 1.0 to 4.0; the title's application default is 2.0.
+A press that starts while an overlay holds the mouse or keyboard never becomes
+a drag, and a focus loss ends it. The game zeroes the right stick while both axes stay
+inside about 7864 (`0x82C14920`), so `App::OnConfigurePaths` sets
+`mnk_drag_min_deflection` to 8192 as an application default: a moving drag's
+larger axis reaches at least that value, keeping its direction. Mouse Aim
+(`mnk_mouse`) takes precedence when both are on.
+
 A profile holds only keybinds the player applied. A saved binding remains
 until the player resets that row (Y, or F1's reset) to the title default.
 

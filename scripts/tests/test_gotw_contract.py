@@ -551,7 +551,7 @@ class GotwContractTests(unittest.TestCase):
         controls = re.split(r'\{\s*"Controls"\s*,', tabs, maxsplit=1)[1]
         controls = re.split(r'\{\s*"Display"\s*,', controls, maxsplit=1)[0]
         for text in (
-            '{ "", { "input_gamepad_in_background", "input_vibration", "button_icons", "mnk_mode", "mnk_mouse", "mnk_sensitivity" } }',
+            '{ "", { "input_gamepad_in_background", "input_vibration", "button_icons", "mnk_mode", "mnk_mouse", "mnk_sensitivity", "mnk_mouse_drag", "mnk_drag_sensitivity" } }',
             '{ "Keybinds", { "@Input/Keybinds/Controller" }, true }',
             '{ "Overlay Hotkeys", { "@Input/Keybinds" }, true }',
         ):
@@ -565,7 +565,8 @@ class GotwContractTests(unittest.TestCase):
             'REXCVAR_DEFINE_STRING(button_icons, "auto", "ReRevved",', icons
         )
         self.assert_cpp(
-            'layout.float_decimals = { { "mnk_sensitivity", 2 } };', overlay
+            'layout.float_decimals = { { "mnk_sensitivity", 2 }, { "mnk_drag_sensitivity", 2 } };',
+            overlay,
         )
 
     def test_late_correction_requires_readable_live_gotw_mode(self):

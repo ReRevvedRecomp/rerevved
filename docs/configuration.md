@@ -18,8 +18,12 @@ Close ReRevved before editing the file directly.
   Turning off **Save Reminder** hides the prompt; it does not save the game.
 - **Online**: AI Difficulty (Multiplayer), connection status, relay invite, and Discord options.
   See [Online play](online-play.md).
-- **Controls**: keyboard/controller bindings, mouse sensitivity, vibration,
-  controller input in the background, Button Icons, and overlay hotkeys.
+- **Controls**: keyboard/controller bindings, Mouse Aim, mouse sensitivity,
+  Drag to Pan, Drag Sensitivity, vibration, controller input in the
+  background, Button Icons, and overlay hotkeys. **Drag to Pan** moves the map
+  while the left mouse button is held. The drag drives the right stick, so pan
+  speed follows mouse speed rather than the cursor position; **Drag
+  Sensitivity** scales it. Mouse Aim takes precedence when both are on.
   Every connected controller plays as player one, so a second or virtual
   controller cannot be left without a profile.
   **Button Icons** chooses which button icons the game shows, after a

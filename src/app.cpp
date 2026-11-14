@@ -729,6 +729,10 @@ void App::OnConfigurePaths(rex::PathConfig& paths)
     rerevved::keybind_defaults::Apply();
     // Keyboard icons show whenever no controller is connected, so the keys must work without a toggle.
     rex::cvar::SetFlagAsApplicationDefault("mnk_mode", "true");
+    // The game zeroes the right stick while both axes stay inside about 7864
+    // (0x82C14920), so a slow drag must still deflect past it.
+    rex::cvar::SetFlagAsApplicationDefault("mnk_drag_min_deflection", "8192");
+    rex::cvar::SetFlagAsApplicationDefault("mnk_drag_sensitivity", "2.0");
 
     // Keep user state outside a potentially read-only install directory.
     paths.config_path = paths.user_data_root / "rerevved.toml";

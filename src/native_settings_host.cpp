@@ -12,6 +12,7 @@
 #include "retail_audio.h"
 
 REXCVAR_DECLARE(double, mnk_sensitivity);
+REXCVAR_DECLARE(double, mnk_drag_sensitivity);
 
 namespace rerevved::native_settings
 {
@@ -213,10 +214,11 @@ std::optional<FlagState> ReadFlag(std::string_view name)
     }
     state.value = rex::cvar::GetFlagByName(name);
     // Registry text has six decimals; full precision writes the same number back.
-    if (state.kind == FlagKind::kDouble && name == "mnk_sensitivity")
+    if (state.kind == FlagKind::kDouble && (name == "mnk_sensitivity" || name == "mnk_drag_sensitivity"))
     {
-        char       text[64];
-        const auto r = std::to_chars(text, text + sizeof text, REXCVAR_GET(mnk_sensitivity));
+        char         text[64];
+        const double value = name == "mnk_sensitivity" ? REXCVAR_GET(mnk_sensitivity) : REXCVAR_GET(mnk_drag_sensitivity);
+        const auto   r     = std::to_chars(text, text + sizeof text, value);
         if (r.ec == std::errc{})
             state.value.assign(text, r.ptr);
     }

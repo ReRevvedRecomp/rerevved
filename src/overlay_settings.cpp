@@ -242,7 +242,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
           } },
         { "Controls",
           {
-              { "", { "input_gamepad_in_background", "input_vibration", "button_icons", "mnk_mode", "mnk_mouse", "mnk_sensitivity" } },
+              { "", { "input_gamepad_in_background", "input_vibration", "button_icons", "mnk_mode", "mnk_mouse", "mnk_sensitivity", "mnk_mouse_drag", "mnk_drag_sensitivity" } },
               { "Keybinds", { "@Input/Keybinds/Controller" }, true },
               { "Overlay Hotkeys", { "@Input/Keybinds" }, true },
           } },
@@ -283,6 +283,8 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "mnk_mode", Audience::kPlayer },
         { "mnk_mouse", Audience::kPlayer },
         { "mnk_sensitivity", Audience::kPlayer },
+        { "mnk_mouse_drag", Audience::kPlayer },
+        { "mnk_drag_sensitivity", Audience::kPlayer },
         { "input_gamepad_in_background", Audience::kPlayer },
         { "input_vibration", Audience::kPlayer },
         { "button_icons", Audience::kPlayer },
@@ -338,7 +340,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
 
     layout.format_label      = titleCase;
     layout.show_descriptions = false;
-    layout.float_decimals    = { { "mnk_sensitivity", 2 } };
+    layout.float_decimals    = { { "mnk_sensitivity", 2 }, { "mnk_drag_sensitivity", 2 } };
     layout.inline_toggles    = { { "gotw_custom_week", "gotw_week", true }, { "gotw_custom_civilization", "gotw_civilization", true } };
     // Restart and startup-only notices are appended by the SDK.
     layout.tooltips = {
@@ -400,6 +402,8 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "mnk_mode", "Enable to play with keyboard and mouse." },
         { "mnk_mouse", "Enable to move the right stick with your mouse." },
         { "mnk_sensitivity", "How strongly mouse movement moves the right stick." },
+        { "mnk_mouse_drag", "Enable to pan the map by holding the left mouse button and moving the mouse." },
+        { "mnk_drag_sensitivity", "How fast the map pans while you drag." },
         // Display.
         { "fullscreen", "Enable to fill your selected monitor with the game." },
         { "monitor", "Choose which monitor the game opens on." },
@@ -469,6 +473,8 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "mnk_sensitivity", "Mouse Sensitivity" },
         { "mnk_mode", "Keyboard and Mouse" },
         { "mnk_mouse", "Mouse Aim" },
+        { "mnk_mouse_drag", "Drag to Pan" },
+        { "mnk_drag_sensitivity", "Drag Sensitivity" },
         { "input_gamepad_in_background", "Gamepad in Background" },
         { "input_vibration", "Vibration" },
         { "button_icons", "Button Icons" },
