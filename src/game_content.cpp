@@ -1,5 +1,7 @@
 #include "game_content.h"
 
+#include "release_id.h"
+
 #include <cstdint>
 #include <fstream>
 #include <optional>
@@ -11,7 +13,6 @@
 namespace rerevved
 {
 
-const char* const   kBaseXexSha256    = "b59b8957a3ed9dd90e9296c96d5c7ab1b16078d3f08b015582714a06c7d6a7bd";
 const char* const   kUpdateXexpSha256 = "c1fc6149a63550987d991efdbb80e3697845a9a49d3f2ec180ea9817db8d12d4";
 const std::uint32_t kTitleId          = 0x545407E5u;
 
@@ -30,10 +31,7 @@ constexpr ManifestEntry kResourceManifest[] = {
 };
 
 // Header fields explain mismatches against the exact pinned hashes.
-constexpr std::uint32_t kMediaId           = 0x7DC1293Bu;
-constexpr std::uint32_t kBaseVersionValue  = 0x00000002u; // 0.0.0.2
 constexpr std::uint32_t kUpdateTargetValue = 0x00000302u; // 0.0.3.2, game version 1.3
-constexpr std::uint32_t kRegionFree        = 0xFFFFFFFFu;
 constexpr std::uint64_t kBaseXexSize       = 16822272ull;
 constexpr std::uint64_t kUpdateXexpSize    = 3291136ull;
 
@@ -124,24 +122,18 @@ std::vector<std::string> diagnoseBaseXex(const std::filesystem::path& file)
                 errors.push_back(fmt::format("default.xex is not Civilization Revolution (title ID {:08X}, expected {:08X}).", titleId, kTitleId));
                 return errors;
             }
-            if (version != kBaseVersionValue)
+            auto securityOffset = readBe32(*base, 0x10);
+            auto regionBytes    = readBytes(file, securityOffset + 0x178u, 4);
+            auto region         = regionBytes ? readBe32(*regionBytes, 0) : 0u;
+            bool known          = false;
+            for (const auto& release : Releases())
             {
-                errors.push_back(fmt::format("default.xex is version {}; the supported base version is {}.", formatXexVersion(version), formatXexVersion(kBaseVersionValue)));
+                known = known || (release.mediaId == mediaId && release.version == version && release.region == region);
             }
-            if (mediaId != kMediaId)
+            if (!known)
             {
-                errors.push_back(fmt::format("default.xex media ID {:08X} is not the supported release ({:08X}).", mediaId, kMediaId));
+                errors.push_back(fmt::format("default.xex is not a supported release (media ID {:08X}, version {}, region flags {:08X}).", mediaId, formatXexVersion(version), region));
             }
-        }
-    }
-
-    auto securityOffset = readBe32(*base, 0x10);
-    if (auto regionBytes = readBytes(file, securityOffset + 0x178u, 4))
-    {
-        auto region = readBe32(*regionBytes, 0);
-        if (region != kRegionFree)
-        {
-            errors.push_back(fmt::format("default.xex region flags {:08X} do not match the supported region-free release.", region));
         }
     }
 
@@ -198,8 +190,8 @@ void checkRequiredFile(const std::filesystem::path& root, const char* relative, 
 }
 
 // Diagnose all deep mismatches so foreign copies still report version details.
-template <typename Diagnose>
-void checkExecutable(const std::filesystem::path& root, const char* relative, std::uint64_t expectedSize, const char* expectedSha256, ContentDepth depth, Diagnose diagnose, std::vector<std::string>& errors)
+template <typename Accept, typename Diagnose>
+void checkExecutable(const std::filesystem::path& root, const char* relative, std::uint64_t expectedSize, Accept accept, ContentDepth depth, Diagnose diagnose, std::vector<std::string>& errors)
 {
     std::error_code ec;
     auto            file = root / std::filesystem::path(relative);
@@ -220,7 +212,7 @@ void checkExecutable(const std::filesystem::path& root, const char* relative, st
         return;
     }
 
-    if (sizeOk && rex::crypto::sha256_file(file) == expectedSha256)
+    if (sizeOk && accept(rex::crypto::sha256_file(file)))
     {
         return;
     }
@@ -242,8 +234,16 @@ ContentCheckResult VerifyContentRoot(const std::filesystem::path& root, ContentD
         return result;
     }
 
-    checkExecutable(root, "default.xex", kBaseXexSize, kBaseXexSha256, depth, diagnoseBaseXex, result.errors);
-    checkExecutable(root, "default.xexp", kUpdateXexpSize, kUpdateXexpSha256, depth, diagnoseUpdateXexp, result.errors);
+    auto isRelease = [](const std::string& sha256)
+    {
+        return FindRelease(sha256) != nullptr;
+    };
+    auto isUpdate = [](const std::string& sha256)
+    {
+        return sha256 == kUpdateXexpSha256;
+    };
+    checkExecutable(root, "default.xex", kBaseXexSize, isRelease, depth, diagnoseBaseXex, result.errors);
+    checkExecutable(root, "default.xexp", kUpdateXexpSize, isUpdate, depth, diagnoseUpdateXexp, result.errors);
     for (const auto& entry : kResourceManifest)
     {
         checkRequiredFile(root, entry.relativePath, entry.size, result.errors);

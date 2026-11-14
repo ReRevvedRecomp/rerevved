@@ -99,6 +99,7 @@
 #include "overlay_settings.h"
 #include "pause_menu.h"
 #include "portable_mode.h"
+#include "release_id.h"
 #include "retail_audio.h"
 #include "xenos_frame_counter.h"
 #if REREVVED_DEVELOPER
@@ -1024,8 +1025,14 @@ bool App::selectGameData()
         return true;
     }
 
+    auto releases = rerevved::Releases();
+
     rex::system::GameDataSelectorSettings settings;
-    settings.default_xex_sha256  = rerevved::kBaseXexSha256;
+    settings.default_xex_sha256 = releases.front().fileSha256;
+    for (const auto& release : releases.subspan(1))
+    {
+        settings.alternate_default_xex_sha256.emplace_back(release.fileSha256);
+    }
     settings.sibling_xexp_sha256 = rerevved::kUpdateXexpSha256;
     settings.config_path         = user_data_root() / "rerevved.toml";
     return rex::system::GameDataSelector::EnsureGameData(settings);
