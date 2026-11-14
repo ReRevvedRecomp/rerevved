@@ -27,7 +27,6 @@ ContentCheckResult VerifyContentRoot(const std::filesystem::path& root, ContentD
 
 // Shared with the game data selector configuration in app.cpp.
 extern const std::uint32_t kTitleId;
-extern const char* const   kBaseXexSha256;
 extern const char* const   kUpdateXexpSha256;
 
 } // namespace rerevved

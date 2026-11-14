@@ -123,6 +123,8 @@ set(REREVVED_SOURCES
     src/xenos_frame_counter.cpp
     src/xenos_frame_counter.h
     src/game_content.cpp
+    src/release_id.cpp
+    src/release_id.h
     src/great_general_attachment.cpp
     src/great_general_attachment.h
     src/gameplay_state.cpp
