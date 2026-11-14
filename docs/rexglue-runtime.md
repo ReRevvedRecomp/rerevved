@@ -443,7 +443,8 @@ matches modifiers exactly, so a bare modifier never activates a button. When non
 prompt and one log line says why; the other buttons are unaffected. Key names
 match the SDK's names case-sensitively. Comma, Period, Backslash, F13 to F24,
 the numpad keys, Pause and ScrollLock have no art. The default D-pad bindings
-are chords, so the D-pad directions stay retail until rebound to single keys.
+are chords or keys without art, so the D-pad directions stay retail until
+rebound to single keys with art.
 
 The left and right stick images, the D-pad image and the vertical and
 horizontal axis images stand for several directions or a whole control, so they
@@ -717,23 +718,26 @@ X, Y and the Ctrl keys do nothing on other rows, while a picker or the entry is
 open, or in a frame that also moves the highlight or switches the tab. The
 Open Log Folder row's Open button works the same way for A.
 
-Six controller keybinds default to one main key each. The SDK defines them as
-two keys (`keybind_a` `Semicolon,Space`, `keybind_b` `Quote,Backspace`,
-`keybind_left_trigger` `Q,I`, `keybind_right_trigger` `E,O`, `keybind_back`
-`Z,Tab`, `keybind_start` `X,Return`; `src/input/mnk/mnk_input_driver.cpp`); the
-title replaces them with `Semicolon`, `Quote`, `Q`, `E`, `Z` and `X` through
+The title replaces fourteen of the SDK's controller keybind defaults
+(`src/input/mnk/mnk_input_driver.cpp`) with the table in
+`keybind_defaults::kDefaults`, through
 `rex::cvar::SetFlagAsApplicationDefault` in `App::OnConfigurePaths`, before the
-config loads (`keybind_defaults::Apply`). The other controller binds are
-unchanged: the D-pad defaults are `Shift` chords, and Guide is unbound. That
+config loads (`keybind_defaults::Apply`): A `Return`, B `Space,Backspace`, X `F`,
+Y `B`, LB `Q`, RB `E`, LT `Z,PageDown`, RT `C`, left stick press `T`, right stick
+press `Delete`, D-pad left `Comma,Shift+Left`, D-pad right `Period,Shift+Right`,
+Back `Tab` and Start `Escape`. The sticks and D-pad up and down keep the SDK
+defaults, and Guide is unbound. Escape is kept off B because B ends the turn on
+the world map. `App::OnConfigurePaths` also sets `mnk_mode` on as an application default,
+so the keys work without the Keyboard and Mouse toggle. That
 default is what Reset (Y) and F1's reset restore, and the keyboard icons show the
-single key's keycap. A value from the command line or environment is applied
+first key's keycap. A value from the command line or environment is applied
 before the title runs and outranks an application default, so the SDK skips it;
 for such a key `Apply` keeps the value and its source and sets the entry's
 default directly (`rex::cvar::GetRegistry()`, single-threaded startup), so a
 reset still restores the title's default.
 
-A profile holds only keybinds the player applied. A saved two-key pair remains
-until the player resets that row (Y, or F1's reset) to the single-key default.
+A profile holds only keybinds the player applied. A saved binding remains
+until the player resets that row (Y, or F1's reset) to the title default.
 
 The Controls tab ends with F1's two keybind sections, Keybinds (the controller
 keys) and Overlay Hotkeys, one row per bind. The model finds them as F1 does
