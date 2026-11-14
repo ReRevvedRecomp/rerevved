@@ -727,6 +727,8 @@ void App::OnConfigurePaths(rex::PathConfig& paths)
         "hid_mappings_file",
         rex::path_to_utf8(rex::filesystem::GetExecutableFolder() / "gamecontrollerdb.txt"));
     rerevved::keybind_defaults::Apply();
+    // Keyboard icons show whenever no controller is connected, so the keys must work without a toggle.
+    rex::cvar::SetFlagAsApplicationDefault("mnk_mode", "true");
 
     // Keep user state outside a potentially read-only install directory.
     paths.config_path = paths.user_data_root / "rerevved.toml";

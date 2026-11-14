@@ -87,9 +87,29 @@ open: the D-pad or left stick moves, A selects, B backs out or closes the
 window, and LB/RB switch tabs. The game ignores the controller until the last
 of them closes. Typing text and capturing a key need the keyboard.
 
-The A, B, LT, RT, Back and Start keys default to one key each (A is `;`, B is
-`'`, LT is `Q`, RT is `E`, Back is `Z`, Start is `X`); Y or Backspace on a row restores its
-default. Rebind game controls under **Controls > Keybinds** and overlay keys under
+Keyboard and Mouse is on by default, and the default keys follow PC strategy
+conventions:
+
+| Key | Button | In game |
+|---|---|---|
+| `W` `A` `S` `D` | Left stick | Move the cursor or the active unit |
+| Arrow keys | Right stick | Look around the map |
+| `Enter` | A | Confirm, move, select |
+| `Space` or `Backspace` | B | End turn, back out of a screen |
+| `F` | X | Defend, heal or fortify |
+| `B` | Y | Found a city |
+| `Q` / `E` | LB / RB | City screen and diplomacy; previous and next city or tab |
+| `Z` or `Page Down` | LT | Zoom |
+| `C` | RT | Progress panel |
+| `,` / `.` | D-pad left / right | Previous and next unit |
+| `Shift` + `Up` / `Down` | D-pad up / down | Pick a unit in a stack |
+| `Delete` | Right stick press | Unit menu |
+| `T` | Left stick press | Select a technology in the tree |
+| `Tab` | Back | Information menu |
+| `Esc` | Start | Game menu |
+
+Y or Backspace on a row restores its default. A row cannot capture `Esc`, which
+cancels the capture; restoring the Start row's default brings it back. Rebind game controls under **Controls > Keybinds** and overlay keys under
 **Controls > Overlay Hotkeys**, on this page or in F1. Select **Save** in
 Settings to keep changes.
 
