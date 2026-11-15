@@ -108,6 +108,9 @@ conventions:
 | `Tab` | Back | Information menu |
 | `Esc` | Start | Game menu |
 
+To pan the map with the mouse, turn on **Controls > Drag to Pan**, then hold
+the left mouse button and move the mouse.
+
 Y or Backspace on a row restores its default. A row cannot capture `Esc`, which
 cancels the capture; restoring the Start row's default brings it back. Rebind game controls under **Controls > Keybinds** and overlay keys under
 **Controls > Overlay Hotkeys**, on this page or in F1. Select **Save** in
