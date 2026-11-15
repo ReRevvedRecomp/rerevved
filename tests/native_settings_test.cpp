@@ -95,6 +95,7 @@ std::map<std::string, ns::FlagState> defaultFlags()
     flags["gotw_week"]                                = enumState("1", {});
     flags["button_icons"]                             = enumState("auto", { "auto", "xbox", "playstation", "keyboard" });
     flags["mnk_sensitivity"]                          = ns::FlagState{ ns::FlagKind::kDouble, "1.000000", {}, 0.01, 10.0, false };
+    flags["mnk_drag_sensitivity"]                     = ns::FlagState{ ns::FlagKind::kDouble, "2.000000", {}, 0.01, 10.0, false };
     flags["monitor"]                                  = intState("0", 0, 16);
     flags["window_size"]                              = enumState("", { "", "1280x720", "1600x900", "1920x1080", "2560x1440", "3840x2160", "maximized" });
     flags["display_aspect"]                           = enumState("original", { "original", "16:10", "4:3", "auto", "21:9", "32:9" });
@@ -309,6 +310,8 @@ TEST_CASE("native_settings_rows_keep_the_f1_order_and_captions", "[ctest][native
                                                                      "Keyboard and Mouse: Off",
                                                                      "Mouse Aim: Off",
                                                                      "Mouse Sensitivity: 1.00",
+                                                                     "Drag to Pan: Off",
+                                                                     "Drag Sensitivity: 2.00",
                                                                      "A Button: ;",
                                                                      "B Button: '",
                                                                      "X Button: L",
@@ -748,6 +751,10 @@ TEST_CASE("native_settings_reads_sensitivity_at_full_precision", "[ctest][native
     REQUIRE(rex::cvar::SetFlagByName("mnk_sensitivity", state->value));
     CHECK(ns::ReadFlag("mnk_sensitivity")->value == "1.23456789");
     REQUIRE(rex::cvar::SetFlagByName("mnk_sensitivity", "1.0"));
+
+    REQUIRE(rex::cvar::SetFlagByName("mnk_drag_sensitivity", "2.3456789"));
+    CHECK(ns::ReadFlag("mnk_drag_sensitivity")->value == "2.3456789");
+    REQUIRE(rex::cvar::SetFlagByName("mnk_drag_sensitivity", "1.0"));
 }
 
 namespace
@@ -2369,7 +2376,7 @@ TEST_CASE("options_model_lists_f1s_keybind_sections_after_the_controls_rows", "[
     CHECK(groups == std::vector<std::string>{ "", "Keybinds", "Overlay Hotkeys" });
     const size_t firstBind = std::find(keys.begin(), keys.end(), "keybind_a") - keys.begin();
     REQUIRE(firstBind < keys.size());
-    CHECK(keys[firstBind - 1] == "mnk_sensitivity");
+    CHECK(keys[firstBind - 1] == "mnk_drag_sensitivity");
     CHECK(std::find(keys.begin(), keys.end(), "bind_debug_overlay") == keys.end());
 
     const auto* a = findRow(model, "keybind_a");

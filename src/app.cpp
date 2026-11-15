@@ -99,6 +99,7 @@
 #include "overlay_settings.h"
 #include "pause_menu.h"
 #include "portable_mode.h"
+#include "release_id.h"
 #include "retail_audio.h"
 #include "xenos_frame_counter.h"
 #if REREVVED_DEVELOPER
@@ -726,6 +727,12 @@ void App::OnConfigurePaths(rex::PathConfig& paths)
         "hid_mappings_file",
         rex::path_to_utf8(rex::filesystem::GetExecutableFolder() / "gamecontrollerdb.txt"));
     rerevved::keybind_defaults::Apply();
+    // Keyboard icons show whenever no controller is connected, so the keys must work without a toggle.
+    rex::cvar::SetFlagAsApplicationDefault("mnk_mode", "true");
+    // The game zeroes the right stick while both axes stay inside about 7864
+    // (0x82C14920), so a slow drag must still deflect past it.
+    rex::cvar::SetFlagAsApplicationDefault("mnk_drag_min_deflection", "8192");
+    rex::cvar::SetFlagAsApplicationDefault("mnk_drag_sensitivity", "2.0");
 
     // Keep user state outside a potentially read-only install directory.
     paths.config_path = paths.user_data_root / "rerevved.toml";
@@ -1024,8 +1031,14 @@ bool App::selectGameData()
         return true;
     }
 
+    auto releases = rerevved::Releases();
+
     rex::system::GameDataSelectorSettings settings;
-    settings.default_xex_sha256  = rerevved::kBaseXexSha256;
+    settings.default_xex_sha256 = releases.front().fileSha256;
+    for (const auto& release : releases.subspan(1))
+    {
+        settings.alternate_default_xex_sha256.emplace_back(release.fileSha256);
+    }
     settings.sibling_xexp_sha256 = rerevved::kUpdateXexpSha256;
     settings.config_path         = user_data_root() / "rerevved.toml";
     return rex::system::GameDataSelector::EnsureGameData(settings);

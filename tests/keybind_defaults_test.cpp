@@ -2,7 +2,9 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <set>
 #include <string>
+#include <string_view>
 
 #include <rex/cvar.h>
 
@@ -10,17 +12,30 @@ REXCVAR_DEFINE_STRING(kd_test_e, "Old,Two", "Test", "Keybind defaults test e");
 
 namespace kd = rerevved::keybind_defaults;
 
-TEST_CASE("keybind_defaults_keep_one_main_key", "[ctest][keybind-defaults]")
+TEST_CASE("keybind_defaults_replace_the_sdk_defaults_without_sharing_a_key", "[ctest][keybind-defaults]")
 {
+    // The keys of the binds the title leaves at the SDK default.
+    std::set<std::string, std::less<>> used{ "W", "A", "S", "D", "Up", "Down", "Left", "Right", "Shift+Up", "Shift+Down" };
     for (const auto& entry : kd::kDefaults)
     {
         CAPTURE(entry.key);
-        const auto comma = entry.sdkDefault.find(',');
-        REQUIRE(comma != std::string_view::npos);
-        CHECK(entry.sdkDefault.substr(0, comma) == entry.value);
-        CHECK(entry.value.find_first_of(",+") == std::string_view::npos);
+        CHECK(entry.value != entry.sdkDefault);
+        std::string_view rest = entry.value;
+        while (true)
+        {
+            const auto comma = rest.find(',');
+            const auto key   = rest.substr(0, comma);
+            CAPTURE(key);
+            CHECK_FALSE(key.empty());
+            CHECK(used.emplace(key).second);
+            if (comma == std::string_view::npos)
+            {
+                break;
+            }
+            rest.remove_prefix(comma + 1);
+        }
     }
-    CHECK(kd::kDefaults.size() == 6);
+    CHECK(kd::kDefaults.size() == 14);
 
     for (const auto& entry : kd::kDefaults)
     {

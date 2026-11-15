@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(rerevved VERSION 0.7.4 LANGUAGES C CXX)
+project(rerevved VERSION 0.7.5 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -123,6 +123,8 @@ set(REREVVED_SOURCES
     src/xenos_frame_counter.cpp
     src/xenos_frame_counter.h
     src/game_content.cpp
+    src/release_id.cpp
+    src/release_id.h
     src/great_general_attachment.cpp
     src/great_general_attachment.h
     src/gameplay_state.cpp

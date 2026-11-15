@@ -51,6 +51,7 @@ namespace
 constexpr std::array<std::string_view, 5> kBonusPresets{ "0", "25", "50", "100", "200" };
 constexpr std::array<std::string_view, 5> kVolumePresets{ "0", "25", "50", "75", "100" };
 constexpr std::array<std::string_view, 5> kSensitivityPresets{ "0.5", "1.0", "1.5", "2.0", "4.0" };
+constexpr std::array<std::string_view, 5> kDragSensitivityPresets{ "1.0", "1.5", "2.0", "3.0", "4.0" };
 
 // SDK invite: 359 bytes (RXR1- plus 575 base-32 characters); extra room for ignored spaces and dashes.
 constexpr size_t kInviteMaxLength = 1024;
@@ -116,6 +117,8 @@ constexpr auto kSpecs = std::to_array<Spec>({
     { "mnk_mode", Kind::kBool, Applies::kLive, {}, {} },
     { "mnk_mouse", Kind::kBool, Applies::kLive, {}, {} },
     { "mnk_sensitivity", Kind::kPresetDouble, Applies::kLive, {}, kSensitivityPresets },
+    { "mnk_mouse_drag", Kind::kBool, Applies::kLive, {}, {} },
+    { "mnk_drag_sensitivity", Kind::kPresetDouble, Applies::kLive, {}, kDragSensitivityPresets },
 
     { "fullscreen", Kind::kBool, Applies::kLive, {}, {} },
     { "monitor", Kind::kMonitor, Applies::kLive, {}, {} },
