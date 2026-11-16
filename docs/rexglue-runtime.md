@@ -2263,6 +2263,22 @@ host's value, and a later edit changes only the next game. A load never applies
 the frozen value. The
 setting is not saved in the sidecar, and single player is unchanged.
 
+At difficulty 3 and 4, `CalendarTurnAdvance` (`sub_82D1EAB0`) can give a city an extra
+mode-zero `sub_82D13978` call: difficulty 3, once the turn difference (`0x8312B8DC` minus
+`0x8312B8D8`) passes 10, when `(turn + city) mod 5` is zero and the
+player's rank (stride-32 halfwords from stack `+0x78`) is above the local player's;
+difficulty 4 when `(turn + city) mod 3` is zero, or `mod 4` once the turn difference
+passes 10 and the local player's rank is nonzero. The local player equals the incoming
+player only on its own peer, and each peer has its own rank, so network peers diverged.
+In network games three hooks in [gameplay_hooks.toml](../config/gameplay_hooks.toml)
+remove the local player:
+
+- `0x82D1FC50` sets r11 to the incoming player r27 when the human mask `0x8312E608`
+  holds it, else -1, so the comparison skips both calls for every human.
+- `0x82D1FCE8` sets r7, the local rank, to `INT32_MIN`, so the difficulty 3 rank test
+  always passes.
+- `0x82D1FD70` sets r10, the local rank, to zero, so difficulty 4 always divides by 3.
+
 ## Gameplay Spaceship Scenes
 
 `spaceship_scenes` is a bool setting, on by default, shown as the first row
