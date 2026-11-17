@@ -369,6 +369,7 @@ set(REREVVED_SOURCES
     src/resync_record.cpp
     src/resync_record.h
     src/resync_record_hooks.cpp
+    src/pick_loop_trace_hooks.cpp
     src/network_admission.cpp
     src/network_admission.h
     src/network_admission_hooks.cpp
