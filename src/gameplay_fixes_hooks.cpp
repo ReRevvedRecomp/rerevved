@@ -337,6 +337,23 @@ void IgnoreCatchUpDivisorRank(PPCRegister& rank)
     }
 }
 
+// The local player differs per peer; the picker does not.
+void UseArtifactPickerForContacts(PPCRegister& r3, PPCRegister& r15)
+{
+    if (rerevved::gameplay_session::NetworkGameActive())
+    {
+        r3.s64 = r15.s32;
+    }
+}
+
+void SkipLocalScoreDraw(PPCRegister& score)
+{
+    if (rerevved::gameplay_session::NetworkGameActive())
+    {
+        score.s64 = std::numeric_limits<int32_t>::min();
+    }
+}
+
 // Network games keep the native scenes, so every peer runs the same presentation.
 void TagSpaceshipActor(PPCRegister& owner, PPCRegister& slot)
 {

@@ -36,6 +36,10 @@ void ApplyMultiplayerAiDifficulty(PPCRegister& r11);
 void ShareCatchUpExclusion(PPCRegister& r27, PPCRegister& r11);
 void IgnoreCatchUpRank(PPCRegister& rank);
 void IgnoreCatchUpDivisorRank(PPCRegister& rank);
+void UseArtifactPickerForContacts(PPCRegister& r3, PPCRegister& r15);
+void SkipLocalScoreDraw(PPCRegister& score);
+bool RefuseTowerPair(PPCRegister& local, PPCRegister& other, PPCRegister& picker);
+bool RefuseTeslaPair(PPCRegister& local, PPCRegister& other, PPCRegister& picker);
 void ProjectAlwaysAtWarEarly();
 void ProjectAlwaysAtWarGroups();
 void ProjectAlwaysAtWarOnLoad();
@@ -1031,5 +1035,44 @@ TEST_CASE("catch_up_hooks_exclude_humans_and_ignore_rank_online", "[ctest][gamep
         rank.u64 = 3;
         IgnoreCatchUpDivisorRank(rank);
         CHECK(rank.u64 == (network == 0 ? 3u : 0u));
+    }
+}
+
+TEST_CASE("artifact_contacts_and_score_draw_drop_the_local_player_online", "[ctest][gameplay-fixes]")
+{
+    rex::Runtime runtime(std::filesystem::path{});
+    REQUIRE(runtime.Setup(rex::RuntimeConfig{
+                .kernel_init = rex::kernel::InitializeKernel,
+                .tool_mode   = true,
+            }) == 0);
+    auto* memory = runtime.memory();
+    auto* heap   = memory->LookupHeap(0x830E0000u);
+    REQUIRE(heap);
+    REQUIRE(heap->AllocFixed(0x830E0000u, 0x80000u, 0x10000, rex::memory::kMemoryAllocationReserve | rex::memory::kMemoryAllocationCommit, rex::memory::kMemoryProtectRead | rex::memory::kMemoryProtectWrite));
+    constexpr uint32_t kNetwork = 0x8314F10B;
+
+    PPCRegister local{}, picker{}, score{};
+    for (const uint8_t network : { uint8_t{ 0 }, uint8_t{ 1 } })
+    {
+        *memory->TranslateVirtual<uint8_t*>(kNetwork) = network;
+        local.u64                                     = 2;
+        picker.u64                                    = 0x1234567800000005ull;
+        UseArtifactPickerForContacts(local, picker);
+        CHECK(local.s64 == (network == 0 ? 2 : 5));
+        CHECK(picker.u64 == 0x1234567800000005ull);
+
+        for (auto* pair : { &RefuseTowerPair, &RefuseTeslaPair })
+        {
+            PPCRegister other{};
+            other.u64 = 1;
+            local.u64 = 2;
+            CHECK_FALSE(pair(local, other, picker));
+            CHECK(local.s64 == (network == 0 ? 2 : 5));
+        }
+
+        score.s64 = 900;
+        SkipLocalScoreDraw(score);
+        CHECK(score.s64 == (network == 0 ? 900 : int64_t{ std::numeric_limits<int32_t>::min() }));
+        CHECK((network == 0 || score.s32 <= 0));
     }
 }
