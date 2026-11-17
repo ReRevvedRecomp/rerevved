@@ -38,6 +38,12 @@ void IgnoreCatchUpRank(PPCRegister& rank);
 void IgnoreCatchUpDivisorRank(PPCRegister& rank);
 void UseArtifactPickerForContacts(PPCRegister& r3, PPCRegister& r15);
 void SkipLocalScoreDraw(PPCRegister& score);
+bool AssignOpponentLeaderSlot(PPCRegister& slot, PPCRegister& ordinal, PPCRegister& barbarian);
+void CaptureLeaderManager(PPCRegister& manager);
+void EnterLeaderModelLookup(PPCRegister& slot);
+void LeaveLeaderModelLookup();
+void UseLeaderSlotCivilization(PPCRegister& offset, PPCRegister& slot);
+void UseLeaderSlotMood(PPCRegister& local, PPCRegister& cell, PPCRegister& slot);
 bool RefuseTowerPair(PPCRegister& local, PPCRegister& other, PPCRegister& picker);
 bool RefuseTeslaPair(PPCRegister& local, PPCRegister& other, PPCRegister& picker);
 void ProjectAlwaysAtWarEarly();
@@ -1075,4 +1081,91 @@ TEST_CASE("artifact_contacts_and_score_draw_drop_the_local_player_online", "[cte
         CHECK(score.s64 == (network == 0 ? 900 : int64_t{ std::numeric_limits<int32_t>::min() }));
         CHECK((network == 0 || score.s32 <= 0));
     }
+}
+
+TEST_CASE("leader_slots_share_five_slots_without_taking_the_resident", "[ctest][gameplay-fixes]")
+{
+    namespace gf = rerevved::gameplay_fixes;
+    gf::LeaderSlots slots;
+    CHECK(gf::AssignLeaderSlot(slots, 1, -1) == 6);
+    CHECK(gf::AssignLeaderSlot(slots, 5, -1) == 5);
+    CHECK(gf::AssignLeaderSlot(slots, 6, -1) == 7);
+    CHECK(gf::AssignLeaderSlot(slots, 0, -1) == 8);
+    CHECK(gf::AssignLeaderSlot(slots, 2, -1) == 9);
+    CHECK(gf::AssignLeaderSlot(slots, 3, 5) == 6);
+    CHECK(gf::AssignLeaderSlot(slots, 5, 5) == 5);
+    CHECK(gf::AssignLeaderSlot(slots, 4, 6) == 7);
+    CHECK(gf::LeaderSlotOrdinal(slots, 7) == 4);
+    CHECK(gf::AssignLeaderSlot(slots, 1, 8) == 9);
+    CHECK(gf::LeaderSlotOrdinal(slots, 3) == -2);
+    CHECK(gf::LeaderSlotOrdinal(gf::LeaderSlots{}, 8) == 3);
+}
+
+TEST_CASE("leader_slot_hooks_keep_retail_and_scope_the_model_lookup", "[ctest][gameplay-fixes]")
+{
+    rex::Runtime runtime(std::filesystem::path{});
+    REQUIRE(runtime.Setup(rex::RuntimeConfig{
+                .kernel_init = rex::kernel::InitializeKernel,
+                .tool_mode   = true,
+            }) == 0);
+    auto* memory = runtime.memory();
+    for (const uint32_t page : { 0x82F70000u, 0x830E0000u })
+    {
+        auto* heap = memory->LookupHeap(page);
+        REQUIRE(heap);
+        REQUIRE(heap->AllocFixed(page, 0x10000u, 0x10000, rex::memory::kMemoryAllocationReserve | rex::memory::kMemoryAllocationCommit, rex::memory::kMemoryProtectRead | rex::memory::kMemoryProtectWrite));
+    }
+    const auto word = [&](uint32_t address, uint32_t value)
+    {
+        rex::memory::store_and_swap<uint32_t>(memory->TranslateVirtual<uint8_t*>(address), value);
+    };
+    constexpr uint32_t kManager = 0x830E0000u;
+
+    PPCRegister slot{}, ordinal{}, barbarian{}, manager{}, offset{}, local{}, cell{}, advisor{};
+    manager.u64 = kManager;
+    local.s64   = 2;
+    CaptureLeaderManager(manager);
+    barbarian.s64 = 5;
+    CHECK_FALSE(AssignOpponentLeaderSlot(slot, ordinal, barbarian));
+
+    word(0x82F700B0, 7);
+    barbarian.s64 = 7;
+    ordinal.s64   = 6;
+    REQUIRE(AssignOpponentLeaderSlot(slot, ordinal, barbarian));
+    CHECK(slot.s64 == 5);
+
+    word(kManager + 0x120, 5);
+    offset.s64 = 0;
+    UseLeaderSlotCivilization(offset, slot);
+    CHECK(offset.s64 == 0);
+    EnterLeaderModelLookup(slot);
+    UseLeaderSlotCivilization(offset, slot);
+    CHECK(offset.s64 == 24);
+    LeaveLeaderModelLookup();
+
+    ordinal.s64 = 0;
+    REQUIRE(AssignOpponentLeaderSlot(slot, ordinal, barbarian));
+    CHECK(slot.s64 == 6);
+    ordinal.s64 = 6;
+    REQUIRE(AssignOpponentLeaderSlot(slot, ordinal, barbarian));
+    CHECK(slot.s64 == 5);
+    UseLeaderSlotMood(local, cell, slot);
+    CHECK(cell.s64 == 22);
+    advisor.s64 = 3;
+    UseLeaderSlotMood(local, cell, advisor);
+    CHECK(cell.s64 == 14);
+
+    // A later retail game keeps native slots for both lookups.
+    word(0x82F700B0, 5);
+    UseLeaderSlotMood(local, cell, slot);
+    CHECK(cell.s64 == 16);
+    barbarian.s64 = 5;
+    slot.s64      = -1;
+    CHECK_FALSE(AssignOpponentLeaderSlot(slot, ordinal, barbarian));
+    CHECK(slot.s64 == -1);
+    slot.s64 = 5;
+    EnterLeaderModelLookup(slot);
+    UseLeaderSlotCivilization(offset, slot);
+    CHECK(offset.s64 == 0);
+    LeaveLeaderModelLookup();
 }

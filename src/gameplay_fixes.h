@@ -356,4 +356,67 @@ constexpr bool AcceleratesMovingUnit(int32_t unitType) noexcept
     return unitType != 24 && unitType != 27;
 }
 
+// Retail uses slot 5 + ordinal; expanded games share the five among ordinals 0..6.
+constexpr int32_t kLeaderSlotBase  = 5;
+constexpr int32_t kLeaderSlotCount = 5;
+
+struct LeaderSlots
+{
+    std::array<int32_t, kLeaderSlotCount>  ordinal{ -1, -1, -1, -1, -1 };
+    std::array<uint32_t, kLeaderSlotCount> used{};
+    uint32_t                               clock = 0;
+};
+
+constexpr int32_t LeaderSlotOrdinal(const LeaderSlots& slots, int32_t slot) noexcept
+{
+    const int32_t index = slot - kLeaderSlotBase;
+    if (index < 0 || index >= kLeaderSlotCount)
+    {
+        return index;
+    }
+    return slots.ordinal[index] >= 0 ? slots.ordinal[index] : index;
+}
+
+// Never hands another ordinal the resident slot: the loader reuses a resident
+// slot without comparing model names.
+constexpr int32_t AssignLeaderSlot(LeaderSlots& slots, int32_t ordinal, int32_t resident) noexcept
+{
+    const auto open = [&](int32_t i)
+    {
+        return kLeaderSlotBase + i != resident;
+    };
+    int32_t chosen = -1;
+    for (int32_t i = 0; i < kLeaderSlotCount; ++i)
+    {
+        if (slots.ordinal[i] == ordinal)
+        {
+            chosen = i;
+        }
+    }
+    if (chosen < 0 && ordinal < kLeaderSlotCount && open(ordinal) && slots.ordinal[ordinal] < 0)
+    {
+        chosen = ordinal;
+    }
+    for (int32_t i = 0; i < kLeaderSlotCount && chosen < 0; ++i)
+    {
+        if (open(i) && slots.ordinal[i] < 0)
+        {
+            chosen = i;
+        }
+    }
+    if (chosen < 0)
+    {
+        for (int32_t i = 0; i < kLeaderSlotCount; ++i)
+        {
+            if (open(i) && (chosen < 0 || slots.used[i] < slots.used[chosen]))
+            {
+                chosen = i;
+            }
+        }
+    }
+    slots.ordinal[chosen] = ordinal;
+    slots.used[chosen]    = ++slots.clock;
+    return kLeaderSlotBase + chosen;
+}
+
 } // namespace rerevved::gameplay_fixes

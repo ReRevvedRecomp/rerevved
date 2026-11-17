@@ -2704,6 +2704,8 @@ mismatch appears as a desync.
 - The farewell leader screens for the removed civilizations are hidden, along
   with the leader screen the game shows just before a farewell. Farewells of
   civilizations eliminated in play are unchanged.
+- Diplomacy shows leaders for slots 5 and 6. The game has five opponent leader
+  slots, so a widened layout shares them; a leader may reload when you switch.
 - It applies only when a new game starts. Loading a saved game does not
   remove anything; a game saved after the removal keeps it.
 - Multiplayer uses the [prepared host snapshot](#multiplayer-gameplay-snapshots)

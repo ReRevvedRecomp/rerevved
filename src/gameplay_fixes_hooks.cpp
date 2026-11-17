@@ -354,6 +354,71 @@ void SkipLocalScoreDraw(PPCRegister& score)
     }
 }
 
+namespace
+{
+
+rerevved::gameplay_fixes::LeaderSlots leaderSlots;
+thread_local uint32_t                 leaderManager     = 0;
+thread_local int32_t                  loadingLeaderSlot = -1;
+
+// Retail maps only ordinals 0..4; its barbarian word is 5.
+bool expandedLeaderLayout()
+{
+    uint32_t barbarian = 0;
+    return readGuestU32(rerevved::ai_civilizations::kBarbarianPlayerGlobal, barbarian) &&
+           static_cast<int32_t>(barbarian) > rerevved::gameplay_fixes::kLeaderSlotBase;
+}
+
+int32_t leaderSlotOrdinal(int32_t slot)
+{
+    return expandedLeaderLayout() ? rerevved::gameplay_fixes::LeaderSlotOrdinal(leaderSlots, slot)
+                                  : slot - rerevved::gameplay_fixes::kLeaderSlotBase;
+}
+
+} // namespace
+
+void CaptureLeaderManager(PPCRegister& manager)
+{
+    leaderManager = manager.u32;
+}
+
+bool AssignOpponentLeaderSlot(PPCRegister& slot, PPCRegister& ordinal, PPCRegister& barbarian)
+{
+    if (barbarian.s32 <= rerevved::gameplay_fixes::kLeaderSlotBase)
+    {
+        leaderSlots = {};
+        return false;
+    }
+    uint32_t resident = std::numeric_limits<uint32_t>::max();
+    readGuestU32(leaderManager + 0x120, resident);
+    slot.s64 = rerevved::gameplay_fixes::AssignLeaderSlot(leaderSlots, ordinal.s32, static_cast<int32_t>(resident));
+    return true;
+}
+
+void EnterLeaderModelLookup(PPCRegister& slot)
+{
+    loadingLeaderSlot = slot.s32;
+}
+
+void LeaveLeaderModelLookup()
+{
+    loadingLeaderSlot = -1;
+}
+
+// Preload and the Gibbon screens call the same lookup with retail slots.
+void UseLeaderSlotCivilization(PPCRegister& offset, PPCRegister& slot)
+{
+    if (slot.s32 == loadingLeaderSlot)
+    {
+        offset.s64 = 4 * leaderSlotOrdinal(slot.s32);
+    }
+}
+
+void UseLeaderSlotMood(PPCRegister& local, PPCRegister& cell, PPCRegister& slot)
+{
+    cell.s64 = 8 * local.s32 + leaderSlotOrdinal(slot.s32);
+}
+
 // Network games keep the native scenes, so every peer runs the same presentation.
 void TagSpaceshipActor(PPCRegister& owner, PPCRegister& slot)
 {
