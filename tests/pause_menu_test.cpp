@@ -159,6 +159,13 @@ TEST_CASE("pause_menu_selects_call_sites_and_quit_text", "[ctest][pause-menu]")
     CHECK(pm::QuitText(2, false, false) == 0x821378E0);
 }
 
+TEST_CASE("pause_menu_game_over_exit_row", "[ctest][pause-menu]")
+{
+    CHECK(pm::GameOverExitRow(1) == " Exit Game\n");
+    CHECK(pm::GameOverExitRow(77) == " Exit Game\n");
+    CHECK(pm::GameOverExitRow(2).find('%') == std::string::npos);
+}
+
 TEST_CASE("pause_menu_host_actions_are_optional", "[ctest][pause-menu]")
 {
     pm::RequestQuit();

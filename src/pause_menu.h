@@ -35,6 +35,10 @@ constexpr int32_t  kQuitConfirmYes    = 1;
 constexpr uint32_t kRetailFullTemplate      = 0x8214DC80;
 constexpr uint32_t kRetailAlternateTemplate = 0x8214DCF8;
 
+// The Game Over menu (0x82DF91F8) appends its rows with 0x82E6A3E0 and maps the
+// shown row through the id vector r30..r29; a row past it shows the menu again.
+constexpr uint32_t kGameOverShowReturn = 0x82DF995C;
+
 enum class Variant
 {
     kFull,
@@ -63,6 +67,9 @@ size_t RetailRowCount(Variant variant);
 
 // Windows-1252 list, one newline-terminated row per line; nullopt keeps unexpected retail rows.
 std::optional<std::string> BuildList(Variant variant, std::string_view formattedRetail, uint32_t languageId);
+
+// Appended through the guest's printf-style formatter, so it carries no '%'.
+std::string GameOverExitRow(uint32_t languageId);
 
 uint32_t QuitText(uint32_t sessionMode, bool sessionPresent, bool ranked);
 
