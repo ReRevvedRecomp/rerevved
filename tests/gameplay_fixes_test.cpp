@@ -8,6 +8,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <cstdint>
 #include <filesystem>
+#include <limits>
 #include <set>
 #include <utility>
 #include <vector>
@@ -32,6 +33,9 @@ bool AdmitExtendedTurnLimitWarning();
 bool SkipExtendedTurnLimitDeadline();
 void ApplyStartingEra(PPCRegister& r31);
 void ApplyMultiplayerAiDifficulty(PPCRegister& r11);
+void ShareCatchUpExclusion(PPCRegister& r27, PPCRegister& r11);
+void IgnoreCatchUpRank(PPCRegister& rank);
+void IgnoreCatchUpDivisorRank(PPCRegister& rank);
 void ProjectAlwaysAtWarEarly();
 void ProjectAlwaysAtWarGroups();
 void ProjectAlwaysAtWarOnLoad();
@@ -979,4 +983,53 @@ TEST_CASE("always_at_war_hooks_project_and_refuse_by_live_pair", "[ctest][gamepl
         }
     }
     gf::RestoreAlwaysAtWar(saved);
+}
+
+TEST_CASE("catch_up_selection_uses_the_human_mask", "[ctest][gameplay-fixes]")
+{
+    for (const int32_t p : { 0, 2 })
+    {
+        CHECK(gf::CatchUpExcludedPlayer(p, 0b101) == p);
+    }
+    for (const int32_t p : { -1, 1, 7, 8 })
+    {
+        CHECK(gf::CatchUpExcludedPlayer(p, 0b101) == -1);
+    }
+}
+
+TEST_CASE("catch_up_hooks_exclude_humans_and_ignore_rank_online", "[ctest][gameplay-fixes]")
+{
+    rex::Runtime runtime(std::filesystem::path{});
+    REQUIRE(runtime.Setup(rex::RuntimeConfig{
+                .kernel_init = rex::kernel::InitializeKernel,
+                .tool_mode   = true,
+            }) == 0);
+    auto* memory = runtime.memory();
+    auto* heap   = memory->LookupHeap(0x830E0000u);
+    REQUIRE(heap);
+    REQUIRE(heap->AllocFixed(0x830E0000u, 0x80000u, 0x10000, rex::memory::kMemoryAllocationReserve | rex::memory::kMemoryAllocationCommit, rex::memory::kMemoryProtectRead | rex::memory::kMemoryProtectWrite));
+    constexpr uint32_t kNetwork = 0x8314F10B;
+    rex::memory::store_and_swap<uint32_t>(memory->TranslateVirtual(0x8312E608), 0b111);
+
+    PPCRegister incoming{}, local{}, rank{};
+    for (const uint8_t network : { uint8_t{ 0 }, uint8_t{ 1 } })
+    {
+        *memory->TranslateVirtual<uint8_t*>(kNetwork) = network;
+        for (const uint32_t player : { 0u, 2u, 3u, 7u })
+        {
+            incoming.u64 = 0x1234567800000000ull | player;
+            local.u64    = 2;
+            ShareCatchUpExclusion(incoming, local);
+            CHECK(incoming.u64 == (0x1234567800000000ull | player));
+            CHECK(local.s64 == (network == 0 ? 2 : (player <= 2 ? int64_t{ player } : -1)));
+        }
+        // Any AI rank, including the lowest halfword, compares above the replaced rank.
+        rank.s64 = 1;
+        IgnoreCatchUpRank(rank);
+        CHECK(rank.s64 == (network == 0 ? 1 : int64_t{ std::numeric_limits<int32_t>::min() }));
+        CHECK((network == 0 || int32_t{ -32768 } > rank.s32));
+        rank.u64 = 3;
+        IgnoreCatchUpDivisorRank(rank);
+        CHECK(rank.u64 == (network == 0 ? 3u : 0u));
+    }
 }

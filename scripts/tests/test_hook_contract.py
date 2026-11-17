@@ -585,6 +585,21 @@ EXPECTED_HOOKS = [
         "registers": ["r11"],
     },
     {
+        "address": 0x82D1FC50,
+        "name": "ShareCatchUpExclusion",
+        "registers": ["r27", "r11"],
+    },
+    {
+        "address": 0x82D1FCE8,
+        "name": "IgnoreCatchUpRank",
+        "registers": ["r7"],
+    },
+    {
+        "address": 0x82D1FD70,
+        "name": "IgnoreCatchUpDivisorRank",
+        "registers": ["r10"],
+    },
+    {
         "address": 0x82D11304,
         "name": "SkipUnlimitedTurnDeadline",
         "jump_address_on_true": 0x82D1143C,
@@ -1656,6 +1671,29 @@ class HookContractTests(unittest.TestCase):
         )
         reload_wait = "loc_82D22464:\n\t// lwz r11,-4128(r31)\n\tctx.r11.u64 = REX_LOAD_U32(ctx.r31.u32 + -4128);\n"
         for expected in (network_arm, after_store, reload_wait):
+            self.assertEqual(count_per_chunk(expected), 1, expected)
+
+    def test_catch_up_hooks_precede_the_local_player_checks(self) -> None:
+        if not chunk_paths():
+            self.skipTest("generated sources are not available")
+
+        exclusion = (
+            "loc_82D1FC4C:\n\t// lwz r27,484(r1)\n\tctx.r27.u64 = REX_LOAD_U32(ctx.r1.u32 + 484);\n"
+            "\t// cmpw cr6,r27,r11\n\tShareCatchUpExclusion(ctx.r27, ctx.r11);\n"
+            "\tctx.cr6.compare<int32_t>(ctx.r27.s32, ctx.r11.s32, ctx.xer);\n"
+        )
+        rank = (
+            "\t// lhzx r8,r10,r28\n\tctx.r8.u64 = REX_LOAD_U16(ctx.r10.u32 + ctx.r28.u32);\n"
+            "\t// extsh r7,r9\n\tctx.r7.s64 = ctx.r9.s16;\n"
+            "\t// extsh r6,r8\n\tctx.r6.s64 = ctx.r8.s16;\n"
+            "\t// cmpw cr6,r6,r7\n\tIgnoreCatchUpRank(ctx.r7);\n"
+            "\tctx.cr6.compare<int32_t>(ctx.r6.s32, ctx.r7.s32, ctx.xer);\n"
+        )
+        divisor = (
+            "\t// lhzx r10,r11,r28\n\tctx.r10.u64 = REX_LOAD_U16(ctx.r11.u32 + ctx.r28.u32);\n"
+            "\t// cmplwi cr6,r10,0\n\tIgnoreCatchUpDivisorRank(ctx.r10);\n"
+        )
+        for expected in (exclusion, rank, divisor):
             self.assertEqual(count_per_chunk(expected), 1, expected)
 
     def test_vertex_selection_observer_precedes_restore_when_available(self) -> None:

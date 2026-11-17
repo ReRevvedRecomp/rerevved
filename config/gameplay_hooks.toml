@@ -143,6 +143,23 @@ address = 0x82D221EC
 name = "ApplyMultiplayerAiDifficulty"
 registers = ["r11"]
 
+# Network games exclude every human from CalendarTurnAdvance's catch-up updates at 0x82D1FC50
+# and ignore the local player's rank: the difficulty 3 comparison at 0x82D1FCE8 and the difficulty 4 divisor at 0x82D1FD70.
+[[midasm_hook]]
+address = 0x82D1FC50
+name = "ShareCatchUpExclusion"
+registers = ["r27", "r11"]
+
+[[midasm_hook]]
+address = 0x82D1FCE8
+name = "IgnoreCatchUpRank"
+registers = ["r7"]
+
+[[midasm_hook]]
+address = 0x82D1FD70
+name = "IgnoreCatchUpDivisorRank"
+registers = ["r10"]
+
 # Unlimited skips the native deadline check at 0x82D10FD8 and its warning, native 2100 and Game of the Week stay unchanged.
 [[midasm_hook]]
 address = 0x82D11304

@@ -6,6 +6,7 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <limits>
 #include <mutex>
 #include <string>
 
@@ -48,6 +49,16 @@ bool readGuestU8(uint32_t address, uint8_t& value)
     }
     value = *memory->TranslateVirtual<const uint8_t*>(address);
     return true;
+}
+
+std::atomic<bool> catchUpLogged{ false };
+
+void logCatchUpOnce(uint32_t humans)
+{
+    if (!catchUpLogged.exchange(true, std::memory_order_relaxed))
+    {
+        REXLOG_INFO("Network catch-up: human_mask=0x{:08X} excludes humans, rank ignored", humans);
+    }
 }
 
 constexpr uint32_t kResearchLogCap        = 64;
@@ -294,6 +305,35 @@ void ApplyMultiplayerAiDifficulty(PPCRegister& r11)
     if (rerevved::gameplay_session::SetupActive())
     {
         r11.s64 = rerevved::gameplay_fixes::MultiplayerAiDifficultyForGame();
+    }
+}
+
+// 0x82D1FC50 compares the local player in r11 with the saved incoming player in r27; equality skips both catch-up updates.
+void ShareCatchUpExclusion(PPCRegister& r27, PPCRegister& r11)
+{
+    uint32_t humans = 0;
+    if (rerevved::gameplay_session::NetworkGameActive() && readGuestU32(rerevved::ai_civilizations::kHumanMaskGlobal, humans))
+    {
+        logCatchUpOnce(humans);
+        r11.s64 = rerevved::gameplay_fixes::CatchUpExcludedPlayer(r27.s32, humans);
+    }
+}
+
+// Network games ignore rank: 0x82D1FCE8 compares the AI's rank r6 with the local player's r7
+// (difficulty 3), and a nonzero local rank r10 at 0x82D1FD70 selects divisor 4 (difficulty 4).
+void IgnoreCatchUpRank(PPCRegister& rank)
+{
+    if (rerevved::gameplay_session::NetworkGameActive())
+    {
+        rank.s64 = std::numeric_limits<int32_t>::min();
+    }
+}
+
+void IgnoreCatchUpDivisorRank(PPCRegister& rank)
+{
+    if (rerevved::gameplay_session::NetworkGameActive())
+    {
+        rank.u64 = 0;
     }
 }
 

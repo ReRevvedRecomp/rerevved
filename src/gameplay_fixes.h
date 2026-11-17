@@ -233,6 +233,13 @@ constexpr bool IsPairOf(uint32_t mask, int32_t p, int32_t q) noexcept
            (mask >> p & 1) != 0 && (mask >> q & 1) != 0;
 }
 
+// CalendarTurnAdvance 0x82D1EAB0 grants difficulty 3 and 4 catch-up city updates measured
+// against the local player, which differs on every network peer. Peers use the human mask.
+constexpr int32_t CatchUpExcludedPlayer(int32_t player, uint32_t humans) noexcept
+{
+    return player >= 0 && player < kRelationPlayers && (humans >> player & 1) != 0 ? player : -1;
+}
+
 inline uint32_t IntendedCivilizations(int32_t count, int32_t barbarian, uint32_t humans, int32_t maxAi) noexcept
 {
     return ai_civilizations::CivilizationMask(count, barbarian) &
