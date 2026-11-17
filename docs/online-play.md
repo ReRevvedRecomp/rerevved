@@ -36,6 +36,8 @@ count goes up to 6 online; it is reduced so the humans, AI civilizations and Bar
 the other players' saved settings. Set the host's choices before starting the game.
 Always At War is a single-player setting; network games ignore it. Network
 games always use normal combat speed and unit movement and show Spaceship Scenes.
+The Tower of Babel and Tesla's Peace Ray artifacts affect only the player who
+found them.
 Joined players see these settings locked in F1. In the lobby they show the values
 from when the host opened it, and the host can still change them until the game starts.
 The Apollo Discovery Bonuses fix is always on and applies in network games too

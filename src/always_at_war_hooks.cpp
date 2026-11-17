@@ -226,13 +226,18 @@ void RefuseConsumedResponse(PPCRegister& consumed, PPCRegister& p, PPCRegister& 
     }
 }
 
-bool RefuseTowerPair(PPCRegister& local, PPCRegister& other)
+// Shares these two addresses; each address takes one hook.
+void UseArtifactPickerForContacts(PPCRegister& r3, PPCRegister& r15);
+
+bool RefuseTowerPair(PPCRegister& local, PPCRegister& other, PPCRegister& picker)
 {
+    UseArtifactPickerForContacts(local, picker);
     return refuses("tower", local.s32, other.s32);
 }
 
-bool RefuseTeslaPair(PPCRegister& local, PPCRegister& other)
+bool RefuseTeslaPair(PPCRegister& local, PPCRegister& other, PPCRegister& picker)
 {
+    UseArtifactPickerForContacts(local, picker);
     return refuses("tesla", local.s32, other.s32);
 }
 

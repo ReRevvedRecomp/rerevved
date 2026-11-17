@@ -85,13 +85,13 @@ registers = ["r29", "r28", "r26"]
 [[midasm_hook]]
 address = 0x82D18508
 name = "RefuseTowerPair"
-registers = ["r3", "r31"]
+registers = ["r3", "r31", "r15"]
 jump_address_on_true = 0x82D1859C
 
 [[midasm_hook]]
 address = 0x82D18AB8
 name = "RefuseTeslaPair"
-registers = ["r3", "r31"]
+registers = ["r3", "r31", "r15"]
 jump_address_on_true = 0x82D18B50
 
 # 0x82D03388 after the same-value test: r31 and r30 are the pair, r29 the value.

@@ -2279,6 +2279,17 @@ remove the local player:
   always passes.
 - `0x82D1FD70` sets r10, the local rank, to zero, so difficulty 4 always divides by 3.
 
+Two more native paths key shared state on the local player; network games remove it:
+
+- Artifact pickup `sub_82D17AE0` runs on every peer for the picker r15. Its Tower of
+  Babel (`0x82D184A4`) and Tesla's Peace Ray (`0x82D18A54`) arms write relations
+  `0x830ED2D8`, stamps `0x830ED1D8` and flags `0x830ED0D8` for the local player.
+  `UseArtifactPickerForContacts` sets r3 to r15 after each of its 16 `sub_82D8A3A0`
+  calls; `RefuseTowerPair` and `RefuseTeslaPair` call it at the two shared addresses.
+- `sub_82CB2E48` draws from the shared generator `0x8314F750` at `0x82CB3AC0` only when
+  the local player's score passes a threshold. `SkipLocalScoreDraw` skips it, as the
+  native draw in `sub_82D07D38` already is at `0x82D07E24`.
+
 ## Gameplay Spaceship Scenes
 
 `spaceship_scenes` is a bool setting, on by default, shown as the first row
