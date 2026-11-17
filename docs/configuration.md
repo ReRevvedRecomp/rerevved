@@ -97,6 +97,10 @@ game you host: King (the default and the game's native multiplayer value),
 Emperor or Deity. Every player in that game plays the host's value. A later
 change applies only to the next new game. Single player keeps the difficulty
 chosen at game setup, and a loaded save never applies the host's value.
+At Emperor an AI city gets an extra city turn every 5 turns after the first 10, and
+at Deity every 3 turns.
+Online, no human gets it and it does not depend on rank, so every player's
+game gives it to the same cities.
 
 **Spaceship Scenes** (Notifications, on by default) shows the rocket
 scene of every spaceship part, yours included; turn it off to skip them. Multiplayer games always
