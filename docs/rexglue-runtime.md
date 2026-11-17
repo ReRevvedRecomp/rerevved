@@ -2706,6 +2706,13 @@ mismatch appears as a desync.
   civilizations eliminated in play are unchanged.
 - Diplomacy shows leaders for slots 5 and 6. The game has five opponent leader
   slots, so a widened layout shares them; a leader may reload when you switch.
+- The ending screens list every civilization. In a widened layout the game
+  reads your own `gfx_winlosescreen.gfx`, `gfx_histograph.gfx` and
+  `Ribbon5.dds` from `Common0.FPK`, adds rows (six smaller place rows below
+  the winner, with place 6 and 7 badges drawn on your place 5 badge; eight
+  Histograph legend rows), and shows those copies as
+  `GFX_WinLoseScreenRows.gfx` and `GFX_HistographRows.gfx`. A movie or badge
+  that does not match the retail layout is left unchanged and logged.
 - It applies only when a new game starts. Loading a saved game does not
   remove anything; a game saved after the removal keeps it.
 - Multiplayer uses the [prepared host snapshot](#multiplayer-gameplay-snapshots)

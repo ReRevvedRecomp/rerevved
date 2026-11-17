@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <limits>
 #include <set>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -44,6 +45,11 @@ void EnterLeaderModelLookup(PPCRegister& slot);
 void LeaveLeaderModelLookup();
 void UseLeaderSlotCivilization(PPCRegister& offset, PPCRegister& slot);
 void UseLeaderSlotMood(PPCRegister& local, PPCRegister& cell, PPCRegister& slot);
+void ShowEveryWinLoseRow(PPCRegister& rows, PPCRegister& screen);
+void UseHistographPlayerCount(PPCRegister& players);
+void MatchHistographBarbarian(PPCRegister& slot, PPCCRRegister& cr6);
+void BoundHistographPlayers(PPCRegister& slot, PPCCRRegister& cr6);
+bool SumHistographSample(PPCRegister& total, PPCRegister& sample);
 bool RefuseTowerPair(PPCRegister& local, PPCRegister& other, PPCRegister& picker);
 bool RefuseTeslaPair(PPCRegister& local, PPCRegister& other, PPCRegister& picker);
 void ProjectAlwaysAtWarEarly();
@@ -1168,4 +1174,88 @@ TEST_CASE("leader_slot_hooks_keep_retail_and_scope_the_model_lookup", "[ctest][g
     UseLeaderSlotCivilization(offset, slot);
     CHECK(offset.s64 == 0);
     LeaveLeaderModelLookup();
+}
+
+TEST_CASE("histograph_total_halves_only_the_barbarian_slot", "[ctest][gameplay-fixes]")
+{
+    namespace gf = rerevved::gameplay_fixes;
+    std::array<int16_t, 2 * gf::kHistographSlots> sample{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 3, 1, 2, 5, 4, 7 };
+    CHECK(gf::HistographTotal(sample, 6, 5) == 12 + 34 + 56 + 78 + 91 + 31 / 2);
+    CHECK(gf::HistographTotal(sample, 8, 7) == 12 + 34 + 56 + 78 + 91 + 31 + 25 + 47 / 2);
+    sample[14] = -1;
+    sample[15] = 0;
+    CHECK(gf::HistographTotal(sample, 8, 7) == 12 + 34 + 56 + 78 + 91 + 31 + 25 - 5);
+}
+
+TEST_CASE("ending_screen_hooks_follow_the_live_layout", "[ctest][gameplay-fixes]")
+{
+    rex::Runtime runtime(std::filesystem::path{});
+    REQUIRE(runtime.Setup(rex::RuntimeConfig{
+                .kernel_init = rex::kernel::InitializeKernel,
+                .tool_mode   = true,
+            }) == 0);
+    auto* memory = runtime.memory();
+    for (const uint32_t page : { 0x82F70000u, 0x830E0000u })
+    {
+        auto* heap = memory->LookupHeap(page);
+        REQUIRE(heap);
+        REQUIRE(heap->AllocFixed(page, 0x10000u, 0x10000, rex::memory::kMemoryAllocationReserve | rex::memory::kMemoryAllocationCommit, rex::memory::kMemoryProtectRead | rex::memory::kMemoryProtectWrite));
+    }
+    const auto word = [&](uint32_t address, uint32_t value)
+    {
+        rex::memory::store_and_swap<uint32_t>(memory->TranslateVirtual<uint8_t*>(address), value);
+    };
+
+    constexpr uint32_t kScreen     = 0x830E0100u;
+    const auto         winLoseRows = [&](uint32_t entries, int32_t native)
+    {
+        word(kScreen + 0x434, 0x830E1000u);
+        word(kScreen + 0x438, 0x830E1000u + 12 * entries);
+        PPCRegister rows{}, screen{};
+        rows.s64   = native;
+        screen.u64 = kScreen;
+        ShowEveryWinLoseRow(rows, screen);
+        return rows.s64;
+    };
+    word(0x82F700AC, 6);
+    word(0x82F700B0, 5);
+    CHECK(winLoseRows(5, 5) == 5);
+    word(0x82F700AC, 8);
+    word(0x82F700B0, 7);
+    CHECK(winLoseRows(7, 6) == 7);
+    CHECK(winLoseRows(0, 5) == 5);
+
+    // Two-player setups use count 2 and Barbarian -1 but keep the native 6 and 5.
+    for (const auto [count, barbarian, liveCount, liveBarbarian] :
+         { std::tuple{ 6u, 5u, 6u, 5u }, std::tuple{ 8u, 7u, 8u, 7u }, std::tuple{ 6u, 5u, 2u, 0xFFFFFFFFu } })
+    {
+        word(0x82F700AC, liveCount);
+        word(0x82F700B0, liveBarbarian);
+        PPCRegister players{};
+        UseHistographPlayerCount(players);
+        CHECK(players.f64 == count);
+
+        PPCRegister   slot{};
+        PPCCRRegister cr6{};
+        for (int32_t s = 0; s < 9; ++s)
+        {
+            slot.s64 = s;
+            MatchHistographBarbarian(slot, cr6);
+            CHECK(cr6.eq == (s == static_cast<int32_t>(barbarian)));
+            BoundHistographPlayers(slot, cr6);
+            CHECK(cr6.lt == (s < static_cast<int32_t>(count)));
+        }
+
+        PPCRegister total{}, sample{};
+        sample.u64 = 3;
+        for (uint32_t s = 0; s < 8; ++s)
+        {
+            word(0x830E9940 + 0x20 * 3 + 4 * s, (1u << 16) | 2u);
+        }
+        CHECK(SumHistographSample(total, sample) == (count == 8));
+        if (count == 8)
+        {
+            CHECK(total.s64 == 12 * 7 + 6);
+        }
+    }
 }

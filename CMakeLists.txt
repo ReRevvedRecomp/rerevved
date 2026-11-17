@@ -250,6 +250,8 @@ set(REREVVED_SOURCES
     src/nation_select_text.cpp
     src/nation_select_text_hooks.cpp
     src/nation_select_text_registry.h
+    src/gfx_movie_rows.cpp
+    src/place_badges.cpp
     src/main_menu_logo_asset.cpp
     src/main_menu_logo_hooks.cpp
     src/map_packs.cpp

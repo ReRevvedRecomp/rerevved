@@ -3,3 +3,14 @@
 address = 0x82E87B90
 name = "ApplyAssetFileOverride"
 registers = ["r1", "r11", "r30"]
+
+# Win/lose and Histograph screen constructors: r4 names the movie passed to 0x82C7C3D0.
+[[midasm_hook]]
+address = 0x82DD448C
+name = "UseWinLoseRowsMovie"
+registers = ["r4"]
+
+[[midasm_hook]]
+address = 0x82DF5C0C
+name = "UseHistographRowsMovie"
+registers = ["r4"]

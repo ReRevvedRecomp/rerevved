@@ -419,4 +419,26 @@ constexpr int32_t AssignLeaderSlot(LeaderSlots& slots, int32_t ordinal, int32_t 
     return kLeaderSlotBase + chosen;
 }
 
+constexpr int32_t kHistographSlots = 8;
+
+// Widened games put Barbarians last among 7 or 8 participants.
+constexpr bool ExpandedLayout(int32_t count, int32_t barbarian) noexcept
+{
+    return count > 6 && count <= kHistographSlots && barbarian == count - 1;
+}
+
+// Histograph samples hold a tens and a ones halfword per player; the
+// Barbarian slot counts half, rounded toward zero as the native srawi/addze.
+
+constexpr int32_t HistographTotal(std::span<const int16_t, 2 * kHistographSlots> sample, int32_t count, int32_t barbarian) noexcept
+{
+    int32_t total = 0;
+    for (int32_t slot = 0; slot < std::min(count, kHistographSlots); ++slot)
+    {
+        const int32_t value = 10 * sample[2 * slot] + sample[2 * slot + 1];
+        total += slot == barbarian ? value / 2 : value;
+    }
+    return total;
+}
+
 } // namespace rerevved::gameplay_fixes

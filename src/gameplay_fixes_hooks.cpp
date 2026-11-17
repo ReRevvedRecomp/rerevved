@@ -375,6 +375,34 @@ int32_t leaderSlotOrdinal(int32_t slot)
                                   : slot - rerevved::gameplay_fixes::kLeaderSlotBase;
 }
 
+int32_t guestWord(uint32_t address)
+{
+    uint32_t value = 0;
+    readGuestU32(address, value);
+    return static_cast<int32_t>(value);
+}
+
+struct Layout
+{
+    int32_t count;
+    int32_t barbarian;
+};
+
+// Two-player and retail layouts keep the native 6 and 5.
+Layout endingLayout()
+{
+    const int32_t count     = guestWord(rerevved::ai_civilizations::kPlayerCountGlobal);
+    const int32_t barbarian = guestWord(rerevved::ai_civilizations::kBarbarianPlayerGlobal);
+    return rerevved::gameplay_fixes::ExpandedLayout(count, barbarian) ? Layout{ count, barbarian } : Layout{ 6, 5 };
+}
+
+void setSignedCompare(PPCCRRegister& cr, int32_t left, int32_t right)
+{
+    cr.lt = left < right;
+    cr.gt = left > right;
+    cr.eq = left == right;
+}
+
 } // namespace
 
 void CaptureLeaderManager(PPCRegister& manager)
@@ -417,6 +445,55 @@ void UseLeaderSlotCivilization(PPCRegister& offset, PPCRegister& slot)
 void UseLeaderSlotMood(PPCRegister& local, PPCRegister& cell, PPCRegister& slot)
 {
     cell.s64 = 8 * local.s32 + leaderSlotOrdinal(slot.s32);
+}
+
+// The movie keeps a five-row floor; larger games list every civilization.
+void ShowEveryWinLoseRow(PPCRegister& rows, PPCRegister& screen)
+{
+    uint32_t begin = 0, end = 0;
+    if (endingLayout().count > 6 && readGuestU32(screen.u32 + 0x434, begin) && readGuestU32(screen.u32 + 0x438, end) && begin != 0 && end > begin)
+    {
+        rows.s64 = std::max<int32_t>(rows.s32, static_cast<int32_t>((end - begin) / 12));
+    }
+}
+
+void UseHistographPlayerCount(PPCRegister& players)
+{
+    players.f64 = endingLayout().count;
+}
+
+void MatchHistographBarbarian(PPCRegister& slot, PPCCRRegister& cr6)
+{
+    setSignedCompare(cr6, slot.s32, endingLayout().barbarian);
+}
+
+void BoundHistographPlayers(PPCRegister& slot, PPCCRRegister& cr6)
+{
+    setSignedCompare(cr6, slot.s32, endingLayout().count);
+}
+
+bool SumHistographSample(PPCRegister& total, PPCRegister& sample)
+{
+    const Layout layout = endingLayout();
+    if (layout.count <= 6)
+    {
+        return false;
+    }
+    constexpr uint32_t                                                  kHistory = 0x830E9940;
+    constexpr uint32_t                                                  kStride  = 0x20;
+    std::array<int16_t, 2 * rerevved::gameplay_fixes::kHistographSlots> halves{};
+    for (uint32_t i = 0; i < halves.size() / 2; ++i)
+    {
+        uint32_t word = 0;
+        if (!readGuestU32(kHistory + kStride * sample.u32 + 4 * i, word))
+        {
+            return false;
+        }
+        halves[2 * i]     = static_cast<int16_t>(word >> 16);
+        halves[2 * i + 1] = static_cast<int16_t>(word);
+    }
+    total.s64 = rerevved::gameplay_fixes::HistographTotal(halves, layout.count, layout.barbarian);
+    return true;
 }
 
 // Network games keep the native scenes, so every peer runs the same presentation.
