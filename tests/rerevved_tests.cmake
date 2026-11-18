@@ -96,6 +96,8 @@ add_executable(rerevved_tests
     src/overlay_settings.cpp
     src/host_settings.cpp
     src/gameplay_session_settings.cpp
+    src/gfx_movie_rows.cpp
+    src/place_badges.cpp
     src/main_menu_logo_asset.cpp
     src/map_packs.cpp
     src/nation_select_text.cpp
@@ -184,6 +186,8 @@ add_executable(rerevved_tests
     tests/occ_hooks_test.cpp
     tests/helper_commands_test.cpp
     tests/network_pause_test.cpp
+    tests/gfx_movie_rows_test.cpp
+    tests/place_badges_test.cpp
     tests/main_menu_logo_asset_test.cpp
     tests/map_packs_test.cpp
     tests/mod_script_rules_test.cpp

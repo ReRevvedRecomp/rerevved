@@ -278,6 +278,43 @@ address = 0x82DA6458
 name = "UseLeaderSlotMood"
 registers = ["r3", "r8", "r28"]
 
+# Ending screens follow the live player count and Barbarian slot, not retail 6 and 5.
+[[midasm_hook]]
+address = 0x82DD4B2C
+name = "ShowEveryWinLoseRow"
+registers = ["r10", "r25"]
+
+[[midasm_hook]]
+address = 0x82DF7A58
+name = "UseHistographPlayerCount"
+registers = ["f1"]
+
+[[midasm_hook]]
+address = 0x82DF7A98
+name = "MatchHistographBarbarian"
+registers = ["r29", "cr6"]
+
+[[midasm_hook]]
+address = 0x82DF7C34
+name = "BoundHistographPlayers"
+registers = ["r29", "cr6"]
+
+[[midasm_hook]]
+address = 0x82DF7FF4
+name = "BoundHistographPlayers"
+registers = ["r27", "cr6"]
+
+[[midasm_hook]]
+address = 0x82DF5A9C
+name = "MatchHistographBarbarian"
+registers = ["r11", "cr6"]
+
+[[midasm_hook]]
+address = 0x82DF58C8
+name = "SumHistographSample"
+registers = ["r3", "r4"]
+jump_address_on_true = 0x82DF59DC
+
 # Unlimited skips the native deadline check at 0x82D10FD8 and its warning, native 2100 and Game of the Week stay unchanged.
 [[midasm_hook]]
 address = 0x82D11304

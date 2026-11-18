@@ -177,6 +177,16 @@ EXPECTED_HOOKS = [
         "registers": ["r1", "r11", "r30"],
     },
     {
+        "address": 0x82DD448C,
+        "name": "UseWinLoseRowsMovie",
+        "registers": ["r4"],
+    },
+    {
+        "address": 0x82DF5C0C,
+        "name": "UseHistographRowsMovie",
+        "registers": ["r4"],
+    },
+    {
         "address": 0x82C7DF58,
         "name": "PublishGameplayState",
     },
@@ -702,6 +712,34 @@ EXPECTED_HOOKS = [
         "address": 0x82DA6458,
         "name": "UseLeaderSlotMood",
         "registers": ["r3", "r8", "r28"],
+    },
+    {"address": 0x82DD4B2C, "name": "ShowEveryWinLoseRow", "registers": ["r10", "r25"]},
+    {"address": 0x82DF7A58, "name": "UseHistographPlayerCount", "registers": ["f1"]},
+    {
+        "address": 0x82DF7A98,
+        "name": "MatchHistographBarbarian",
+        "registers": ["r29", "cr6"],
+    },
+    {
+        "address": 0x82DF7C34,
+        "name": "BoundHistographPlayers",
+        "registers": ["r29", "cr6"],
+    },
+    {
+        "address": 0x82DF7FF4,
+        "name": "BoundHistographPlayers",
+        "registers": ["r27", "cr6"],
+    },
+    {
+        "address": 0x82DF5A9C,
+        "name": "MatchHistographBarbarian",
+        "registers": ["r11", "cr6"],
+    },
+    {
+        "address": 0x82DF58C8,
+        "name": "SumHistographSample",
+        "registers": ["r3", "r4"],
+        "jump_address_on_true": 0x82DF59DC,
     },
     {
         "address": 0x82D11304,

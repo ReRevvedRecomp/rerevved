@@ -2,6 +2,7 @@
 #include "achievement_icons.h"
 #include "custom_achievements.h"
 #include "game_language.h"
+#include "gfx_movie_rows.h"
 #include "gotw_settings.h"
 #include "gpu/completion/guest_progress_hooks.h"
 
@@ -1205,6 +1206,7 @@ void App::OnPreSystemLinkInit()
 void App::OnPostLoadXexImage()
 {
     rex::ReXApp::OnPostLoadXexImage();
+    rerevved::gfx_movie_rows::SetGameRoot(game_data_root());
     if (!rerevved::custom_achievements::Register())
     {
         REXLOG_WARN("Custom achievements: registration failed");
