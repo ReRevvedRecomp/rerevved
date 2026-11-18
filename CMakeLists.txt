@@ -375,6 +375,7 @@ set(REREVVED_SOURCES
     src/network_admission_hooks.h
     src/join_refusal_hooks.cpp
     src/join_refusal_hooks.h
+    src/host_left_hooks.cpp
     src/lobby_content_watch.cpp
     src/lobby_content_watch.h
     src/research_prompt.h

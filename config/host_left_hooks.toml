@@ -1,0 +1,26 @@
+# Native host migration 0x82CA9B60 runs once the host's GT2 connection closes; r31 is
+# the session state, with the host index at +8 and the local index at +12.
+
+# Before the listener +0x48 call, after the new host index is stored.
+[[midasm_hook]]
+address = 0x82CA9C3C
+name = "NoteHostMigrated"
+registers = ["r31"]
+
+# Before session slot +0x60 with 1: no new host, so the session ends.
+[[midasm_hook]]
+address = 0x82CA9C70
+name = "NoteHostLost"
+registers = ["r31"]
+
+# GT2's socket error handler 0x82A116A8 hard-closes every connection, which removes every
+# remote player in turn; both of its paths return through 0x82A116FC.
+[[midasm_hook]]
+address = 0x82A116A8
+name = "EnterSocketError"
+registers = []
+
+[[midasm_hook]]
+address = 0x82A116FC
+name = "LeaveSocketError"
+registers = []
