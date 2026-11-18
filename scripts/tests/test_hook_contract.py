@@ -674,6 +674,35 @@ EXPECTED_HOOKS = [
         "name": "SkipLocalScoreDraw",
         "registers": ["r6"],
     },
+    {"address": 0x82DA5ECC, "name": "CaptureLeaderManager", "registers": ["r3"]},
+    {
+        "address": 0x82DA5EF8,
+        "name": "AssignOpponentLeaderSlot",
+        "registers": ["r3", "r11", "r10"],
+        "jump_address_on_true": 0x82DA5F30,
+    },
+    {
+        "address": 0x82DA88C4,
+        "name": "EnterLeaderModelLookup",
+        "registers": ["r27"],
+    },
+    {"address": 0x82DA88C8, "name": "LeaveLeaderModelLookup"},
+    {
+        "address": 0x82DA88F0,
+        "name": "EnterLeaderModelLookup",
+        "registers": ["r27"],
+    },
+    {"address": 0x82DA88F4, "name": "LeaveLeaderModelLookup"},
+    {
+        "address": 0x82DA8060,
+        "name": "UseLeaderSlotCivilization",
+        "registers": ["r6", "r30"],
+    },
+    {
+        "address": 0x82DA6458,
+        "name": "UseLeaderSlotMood",
+        "registers": ["r3", "r8", "r28"],
+    },
     {
         "address": 0x82D11304,
         "name": "SkipUnlimitedTurnDeadline",
