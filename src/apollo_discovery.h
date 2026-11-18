@@ -41,6 +41,14 @@ inline std::vector<int32_t> EligibleTechnologies(const OwnershipWords& words)
     return eligible;
 }
 
+// A load queues nothing, but the world still shows a grant owed: the Apollo claim names a
+// player who still owns the claimed city, and some technology 1..46 has no owner.
+inline bool GrantOwed(int32_t claimOwner, int32_t claimCity, int32_t cityOwner, const OwnershipWords& words)
+{
+    return claimOwner >= 0 && claimOwner < kPlayers && claimCity >= 0 && claimCity < kCities &&
+           cityOwner == claimOwner && !EligibleTechnologies(words).empty();
+}
+
 // Unresolved presentation: completion 0x830E3348[p], context 0x830E3328[p], recursive marker 0x830E3430.
 struct StageWords
 {

@@ -2217,6 +2217,7 @@ pure decisions are in `src/apollo_discovery.h`; the hooks in
 | Address | Hook | Effect |
 |---|---|---|
 | `0x82D16348` | `RecordApolloCompletion` | After the claim helper `0x82D16BA0` of the city update, for `r27 == 17`: record (owner of city `r23`, city) when the native claim at `0x830E51D0`/`0x830E51D4` matches. Logs `Apollo Discovery Bonuses: queued`. |
+| `0x82D86678` | `RebuildApolloDiscoveryAfterLoad` | In the load routine `sub_82D86400`, once its world serializer returns: when the loaded claim names a player who still owns the claimed city and some technology 1 to 46 has a zero word, queue (that player, city). Logs `Apollo Discovery Bonuses: requeued after load`. |
 | `0x82C7DF5C` | `DrainApolloDiscoveryBonuses` | The application frame driver, on the guest main thread: drain the oldest record once ready. |
 
 The drain runs through the dispatcher's `ExecuteTrap`, which restores the interrupted
@@ -2232,11 +2233,14 @@ the city and still holding the claim, it calls `0x82D09208(p, t, c, 0, 1)` and
 then `(p, t, c, 0, 2)`, each to its full return, logging
 `Apollo Discovery Bonuses: granted`. If anything native is pending after a pair the
 drain stops and later restarts from the raw words. `Apollo Discovery Bonuses:
-finished` ends a record. A new game or a load empties the queue.
+finished` ends a record. A new game or a load empties the queue; the load then
+requeues a grant the loaded world still owes, so every peer that loads one snapshot,
+and a fresh process, queues the same record.
 
 Left out: a save transaction with prepared-commit metadata, persisting the queue in
-the save sidecar (a save between the completion and the drain loses the grant),
-multiplayer peer barriers and a per-reward ledger. Static evidence is in
+the save sidecar, multiplayer peer barriers and a per-reward ledger. A grant dropped
+because the Apollo city changed hands before it drained can return on a later load if
+the native claim then names the new owner. Static evidence is in
 rerevved-research `apollo-technology-discovery-bonuses.json`.
 
 ## Gameplay Multiplayer AI Difficulty
