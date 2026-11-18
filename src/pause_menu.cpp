@@ -3,6 +3,7 @@
 #include "title_text.h"
 
 #include <mutex>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -66,6 +67,11 @@ std::optional<std::string> BuildList(Variant variant, std::string_view formatted
     result.append(formattedRetail);
     result.append(" " + exitText + "\n");
     return result;
+}
+
+std::string GameOverExitRow(uint32_t languageId)
+{
+    return " " + title_text::Text(title_text::Id::kExitGameRow, languageId) + "\n";
 }
 
 uint32_t QuitText(uint32_t sessionMode, bool sessionPresent, bool ranked)
