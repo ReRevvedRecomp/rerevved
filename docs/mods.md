@@ -22,8 +22,8 @@ the selection, and Apply succeeds during such a game, but the new selection
 applies from your next game or a save load. Native DLL mods and asset packs stay
 active.
 
-F2 locks mod changes during a multiplayer game. Leave the network game session
-to change mods, then save them before creating or joining the next session.
+F2 locks mod changes during a multiplayer game. Leave the network game
+to change mods, then save them before creating or joining the next game.
 [Online play](online-play.md#gameplay-settings-and-mods) describes the required
 matching loadouts.
 

@@ -34,7 +34,7 @@ controls.
 - [Getting started](docs/getting-started.md): install and first run
 - [Configuration](docs/configuration.md): settings, file locations, and backups
 - [Troubleshooting](docs/troubleshooting.md): content, display, and startup help
-- [Online play](docs/online-play.md): host or join through a self hosted relay
+- [Online play](docs/online-play.md): host or join through an online server
 - [Mods](docs/mods.md): enable the bundled Lua mods or install a custom package
 - [Development](docs/development.md): prerequisites, builds, checks, and tests
 - [Documentation index](docs/README.md): player guides and developer reference

@@ -98,7 +98,7 @@ class HostOnlineSourceTest(unittest.TestCase):
         self.assertIn("if ($relay.ExitCode -ne 0)", self.source)
         self.assertRegex(
             self.source,
-            r"The relay stopped with exit code[^\n]*\n\s+return 1",
+            r"The online server stopped with exit code[^\n]*\n\s+return 1",
         )
         self.assertRegex(
             self.source,
@@ -184,7 +184,7 @@ class HostManualSourceTest(unittest.TestCase):
 
     def test_relay_console_goes_to_the_log_only(self):
         self.assertIn(
-            "Relay running on UDP !relay_port!. Leave this window open; "
+            "The online server is running on UDP !relay_port!. Leave this window open; "
             "press Ctrl+C to stop. Details: !relay_log!",
             self.text,
         )

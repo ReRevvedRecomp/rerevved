@@ -67,7 +67,7 @@ function New-Invite([string]$Rexglue, [string]$Address, [string[]]$SecretArgs) {
     $output = & $Rexglue relay-invite --address $Address @SecretArgs
     if ($LASTEXITCODE -ne 0) { throw "Could not create an invite code for $Address." }
     $code = @($output) | Where-Object { $_ -match '^RXR1-' } | Select-Object -First 1
-    if (-not $code) { throw "relay-invite printed no invite code for $Address." }
+    if (-not $code) { throw "No invite code was found for $Address." }
     return $code.Trim()
 }
 
@@ -169,7 +169,7 @@ function Start-Hosting {
         $deadline = (Get-Date).AddSeconds(10)
         while (-not (Get-NetUDPEndpoint -LocalPort $Port -OwningProcess $relay.Id -ErrorAction SilentlyContinue)) {
             if ($relay.HasExited -or (Get-Date) -gt $deadline) {
-                Write-Host "ERROR: The relay did not start listening on UDP port $Port. See $log."
+                Write-Host "ERROR: The online server did not start listening on UDP port $Port. See $log."
                 if (-not $relay.HasExited) {
                     Write-Host 'rexglue.exe is still running; close it in Task Manager.'
                 }
@@ -194,10 +194,10 @@ function Start-Hosting {
         Wait-Process -Id $relay.Id
         $relay.Refresh()
         if ($relay.ExitCode -ne 0) {
-            Write-Host "ERROR: The relay stopped with exit code $($relay.ExitCode). See $log."
+            Write-Host "ERROR: The online server stopped with exit code $($relay.ExitCode). See $log."
             return 1
         }
-        Write-Host 'Relay stopped.'
+        Write-Host 'The online server stopped.'
         return 0
     } catch [System.Management.Automation.PipelineStoppedException] {
         throw

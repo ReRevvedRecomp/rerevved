@@ -63,7 +63,7 @@ std::optional<PlayerMessage> JoinMessage(const JoinStatus& status)
                 MessageKind::kHelp,
                 withReason("Restart ReRevved to join this game from Discord.",
                            status.reason,
-                           "The current System Link settings cannot join this session.") +
+                           "Your current System Link settings can't join this game.") +
                     "\n\nClose ReRevved, then click Join in Discord again.",
             };
         case JoinResult::kInvalid:

@@ -31,9 +31,9 @@ type "!invites!"
 echo.
 echo Keep these codes private. Leave this window open during the test.
 start "" notepad.exe "!invites!"
-echo Relay running on UDP !relay_port!. Leave this window open; press Ctrl+C to stop. Details: !relay_log!
+echo The online server is running on UDP !relay_port!. Leave this window open; press Ctrl+C to stop. Details: !relay_log!
 rexglue.exe --log-file "!relay_log!" relay --secret-file "!secret!" --port "!relay_port!" --max-members 8 >nul 2>&1
-echo Relay stopped. Close the router port forward after testing.
+echo The online server stopped. Close the router port forward after testing.
 goto done
 
 :missing_exe
@@ -43,7 +43,7 @@ goto done
 echo ERROR: Could not resolve the Windows Documents folder.
 goto done
 :state_error
-echo ERROR: Could not create or write the relay folder in Documents.
+echo ERROR: Could not create or write the online server folder in Documents.
 goto done
 :address_error
 echo No address entered. Find your public IPv4 in your router's Internet status.

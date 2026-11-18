@@ -2838,8 +2838,8 @@ startup, so edits made in a running session apply at the next launch.
 | (top) | Connection Status | `system_link_status` | Read-only connection status for this session |
 | Connection | Invite Code | `system_link_invite` | Invite code from the relay host; a nonempty code selects relay mode |
 | Connection | Direct LAN | `system_link_lan_enabled` | Direct LAN mode; cannot be combined with an invite |
-| Connection | Peer-to-Peer | `system_link_direct` | Direct UDP to other relay players, with the relay as fallback; off by default, relay mode only |
-| Matchmaking | Player Match Through Relay | `live_sessions` | Player Match through the relay room; on by default in ReRevved, relay mode only |
+| Connection | Direct Connection | `system_link_direct` | Direct UDP to other relay players, with the relay as fallback; off by default, relay mode only |
+| Matchmaking | Online Player Match | `live_sessions` | Player Match through the relay room; on by default in ReRevved, relay mode only |
 | Discord | Rich Presence | `discord_activity` | Shows ReRevved as the Discord activity; on by default |
 | Discord | Join Button | `discord_invites` | Discord join button while hosting Player Match through the relay; on by default |
 
@@ -2856,7 +2856,7 @@ first starts networking, which ReRevved does during boot, `Relay: connecting`,
 `Relay: connected as 198.18.x.y`,
 `Relay: lost connection`, `Relay: disconnected`, or `Relay failed:` with a
 reason such as a bad invite, an unreachable relay, a wrong secret, or a
-different game build. With Peer-to-Peer on, a connected status adds the
+different game build. With Direct Connection on, a connected status adds the
 number of players reached directly, such as `(direct: 1 of 1 peers)`.
 Every player in a room must run the identical executable build.
 

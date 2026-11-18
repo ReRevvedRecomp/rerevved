@@ -300,8 +300,8 @@ TEST_CASE("native_settings_rows_keep_the_f1_order_and_captions", "[ctest][native
                                                                    "Connection Status: Off",
                                                                    "Invite Code: Not set",
                                                                    "Direct LAN: Off",
-                                                                   "Peer-to-Peer: Off",
-                                                                   "Player Match Through Relay: Off",
+                                                                   "Direct Connection: Off",
+                                                                   "Online Player Match: Off",
                                                                    "Rich Presence: Off",
                                                                    "Join Button: Off" });
     CHECK(captionsOf(model, "Controls") == std::vector<std::string>{ "Gamepad in Background: Off",
@@ -1917,15 +1917,15 @@ TEST_CASE("options_model_a_status_row_is_read_only_and_follows_the_registry", "[
     CHECK(services.applied.empty());
     CHECK(services.invoked.empty());
 
-    services.flags["system_link_status"].value = "Relay: connected";
+    services.flags["system_link_status"].value = "Online: connected";
     for (int i = 0; i < 31; ++i)
         model.Poll();
-    CHECK(selectRow(model, "system_link_status").Caption() == "Relay: connected");
-    services.flags["system_link_status"].value = "Relay failed: <bad>" + std::string(100, 'x');
+    CHECK(selectRow(model, "system_link_status").Caption() == "Online: connected");
+    services.flags["system_link_status"].value = "Online failed: <bad>" + std::string(100, 'x');
     for (int i = 0; i < 31; ++i)
         model.Poll();
     const auto& shown = selectRow(model, "system_link_status").Caption();
-    CHECK(shown.starts_with("Relay failed: bad"));
+    CHECK(shown.starts_with("Online failed: bad"));
     CHECK(shown.size() <= 60);
     services.flags["system_link_status"].value.clear();
     for (int i = 0; i < 31; ++i)
