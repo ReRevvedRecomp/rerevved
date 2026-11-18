@@ -1,4 +1,4 @@
-# Read-only GT2 silent player log (src/silent_player_hooks.cpp); always on.
+# GT2 silent player log, always on, and timeout, off at silent_player_timeout 0 (src/silent_player_hooks.cpp).
 
 # sub_82A11B00, once a datagram matched a known connection and before framed and raw
 # messages split; r11 is the connection.
