@@ -2791,6 +2791,16 @@ datagrams.
 The trace is independent of the transport. It works with direct LAN, with relay
 mode, or with neither enabled.
 
+## Resync restore trace
+
+The `restore_trace` setting defaults to `false`. When enabled, the runtime log
+records each resync start with its target slot and the command ring counters,
+and every call that sets a session hold flag. For two minutes after a resync
+start it also logs each command entering the ring, with its five words, caller
+and ring counters, and each received message that reaches the hold branch,
+with the local hold byte and the message sequence. It never changes guest
+state. Enable it on every peer to compare logs across a transfer.
+
 ## System Link transports
 
 System Link transport is provided by the SDK and is off by default. Direct LAN
