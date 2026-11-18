@@ -179,6 +179,36 @@ catch (...)
     // No exception may escape a guest boundary.
 }
 
+// sub_82D86400 once its serializer returns, so every peer that loads one snapshot queues alike.
+void RebuildApolloDiscoveryAfterLoad() noexcept
+try
+{
+    if (!rerevved::gotw::CurrentSetupIsNotGameOfTheWeek())
+    {
+        return;
+    }
+    const auto owner = static_cast<int32_t>(word(kClaimOwnerWord));
+    const auto city  = static_cast<int32_t>(word(kClaimCityWord));
+    if (!ad::GrantOwed(owner, city, city >= 0 && city < ad::kCities ? cityOwner(city) : -1, ownershipWords()))
+    {
+        return;
+    }
+    {
+        std::lock_guard lock(queueMutex);
+        if (!queue.empty())
+        {
+            return;
+        }
+        queue.push_back({ owner, city });
+        pending.store(1, std::memory_order_relaxed);
+    }
+    REXLOG_INFO("Apollo Discovery Bonuses: requeued after load player={} city={}", owner, city);
+}
+catch (...)
+{
+    // No exception may escape a guest boundary.
+}
+
 // The application frame driver 0x82C7DF58, past its first instruction, runs on
 // the guest main thread; modal pumps (including pause) re-enter, draining makes those inert.
 void DrainApolloDiscoveryBonuses(PPCRegister& sp)

@@ -41,6 +41,30 @@ TEST_CASE("apollo_discovery_grants_only_whole_zero_words_in_ascending_order", "[
     CHECK(ad::EligibleTechnologies(words).empty());
 }
 
+TEST_CASE("apollo_discovery_rebuilds_a_grant_the_loaded_world_still_owes", "[ctest][apollo-discovery]")
+{
+    ad::OwnershipWords words{};
+    words.fill(1);
+    words[9] = 0;
+    CHECK(ad::GrantOwed(2, 40, 2, words));
+    CHECK(ad::GrantOwed(0, 0, 0, words));
+    CHECK(ad::GrantOwed(7, 127, 7, words));
+
+    // Unclaimed, out of range, or the city changed hands.
+    CHECK_FALSE(ad::GrantOwed(-1, -1, -1, words));
+    CHECK_FALSE(ad::GrantOwed(8, 40, 8, words));
+    CHECK_FALSE(ad::GrantOwed(2, 128, 2, words));
+    CHECK_FALSE(ad::GrantOwed(2, -1, 2, words));
+    CHECK_FALSE(ad::GrantOwed(2, 40, 3, words));
+    CHECK_FALSE(ad::GrantOwed(2, 40, -1, words));
+
+    // A finished grant leaves no unowned technology in 1..46; 0 and 47 do not count.
+    words[9]  = 1;
+    words[0]  = 0;
+    words[47] = 0;
+    CHECK_FALSE(ad::GrantOwed(2, 40, 2, words));
+}
+
 TEST_CASE("apollo_discovery_drains_only_when_nothing_native_is_pending", "[ctest][apollo-discovery]")
 {
     CHECK(ad::DrainReady({}));

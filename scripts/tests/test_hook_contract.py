@@ -5638,6 +5638,10 @@ class ApolloDiscoveryHookContractTests(unittest.TestCase):
                     "registers": ["r23", "r27"],
                 },
                 {
+                    "address": 0x82D86678,
+                    "name": "RebuildApolloDiscoveryAfterLoad",
+                },
+                {
                     "address": 0x82C7DF5C,
                     "name": "DrainApolloDiscoveryBonuses",
                     "registers": ["r1"],
@@ -5674,6 +5678,12 @@ class ApolloDiscoveryHookContractTests(unittest.TestCase):
         )[0]
         self.assertNotIn("ExecuteTrap", record)
         self.assertIn("CurrentSetupIsNotGameOfTheWeek()", record)
+        rebuild = source.split("void RebuildApolloDiscoveryAfterLoad", 1)[1].split(
+            "// The application frame driver", 1
+        )[0]
+        self.assertNotIn("ExecuteTrap", rebuild)
+        self.assertIn("CurrentSetupIsNotGameOfTheWeek()", rebuild)
+        self.assertIn("ad::GrantOwed(", rebuild)
         drain = source.split("void DrainApolloDiscoveryBonuses", 1)[1]
         self.assertIn("&thread->context()->r1 != &sp", drain)
         self.assertIn("draining.exchange(true)", drain)
@@ -5711,6 +5721,12 @@ class ApolloDiscoveryHookContractTests(unittest.TestCase):
         )
         for name in ("RecordApolloCompletion", "DrainApolloDiscoveryBonuses"):
             self.assertEqual(len(re.findall(rf"\t{name}\(ctx\.", generated)), 1)
+        rebuild = (
+            "\tsub_82CC4040(ctx, base);\n"
+            "\t// lis r11,-31981\n"
+            "\tRebuildApolloDiscoveryAfterLoad();\n"
+        )
+        self.assertEqual(generated.count(rebuild), 1)
 
 
 if __name__ == "__main__":
