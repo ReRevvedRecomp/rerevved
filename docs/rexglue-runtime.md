@@ -2781,6 +2781,14 @@ The observation occurs before packing at guest `0x826A4258` in `sub_826A4150`
 and preserves all registers. A rate near 30 with interval 2 is consistent with
 an interval ceiling at 60 Hz; interval 1 alone does not establish a CPU bottleneck.
 
+## Turn selection pick trace
+
+The `pick_loop_trace` setting defaults to `false`. When enabled, each pick
+accepted by the turn selection loop in `sub_82D259E8` logs `Pick loop:` with
+the turn, the picked player, the number of draws from the shared generator, and
+the candidate (`0x830EE7E4`) and marked (`0x830EE7DC`) player masks. Compare
+the lines for the same turn across every peer's log in a network game.
+
 ## System Link trace
 
 The `system_link_trace` setting is read only at startup and defaults to
