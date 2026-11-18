@@ -151,6 +151,7 @@ add_executable(rerevved_tests
     tests/city_founding_unit_rules_test.cpp
     tests/gameplay_fixes_test.cpp
     tests/apollo_discovery_test.cpp
+    tests/silent_player_test.cpp
     tests/spy_mission_ai_test.cpp
     tests/button_icons_test.cpp
     tests/keyboard_icons_test.cpp
