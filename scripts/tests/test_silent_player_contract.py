@@ -43,10 +43,17 @@ class SilentPlayerContractTests(unittest.TestCase):
                 1,
             )
 
-    def test_log_is_read_only_and_registered(self):
+    def test_only_the_timeout_closes_and_hooks_are_registered(self):
         source = HOOKS.read_text(encoding="utf-8")
-        self.assertNotRegex(source, r"\.(u32|s32|u64|s64)\s*=[^=]")
         self.assertNotIn("store_and_swap", source)
+        # The drop repeats the hard close sub_82A14BF8 without its free.
+        steps = [
+            source.index("__imp__sub_%s(call, base)" % a)
+            for a in ("82A14C78", "82A14218", "82A15268")
+        ]
+        self.assertEqual(steps, sorted(steps))
+        self.assertEqual(source.count("REX_HOOK_RAW(sub_82A148E8)"), 1)
+        self.assertIn("__imp__sub_82A148E8(ctx, base);", source)
         manifest = (ROOT / "rerevved_manifest.toml").read_text(encoding="utf-8")
         self.assertEqual(manifest.count('"config/silent_player_hooks.toml"'), 1)
         cmake = (ROOT / "CMakeLists.txt").read_text(encoding="utf-8")

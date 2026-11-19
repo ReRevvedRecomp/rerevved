@@ -2334,7 +2334,15 @@ for a known connection in GT2's receive `sub_82A11B00`, keep-alives and framed m
 included, and GT2's per-connection think at `sub_82A148E8` checks each connected player.
 A player not heard from for 45 seconds logs one `Silent player: ... not heard from for`
 warning with their address and port; when they are heard again, `heard again after`
-gives the gap. A connection's timer starts once it is connected. The log never changes guest state.
+gives the gap. A connection's timer starts once it is connected.
+
+A player not heard from for `silent_player_timeout` seconds (default 65, past the online
+server's 60 second grace, during which a player keeps their place; 0 turns it off) is
+removed: GT2's think at `sub_82A148E8` closes the connection as its own connect timeout
+does, logs `Silent player: removed`, and posts a "Player left" toast. Native code then
+removes the player, and migrates the host when the removed player was the host. Each
+player's game decides alone, so all of them remove a silent player at about the same
+time.
 
 ## Multiplayer gameplay snapshots
 
