@@ -705,17 +705,7 @@ void App::OnPreSetup(rex::RuntimeConfig& config)
 
 std::filesystem::path App::GetDefaultUserDataRoot() const
 {
-    // Opt-in Portable Mode keeps player data beside the executable.
-    if (const auto portable = portable_mode::PortableRoot(rex::filesystem::GetExecutableFolder()))
-    {
-        return *portable;
-    }
-    const auto userFolder = rex::filesystem::GetUserFolder();
-#if defined(_WIN32)
-    return userFolder / "My Games" / "ReRevved";
-#else
-    return userFolder / "rerevved";
-#endif
+    return portable_mode::PortableRoot(rex::filesystem::GetExecutableFolder());
 }
 
 void App::OnConfigurePaths(rex::PathConfig& paths)
@@ -735,7 +725,7 @@ void App::OnConfigurePaths(rex::PathConfig& paths)
     rex::cvar::SetFlagAsApplicationDefault("mnk_drag_min_deflection", "8192");
     rex::cvar::SetFlagAsApplicationDefault("mnk_drag_sensitivity", "2.0");
 
-    // Keep user state outside a potentially read-only install directory.
+    // Config lives in the active profile root, not beside the executable.
     paths.config_path = paths.user_data_root / "rerevved.toml";
 }
 
@@ -768,22 +758,19 @@ std::optional<rex::system::ProfileCopySpecification> App::GetProfileCopySpecific
 
 bool App::SetupEnvironment()
 {
-    // Portable Mode must prove its folder is writable before player data is
-    // touched. An explicit user_data_root overrides the marker.
+    // The data folder beside the executable must be writable before player data
+    // is touched. An explicit user_data_root replaces it.
     std::optional<std::filesystem::path> portableRoot;
     if (std::string(REXCVAR_GET(user_data_root)).empty())
     {
-        portableRoot = portable_mode::PortableRoot(rex::filesystem::GetExecutableFolder());
-    }
-    if (portableRoot)
-    {
+        portableRoot             = portable_mode::PortableRoot(rex::filesystem::GetExecutableFolder());
         const std::string reason = portable_mode::PrepareRoot(*portableRoot);
         if (!reason.empty())
         {
             const std::string message = fmt::format(
-                "Portable Mode is on (portable.txt is beside rerevved.exe), but ReRevved cannot use its data "
-                "folder:\n\n{}\n\n{}\n\nMove the game to a folder you can write to, or delete portable.txt "
-                "to use the normal Documents data folder.",
+                "ReRevved keeps its saves and settings in a userdata folder beside the game, but cannot use "
+                "it:\n\n{}\n\n{}\n\nMove the game to a folder you can write to, or start it with "
+                "--user_data_root=<folder>.",
                 portableRoot->string(),
                 reason);
             REXLOG_ERROR("{}", message);
@@ -799,7 +786,7 @@ bool App::SetupEnvironment()
 
     if (portableRoot)
     {
-        REXLOG_INFO("Portable Mode is active; player data is stored in {}", portableRoot->string());
+        REXLOG_INFO("Player data is stored in {}", portableRoot->string());
     }
 
     // Game of the Week and Leaderboards require a Live sign-in. The SDK

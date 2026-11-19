@@ -86,7 +86,7 @@ function Start-Hosting {
         return 1
     }
 
-    $state = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'My Games\ReRevved\online-server'
+    $state = Join-Path $PSScriptRoot 'userdata\online-server'
     $null = New-Item -ItemType Directory -Force -Path $state
     $passwordFile = Join-Path $state 'server-password.txt'
     $invites = Join-Path $state 'invite-codes.txt'

@@ -3,10 +3,7 @@ setlocal DisableDelayedExpansion
 pushd "%~dp0"
 if errorlevel 1 goto folder_error
 if not exist "rexglue.exe" goto missing_exe
-set "documents="
-for /f "usebackq delims=" %%D in (`powershell -NoProfile -Command "[Environment]::GetFolderPath('MyDocuments')"`) do set "documents=%%D"
-if not defined documents goto documents_error
-set "server_dir=%documents%\My Games\ReRevved\online-server"
+set "server_dir=%~dp0userdata\online-server"
 setlocal EnableDelayedExpansion
 if not exist "!server_dir!" mkdir "!server_dir!"
 if not exist "!server_dir!" goto state_error
@@ -39,11 +36,8 @@ goto done
 :missing_exe
 echo ERROR: rexglue.exe is missing. Extract the entire ReRevved release archive, then run host-manual.cmd again.
 goto done
-:documents_error
-echo ERROR: Could not resolve the Windows Documents folder.
-goto done
 :state_error
-echo ERROR: Could not create or write the online server folder in Documents.
+echo ERROR: Could not create or write the userdata\online-server folder beside this script.
 goto done
 :address_error
 echo No address entered. Find your public IPv4 in your router's Internet status.

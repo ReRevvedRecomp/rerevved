@@ -205,44 +205,30 @@ silence the game when its window is unfocused or minimized.
 
 ## File locations
 
-The default player data folder is separate from the application folder:
-
-| Platform | Default data folder |
-| --- | --- |
-| Windows | `Documents\My Games\ReRevved` |
-| Linux x64 and macOS arm64 | `$XDG_DATA_HOME/rerevved`, or `~/.local/share/rerevved` if unset |
-
-Windows uses your actual Documents location, including a redirected folder.
-The data folder holds `rerevved.toml`, `logs/`, `cache/`, saves, achievements,
-and saved mod/asset selections. **F1 > General > Open Log Folder**
+ReRevved keeps its player data in a `userdata` folder beside `rerevved.exe`
+(`rerevved` on Linux and macOS), so deleting the game folder removes every file
+it wrote. On Windows, Discord Join also registers a `discord-<id>` link handler
+in the current user's registry, which stays behind. The folder holds `rerevved.toml`, `logs/`, `cache/`, saves,
+achievements, and saved mod/asset selections. **F1 > General > Open Log Folder**
 opens the active log folder, including when a profile or log override is used.
 
-A named profile stores its state under `profiles/<id>/` inside the data folder.
+The game folder must be writable. If ReRevved cannot create or write
+`userdata`, for example under `Program Files`, it shows a message and refuses
+to start. Move the game to a folder you can write to, or keep the data
+elsewhere with `--user_data_root=<folder>`.
+
+A named profile stores its state under `userdata/profiles/<id>/`.
 For example, launch `rerevved.exe --profile=second` for a separate profile.
 Use the same argument each time: the selected profile is not remembered.
 Omit it or use `--profile=default` to return to the default profile.
 See the [storage profile contract](rexglue-runtime.md#storage-profiles) for
 valid names, copying a default profile, shared content, and path overrides.
 
-### Portable Mode
-
-To keep everything beside the game, create an empty file named `portable.txt`
-in the folder that holds `rerevved.exe`. The data folder then becomes
-`userdata\` in that folder instead of the table above. It needs a writable
-location: if ReRevved cannot create or write `userdata\`, for example under
-`Program Files`, it shows a message and refuses to start. Move the game to a
-writable folder or delete `portable.txt`.
-
-An explicit `--user_data_root` still overrides the marker. Named profiles live
-under `userdata\profiles\<id>\`. Release archives do not include
-`portable.txt`. To move existing progress, copy the contents of the Documents
-data folder into `userdata\` while ReRevved is closed.
-
 ## Back up or restore progress
 
 1. Exit every running copy of ReRevved.
-2. Copy the entire player data folder (`userdata\` in Portable Mode) to a
-   separate backup location. Include `profiles/` if you use named profiles.
+2. Copy the entire `userdata` folder to a separate backup location. Include
+   `profiles/` if you use named profiles.
 3. To restore, close ReRevved and copy the backup to the same location.
 
 If you set explicit paths for user data, logs, or caches, account for those
@@ -262,3 +248,20 @@ rerevved.exe --game_data_root="D:\Games\CivRev"
 To reopen the selector, exit ReRevved, back up `rerevved.toml`, then remove its
 `game_data_root` entry. The next launch asks for content again. Do not delete
 your saves or the whole data folder to change the content path.
+
+## Launch options
+
+Every setting in `rerevved.toml` except the `[log.levels]` table can also be
+given on the command line as `--<name>=<value>`. These are the ones launchers and players use most:
+
+| Option | Effect |
+| --- | --- |
+| `--game_data_root=<folder>` | Use this game content folder for the launch instead of the saved one |
+| `--user_data_root=<folder>` | Keep saves, settings, logs and caches in this folder instead of `userdata` |
+| `--profile=<id>` | Use a separate named profile; see [File locations](#file-locations) |
+| `--fullscreen=true` or `false` | Start fullscreen or windowed; fullscreen is the default |
+| `--window_size=<size>` | Windowed size: `1280x720`, `1600x900`, `1920x1080`, `2560x1440`, `3840x2160` or `maximized` |
+| `--skip_intro_movie=true` | Skip the legal screens and the opening movie |
+| `--log_level=<level>` | `trace`, `debug`, `info`, `warn`, `error`, `critical` or `off` |
+| `--log_file=<path>` | Write the log to this file |
+| `--live_invite=<code>` | Join a hosted Player Match game, as Discord Join does |

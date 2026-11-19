@@ -172,7 +172,7 @@ class HostManualSourceTest(unittest.TestCase):
 
     def test_missing_executable_message_names_the_recovery_step(self):
         block = self.text.split(":missing_exe\n", 1)[1]
-        block = block.split("\n:documents_error", 1)[0]
+        block = block.split("\n:state_error", 1)[0]
         self.assertEqual(
             block.strip().splitlines(),
             [
