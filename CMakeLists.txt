@@ -412,6 +412,7 @@ set(REREVVED_SOURCES
     src/custom_achievement_combat_hooks.h
     src/network_pause.h
     src/network_pause_hooks.cpp
+    src/resync_guard_hooks.cpp
     src/host_settings.cpp
     src/host_settings.h
     src/gameplay_session_settings.cpp

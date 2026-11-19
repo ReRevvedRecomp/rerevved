@@ -2785,6 +2785,15 @@ later native resume finds the pause already clear and does nothing. A peer's
 pause screen closes only if the native message reaches it. Single-player games
 run the native path unchanged.
 
+## Resync guard
+
+The per-turn check can start a resync for a player who has just left, because that
+player is still in the round's human mask. Its snapshot transfer never completes, and the
+next round waits on every transfer, so the game would stall behind the resync notice. The
+title hooks the resync start `sub_82D8FCC8` and skips it, logging `Resync guard: skipped`,
+when `sub_82D8AB00` no longer finds the target player in the game. Resyncs for players
+still in the game run unchanged.
+
 ## Xenos return counter
 
 `xenos_frame_counter` defaults to `false` and is read at startup. With
