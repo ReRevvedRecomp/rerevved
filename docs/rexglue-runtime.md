@@ -214,7 +214,7 @@ window without changing render resolution. Explicit `window_width` and
 ReRevved 0.5 renders with Xenos.
 
 With `settings_show_developer` on, F1 adds a Developer tab with Renderer
-and the relay address. The `renderer` cvar is for developers and defaults to
+and the online server address. The `renderer` cvar is for developers and defaults to
 `xenos`; `native` selects the title's renderer for development. It
 takes effect after restart.
 Settings outside the curated layout can be set in the config file, on the
@@ -2809,8 +2809,8 @@ records; further new records are only counted as overflow. Browse, QR2 init and
 result lines log on every call. Browser callback reasons are throttled like
 datagrams.
 
-The trace is independent of the transport. It works with direct LAN, with relay
-mode, or with neither enabled.
+The trace is independent of the transport. It works with direct LAN, with an online
+server, or with neither enabled.
 
 ## Resync restore trace
 
@@ -2825,8 +2825,9 @@ state. Enable it on every peer to compare logs across a transfer.
 ## System Link transports
 
 System Link transport is provided by the SDK and is off by default. Direct LAN
-and relay mode are mutually exclusive; a process cannot enable both. Relay mode
-forwards guest datagrams through a UDP relay for private tests.
+and online server mode are mutually exclusive; a process cannot enable both.
+Online server mode forwards guest datagrams through a UDP online server for
+private tests.
 
 Press F1 and open **Online** to configure either mode without launch flags.
 Every editable setting except Rich Presence requires a restart: select
@@ -2836,12 +2837,12 @@ startup, so edits made in a running session apply at the next launch.
 | Group | Row | Setting | Meaning |
 |---|---|---|---|
 | (top) | Connection Status | `system_link_status` | Read-only connection status for this session |
-| Connection | Invite Code | `system_link_invite` | Invite code from the relay host; a nonempty code selects relay mode |
+| Connection | Invite Code | `system_link_invite` | Invite code from the host; a nonempty code selects online server mode |
 | Connection | Direct LAN | `system_link_lan_enabled` | Direct LAN mode; cannot be combined with an invite |
-| Connection | Direct Connection | `system_link_direct` | Direct UDP to other relay players, with the relay as fallback; off by default, relay mode only |
-| Matchmaking | Online Player Match | `live_sessions` | Player Match through the relay room; on by default in ReRevved, relay mode only |
+| Connection | Direct Connection | `system_link_direct` | Direct UDP to other players, with the online server as fallback; off by default, online server mode only |
+| Matchmaking | Online Player Match | `live_sessions` | Player Match through the online server room; on by default in ReRevved, online server mode only |
 | Discord | Rich Presence | `discord_activity` | Shows ReRevved as the Discord activity; on by default |
-| Discord | Join Button | `discord_invites` | Discord join button while hosting Player Match through the relay; on by default |
+| Discord | Join Button | `discord_invites` | Discord join button while hosting Player Match through the online server; on by default |
 
 A pasted invite applies when the field loses focus or Enter is pressed. The
 player name is **Profile Name** (`system_link_profile_name`) in **General**; it
@@ -2851,74 +2852,77 @@ creates a random identity and saves it as `system_link_xuid` in the active
 profile's `rerevved.toml`; a configured value is kept. A second copy on the same
 PC needs its own `--profile=<id>` so that it has a separate identity.
 
-The status reads `Off`, `LAN`, `Relay: waiting for System Link` until the game
-first starts networking, which ReRevved does during boot, `Relay: connecting`,
-`Relay: connected as 198.18.x.y`,
-`Relay: lost connection`, `Relay: disconnected`, or `Relay failed:` with a
-reason such as a bad invite, an unreachable relay, a wrong secret, or a
-different game build. With Direct Connection on, a connected status adds the
-number of players reached directly, such as `(direct: 1 of 1 peers)`.
+The status reads `Off`, `LAN`, `Online: waiting for System Link` until the game
+first starts networking, which ReRevved does during boot, `Online: connecting`,
+`Online: connected as 198.18.x.y`,
+`Online: lost connection`, `Online: disconnected`, or `Online failed:` with a
+reason such as a bad invite, an unreachable server, a mismatched invite code,
+or a different game build. With Direct Connection on, a connected status adds
+the number of players reached directly, such as `(direct to 1 of 1 players)`.
 Every player in a room must run the identical executable build.
 
-With `system_link_direct` on, two players in the same relay room who both have
+With `system_link_direct` on, two players in the same online server room who both have
 it on try a direct UDP connection the first time they exchange game traffic.
 Traffic between them moves to that connection when it works and returns to the
-relay within a few seconds when it stops; broadcast traffic always uses the
-relay. Direct datagrams are authenticated with a key the relay hands each pair.
+online server within a few seconds when it stops; broadcast traffic always
+uses the server. Direct datagrams are authenticated with a key the server hands
+each pair.
 Each player's local network addresses are shared with the other players in the
 room.
 
 With `live_sessions` on and an invite set, Multiplayer > Player Match uses
-the relay room as its matchmaking service. A hosted game with an open public
+the online server room as its matchmaking service. A hosted game with an open public
 slot is listed for the other players in the same room, with its host name and
-a round-trip time measured through the relay, and joining it uses the relay
+a round-trip time measured through the server, and joining it uses the server
 connection. Ranked Match finds no games. With LAN mode or no
-invite, the status adds `(Live sessions inactive)` and Player Match behaves
+invite, the status adds `(Online Player Match unavailable)` and Player Match behaves
 as it does with the setting off.
 
 With `discord_invites` on, ReRevved publishes a Discord join button while this
 player hosts a Player Match game with an open slot. The button's join secret
-carries a relay join token that is valid for about 15 minutes and is replaced
+carries a server join token that is valid for about 15 minutes and is replaced
 while the game stays hosted. Friends need the Discord desktop app and the
 same setting on. A friend whose game is closed is started through the
 `discord-<application id>` launch protocol, which ReRevved registers for the
 current user whenever it starts with the setting on; that launch waits up to
 10 seconds for Discord's join event. For that launch only, the join takes
-precedence over the friend's System Link invite, explicit relay settings and
+precedence over the friend's System Link invite, explicit online server settings and
 LAN mode; their saved values are kept. A friend whose game is running joins in
-place when it uses the same relay with
+place when it uses the same online server with
 Live sessions active. Any other System Link state, such as LAN mode, Live
-sessions off or a different relay, needs a restart: ReRevved shows the reason
+sessions off or a different online server, needs a restart: ReRevved shows the reason
 and asks the player to close the game and click Join in Discord again.
 `--live_invite=<code>` on the command line joins the same way without Discord.
 
-`system_link_relay_address`, `system_link_relay_room` and
-`system_link_relay_secret_file` replace an invite. They, and
+`system_link_server_address`, `system_link_server_room` and
+`system_link_server_password_file` replace an invite. They, and
 `system_link_local_address`, which selects the direct LAN interface, are set
 in the config file or on the command line like `system_link_xuid`,
 `system_link_trace`, `live_invite`, `discord_instance_id` and the test-only
 `system_link_direct_drop_after`.
 
-Relay mode is for private tests only. Invite codes contain the room secret.
-Payloads and session tokens are unencrypted, and relayed datagrams have no
-payload integrity or replay protection. Do not run a relay as a public service; open
+Online server mode is for private tests only. Invite codes contain the server
+password.
+Payloads and session tokens are unencrypted, and forwarded datagrams have no
+payload integrity or replay protection. Do not run an online server as a public service; open
 its port to the Internet only for the duration of a private test.
 
-Create a secret and an invite code on the relay machine, then start the relay:
+Create a password and an invite code on the hosting machine, then start the
+online server:
 
 ```powershell
-rexglue relay-invite --address <public-host>:30100 --secret-file <path> --create-secret
-rexglue relay --port 30100 --secret-file <path>
+rexglue online-invite --address <public-host>:30100 --password-file <path> --create-password
+rexglue online-server --port 30100 --password-file <path>
 ```
 
-`relay-invite` prints one code for room `testers` unless `--room` is given. The
-relay binds `0.0.0.0` by default, and Ctrl+C stops it. The Windows package adds
+`online-invite` prints one code for room `testers` unless `--room` is given. The
+server binds `0.0.0.0` by default, and Ctrl+C stops it. The Windows package adds
 `rexglue.exe`, `host-online.cmd`, `host-online.ps1`, `host-manual.cmd` and
 `ONLINE.txt`.
 `host-online.cmd` tries to open the UDP port with UPnP, creates invite codes, starts
-the game against its own relay and runs the relay; `ONLINE.txt` walks
+the game against its own online server and runs it; `ONLINE.txt` walks
 players through hosting, joining and troubleshooting. The SDK's System
-Link relay documentation lists the remaining options and the invite format.
+Link online server documentation lists the remaining options and the invite format.
 
 ## Runtime boundary
 

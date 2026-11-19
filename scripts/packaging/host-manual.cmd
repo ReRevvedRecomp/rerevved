@@ -6,33 +6,33 @@ if not exist "rexglue.exe" goto missing_exe
 set "documents="
 for /f "usebackq delims=" %%D in (`powershell -NoProfile -Command "[Environment]::GetFolderPath('MyDocuments')"`) do set "documents=%%D"
 if not defined documents goto documents_error
-set "relay_dir=%documents%\My Games\ReRevved\relay"
+set "server_dir=%documents%\My Games\ReRevved\online-server"
 setlocal EnableDelayedExpansion
-if not exist "!relay_dir!" mkdir "!relay_dir!"
-if not exist "!relay_dir!" goto state_error
-set "relay_address="
-set /p "relay_address=Public IPv4 or DNS name friends will use (no port): "
-if not defined relay_address goto address_error
-set "relay_port=30100"
-set /p "relay_port=UDP port [30100]: "
-set "secret=!relay_dir!\relay-secret.txt"
-set "invites=!relay_dir!\invite-codes.txt"
-set "invite_errors=!relay_dir!\invite-errors.txt"
-set "relay_log=!relay_dir!\relay.log"
+if not exist "!server_dir!" mkdir "!server_dir!"
+if not exist "!server_dir!" goto state_error
+set "server_address="
+set /p "server_address=Public IPv4 or DNS name friends will use (no port): "
+if not defined server_address goto address_error
+set "server_port=30100"
+set /p "server_port=UDP port [30100]: "
+set "password=!server_dir!\server-password.txt"
+set "invites=!server_dir!\invite-codes.txt"
+set "invite_errors=!server_dir!\invite-errors.txt"
+set "server_log=!server_dir!\online-server.log"
 > "!invites!" echo Friends' code:
 if errorlevel 1 goto state_error
-rexglue.exe relay-invite --address "!relay_address!:!relay_port!" --secret-file "!secret!" --create-secret >> "!invites!" 2> "!invite_errors!"
+rexglue.exe online-invite --address "!server_address!:!server_port!" --password-file "!password!" --create-password >> "!invites!" 2> "!invite_errors!"
 if errorlevel 1 goto invite_error
 >> "!invites!" echo.
 >> "!invites!" echo This PC's code:
-rexglue.exe relay-invite --address "127.0.0.1:!relay_port!" --secret-file "!secret!" >> "!invites!" 2>> "!invite_errors!"
+rexglue.exe online-invite --address "127.0.0.1:!server_port!" --password-file "!password!" >> "!invites!" 2>> "!invite_errors!"
 if errorlevel 1 goto invite_error
 type "!invites!"
 echo.
 echo Keep these codes private. Leave this window open during the test.
 start "" notepad.exe "!invites!"
-echo The online server is running on UDP !relay_port!. Leave this window open; press Ctrl+C to stop. Details: !relay_log!
-rexglue.exe --log-file "!relay_log!" relay --secret-file "!secret!" --port "!relay_port!" --max-members 8 >nul 2>&1
+echo The online server is running on UDP !server_port!. Leave this window open; press Ctrl+C to stop. Details: !server_log!
+rexglue.exe --log-file "!server_log!" online-server --password-file "!password!" --port "!server_port!" --max-members 8 >nul 2>&1
 echo The online server stopped. Close the router port forward after testing.
 goto done
 

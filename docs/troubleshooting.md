@@ -56,7 +56,7 @@ not overlay navigation. If F1-F4 no longer open their default overlays, check
 Follow the troubleshooting advice for your status in
 [ONLINE.txt](../scripts/packaging/ONLINE.txt). Everyone must use the same
 release and an invite code from the same host. Do not post invite codes or the
-host's relay-secret.txt with a report.
+host's server-password.txt with a report.
 
 ## Report a crash, freeze, or unresolved problem
 

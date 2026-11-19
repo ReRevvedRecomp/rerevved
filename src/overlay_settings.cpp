@@ -254,7 +254,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "Developer",
           {
               { "Renderer", { "renderer", "@Graphics" } },
-              { "Online", { "system_link_relay_address" } },
+              { "Online", { "system_link_server_address" } },
           } },
     };
 
@@ -335,7 +335,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         // either backend and are for testing.
         { "renderer", Audience::kDeveloper },
         { "@Graphics", Audience::kDeveloper },
-        { "system_link_relay_address", Audience::kDeveloper },
+        { "system_link_server_address", Audience::kDeveloper },
     };
 
     layout.format_label      = titleCase;
@@ -426,7 +426,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "retail_leader_volume", "Set the leader speech volume from 0 to 9. The game applies your choice each time a profile loads." },
         // Developer.
         { "renderer", "Native is experimental." },
-        { "system_link_relay_address", "Your relay server's address and port." },
+        { "system_link_server_address", "Your online server's address and port." },
     };
     layout.choice_labels = {
         // The guest renders 1280x720; the scale multiplies both axes.
@@ -530,7 +530,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "live_sessions", "Online Player Match" },
         { "discord_activity", "Rich Presence" },
         { "discord_invites", "Join Button" },
-        { "system_link_relay_address", "Relay Address" },
+        { "system_link_server_address", "Server Address" },
         { "renderer", "Renderer" },
         { "monitor", "Monitor" },
     };

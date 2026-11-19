@@ -356,7 +356,7 @@ TEST_CASE("native_settings_rows_keep_the_f1_order_and_captions", "[ctest][native
 TEST_CASE("native_settings_excludes_keybinds_and_developer_rows", "[ctest][native-settings]")
 {
     const auto keys = ns::CuratedKeys();
-    for (const char* excluded : { "renderer", "system_link_relay_address", "@Input/Keybinds", "@Input/Keybinds/Controller", "@Graphics" })
+    for (const char* excluded : { "renderer", "system_link_server_address", "@Input/Keybinds", "@Input/Keybinds/Controller", "@Graphics" })
         CHECK(std::find(keys.begin(), keys.end(), excluded) == keys.end());
     for (const char* included : { "open_log_folder", "system_link_status", "system_link_profile_name", "system_link_invite" })
         CHECK(std::find(keys.begin(), keys.end(), included) != keys.end());

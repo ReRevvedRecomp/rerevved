@@ -205,7 +205,7 @@ class PackageTests(unittest.TestCase):
             text=True,
         )
 
-    def test_windows_relay_cli_sources(self):
+    def test_windows_server_cli_sources(self):
         for location in ("build", "cache", "override"):
             with (
                 self.subTest(location=location),
@@ -234,7 +234,7 @@ class PackageTests(unittest.TestCase):
                     else:
                         extra = ["--sdk-bin", str(sdk / "bin")]
                         (build / "rexglue.exe").write_bytes(b"not the override")
-                cli.write_bytes(b"selected relay CLI")
+                cli.write_bytes(b"selected server CLI")
                 result = self.run_package(build, output, *extra)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 archive_path = next(output.glob("rerevved-v*-windows-x64.zip"))

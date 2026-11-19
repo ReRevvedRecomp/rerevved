@@ -18,11 +18,11 @@ HOSTING
 The online server allows up to eight members. ReRevved starts with Direct LAN
 off and your this-PC code until you quit. Saved Online settings stay unchanged.
 
-The script stores relay-secret.txt (the password behind your invite codes),
-invite-codes.txt, and relay.log (the online server's log) in:
-  Documents\My Games\ReRevved\relay
+The script stores server-password.txt (the password behind your invite codes),
+invite-codes.txt, and online-server.log (the online server's log) in:
+  Documents\My Games\ReRevved\online-server
 It uses your Windows Documents location, even if redirected. An existing
-secret is reused, never overwritten.
+password is reused, never overwritten.
 
 For another UDP port, run: host-online.cmd -Port 30200
 
@@ -119,8 +119,9 @@ WHAT TO REPORT
 Report exact Status text, approximate time, what you tried, what happened,
 package version, and whether you hosted or joined.
 F1 > General > Open Log Folder opens game logs. The second copy's
-logs are in profiles\second\logs. Hosts can also provide relay.log from the
-folder above. Never share relay-secret.txt or invite codes publicly.
+logs are in profiles\second\logs. Hosts can also provide online-server.log
+from the folder above. Never share server-password.txt or invite codes
+publicly.
 Check screenshots and attachments for codes before sharing.
 
 TROUBLESHOOTING

@@ -47,7 +47,7 @@ renderer work uses `native-rendering` with pull requests into `develop`.
    README, the bundled default logo asset pack, the bundled mods under
    `mods/`, map packs under `maps/`, and an empty `game/`
    directory, with no retail content, user files, or `mod_order.txt`. The
-   Windows archive also contains the relay CLI `rexglue.exe`, `host-online.cmd`,
+   Windows archive also contains the online server CLI `rexglue.exe`, `host-online.cmd`,
    `host-online.ps1`, `host-manual.cmd` and `ONLINE.txt` for online
    play.
 
@@ -73,7 +73,7 @@ On first launch, right-click `rerevved` and choose Open. If blocked, remove
 quarantine from the trusted extracted folder with
 `xattr -dr com.apple.quarantine <extracted-bundle>`, then open it.
 
-The Windows relay CLI comes from the build directory or the SDK install
+The Windows online server CLI comes from the build directory or the SDK install
 recorded by `rexglue_DIR` in its `CMakeCache.txt`. Use
 `--sdk-bin <matching-sdk>/bin` to override that lookup with the SDK used to
 build the title. It needs the packaged `rexruntime.dll` beside it.
