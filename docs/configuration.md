@@ -16,7 +16,7 @@ Close ReRevved before editing the file directly.
 - **Notifications**: Spaceship Scenes, research prompts, advisor pop-ups, and Barbarian messages. Each is on by default; turn a row off to hide it.
   New government prompts and Wonder completions always show, and online games always show the first Barbarian message.
   Turning off **Save Reminder** hides the prompt; it does not save the game.
-- **Online**: AI Difficulty (Multiplayer), connection status, relay invite, and Discord options.
+- **Online**: AI Difficulty (Multiplayer), connection status, invite code, and Discord options.
   See [Online play](online-play.md).
 - **Controls**: keyboard/controller bindings, Mouse Aim, mouse sensitivity,
   Drag to Pan, Drag Sensitivity, vibration, controller input in the
@@ -57,7 +57,7 @@ default, as in the original game), 2200 AD, 2300 AD, 2500 AD or Unlimited. The
 game keeps the value it started with and each save records it, so a later change
 applies only to the next new game. A new multiplayer game uses the host's value
 for every player. Game of the Week always uses 2100 AD. A save without a recorded
-Turn Limit, or whose sidecar is missing or rejected, loads with 2100 AD.
+Turn Limit, or whose settings file is missing or rejected, loads with 2100 AD.
 Unlimited removes the turn limit and its warning; the other victories still end
 the game.
 
@@ -70,12 +70,12 @@ the Week keep their own era, and a loaded save never grants technologies again.
 
 **Technology Cost** multiplies the research cost of every technology for every
 civilization, human or AI. It runs from 1x to 100x in presets of 1x, 2x, 3x, 5x,
-10x, 20x, 50x and 100x, and defaults to 1x, which keeps native costs. A base cost
+10x, 20x, 50x and 100x, and defaults to 1x, which keeps the original game's costs. A base cost
 of 20 becomes 2000 at 100x. The multiplier applies before the AI Research Bonus.
 The value applies to the next new game and is saved with it. A new multiplayer
-game uses the host's value. Standard Rules use native costs. The gameplay
-sidecar holds the value; a save without it, and a Game of the Week practice
-save, loads 1x. The [runtime contract](rexglue-runtime.md#technology-cost)
+game uses the host's value. Standard Rules use the original game's costs. The
+gameplay settings file saved next to your save holds the value; a save without
+it, and a Game of the Week practice save, loads 1x. The [runtime contract](rexglue-runtime.md#technology-cost)
 describes rounding.
 
 **Always At War** (off by default) keeps every civilization at war with every
@@ -83,7 +83,7 @@ other one for the whole game; peace can never be made. The game keeps the value 
 started with and each save records it, so a later change applies only to the next
 new game. It is for single player only: network games and Game of the Week ignore
 it. A loaded save restores its own value. A save without a recorded Always At War
-value, or whose sidecar is missing or rejected, loads with it off.
+value, or whose settings file is missing or rejected, loads with it off.
 
 **Apollo Discovery Bonuses** is an always-on fix, not a setting. When a
 civilization completes Apollo, every technology first-discovery bonus nobody has
@@ -93,7 +93,7 @@ applies in single player and multiplayer and skips Game of the Week. A save made
 after Apollo completes but before the bonuses arrive can lose them.
 
 **AI Difficulty (Multiplayer)** sets the difficulty of every AI in a multiplayer
-game you host: King (the default and the game's native multiplayer value),
+game you host: King (the default and the original game's multiplayer value),
 Emperor or Deity. Every player in that game plays the host's value. A later
 change applies only to the next new game. Single player keeps the difficulty
 chosen at game setup, and a loaded save never applies the host's value.
@@ -111,25 +111,25 @@ Week. Part scenes already running are not affected by a change.
 load a Game of the Week. When it is on as the game starts, the whole game is
 practice: it never counts toward the weekly results and earns no Game of the
 Week achievements. Use the Save and Load rows of the pause menu. A practice save
-resumes as practice only with its gameplay sidecar, returning to the week, seed,
-civilization and rules it was saved with. Load accepts any save, in a game or
-from the main menu. Every save made during a practice game writes its gameplay
-sidecar, even with the save sidecar setting off. Automatic saves are not
-resumable: they load without practice rules and never count toward the weekly
-results. A practice save whose sidecar is later lost loads as an ordinary game.
+resumes as practice only with its gameplay settings file (saved next to the
+save), returning to the week, seed, civilization and rules it was saved with.
+Load accepts any save, in a game or from the main menu. Every save made during
+a practice game writes this file, even with `save_sidecar` off. Automatic saves are not resumable: they load without practice rules and
+never count toward the weekly results. A practice save whose settings file is
+later lost loads as an ordinary game.
 
 The in-game Save list and both Load lists offer 99 manual slots. The config-only
 key `save_slots` sets the number, from 10 to 99; 10 keeps the original list. It
 is read when the first list opens, so restart after changing it. The Save list
 shows the existing saves plus one empty slot, never a row of empty slots. Slots
-beyond 10 are ordinary native saves named `save10` and up.
+beyond 10 are ordinary original-format saves named `save10` and up.
 
 ### AI handicaps
 
 The Gameplay settings include **AI Research Bonus**, **AI Production Bonus**,
 **AI Gold Bonus**, **AI Food Bonus**, and **AI Culture Bonus**. Each runs from 0
-to 200 and defaults to 0, which keeps native behavior. Humans and Barbarians
-keep native values. These options change the economy, not leader personality
+to 200 and defaults to 0, which keeps the original game's behavior. Humans and
+Barbarians keep the original values. These options change the economy, not leader personality
 or the number of AI civilizations.
 
 Research and production costs are divided by `1 + bonus/100`. A bonus of 100
@@ -140,13 +140,14 @@ Culture contributions are multiplied by `1 + bonus/100`. The
 Changes apply to the next new game. Multiplayer uses the host's values; see
 [Online play](online-play.md#gameplay-settings-and-mods).
 
-The gameplay sidecar saves all five bonuses with the native save. Loading a
-single-player save restores them. Saves without a valid sidecar, sidecars from
-earlier releases, and loads with sidecars disabled use 0 for all five. Keep the
-`.rerevved-gameplay` file beside its native save when copying saves.
+The gameplay settings file saved next to your save holds all five bonuses.
+Loading a single-player save restores them. Saves without a valid settings
+file, settings files from earlier releases, and loads with the settings file
+turned off use 0 for all five. Keep the `.rerevved-gameplay` file beside its
+save when copying saves.
 
 Game of the Week with **Standard Rules** uses 0 for all five bonuses.
-Multiplayer loads use native behavior, whatever the save recorded.
+Multiplayer loads use the original game's behavior, whatever the save recorded.
 
 ## Display and audio
 
@@ -247,8 +248,8 @@ data folder into `userdata\` while ReRevved is closed.
 If you set explicit paths for user data, logs, or caches, account for those
 locations separately. Installed mods and asset overrides live beside the executable;
 back up custom packages separately as described in [Mods](mods.md).
-Do not share a backup publicly: it can contain saves, account identities,
-paths, and relay credentials.
+Do not share a backup publicly: it can contain saves, player IDs,
+paths, and online server credentials.
 
 ## Select different content
 

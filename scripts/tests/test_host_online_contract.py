@@ -29,7 +29,7 @@ class HostOnlineSourceTest(unittest.TestCase):
     def test_upnp_mapping_uses_the_builtin_com_object(self):
         self.assertIn("HNetCfg.NATUPnP", self.source)
         self.assertIn("StaticPortMappingCollection", self.source)
-        self.assertIn("'ReRevved relay'", self.source)
+        self.assertIn("'ReRevved online server'", self.source)
         self.assertRegex(self.source, r"\.Add\(\$Port, 'UDP', \$Port, \$local,")
         self.assertIn(".ExternalIPAddress", self.source)
 
@@ -42,23 +42,23 @@ class HostOnlineSourceTest(unittest.TestCase):
             self.source,
         )
 
-    def test_secret_is_created_only_when_missing(self):
-        self.assertEqual(self.source.count("--create-secret"), 1)
+    def test_password_is_created_only_when_missing(self):
+        self.assertEqual(self.source.count("--create-password"), 1)
         self.assertRegex(
             self.source,
-            r"if \(-not \(Test-Path -LiteralPath \$secretFile\)\) "
-            r"\{ \$secretArgs \+= '--create-secret' \}",
+            r"if \(-not \(Test-Path -LiteralPath \$passwordFile\)\) "
+            r"\{ \$passwordArgs \+= '--create-password' \}",
         )
-        self.assertNotIn("Write-Host $secret", self.source)
+        self.assertNotIn("Write-Host $password", self.source)
 
     def test_codes_go_to_the_file_and_clipboard_not_the_console(self):
-        self.assertIn("relay-invite --address", self.source)
+        self.assertIn("online-invite --address", self.source)
         self.assertIn('"127.0.0.1:$Port"', self.source)
         self.assertIn("invite-codes.txt", self.source)
         self.assertIn("Set-Clipboard -Value $friendsCode", self.source)
         for line in self.source.splitlines():
             if re.search(r"Write-(Host|Output)", line):
-                self.assertNotRegex(line, r"\$(friendsCode|thisPcCode|secret)\b")
+                self.assertNotRegex(line, r"\$(friendsCode|thisPcCode|password)\b")
 
     def test_game_start_flags(self):
         self.assertIn('"--system_link_invite=$thisPcCode"', self.source)
@@ -71,20 +71,20 @@ class HostOnlineSourceTest(unittest.TestCase):
         self.assertIn("Discord Join won't work with this address", self.source)
         self.assertIn("Get-Process -Name rerevved", self.source)
 
-    def test_relay_starts_before_the_game_and_is_waited_on(self):
+    def test_server_starts_before_the_game_and_is_waited_on(self):
         for text in (
             "'--log-file'",
-            "'relay', '--secret-file'",
+            "'online-server', '--password-file'",
             "'--port', $Port, '--max-members', 8",
             "Start-Process -FilePath $rexglue -NoNewWindow -PassThru",
-            "-RedirectStandardOutput (Join-Path $state 'relay-console.txt')",
-            "-RedirectStandardError (Join-Path $state 'relay-console-err.txt')",
-            "Get-NetUDPEndpoint -LocalPort $Port -OwningProcess $relay.Id",
+            "-RedirectStandardOutput (Join-Path $state 'online-server-console.txt')",
+            "-RedirectStandardError (Join-Path $state 'online-server-console-err.txt')",
+            "Get-NetUDPEndpoint -LocalPort $Port -OwningProcess $server.Id",
             "AddSeconds(10)",
-            "Wait-Process -Id $relay.Id",
+            "Wait-Process -Id $server.Id",
         ):
             self.assertIn(text, self.source)
-        self.assertIn("relay.log", self.source)
+        self.assertIn("online-server.log", self.source)
         self.assertLess(
             self.source.index("Get-NetUDPEndpoint"),
             self.source.index("Start-Process -FilePath $game"),
@@ -94,11 +94,11 @@ class HostOnlineSourceTest(unittest.TestCase):
             self.source.index("Wait-Process"),
         )
 
-    def test_relay_failure_returns_nonzero(self):
-        self.assertIn("if ($relay.ExitCode -ne 0)", self.source)
+    def test_server_failure_returns_nonzero(self):
+        self.assertIn("if ($server.ExitCode -ne 0)", self.source)
         self.assertRegex(
             self.source,
-            r"The relay stopped with exit code[^\n]*\n\s+return 1",
+            r"The online server stopped with exit code[^\n]*\n\s+return 1",
         )
         self.assertRegex(
             self.source,
@@ -182,20 +182,20 @@ class HostManualSourceTest(unittest.TestCase):
             ],
         )
 
-    def test_relay_console_goes_to_the_log_only(self):
+    def test_server_console_goes_to_the_log_only(self):
         self.assertIn(
-            "Relay running on UDP !relay_port!. Leave this window open; "
-            "press Ctrl+C to stop. Details: !relay_log!",
+            "The online server is running on UDP !server_port!. Leave this window open; "
+            "press Ctrl+C to stop. Details: !server_log!",
             self.text,
         )
         self.assertRegex(
             self.text,
-            r'(?m)^rexglue\.exe --log-file "!relay_log!" relay .*--max-members 8 '
+            r'(?m)^rexglue\.exe --log-file "!server_log!" online-server .*--max-members 8 '
             r">nul 2>&1\s*$",
         )
 
     def test_invite_calls_capture_only_the_code(self):
-        calls = [line for line in self.text.splitlines() if "relay-invite" in line]
+        calls = [line for line in self.text.splitlines() if "online-invite" in line]
         self.assertEqual(len(calls), 2)
         for line in calls:
             self.assertRegex(line, r'>> "!invites!" 2>>? "!invite_errors!"$')

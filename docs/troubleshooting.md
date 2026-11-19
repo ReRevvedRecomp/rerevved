@@ -30,7 +30,7 @@ Do not mix binaries from different releases.
 
 If content extraction fails, use a writable application folder and check that
 the selected ISO or update package is complete. ReRevved cannot supply missing
-retail files.
+original game files.
 
 ## A setting or mod did not take effect
 
@@ -54,9 +54,9 @@ not overlay navigation. If F1-F4 no longer open their default overlays, check
 ## Online play fails
 
 Follow the troubleshooting advice for your status in
-[ONLINE.txt](../scripts/packaging/ONLINE.txt). Everyone must use
-the same release, relay, and room. Do not post invite codes or relay secrets
-with a report.
+[ONLINE.txt](../scripts/packaging/ONLINE.txt). Everyone must use the same
+release and an invite code from the same host. Do not post invite codes or the
+host's server-password.txt with a report.
 
 ## Report a crash, freeze, or unresolved problem
 

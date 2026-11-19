@@ -12,7 +12,7 @@
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
 
-REXCVAR_DEFINE_BOOL(restore_trace, false, "ReRevved", "Log commands and the receive hold during a resync restore");
+REXCVAR_DEFINE_BOOL(restore_trace, false, "ReRevved", "Log the commands and held messages while a resyncing player catches up");
 
 namespace
 {

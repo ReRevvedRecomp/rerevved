@@ -1,5 +1,5 @@
 # Hosts a private ReRevved online game: opens the UDP port with UPnP, makes the
-# invite codes, starts the game on this PC's own relay, and runs the relay.
+# invite codes, starts the game on this PC's own online server, and runs it.
 # Runs on Windows PowerShell 5.1.
 param(
     [ValidateRange(1, 65535)][int]$Port = 30100,
@@ -10,7 +10,7 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2.0
 
-$MappingName = 'ReRevved relay'
+$MappingName = 'ReRevved online server'
 
 # Addresses that cannot be reached from the Internet: private, CGNAT, loopback,
 # link-local and "this network".
@@ -63,11 +63,11 @@ function Get-LocalIPv4 {
     return $null
 }
 
-function New-Invite([string]$Rexglue, [string]$Address, [string[]]$SecretArgs) {
-    $output = & $Rexglue relay-invite --address $Address @SecretArgs
+function New-Invite([string]$Rexglue, [string]$Address, [string[]]$PasswordArgs) {
+    $output = & $Rexglue online-invite --address $Address @PasswordArgs
     if ($LASTEXITCODE -ne 0) { throw "Could not create an invite code for $Address." }
     $code = @($output) | Where-Object { $_ -match '^RXR1-' } | Select-Object -First 1
-    if (-not $code) { throw "relay-invite printed no invite code for $Address." }
+    if (-not $code) { throw "No invite code was found for $Address." }
     return $code.Trim()
 }
 
@@ -86,12 +86,12 @@ function Start-Hosting {
         return 1
     }
 
-    $state = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'My Games\ReRevved\relay'
+    $state = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'My Games\ReRevved\online-server'
     $null = New-Item -ItemType Directory -Force -Path $state
-    $secretFile = Join-Path $state 'relay-secret.txt'
+    $passwordFile = Join-Path $state 'server-password.txt'
     $invites = Join-Path $state 'invite-codes.txt'
-    $secretArgs = @('--secret-file', $secretFile)
-    if (-not (Test-Path -LiteralPath $secretFile)) { $secretArgs += '--create-secret' }
+    $passwordArgs = @('--password-file', $passwordFile)
+    if (-not (Test-Path -LiteralPath $passwordFile)) { $passwordArgs += '--create-password' }
 
     $mappings = $null
     $created = $false   # True only for a mapping this run added or reclaimed.
@@ -146,31 +146,31 @@ function Start-Hosting {
             Write-Host "Opened UDP port $Port on your router."
         }
 
-        $friendsCode = New-Invite $rexglue "${external}:$Port" $secretArgs
-        # The secret file exists after the first call.
-        $thisPcCode = New-Invite $rexglue "127.0.0.1:$Port" @('--secret-file', $secretFile)
+        $friendsCode = New-Invite $rexglue "${external}:$Port" $passwordArgs
+        # The password file exists after the first call.
+        $thisPcCode = New-Invite $rexglue "127.0.0.1:$Port" @('--password-file', $passwordFile)
         Set-Content -LiteralPath $invites -Encoding ASCII -Value @(
             "Friends' code:", $friendsCode, '', "This PC's code:", $thisPcCode)
         Set-Clipboard -Value $friendsCode
         Write-Host 'The friends'' code is copied. Paste it to your friends privately.'
         Write-Host "Both codes are in $invites. Keep them private."
 
-        # The game's relay client gives up after 5 seconds, so the relay goes first.
+        # The game gives up on the online server after 5 seconds, so the server goes first.
         # It shares this console, so Ctrl+C reaches it as well.
-        $log = Join-Path $state 'relay.log'
+        $log = Join-Path $state 'online-server.log'
         # Console output goes to files so the window stays quiet; details are in the log.
-        $relay = Start-Process -FilePath $rexglue -NoNewWindow -PassThru `
-            -RedirectStandardOutput (Join-Path $state 'relay-console.txt') `
-            -RedirectStandardError (Join-Path $state 'relay-console-err.txt') `
+        $server = Start-Process -FilePath $rexglue -NoNewWindow -PassThru `
+            -RedirectStandardOutput (Join-Path $state 'online-server-console.txt') `
+            -RedirectStandardError (Join-Path $state 'online-server-console-err.txt') `
             -ArgumentList @(
-            '--log-file', "`"$log`"", 'relay', '--secret-file', "`"$secretFile`"",
+            '--log-file', "`"$log`"", 'online-server', '--password-file', "`"$passwordFile`"",
             '--port', $Port, '--max-members', 8)
-        $null = $relay.Handle   # Keeps the exit code readable.
+        $null = $server.Handle   # Keeps the exit code readable.
         $deadline = (Get-Date).AddSeconds(10)
-        while (-not (Get-NetUDPEndpoint -LocalPort $Port -OwningProcess $relay.Id -ErrorAction SilentlyContinue)) {
-            if ($relay.HasExited -or (Get-Date) -gt $deadline) {
-                Write-Host "ERROR: The relay did not start listening on UDP port $Port. See $log."
-                if (-not $relay.HasExited) {
+        while (-not (Get-NetUDPEndpoint -LocalPort $Port -OwningProcess $server.Id -ErrorAction SilentlyContinue)) {
+            if ($server.HasExited -or (Get-Date) -gt $deadline) {
+                Write-Host "ERROR: The online server did not start listening on UDP port $Port. See $log."
+                if (-not $server.HasExited) {
                     Write-Host 'rexglue.exe is still running; close it in Task Manager.'
                 }
                 return 1
@@ -180,7 +180,7 @@ function Start-Hosting {
 
         # Command-line values win over the saved config and are not saved to it. The
         # advertised address makes Discord join codes carry the friends' address
-        # instead of this PC's 127.0.0.1 relay address; the SDK accepts 35 characters.
+        # instead of this PC's 127.0.0.1 server address; the SDK accepts 35 characters.
         $gameArgs = @("--system_link_invite=$thisPcCode", '--system_link_lan_enabled=false')
         $advertised = "${external}:$Port"
         if ($advertised.Length -gt 35) {
@@ -191,13 +191,13 @@ function Start-Hosting {
         Start-Process -FilePath $game -WorkingDirectory $PSScriptRoot -ArgumentList $gameArgs
         Write-Host 'Started ReRevved. Leave this window open while you play; press Ctrl+C when done.'
 
-        Wait-Process -Id $relay.Id
-        $relay.Refresh()
-        if ($relay.ExitCode -ne 0) {
-            Write-Host "ERROR: The relay stopped with exit code $($relay.ExitCode). See $log."
+        Wait-Process -Id $server.Id
+        $server.Refresh()
+        if ($server.ExitCode -ne 0) {
+            Write-Host "ERROR: The online server stopped with exit code $($server.ExitCode). See $log."
             return 1
         }
-        Write-Host 'Relay stopped.'
+        Write-Host 'The online server stopped.'
         return 0
     } catch [System.Management.Automation.PipelineStoppedException] {
         throw

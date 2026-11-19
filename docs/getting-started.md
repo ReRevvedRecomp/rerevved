@@ -2,7 +2,8 @@
 
 This guide covers Windows and the [macOS arm64 build](#macos).
 Check the [system requirements](../README.md#system-requirements) before installing.
-ReRevved contains no retail content; supply your own legally obtained files.
+ReRevved contains no original game content; supply your own legally
+obtained files.
 
 ## Install and select content
 

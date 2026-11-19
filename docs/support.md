@@ -29,6 +29,6 @@ Before uploading a log:
 2. Remove or replace personal information, secrets, usernames, hostnames, and
    absolute paths. Keep the error and nearby diagnostic context intact.
 3. Attach only the reviewed copy. Do not upload configuration files, saves,
-   retail game files, extracted assets, or the complete ReRevved data folder.
+   original game files, extracted assets, or the complete ReRevved data folder.
 4. If the log cannot be shared safely, submit the reproduction and build
    details first. A maintainer can request a smaller relevant excerpt.

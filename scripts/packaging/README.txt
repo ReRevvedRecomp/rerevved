@@ -109,7 +109,7 @@ https://github.com/ReRevvedRecomp/rerevved/blob/main/docs/rexglue-runtime.md
 
 AUTOMATION
 
-Select content for one session without changing the saved location:
+Select content for one run without changing the saved location:
 
   --game_data_root=<path>
 

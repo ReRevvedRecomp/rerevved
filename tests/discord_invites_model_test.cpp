@@ -144,11 +144,11 @@ void testJoinMessages()
     UNSCOPED_INFO("accepted shows nothing");
     CHECK(!JoinMessage({ JoinResult::kAccepted, {} }));
 
-    const auto restart = JoinMessage({ JoinResult::kRestartRequired, "Relay settings differ." });
+    const auto restart = JoinMessage({ JoinResult::kRestartRequired, "Online settings differ." });
     UNSCOPED_INFO("restart required gives the reason and the relaunch step");
     CHECK((restart && restart->kind == MessageKind::kHelp &&
            restart->text == "Restart ReRevved to join this game from Discord.\n\n"
-                            "Relay settings differ.\n\n"
+                            "Online settings differ.\n\n"
                             "Close ReRevved, then click Join in Discord again."));
 
     const auto invalid = JoinMessage({ JoinResult::kInvalid, "Bad code." });
@@ -290,7 +290,7 @@ void testSessionJoin()
     CHECK(client.joinReplies.empty());
 
     client.joinReplies = { { JoinResult::kPending, {} },
-                           { JoinResult::kRestartRequired, "Different relay." },
+                           { JoinResult::kRestartRequired, "Different online server." },
                            { JoinResult::kUnavailable, "should not be polled" } };
     session.DeliverJoin("rr1.other");
     session.Step(kJoined);
@@ -298,7 +298,7 @@ void testSessionJoin()
     session.Step(kJoined);
     UNSCOPED_INFO("restart required is shown once");
     CHECK((client.messages.size() == 1 && client.messages[0].starts_with("help: ") &&
-           client.messages[0].find("Different relay.") != std::string::npos));
+           client.messages[0].find("Different online server.") != std::string::npos));
     UNSCOPED_INFO("no polling after the restart result");
     CHECK(client.joinReplies.size() == 1);
 
