@@ -2745,6 +2745,23 @@ compare their logs. When the limit removes no civilization,
 the line says `unchanged` and gives the limit, slot layout, human player mask,
 network game flag and local player instead.
 
+## Host left notice
+
+Once the host's GT2 connection closes, the game's own host migration at
+`sub_82CA9B60` either hands hosting to the lowest remaining player or ends the
+game with its "No Connection" box. The always-on host left notice, in
+[host_left_hooks.toml](../config/host_left_hooks.toml), logs a `Host left:`
+warning with the new host and local player indices, or that no player can take
+over. In a game, every player except the new host also gets a "Host left" toast,
+because native code shows them nothing; the new host and the lobby keep the native
+behavior.
+
+A player whose own network fails has every connection closed by GT2's socket error
+handler `sub_82A116A8`. In a game that player gets a "Connection lost" toast, because
+native code shows no box for it, and the host migrations that follow only log. A host
+that goes silent without closing never reaches this path; the silent player log reports
+it. The notice never changes guest state.
+
 ## Multiplayer pause
 
 In a network game the native pause opens for every player, and any player can

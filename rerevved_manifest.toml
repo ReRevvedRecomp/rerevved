@@ -52,4 +52,5 @@ includes = [
     "config/network_admission_hooks.toml",
     "config/join_refusal_hooks.toml",
     "config/lobby_ready_hooks.toml",
+    "config/host_left_hooks.toml",
 ]
