@@ -394,6 +394,8 @@ set(REREVVED_SOURCES
     src/apollo_discovery.h
     src/apollo_discovery_hooks.cpp
     src/apollo_discovery_hooks.h
+    src/silent_player.h
+    src/silent_player_hooks.cpp
     src/ai_civilization_setup.h
     src/ai_civilization_setup.cpp
     src/ai_economy_settings.h

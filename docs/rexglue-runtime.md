@@ -2325,6 +2325,17 @@ one `[spaceship]` line: tag, the first suppressed frame, the finish redirect or 
 native fallback with the previous time, and the untag with the suppressed frame
 count.
 
+## Silent player log
+
+GT2 never times out a connected player, and a player's game that is still running
+sends at least a keep-alive every 30 seconds. The always-on silent player log, in
+[silent_player_hooks.toml](../config/silent_player_hooks.toml), notes every datagram
+for a known connection in GT2's receive `sub_82A11B00`, keep-alives and framed messages
+included, and GT2's per-connection think at `sub_82A148E8` checks each connected player.
+A player not heard from for 45 seconds logs one `Silent player: ... not heard from for`
+warning with their address and port; when they are heard again, `heard again after`
+gives the gap. A connection's timer starts once it is connected. The log never changes guest state.
+
 ## Multiplayer gameplay snapshots
 
 [Online play](online-play.md#gameplay-settings-and-mods) describes the player
