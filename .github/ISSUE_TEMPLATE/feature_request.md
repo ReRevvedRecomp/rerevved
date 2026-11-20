@@ -8,4 +8,10 @@ assignees:
 
 ## Describe the feature
 
-<!-- Describe the feature. Include supporting links when relevant. -->
+<!-- Describe the feature and the problem it solves. Include supporting links
+     when relevant. -->
+
+## Implementation notes
+
+<!-- Optional. Add any guest addresses, function names, save layout notes, or
+     other research leads you already have. -->

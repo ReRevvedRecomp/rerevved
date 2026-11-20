@@ -6,9 +6,10 @@ labels: bug
 assignees:
 ---
 
-## ReRevved version and OS
+## ReRevved version and system
 
-<!-- ReRevved 0.5.1 / Windows 11 / etc. -->
+<!-- ReRevved version, operating system, CPU, and GPU.
+     Example: ReRevved 0.7.0 / Windows 11 / Ryzen 7 5800X / RTX 3070 -->
 
 ## Steps to reproduce
 
@@ -21,5 +22,5 @@ assignees:
 ## Log file
 
 <!-- For a crash or freeze, attach the latest rerevved_NNN.log from
-     F1 > Gameplay > Support > Open Log Folder. Check it against the
+     F1 > General > Open Log Folder. Check it against the
      log-sharing checklist in docs/support.md first. -->
