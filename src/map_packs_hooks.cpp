@@ -245,6 +245,6 @@ REX_HOOK_RAW(sub_82CC29B8)
     rex::memory::store_and_swap<uint32_t>(maskAt, mask & map_packs::kSaveWonderPackBits);
     if (!saveMaskLogged.exchange(true))
     {
-        REXLOG_INFO("Map pack '{}' supplies scenario {}: save content mask {:08X} accepted", owner->pack, *scenario, mask);
+        REXLOG_DEBUG("Map pack '{}' supplies scenario {}: save content mask {:08X} accepted", owner->pack, *scenario, mask);
     }
 }

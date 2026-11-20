@@ -207,6 +207,7 @@ add_executable(rerevved_tests
     tests/retail_ui_art_test.cpp
     tests/rules_bundle_test.cpp
     tests/resync_record_test.cpp
+    tests/support_log_test.cpp
     tests/network_admission_test.cpp
     tests/lobby_content_watch_test.cpp
     tests/rush_cost_test.cpp

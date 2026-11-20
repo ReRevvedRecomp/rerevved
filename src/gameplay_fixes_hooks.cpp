@@ -202,11 +202,11 @@ void FixAiResearchScanStart(PPCRegister& r10, PPCRegister& r11, PPCRegister& r18
         {
             return;
         }
-        REXLOG_INFO("GameplayFix: research scan suppressed={}", suppressed);
+        REXLOG_DEBUG("GameplayFix: research scan suppressed={}", suppressed);
         return;
     }
     researchLogged.fetch_add(1, std::memory_order_relaxed);
-    REXLOG_INFO(
+    REXLOG_DEBUG(
         "GameplayFix: research scan base={:08X} count={} first={} alphabet={}",
         r11.u32 + r18.u32,
         count,
@@ -239,7 +239,7 @@ bool AdmitAiNuclearOpponent(PPCRegister& player, PPCRegister& opponent, PPCRegis
         const uint64_t bit = uint64_t{ 1 } << (8 * player.u32 + opponent.u32);
         if ((nuclearPairsLogged.fetch_or(bit, std::memory_order_relaxed) & bit) == 0)
         {
-            REXLOG_INFO("GameplayFix: AI nuclear opponent player={} opponent={}", player.s32, opponent.s32);
+            REXLOG_DEBUG("GameplayFix: AI nuclear opponent player={} opponent={}", player.s32, opponent.s32);
         }
     }
     return admitted;
@@ -509,14 +509,14 @@ void TagSpaceshipActor(PPCRegister& owner, PPCRegister& slot)
     spaceshipTag.store(index, std::memory_order_relaxed);
     spaceshipFrames.store(0, std::memory_order_relaxed);
     spaceshipFallbackLogged.store(false, std::memory_order_relaxed);
-    REXLOG_INFO("[spaceship] tag owner={} slot={} index={}", owner.s32, slot.s32, index);
+    REXLOG_DEBUG("[spaceship] tag owner={} slot={} index={}", owner.s32, slot.s32, index);
 }
 
 void UntagSpaceshipActor(PPCRegister& owner, PPCRegister& slot)
 {
     if (tagsActor(owner, slot))
     {
-        REXLOG_INFO(
+        REXLOG_DEBUG(
             "[spaceship] untag owner={} slot={} suppressed_frames={}",
             owner.s32,
             slot.s32,
@@ -533,7 +533,7 @@ bool SkipSpaceshipFirstStore(PPCRegister& owner, PPCRegister& slot)
     }
     if (spaceshipFrames.fetch_add(1, std::memory_order_relaxed) == 0)
     {
-        REXLOG_INFO("[spaceship] suppressing focus stores owner={} slot={} index={}", owner.s32, slot.s32, spaceshipTag.load(std::memory_order_relaxed));
+        REXLOG_DEBUG("[spaceship] suppressing focus stores owner={} slot={} index={}", owner.s32, slot.s32, spaceshipTag.load(std::memory_order_relaxed));
     }
     return true;
 }
@@ -553,11 +553,11 @@ bool FinishSpaceshipEarly(PPCRegister& owner, PPCRegister& slot, PPCRegister& pr
     const bool finish = rerevved::gameplay_fixes::FinishesSpaceshipEarly(previousTime.s32);
     if (finish)
     {
-        REXLOG_INFO("[spaceship] finish redirect previous_time={} frames={}", previousTime.s32, spaceshipFrames.load(std::memory_order_relaxed));
+        REXLOG_DEBUG("[spaceship] finish redirect previous_time={} frames={}", previousTime.s32, spaceshipFrames.load(std::memory_order_relaxed));
     }
     else if (!spaceshipFallbackLogged.exchange(true, std::memory_order_relaxed))
     {
-        REXLOG_INFO("[spaceship] finish native fallback previous_time={} frames={}", previousTime.s32, spaceshipFrames.load(std::memory_order_relaxed));
+        REXLOG_DEBUG("[spaceship] finish native fallback previous_time={} frames={}", previousTime.s32, spaceshipFrames.load(std::memory_order_relaxed));
     }
     return finish;
 }
@@ -675,7 +675,7 @@ void LogDominationCapitals(PPCRegister& r27, PPCRegister& r9, PPCRegister& r10, 
                              static_cast<int64_t>(static_cast<uint16_t>(required)) << 16 | static_cast<uint16_t>(total);
     if (dominationCapitalsLastKey[player].exchange(key, std::memory_order_relaxed) != key)
     {
-        REXLOG_INFO(
+        REXLOG_DEBUG(
             "GameplayFix: domination capitals player={} owned={} required={} total={}", player, owned, required, total);
     }
 }

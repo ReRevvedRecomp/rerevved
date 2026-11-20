@@ -317,7 +317,7 @@ size_t Prepare(const std::filesystem::path& dir, const BindingLookup& lookup)
         const auto        key     = PrimaryKey(binding);
         if (!key)
         {
-            REXLOG_INFO("ButtonIcons: {} '{}' has no single key with art; keeping the retail {} icon", slot.keybind, binding, slot.fileName);
+            REXLOG_DEBUG("ButtonIcons: {} '{}' has no single key with art; keeping the retail {} icon", slot.keybind, binding, slot.fileName);
             continue;
         }
 
@@ -330,7 +330,7 @@ size_t Prepare(const std::filesystem::path& dir, const BindingLookup& lookup)
         }
         prepared[i] = { std::make_shared<const std::vector<uint8_t>>(std::move(canvas)), *key };
         ++count;
-        REXLOG_INFO("ButtonIcons: keyboard {} is {}", slot.fileName, *key);
+        REXLOG_DEBUG("ButtonIcons: keyboard {} is {}", slot.fileName, *key);
     }
 
     std::unique_lock lock(selectionMutex);

@@ -1995,8 +1995,10 @@ holds their selection and arithmetic. Static evidence is in rerevved-research ma
   filter creates this Spy only without a network session, so online play is
   unaffected.
 
-The research, launch-year and Domination hooks log at INFO with the prefix
-`GameplayFix:` to show when they run: `research scan base=<hex> count=<N> first=<tech> alphabet=<0|1>`
+The research, launch-year and Domination hooks log with the prefix
+`GameplayFix:` to show when they run. The launch-year, `domination elapsed`,
+`new game domination minimum` and Spy lines log at INFO; the research scan
+and domination capitals lines log at DEBUG: `research scan base=<hex> count=<N> first=<tech> alphabet=<0|1>`
 (on a change of count or first technology, for the first 64 lines, then
 `research scan suppressed=<n>` every 256th suppressed change),
 `spaceship launch year=<signed> admitted=<0|1> old=<0|1>` (every call), and
@@ -2193,7 +2195,7 @@ phase, mask and cells changed.
 The two write hooks refuse only a write that would replace war, in either
 orientation, between live civilizations; a war write and every other pair stay
 native, as does the lifecycle cleanup of an eliminated player. Each refusal logs
-`Always At War: refused peace` with its site and the pair. The native diplomacy
+`Always At War: refused peace` at DEBUG with its site and the pair. The native diplomacy
 dialog still appears, and a refused answer resolves as a refusal. The cancel of a
 pending native request is not intercepted. A setup that fails to admit the expected
 civilizations is not rebuilt, a civilization admitted after its first city is not
@@ -2318,7 +2320,7 @@ hooks in [gameplay_hooks.toml](../config/gameplay_hooks.toml) work as follows.
 
 The creator result, busy bit, global timing, retirement, the shared-screen and
 launch results, and Wonder and other type 24 paths are untouched. Each step logs
-one `[spaceship]` line: tag, the first suppressed frame, the finish redirect or its
+one `[spaceship]` line at DEBUG: tag, the first suppressed frame, the finish redirect or its
 native fallback with the previous time, and the untag with the suppressed frame
 count.
 
@@ -2863,6 +2865,11 @@ start it also logs each command entering the ring, with its five words, caller
 and ring counters, and each received message that reaches the hold branch,
 with the local hold byte and the message sequence. It never changes guest
 state. Enable it on every peer to compare logs across a transfer.
+
+## Resync records
+
+In a network game, the turn-start ledger hook also logs `Turn <n>` once per
+turn, so a crash log shows the turn it reached.
 
 ## System Link transports
 

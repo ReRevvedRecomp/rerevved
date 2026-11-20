@@ -316,6 +316,8 @@ set(REREVVED_SOURCES
     src/intro_movie_hooks.cpp
     src/legal_screen.h
     src/legal_screen_hooks.cpp
+    src/support_log.cpp
+    src/support_log.h
     src/version_label.h
     src/version_label_hooks.cpp
     src/pause_menu.cpp

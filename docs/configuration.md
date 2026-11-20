@@ -262,6 +262,23 @@ given on the command line as `--<name>=<value>`. These are the ones launchers an
 | `--fullscreen=true` or `false` | Start fullscreen or windowed; fullscreen is the default |
 | `--window_size=<size>` | Windowed size: `1280x720`, `1600x900`, `1920x1080`, `2560x1440`, `3840x2160` or `maximized` |
 | `--skip_intro_movie=true` | Skip the legal screens and the opening movie |
-| `--log_level=<level>` | `trace`, `debug`, `info`, `warn`, `error`, `critical` or `off` |
+| `--log_level=<level>` | `trace`, `debug`, `info` (the default), `warn`, `error`, `critical` or `off` |
 | `--log_file=<path>` | Write the log to this file |
 | `--live_invite=<code>` | Join a hosted Player Match game, as Discord Join does |
+
+## Logs
+
+Each launch writes `logs/rerevved_NNN.log` in the data folder. At the default
+`info` level the log is meant to explain a crash or freeze on its own. It
+starts with the ReRevved version and build, the operating system, CPU threads
+and memory, the game, data and log folders, and the display, language and
+online settings. It then records the graphics adapter, the content check, the
+active mods and asset packages, online connection and session changes, and a
+`Phase:` line when the game launches, a game begins or loads, and at shutdown.
+Network games also log `Turn <n>` once per turn. Repeated warnings and
+per-frame detail log at `debug`.
+
+The log file writes your user profile folder as `%USERPROFILE%` (`~` on Linux
+and macOS). Set `log_redact_user_folder = false` to write the real path. A
+`[log.levels]` table in `rerevved.toml` sets the level for one category, for
+example `krnl = "debug"` for the kernel.

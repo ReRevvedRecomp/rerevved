@@ -19,6 +19,7 @@
 #include "resync_record.h"
 #include "save_sidecar.h"
 #include "start_resources_runtime.h"
+#include "support_log.h"
 
 #include <atomic>
 #include <cstdint>
@@ -159,13 +160,13 @@ void logExpandedSetup(const uint8_t* base)
             const uint32_t record = ai_civs::UnitRecord(player, unit);
             live += ai_civs::IsLiveUnit(loadU8(base, record), loadU32(base, record + ai_civs::kUnitFlagsOffset));
         }
-        REXLOG_INFO("AI civilizations: player={} civilization={} barbarian={} start=({}, {}) live_records={}",
-                    player,
-                    civilization,
-                    player == barbarian,
-                    static_cast<int32_t>(loadU32(base, 0x830E345C + 4 * player)),
-                    static_cast<int32_t>(loadU32(base, 0x830E343C + 4 * player)),
-                    live);
+        REXLOG_DEBUG("AI civilizations: player={} civilization={} barbarian={} start=({}, {}) live_records={}",
+                     player,
+                     civilization,
+                     player == barbarian,
+                     static_cast<int32_t>(loadU32(base, 0x830E345C + 4 * player)),
+                     static_cast<int32_t>(loadU32(base, 0x830E343C + 4 * player)),
+                     live);
     }
     REXLOG_INFO("AI civilizations: expanded setup requested={} count={} barbarian={} human_mask=0x{:08X} distinct_ids={}",
                 requested,
@@ -180,6 +181,7 @@ void logLoadCase(rerevved::gameplay_session::LoadCase loadCase)
     namespace session                       = rerevved::gameplay_session;
     const uint32_t apolloPendingBeforeReset = apolloPendingAtLoad.load();
     const uint32_t overridesDigest          = rerevved::resync_record::OverridesDigest(*rerevved::resource_identity_overrides::Current());
+    rerevved::support_log::EnterPhase(fmt::format("loaded game case={}", session::LoadCaseName(loadCase)));
     if (loadCase == session::LoadCase::FileLoad)
     {
         REXLOG_INFO("Load reset: case={} overrides_digest=0x{:08X} apollo_pending_before_reset={}", session::LoadCaseName(loadCase), overridesDigest, apolloPendingBeforeReset);
