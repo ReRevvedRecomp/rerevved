@@ -1,4 +1,4 @@
-# Read-only resync restore observers (src/restore_trace_hooks.cpp), enabled by restore_trace.
+# Read-only resync restore observers (src/resync_catch_up_hooks.cpp), enabled by resync_catch_up_log.
 
 # sub_82D8FCC8 resync start: r3 is the handler, r4 the target slot; arms the window.
 [[midasm_hook]]

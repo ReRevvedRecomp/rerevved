@@ -2829,10 +2829,10 @@ The observation occurs before packing at guest `0x826A4258` in `sub_826A4150`
 and preserves all registers. A rate near 30 with interval 2 is consistent with
 an interval ceiling at 60 Hz; interval 1 alone does not establish a CPU bottleneck.
 
-## Turn selection pick trace
+## Turn order trace
 
-The `pick_loop_trace` setting defaults to `false`. When enabled, each pick
-accepted by the turn selection loop in `sub_82D259E8` logs `Pick loop:` with
+The `turn_order_trace` setting defaults to `false`. When enabled, each pick
+accepted by the turn selection loop in `sub_82D259E8` logs `Turn order:` with
 the turn, the picked player, the number of draws from the shared generator, and
 the candidate (`0x830EE7E4`) and marked (`0x830EE7DC`) player masks. Compare
 the lines for the same turn across every peer's log in a network game.
@@ -2856,15 +2856,18 @@ datagrams.
 The trace is independent of the transport. It works with direct LAN, with an online
 server, or with neither enabled.
 
-## Resync restore trace
+## Resync catch-up log
 
-The `restore_trace` setting defaults to `false`. When enabled, the runtime log
-records each resync start with its target slot and the command ring counters,
-and every call that sets a session hold flag. For two minutes after a resync
-start it also logs each command entering the ring, with its five words, caller
-and ring counters, and each received message that reaches the hold branch,
-with the local hold byte and the message sequence. It never changes guest
-state. Enable it on every peer to compare logs across a transfer.
+The `resync_catch_up_log` setting defaults to `true`. The runtime log records
+each resync start with its target slot and the command ring counters, and every
+call that sets a session hold flag. For two minutes after a resync start it
+also logs each command entering the ring, with its five words, caller and ring
+counters, and each received message that reaches the hold branch, with the
+local hold byte and the message sequence. Lines use the prefix
+`Resync catch-up:`. Each resync start allows 256 lines, the same budget covers
+hold-flag lines before the first resync, and a final line says when the limit
+is reached. It never changes guest state. Compare the logs of every peer
+across a transfer.
 
 ## Resync records
 

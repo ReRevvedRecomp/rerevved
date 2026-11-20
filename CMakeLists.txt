@@ -370,11 +370,11 @@ set(REREVVED_SOURCES
     src/system_link_trace.cpp
     src/system_link_trace.h
     src/system_link_trace_hooks.cpp
-    src/restore_trace_hooks.cpp
+    src/resync_catch_up_hooks.cpp
     src/resync_record.cpp
     src/resync_record.h
     src/resync_record_hooks.cpp
-    src/pick_loop_trace_hooks.cpp
+    src/turn_order_trace_hooks.cpp
     src/network_admission.cpp
     src/network_admission.h
     src/network_admission_hooks.cpp

@@ -275,8 +275,11 @@ and memory, the game, data and log folders, and the display, language and
 online settings. It then records the graphics adapter, the content check, the
 active mods and asset packages, online connection and session changes, and a
 `Phase:` line when the game launches, a game begins or loads, and at shutdown.
-Network games also log `Turn <n>` once per turn. Repeated warnings and
-per-frame detail log at `debug`.
+Network games also log `Turn <n>` once per turn, the `Resync ledger:` and
+`Resync cities:` records at each turn start, and `Resync catch-up:` lines while
+a player who rejoined catches up, at most 256 lines per resync. Set
+`resync_catch_up_log = false` to leave out the catch-up lines. Repeated
+warnings and per-frame detail log at `debug`.
 
 The log file writes your user profile folder as `%USERPROFILE%` (`~` on Linux
 and macOS). Set `log_redact_user_folder = false` to write the real path. A

@@ -10,7 +10,7 @@
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
 
-REXCVAR_DEFINE_BOOL(pick_loop_trace, false, "ReRevved", "Log each turn selection pick with its draw count and player masks");
+REXCVAR_DEFINE_BOOL(turn_order_trace, false, "ReRevved", "Log how each turn picks the next player: the random draws taken and which players were eligible");
 
 namespace
 {
@@ -43,11 +43,11 @@ void TracePickLoopDraw()
 
 void TracePickLoopPick(PPCRegister& pick, PPCRegister& candidates, PPCRegister& marked)
 {
-    if (!REXCVAR_GET(pick_loop_trace))
+    if (!REXCVAR_GET(turn_order_trace))
     {
         return;
     }
-    REXLOG_INFO("Pick loop: turn={} pick={} draws={} candidates=0x{:08X} marked=0x{:08X}",
+    REXLOG_INFO("Turn order: turn={} pick={} draws={} candidates=0x{:08X} marked=0x{:08X}",
                 currentTurn(),
                 pick.s32,
                 draws,
