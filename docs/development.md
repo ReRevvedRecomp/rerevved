@@ -1,8 +1,8 @@
 # Development
 
-This guide covers Windows x64 and macOS arm64 builds, checks, and
-[pull requests](#pull-requests). No retail inputs or generated guest code
-belong in the repository.
+This guide covers Windows x64 and macOS arm64 builds and checks.
+[Contributing](../CONTRIBUTING.md) covers pull requests. No retail inputs or
+generated guest code belong in the repository.
 
 ## Prerequisites
 
@@ -276,25 +276,3 @@ configuration locally. The separate release workflow builds and publishes from
 See [Releasing](releasing.md) for mod assembly, package contents, publication
 conditions, and the standalone archive acceptance checklist. CI does not
 verify gameplay on Linux x64 or macOS arm64.
-
-## Pull requests
-
-Open pull requests against `develop`. Do not submit retail game files, extracted
-assets, generated guest code, build output, credentials, or private working
-material.
-
-Use the SDK revision in [`rexglue-sdk.lock.json`](../rexglue-sdk.lock.json).
-SDK changes belong in the SDK repository and need their own checks before the
-title repins. Preserve guest control flow unless a feature needs a documented
-compatibility hook. Keep diagnostics off by default. Change the inputs to generated code, not the generated files.
-
-Add a focused regression check for changed behavior. For documentation, check
-relative links and heading anchors and run `git diff --check`; a build does not
-check prose. In the pull request, explain the new behavior, its evidence, the
-checks run, and what they do not cover. Compiling and packaging do not prove
-gameplay or graphics are correct.
-
-Commit subjects use `type: imperative summary`, at most 50 characters, with no
-body or parentheses, a lowercase type and a lowercase opening verb. Types
-include `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `resources`, `test`, and
-`tools`.

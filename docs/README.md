@@ -31,7 +31,7 @@ Choose a guide by the task you want to complete.
 
 ## Contribute
 
-- [Pull requests](development.md#pull-requests): prepare a reviewable change.
+- [Contributing](../CONTRIBUTING.md): report a bug, suggest a feature, or open a pull request.
 - [Style guide](style-guide.md): follow source, API, and tool conventions.
 - [Coding agents](ai_agents/README.md): apply repository boundaries to automated changes.
 - [Comments and prose](ai_agents/comments-and-prose.md): keep useful comments and direct prose.
