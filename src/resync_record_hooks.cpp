@@ -1,5 +1,6 @@
 #include "gameplay_session_settings.h"
 #include "resync_record.h"
+#include "support_log.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -102,6 +103,10 @@ try
         return;
     }
     const uint32_t turn = currentTurn();
+    if (caller == kTurnStartReturn && turn != kUnknownTurn)
+    {
+        rerevved::support_log::NoteTurn(turn);
+    }
     if (!dedupe().Admit(turn, caller, scalar))
     {
         return;

@@ -1,4 +1,4 @@
-# Read-only turn selection pick loop observers (src/pick_loop_trace_hooks.cpp), enabled by pick_loop_trace.
+# Read-only turn selection pick loop observers (src/turn_order_trace_hooks.cpp), enabled by turn_order_trace.
 
 # Loop gate in sub_82D259E8, reached on every pass; resets the draw count.
 [[midasm_hook]]

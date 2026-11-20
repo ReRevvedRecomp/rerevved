@@ -59,6 +59,7 @@
 #include "gpu/d3d12/native_renderer_d3d12.h"
 #include "gpu/guest_d3d/clear_consume.h"
 #include "gpu/guest_d3d/clear_derive.h"
+#include "support_log.h"
 #if REREVVED_DEVELOPER
 #include "gpu/guest_d3d/draw_effect_probe.h"
 #endif
@@ -677,7 +678,6 @@ void PublishModSnapshot(rex::Runtime& activeRuntime)
 
 void App::OnPreSetup(rex::RuntimeConfig& config)
 {
-    REXLOG_INFO("{}", REREVVED_BUILD_INFO);
     config.game_version = REREVVED_VERSION;
 
     // Sent to every peer that joins a game this machine hosts.
@@ -724,6 +724,9 @@ void App::OnConfigurePaths(rex::PathConfig& paths)
     // (0x82C14920), so a slow drag must still deflect past it.
     rex::cvar::SetFlagAsApplicationDefault("mnk_drag_min_deflection", "8192");
     rex::cvar::SetFlagAsApplicationDefault("mnk_drag_sensitivity", "2.0");
+
+    // A posted log shows %USERPROFILE% instead of the account's folder name.
+    rex::cvar::SetFlagAsApplicationDefault("log_redact_user_folder", "true");
 
     // Config lives in the active profile root, not beside the executable.
     paths.config_path = paths.user_data_root / "rerevved.toml";
@@ -782,11 +785,6 @@ bool App::SetupEnvironment()
     if (!rex::ReXApp::SetupEnvironment())
     {
         return false;
-    }
-
-    if (portableRoot)
-    {
-        REXLOG_INFO("Player data is stored in {}", portableRoot->string());
     }
 
     // Game of the Week and Leaderboards require a Live sign-in. The SDK
@@ -1171,6 +1169,9 @@ std::optional<rex::PathConfig> App::OnFinalizePaths(const rex::PathConfig& defau
 
 void App::OnPreSystemLinkInit()
 {
+    // The first title hook after the log file opens.
+    rerevved::support_log::LogStartup(user_data_root());
+
     if (!rerevved::DiscordInvitesEnabled() || !REXCVAR_GET(discord_join_launch))
     {
         return;
@@ -1336,11 +1337,14 @@ void App::OnPostLaunchModule(rex::system::XThread* thread)
 {
     rex::ReXApp::OnPostLaunchModule(thread);
     PublishModSnapshot(*runtime());
+    rerevved::support_log::LogLoadout(*runtime());
+    rerevved::support_log::EnterPhase("guest launched");
 }
 
 void App::OnGuestThreadExit(rex::system::XThread* thread)
 {
     (void)thread;
+    rerevved::support_log::EnterPhase("shutting down");
     rerevved::xenos_frames::Finalize();
     rerevved::display_aspect::Shutdown();
 }

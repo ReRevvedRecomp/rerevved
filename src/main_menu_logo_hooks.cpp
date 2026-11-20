@@ -204,7 +204,7 @@ bool servePrepared(rex::memory::Memory*                      memory,
     }
     if (!rows.logged)
     {
-        REXLOG_INFO("GfxMovieRows: served {} ({} bytes)", name, prepared.bytes.size());
+        REXLOG_DEBUG("GfxMovieRows: served {} ({} bytes)", name, prepared.bytes.size());
         rows.logged = true;
     }
     return true;
@@ -294,7 +294,7 @@ void ApplyAssetFileOverride(PPCRegister& stackPointer,
                               serve.buffer) &&
             !serve.logged)
         {
-            REXLOG_INFO("ButtonIcons: served {} as {}", fileName, icon.key);
+            REXLOG_DEBUG("ButtonIcons: served {} as {}", fileName, icon.key);
             serve.logged = true;
         }
         return;

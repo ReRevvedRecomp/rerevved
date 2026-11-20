@@ -316,6 +316,8 @@ set(REREVVED_SOURCES
     src/intro_movie_hooks.cpp
     src/legal_screen.h
     src/legal_screen_hooks.cpp
+    src/support_log.cpp
+    src/support_log.h
     src/version_label.h
     src/version_label_hooks.cpp
     src/pause_menu.cpp
@@ -368,11 +370,11 @@ set(REREVVED_SOURCES
     src/system_link_trace.cpp
     src/system_link_trace.h
     src/system_link_trace_hooks.cpp
-    src/restore_trace_hooks.cpp
+    src/resync_catch_up_hooks.cpp
     src/resync_record.cpp
     src/resync_record.h
     src/resync_record_hooks.cpp
-    src/pick_loop_trace_hooks.cpp
+    src/turn_order_trace_hooks.cpp
     src/network_admission.cpp
     src/network_admission.h
     src/network_admission_hooks.cpp

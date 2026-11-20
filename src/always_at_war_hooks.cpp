@@ -118,7 +118,7 @@ bool refuses(const char* site, int32_t p, int32_t q)
     {
         return false;
     }
-    REXLOG_INFO("Always At War: refused peace site={} p={} q={}", site, p, q);
+    REXLOG_DEBUG("Always At War: refused peace site={} p={} q={}", site, p, q);
     return true;
 }
 
@@ -136,7 +136,7 @@ bool refusesWrite(const char* site, int32_t p, int32_t q, uint32_t value)
     {
         return false;
     }
-    REXLOG_INFO("Always At War: refused peace site={} p={} q={}", site, p, q);
+    REXLOG_DEBUG("Always At War: refused peace site={} p={} q={}", site, p, q);
     return true;
 }
 
@@ -262,6 +262,6 @@ bool SilenceAiContact(PPCRegister& human, PPCRegister& other)
     {
         return false;
     }
-    REXLOG_INFO("Always At War: silenced contact x={} y={}", x, y);
+    REXLOG_DEBUG("Always At War: silenced contact x={} y={}", x, y);
     return true;
 }
