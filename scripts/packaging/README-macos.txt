@@ -22,7 +22,7 @@ FIRST RUN
 F1 opens Settings, F2 manages mods, F3 opens Achievements, and F4 toggles FPS.
 Bundled Lua mods start disabled. Enable them in F2 and restart.
 
-User files use $XDG_DATA_HOME/rerevved, or ~/.local/share/rerevved if unset.
+User files are in the userdata folder beside rerevved.
 Exit before backing up that folder. Use --profile=<id> for separate saves
 and settings. F1 > General > Open Log Folder finds the active log.
 

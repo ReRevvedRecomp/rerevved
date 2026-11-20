@@ -10,13 +10,8 @@
 namespace rerevved::portable_mode
 {
 
-std::optional<std::filesystem::path> PortableRoot(const std::filesystem::path& exeFolder)
+std::filesystem::path PortableRoot(const std::filesystem::path& exeFolder)
 {
-    std::error_code ec;
-    if (!std::filesystem::is_regular_file(exeFolder / kMarkerFileName, ec) || ec)
-    {
-        return std::nullopt;
-    }
     return exeFolder / kDataFolderName;
 }
 

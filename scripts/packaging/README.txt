@@ -74,14 +74,11 @@ Double-click host-online.cmd to host.
 
 USER FILES AND BACKUPS
 
-Windows config, logs, saves, and caches are in Documents\My Games\ReRevved.
-Linux logs are in $XDG_DATA_HOME/rerevved/logs, or
-~/.local/share/rerevved/logs when XDG_DATA_HOME is not set. Other writable
-state uses the same rerevved data root.
+Config, logs, saves, and caches are in the userdata folder beside
+rerevved.exe (rerevved on Linux). Deleting the game folder removes them.
 
 Exit ReRevved before backing up or restoring. Copy the user data folder to
-back up progress and settings; restore it to the same location. Writable user
-files stay separate from the application folder.
+back up progress and settings; restore it to the same location.
 
 STORAGE PROFILES
 

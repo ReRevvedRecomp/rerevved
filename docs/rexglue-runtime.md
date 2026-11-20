@@ -93,12 +93,9 @@ See [`game_content.cpp`](../src/game_content.cpp) and
 
 ReXGlue calls the shared root for user data `B` and the active profile root `P`.
 A bare launch, an omitted profile, or `--profile=default` selects the default
-environment with `P=B`. On Windows,
-`B` is normally `Documents\My Games\ReRevved`; on Linux, it is normally
-`$XDG_DATA_HOME/rerevved` or `~/.local/share/rerevved` when
-`XDG_DATA_HOME` is not set. With a `portable.txt` marker beside the
-executable, `B` is `userdata` beside it (see
-[Portable Mode](configuration.md#portable-mode)).
+environment with `P=B`. `B` is `userdata` beside the executable unless
+`--user_data_root` names another folder (see
+[File locations](configuration.md#file-locations)).
 
 Use `--profile=<id>` to select a named profile:
 
