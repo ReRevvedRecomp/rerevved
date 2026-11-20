@@ -93,12 +93,9 @@ See [`game_content.cpp`](../src/game_content.cpp) and
 
 ReXGlue calls the shared root for user data `B` and the active profile root `P`.
 A bare launch, an omitted profile, or `--profile=default` selects the default
-environment with `P=B`. On Windows,
-`B` is normally `Documents\My Games\ReRevved`; on Linux, it is normally
-`$XDG_DATA_HOME/rerevved` or `~/.local/share/rerevved` when
-`XDG_DATA_HOME` is not set. With a `portable.txt` marker beside the
-executable, `B` is `userdata` beside it (see
-[Portable Mode](configuration.md#portable-mode)).
+environment with `P=B`. `B` is `userdata` beside the executable unless
+`--user_data_root` names another folder (see
+[File locations](configuration.md#file-locations)).
 
 Use `--profile=<id>` to select a named profile:
 
@@ -214,7 +211,7 @@ window without changing render resolution. Explicit `window_width` and
 ReRevved 0.5 renders with Xenos.
 
 With `settings_show_developer` on, F1 adds a Developer tab with Renderer
-and the relay address. The `renderer` cvar is for developers and defaults to
+and the online server address. The `renderer` cvar is for developers and defaults to
 `xenos`; `native` selects the title's renderer for development. It
 takes effect after restart.
 Settings outside the curated layout can be set in the config file, on the
@@ -1998,8 +1995,10 @@ holds their selection and arithmetic. Static evidence is in rerevved-research ma
   filter creates this Spy only without a network session, so online play is
   unaffected.
 
-The research, launch-year and Domination hooks log at INFO with the prefix
-`GameplayFix:` to show when they run: `research scan base=<hex> count=<N> first=<tech> alphabet=<0|1>`
+The research, launch-year and Domination hooks log with the prefix
+`GameplayFix:` to show when they run. The launch-year, `domination elapsed`,
+`new game domination minimum` and Spy lines log at INFO; the research scan
+and domination capitals lines log at DEBUG: `research scan base=<hex> count=<N> first=<tech> alphabet=<0|1>`
 (on a change of count or first technology, for the first 64 lines, then
 `research scan suppressed=<n>` every 256th suppressed change),
 `spaceship launch year=<signed> admitted=<0|1> old=<0|1>` (every call), and
@@ -2196,7 +2195,7 @@ phase, mask and cells changed.
 The two write hooks refuse only a write that would replace war, in either
 orientation, between live civilizations; a war write and every other pair stay
 native, as does the lifecycle cleanup of an eliminated player. Each refusal logs
-`Always At War: refused peace` with its site and the pair. The native diplomacy
+`Always At War: refused peace` at DEBUG with its site and the pair. The native diplomacy
 dialog still appears, and a refused answer resolves as a refusal. The cancel of a
 pending native request is not intercepted. A setup that fails to admit the expected
 civilizations is not rebuilt, a civilization admitted after its first city is not
@@ -2217,6 +2216,7 @@ pure decisions are in `src/apollo_discovery.h`; the hooks in
 | Address | Hook | Effect |
 |---|---|---|
 | `0x82D16348` | `RecordApolloCompletion` | After the claim helper `0x82D16BA0` of the city update, for `r27 == 17`: record (owner of city `r23`, city) when the native claim at `0x830E51D0`/`0x830E51D4` matches. Logs `Apollo Discovery Bonuses: queued`. |
+| `0x82D86678` | `RebuildApolloDiscoveryAfterLoad` | In the load routine `sub_82D86400`, once its world serializer returns: when the loaded claim names a player who still owns the claimed city and some technology 1 to 46 has a zero word, queue (that player, city). Logs `Apollo Discovery Bonuses: requeued after load`. |
 | `0x82C7DF5C` | `DrainApolloDiscoveryBonuses` | The application frame driver, on the guest main thread: drain the oldest record once ready. |
 
 The drain runs through the dispatcher's `ExecuteTrap`, which restores the interrupted
@@ -2232,11 +2232,14 @@ the city and still holding the claim, it calls `0x82D09208(p, t, c, 0, 1)` and
 then `(p, t, c, 0, 2)`, each to its full return, logging
 `Apollo Discovery Bonuses: granted`. If anything native is pending after a pair the
 drain stops and later restarts from the raw words. `Apollo Discovery Bonuses:
-finished` ends a record. A new game or a load empties the queue.
+finished` ends a record. A new game or a load empties the queue; the load then
+requeues a grant the loaded world still owes, so every peer that loads one snapshot,
+and a fresh process, queues the same record.
 
 Left out: a save transaction with prepared-commit metadata, persisting the queue in
-the save sidecar (a save between the completion and the drain loses the grant),
-multiplayer peer barriers and a per-reward ledger. Static evidence is in
+the save sidecar, multiplayer peer barriers and a per-reward ledger. A grant dropped
+because the Apollo city changed hands before it drained can return on a later load if
+the native claim then names the new owner. Static evidence is in
 rerevved-research `apollo-technology-discovery-bonuses.json`.
 
 ## Gameplay Multiplayer AI Difficulty
@@ -2279,6 +2282,17 @@ remove the local player:
   always passes.
 - `0x82D1FD70` sets r10, the local rank, to zero, so difficulty 4 always divides by 3.
 
+Two more native paths key shared state on the local player; network games remove it:
+
+- Artifact pickup `sub_82D17AE0` runs on every peer for the picker r15. Its Tower of
+  Babel (`0x82D184A4`) and Tesla's Peace Ray (`0x82D18A54`) arms write relations
+  `0x830ED2D8`, stamps `0x830ED1D8` and flags `0x830ED0D8` for the local player.
+  `UseArtifactPickerForContacts` sets r3 to r15 after each of its 16 `sub_82D8A3A0`
+  calls; `RefuseTowerPair` and `RefuseTeslaPair` call it at the two shared addresses.
+- `sub_82CB2E48` draws from the shared generator `0x8314F750` at `0x82CB3AC0` only when
+  the local player's score passes a threshold. `SkipLocalScoreDraw` skips it, as the
+  native draw in `sub_82D07D38` already is at `0x82D07E24`.
+
 ## Gameplay Spaceship Scenes
 
 `spaceship_scenes` is a bool setting, on by default, shown as the first row
@@ -2306,9 +2320,28 @@ hooks in [gameplay_hooks.toml](../config/gameplay_hooks.toml) work as follows.
 
 The creator result, busy bit, global timing, retirement, the shared-screen and
 launch results, and Wonder and other type 24 paths are untouched. Each step logs
-one `[spaceship]` line: tag, the first suppressed frame, the finish redirect or its
+one `[spaceship]` line at DEBUG: tag, the first suppressed frame, the finish redirect or its
 native fallback with the previous time, and the untag with the suppressed frame
 count.
+
+## Silent player log
+
+GT2 never times out a connected player, and a player's game that is still running
+sends at least a keep-alive every 30 seconds. The always-on silent player log, in
+[silent_player_hooks.toml](../config/silent_player_hooks.toml), notes every datagram
+for a known connection in GT2's receive `sub_82A11B00`, keep-alives and framed messages
+included, and GT2's per-connection think at `sub_82A148E8` checks each connected player.
+A player not heard from for 45 seconds logs one `Silent player: ... not heard from for`
+warning with their address and port; when they are heard again, `heard again after`
+gives the gap. A connection's timer starts once it is connected.
+
+A player not heard from for `silent_player_timeout` seconds (default 65, past the online
+server's 60 second grace, during which a player keeps their place; 0 turns it off) is
+removed: GT2's think at `sub_82A148E8` closes the connection as its own connect timeout
+does, logs `Silent player: removed`, and posts a "Player left" toast. Native code then
+removes the player, and migrates the host when the removed player was the host. Each
+player's game decides alone, so all of them remove a silent player at about the same
+time.
 
 ## Multiplayer gameplay snapshots
 
@@ -2693,6 +2726,15 @@ mismatch appears as a desync.
 - The farewell leader screens for the removed civilizations are hidden, along
   with the leader screen the game shows just before a farewell. Farewells of
   civilizations eliminated in play are unchanged.
+- Diplomacy shows leaders for slots 5 and 6. The game has five opponent leader
+  slots, so a widened layout shares them; a leader may reload when you switch.
+- The ending screens list every civilization. In a widened layout the game
+  reads your own `gfx_winlosescreen.gfx`, `gfx_histograph.gfx` and
+  `Ribbon5.dds` from `Common0.FPK`, adds rows (six smaller place rows below
+  the winner, with place 6 and 7 badges drawn on your place 5 badge; eight
+  Histograph legend rows), and shows those copies as
+  `GFX_WinLoseScreenRows.gfx` and `GFX_HistographRows.gfx`. A movie or badge
+  that does not match the retail layout is left unchanged and logged.
 - It applies only when a new game starts. Loading a saved game does not
   remove anything; a game saved after the removal keeps it.
 - Multiplayer uses the [prepared host snapshot](#multiplayer-gameplay-snapshots)
@@ -2710,6 +2752,23 @@ compare their logs. When the limit removes no civilization,
 the line says `unchanged` and gives the limit, slot layout, human player mask,
 network game flag and local player instead.
 
+## Host left notice
+
+Once the host's GT2 connection closes, the game's own host migration at
+`sub_82CA9B60` either hands hosting to the lowest remaining player or ends the
+game with its "No Connection" box. The always-on host left notice, in
+[host_left_hooks.toml](../config/host_left_hooks.toml), logs a `Host left:`
+warning with the new host and local player indices, or that no player can take
+over. In a game, every player except the new host also gets a "Host left" toast,
+because native code shows them nothing; the new host and the lobby keep the native
+behavior.
+
+A player whose own network fails has every connection closed by GT2's socket error
+handler `sub_82A116A8`. In a game that player gets a "Connection lost" toast, because
+native code shows no box for it, and the host migrations that follow only log. A host
+that goes silent without closing never reaches this path; the silent player log reports
+it. The notice never changes guest state.
+
 ## Multiplayer pause
 
 In a network game the native pause opens for every player, and any player can
@@ -2724,6 +2783,15 @@ through the native resume consumer, on host and joiner alike, and logs `Multipla
 later native resume finds the pause already clear and does nothing. A peer's
 pause screen closes only if the native message reaches it. Single-player games
 run the native path unchanged.
+
+## Resync guard
+
+The per-turn check can start a resync for a player who has just left, because that
+player is still in the round's human mask. Its snapshot transfer never completes, and the
+next round waits on every transfer, so the game would stall behind the resync notice. The
+title hooks the resync start `sub_82D8FCC8` and skips it, logging `Resync guard: skipped`,
+when `sub_82D8AB00` no longer finds the target player in the game. Resyncs for players
+still in the game run unchanged.
 
 ## Xenos return counter
 
@@ -2761,6 +2829,14 @@ The observation occurs before packing at guest `0x826A4258` in `sub_826A4150`
 and preserves all registers. A rate near 30 with interval 2 is consistent with
 an interval ceiling at 60 Hz; interval 1 alone does not establish a CPU bottleneck.
 
+## Turn order trace
+
+The `turn_order_trace` setting defaults to `false`. When enabled, each pick
+accepted by the turn selection loop in `sub_82D259E8` logs `Turn order:` with
+the turn, the picked player, the number of draws from the shared generator, and
+the candidate (`0x830EE7E4`) and marked (`0x830EE7DC`) player masks. Compare
+the lines for the same turn across every peer's log in a network game.
+
 ## System Link trace
 
 The `system_link_trace` setting is read only at startup and defaults to
@@ -2777,14 +2853,33 @@ records; further new records are only counted as overflow. Browse, QR2 init and
 result lines log on every call. Browser callback reasons are throttled like
 datagrams.
 
-The trace is independent of the transport. It works with direct LAN, with relay
-mode, or with neither enabled.
+The trace is independent of the transport. It works with direct LAN, with an online
+server, or with neither enabled.
+
+## Resync catch-up log
+
+The `resync_catch_up_log` setting defaults to `true`. The runtime log records
+each resync start with its target slot and the command ring counters, and every
+call that sets a session hold flag. For two minutes after a resync start it
+also logs each command entering the ring, with its five words, caller and ring
+counters, and each received message that reaches the hold branch, with the
+local hold byte and the message sequence. Lines use the prefix
+`Resync catch-up:`. Each resync start allows 256 lines, the same budget covers
+hold-flag lines before the first resync, and a final line says when the limit
+is reached. It never changes guest state. Compare the logs of every peer
+across a transfer.
+
+## Resync records
+
+In a network game, the turn-start ledger hook also logs `Turn <n>` once per
+turn, so a crash log shows the turn it reached.
 
 ## System Link transports
 
 System Link transport is provided by the SDK and is off by default. Direct LAN
-and relay mode are mutually exclusive; a process cannot enable both. Relay mode
-forwards guest datagrams through a UDP relay for private tests.
+and online server mode are mutually exclusive; a process cannot enable both.
+Online server mode forwards guest datagrams through a UDP online server for
+private tests.
 
 Press F1 and open **Online** to configure either mode without launch flags.
 Every editable setting except Rich Presence requires a restart: select
@@ -2794,12 +2889,12 @@ startup, so edits made in a running session apply at the next launch.
 | Group | Row | Setting | Meaning |
 |---|---|---|---|
 | (top) | Connection Status | `system_link_status` | Read-only connection status for this session |
-| Connection | Invite Code | `system_link_invite` | Invite code from the relay host; a nonempty code selects relay mode |
+| Connection | Invite Code | `system_link_invite` | Invite code from the host; a nonempty code selects online server mode |
 | Connection | Direct LAN | `system_link_lan_enabled` | Direct LAN mode; cannot be combined with an invite |
-| Connection | Peer-to-Peer | `system_link_direct` | Direct UDP to other relay players, with the relay as fallback; off by default, relay mode only |
-| Matchmaking | Player Match Through Relay | `live_sessions` | Player Match through the relay room; on by default in ReRevved, relay mode only |
+| Connection | Direct Connection | `system_link_direct` | Direct UDP to other players, with the online server as fallback; off by default, online server mode only |
+| Matchmaking | Online Player Match | `live_sessions` | Player Match through the online server room; on by default in ReRevved, online server mode only |
 | Discord | Rich Presence | `discord_activity` | Shows ReRevved as the Discord activity; on by default |
-| Discord | Join Button | `discord_invites` | Discord join button while hosting Player Match through the relay; on by default |
+| Discord | Join Button | `discord_invites` | Discord join button while hosting Player Match through the online server; on by default |
 
 A pasted invite applies when the field loses focus or Enter is pressed. The
 player name is **Profile Name** (`system_link_profile_name`) in **General**; it
@@ -2809,74 +2904,77 @@ creates a random identity and saves it as `system_link_xuid` in the active
 profile's `rerevved.toml`; a configured value is kept. A second copy on the same
 PC needs its own `--profile=<id>` so that it has a separate identity.
 
-The status reads `Off`, `LAN`, `Relay: waiting for System Link` until the game
-first starts networking, which ReRevved does during boot, `Relay: connecting`,
-`Relay: connected as 198.18.x.y`,
-`Relay: lost connection`, `Relay: disconnected`, or `Relay failed:` with a
-reason such as a bad invite, an unreachable relay, a wrong secret, or a
-different game build. With Peer-to-Peer on, a connected status adds the
-number of players reached directly, such as `(direct: 1 of 1 peers)`.
+The status reads `Off`, `LAN`, `Online: waiting for System Link` until the game
+first starts networking, which ReRevved does during boot, `Online: connecting`,
+`Online: connected as 198.18.x.y`,
+`Online: lost connection`, `Online: disconnected`, or `Online failed:` with a
+reason such as a bad invite, an unreachable server, a mismatched invite code,
+or a different game build. With Direct Connection on, a connected status adds
+the number of players reached directly, such as `(direct to 1 of 1 players)`.
 Every player in a room must run the identical executable build.
 
-With `system_link_direct` on, two players in the same relay room who both have
+With `system_link_direct` on, two players in the same online server room who both have
 it on try a direct UDP connection the first time they exchange game traffic.
 Traffic between them moves to that connection when it works and returns to the
-relay within a few seconds when it stops; broadcast traffic always uses the
-relay. Direct datagrams are authenticated with a key the relay hands each pair.
+online server within a few seconds when it stops; broadcast traffic always
+uses the server. Direct datagrams are authenticated with a key the server hands
+each pair.
 Each player's local network addresses are shared with the other players in the
 room.
 
 With `live_sessions` on and an invite set, Multiplayer > Player Match uses
-the relay room as its matchmaking service. A hosted game with an open public
+the online server room as its matchmaking service. A hosted game with an open public
 slot is listed for the other players in the same room, with its host name and
-a round-trip time measured through the relay, and joining it uses the relay
+a round-trip time measured through the server, and joining it uses the server
 connection. Ranked Match finds no games. With LAN mode or no
-invite, the status adds `(Live sessions inactive)` and Player Match behaves
+invite, the status adds `(Online Player Match unavailable)` and Player Match behaves
 as it does with the setting off.
 
 With `discord_invites` on, ReRevved publishes a Discord join button while this
 player hosts a Player Match game with an open slot. The button's join secret
-carries a relay join token that is valid for about 15 minutes and is replaced
+carries a server join token that is valid for about 15 minutes and is replaced
 while the game stays hosted. Friends need the Discord desktop app and the
 same setting on. A friend whose game is closed is started through the
 `discord-<application id>` launch protocol, which ReRevved registers for the
 current user whenever it starts with the setting on; that launch waits up to
 10 seconds for Discord's join event. For that launch only, the join takes
-precedence over the friend's System Link invite, explicit relay settings and
+precedence over the friend's System Link invite, explicit online server settings and
 LAN mode; their saved values are kept. A friend whose game is running joins in
-place when it uses the same relay with
+place when it uses the same online server with
 Live sessions active. Any other System Link state, such as LAN mode, Live
-sessions off or a different relay, needs a restart: ReRevved shows the reason
+sessions off or a different online server, needs a restart: ReRevved shows the reason
 and asks the player to close the game and click Join in Discord again.
 `--live_invite=<code>` on the command line joins the same way without Discord.
 
-`system_link_relay_address`, `system_link_relay_room` and
-`system_link_relay_secret_file` replace an invite. They, and
+`system_link_server_address`, `system_link_server_room` and
+`system_link_server_password_file` replace an invite. They, and
 `system_link_local_address`, which selects the direct LAN interface, are set
 in the config file or on the command line like `system_link_xuid`,
 `system_link_trace`, `live_invite`, `discord_instance_id` and the test-only
 `system_link_direct_drop_after`.
 
-Relay mode is for private tests only. Invite codes contain the room secret.
-Payloads and session tokens are unencrypted, and relayed datagrams have no
-payload integrity or replay protection. Do not run a relay as a public service; open
+Online server mode is for private tests only. Invite codes contain the server
+password.
+Payloads and session tokens are unencrypted, and forwarded datagrams have no
+payload integrity or replay protection. Do not run an online server as a public service; open
 its port to the Internet only for the duration of a private test.
 
-Create a secret and an invite code on the relay machine, then start the relay:
+Create a password and an invite code on the hosting machine, then start the
+online server:
 
 ```powershell
-rexglue relay-invite --address <public-host>:30100 --secret-file <path> --create-secret
-rexglue relay --port 30100 --secret-file <path>
+rexglue online-invite --address <public-host>:30100 --password-file <path> --create-password
+rexglue online-server --port 30100 --password-file <path>
 ```
 
-`relay-invite` prints one code for room `testers` unless `--room` is given. The
-relay binds `0.0.0.0` by default, and Ctrl+C stops it. The Windows package adds
+`online-invite` prints one code for room `testers` unless `--room` is given. The
+server binds `0.0.0.0` by default, and Ctrl+C stops it. The Windows package adds
 `rexglue.exe`, `host-online.cmd`, `host-online.ps1`, `host-manual.cmd` and
 `ONLINE.txt`.
 `host-online.cmd` tries to open the UDP port with UPnP, creates invite codes, starts
-the game against its own relay and runs the relay; `ONLINE.txt` walks
+the game against its own online server and runs it; `ONLINE.txt` walks
 players through hosting, joining and troubleshooting. The SDK's System
-Link relay documentation lists the remaining options and the invite format.
+Link online server documentation lists the remaining options and the invite format.
 
 ## Runtime boundary
 

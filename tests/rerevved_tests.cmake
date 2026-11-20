@@ -96,6 +96,8 @@ add_executable(rerevved_tests
     src/overlay_settings.cpp
     src/host_settings.cpp
     src/gameplay_session_settings.cpp
+    src/gfx_movie_rows.cpp
+    src/place_badges.cpp
     src/main_menu_logo_asset.cpp
     src/map_packs.cpp
     src/nation_select_text.cpp
@@ -151,6 +153,7 @@ add_executable(rerevved_tests
     tests/city_founding_unit_rules_test.cpp
     tests/gameplay_fixes_test.cpp
     tests/apollo_discovery_test.cpp
+    tests/silent_player_test.cpp
     tests/spy_mission_ai_test.cpp
     tests/button_icons_test.cpp
     tests/keyboard_icons_test.cpp
@@ -184,6 +187,8 @@ add_executable(rerevved_tests
     tests/occ_hooks_test.cpp
     tests/helper_commands_test.cpp
     tests/network_pause_test.cpp
+    tests/gfx_movie_rows_test.cpp
+    tests/place_badges_test.cpp
     tests/main_menu_logo_asset_test.cpp
     tests/map_packs_test.cpp
     tests/mod_script_rules_test.cpp
@@ -202,6 +207,7 @@ add_executable(rerevved_tests
     tests/retail_ui_art_test.cpp
     tests/rules_bundle_test.cpp
     tests/resync_record_test.cpp
+    tests/support_log_test.cpp
     tests/network_admission_test.cpp
     tests/lobby_content_watch_test.cpp
     tests/rush_cost_test.cpp

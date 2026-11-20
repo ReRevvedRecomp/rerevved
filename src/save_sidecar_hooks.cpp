@@ -20,7 +20,7 @@
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
 
-REXCVAR_DEFINE_BOOL(save_sidecar, true, "ReRevved", "Persist per-save Resources, Raging Barbarians, One City Challenge and AI policies in a host sidecar");
+REXCVAR_DEFINE_BOOL(save_sidecar, true, "ReRevved", "Keep each save's Resources, Raging Barbarians, One City Challenge and AI settings in a settings file next to the save");
 
 REX_EXTERN(__imp__sub_82D82510);
 REX_EXTERN(__imp__sub_82D84238);

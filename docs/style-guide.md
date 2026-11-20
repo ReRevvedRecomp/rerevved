@@ -1,7 +1,7 @@
 # Style guide
 
 This guide covers authored title code, public headers, build files, and tools.
-It complements the [pull request rules](development.md#pull-requests). The
+It complements the [pull request rules](../CONTRIBUTING.md#pull-requests). The
 [comment policy](ai_agents/comments-and-prose.md) owns source comments and
 public prose; [evidence and claims](ai_agents/evidence-and-claims.md) owns
 behavioral claims and provenance.

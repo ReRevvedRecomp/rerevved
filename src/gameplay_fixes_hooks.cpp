@@ -202,11 +202,11 @@ void FixAiResearchScanStart(PPCRegister& r10, PPCRegister& r11, PPCRegister& r18
         {
             return;
         }
-        REXLOG_INFO("GameplayFix: research scan suppressed={}", suppressed);
+        REXLOG_DEBUG("GameplayFix: research scan suppressed={}", suppressed);
         return;
     }
     researchLogged.fetch_add(1, std::memory_order_relaxed);
-    REXLOG_INFO(
+    REXLOG_DEBUG(
         "GameplayFix: research scan base={:08X} count={} first={} alphabet={}",
         r11.u32 + r18.u32,
         count,
@@ -239,7 +239,7 @@ bool AdmitAiNuclearOpponent(PPCRegister& player, PPCRegister& opponent, PPCRegis
         const uint64_t bit = uint64_t{ 1 } << (8 * player.u32 + opponent.u32);
         if ((nuclearPairsLogged.fetch_or(bit, std::memory_order_relaxed) & bit) == 0)
         {
-            REXLOG_INFO("GameplayFix: AI nuclear opponent player={} opponent={}", player.s32, opponent.s32);
+            REXLOG_DEBUG("GameplayFix: AI nuclear opponent player={} opponent={}", player.s32, opponent.s32);
         }
     }
     return admitted;
@@ -337,6 +337,165 @@ void IgnoreCatchUpDivisorRank(PPCRegister& rank)
     }
 }
 
+// The local player differs per peer; the picker does not.
+void UseArtifactPickerForContacts(PPCRegister& r3, PPCRegister& r15)
+{
+    if (rerevved::gameplay_session::NetworkGameActive())
+    {
+        r3.s64 = r15.s32;
+    }
+}
+
+void SkipLocalScoreDraw(PPCRegister& score)
+{
+    if (rerevved::gameplay_session::NetworkGameActive())
+    {
+        score.s64 = std::numeric_limits<int32_t>::min();
+    }
+}
+
+namespace
+{
+
+rerevved::gameplay_fixes::LeaderSlots leaderSlots;
+thread_local uint32_t                 leaderManager     = 0;
+thread_local int32_t                  loadingLeaderSlot = -1;
+
+// Retail maps only ordinals 0..4; its barbarian word is 5.
+bool expandedLeaderLayout()
+{
+    uint32_t barbarian = 0;
+    return readGuestU32(rerevved::ai_civilizations::kBarbarianPlayerGlobal, barbarian) &&
+           static_cast<int32_t>(barbarian) > rerevved::gameplay_fixes::kLeaderSlotBase;
+}
+
+int32_t leaderSlotOrdinal(int32_t slot)
+{
+    return expandedLeaderLayout() ? rerevved::gameplay_fixes::LeaderSlotOrdinal(leaderSlots, slot)
+                                  : slot - rerevved::gameplay_fixes::kLeaderSlotBase;
+}
+
+int32_t guestWord(uint32_t address)
+{
+    uint32_t value = 0;
+    readGuestU32(address, value);
+    return static_cast<int32_t>(value);
+}
+
+struct Layout
+{
+    int32_t count;
+    int32_t barbarian;
+};
+
+// Two-player and retail layouts keep the native 6 and 5.
+Layout endingLayout()
+{
+    const int32_t count     = guestWord(rerevved::ai_civilizations::kPlayerCountGlobal);
+    const int32_t barbarian = guestWord(rerevved::ai_civilizations::kBarbarianPlayerGlobal);
+    return rerevved::gameplay_fixes::ExpandedLayout(count, barbarian) ? Layout{ count, barbarian } : Layout{ 6, 5 };
+}
+
+void setSignedCompare(PPCCRRegister& cr, int32_t left, int32_t right)
+{
+    cr.lt = left < right;
+    cr.gt = left > right;
+    cr.eq = left == right;
+}
+
+} // namespace
+
+void CaptureLeaderManager(PPCRegister& manager)
+{
+    leaderManager = manager.u32;
+}
+
+bool AssignOpponentLeaderSlot(PPCRegister& slot, PPCRegister& ordinal, PPCRegister& barbarian)
+{
+    if (barbarian.s32 <= rerevved::gameplay_fixes::kLeaderSlotBase)
+    {
+        leaderSlots = {};
+        return false;
+    }
+    uint32_t resident = std::numeric_limits<uint32_t>::max();
+    readGuestU32(leaderManager + 0x120, resident);
+    slot.s64 = rerevved::gameplay_fixes::AssignLeaderSlot(leaderSlots, ordinal.s32, static_cast<int32_t>(resident));
+    return true;
+}
+
+void EnterLeaderModelLookup(PPCRegister& slot)
+{
+    loadingLeaderSlot = slot.s32;
+}
+
+void LeaveLeaderModelLookup()
+{
+    loadingLeaderSlot = -1;
+}
+
+// Preload and the Gibbon screens call the same lookup with retail slots.
+void UseLeaderSlotCivilization(PPCRegister& offset, PPCRegister& slot)
+{
+    if (slot.s32 == loadingLeaderSlot)
+    {
+        offset.s64 = 4 * leaderSlotOrdinal(slot.s32);
+    }
+}
+
+void UseLeaderSlotMood(PPCRegister& local, PPCRegister& cell, PPCRegister& slot)
+{
+    cell.s64 = 8 * local.s32 + leaderSlotOrdinal(slot.s32);
+}
+
+// The movie keeps a five-row floor; larger games list every civilization.
+void ShowEveryWinLoseRow(PPCRegister& rows, PPCRegister& screen)
+{
+    uint32_t begin = 0, end = 0;
+    if (endingLayout().count > 6 && readGuestU32(screen.u32 + 0x434, begin) && readGuestU32(screen.u32 + 0x438, end) && begin != 0 && end > begin)
+    {
+        rows.s64 = std::max<int32_t>(rows.s32, static_cast<int32_t>((end - begin) / 12));
+    }
+}
+
+void UseHistographPlayerCount(PPCRegister& players)
+{
+    players.f64 = endingLayout().count;
+}
+
+void MatchHistographBarbarian(PPCRegister& slot, PPCCRRegister& cr6)
+{
+    setSignedCompare(cr6, slot.s32, endingLayout().barbarian);
+}
+
+void BoundHistographPlayers(PPCRegister& slot, PPCCRRegister& cr6)
+{
+    setSignedCompare(cr6, slot.s32, endingLayout().count);
+}
+
+bool SumHistographSample(PPCRegister& total, PPCRegister& sample)
+{
+    const Layout layout = endingLayout();
+    if (layout.count <= 6)
+    {
+        return false;
+    }
+    constexpr uint32_t                                                  kHistory = 0x830E9940;
+    constexpr uint32_t                                                  kStride  = 0x20;
+    std::array<int16_t, 2 * rerevved::gameplay_fixes::kHistographSlots> halves{};
+    for (uint32_t i = 0; i < halves.size() / 2; ++i)
+    {
+        uint32_t word = 0;
+        if (!readGuestU32(kHistory + kStride * sample.u32 + 4 * i, word))
+        {
+            return false;
+        }
+        halves[2 * i]     = static_cast<int16_t>(word >> 16);
+        halves[2 * i + 1] = static_cast<int16_t>(word);
+    }
+    total.s64 = rerevved::gameplay_fixes::HistographTotal(halves, layout.count, layout.barbarian);
+    return true;
+}
+
 // Network games keep the native scenes, so every peer runs the same presentation.
 void TagSpaceshipActor(PPCRegister& owner, PPCRegister& slot)
 {
@@ -350,14 +509,14 @@ void TagSpaceshipActor(PPCRegister& owner, PPCRegister& slot)
     spaceshipTag.store(index, std::memory_order_relaxed);
     spaceshipFrames.store(0, std::memory_order_relaxed);
     spaceshipFallbackLogged.store(false, std::memory_order_relaxed);
-    REXLOG_INFO("[spaceship] tag owner={} slot={} index={}", owner.s32, slot.s32, index);
+    REXLOG_DEBUG("[spaceship] tag owner={} slot={} index={}", owner.s32, slot.s32, index);
 }
 
 void UntagSpaceshipActor(PPCRegister& owner, PPCRegister& slot)
 {
     if (tagsActor(owner, slot))
     {
-        REXLOG_INFO(
+        REXLOG_DEBUG(
             "[spaceship] untag owner={} slot={} suppressed_frames={}",
             owner.s32,
             slot.s32,
@@ -374,7 +533,7 @@ bool SkipSpaceshipFirstStore(PPCRegister& owner, PPCRegister& slot)
     }
     if (spaceshipFrames.fetch_add(1, std::memory_order_relaxed) == 0)
     {
-        REXLOG_INFO("[spaceship] suppressing focus stores owner={} slot={} index={}", owner.s32, slot.s32, spaceshipTag.load(std::memory_order_relaxed));
+        REXLOG_DEBUG("[spaceship] suppressing focus stores owner={} slot={} index={}", owner.s32, slot.s32, spaceshipTag.load(std::memory_order_relaxed));
     }
     return true;
 }
@@ -394,11 +553,11 @@ bool FinishSpaceshipEarly(PPCRegister& owner, PPCRegister& slot, PPCRegister& pr
     const bool finish = rerevved::gameplay_fixes::FinishesSpaceshipEarly(previousTime.s32);
     if (finish)
     {
-        REXLOG_INFO("[spaceship] finish redirect previous_time={} frames={}", previousTime.s32, spaceshipFrames.load(std::memory_order_relaxed));
+        REXLOG_DEBUG("[spaceship] finish redirect previous_time={} frames={}", previousTime.s32, spaceshipFrames.load(std::memory_order_relaxed));
     }
     else if (!spaceshipFallbackLogged.exchange(true, std::memory_order_relaxed))
     {
-        REXLOG_INFO("[spaceship] finish native fallback previous_time={} frames={}", previousTime.s32, spaceshipFrames.load(std::memory_order_relaxed));
+        REXLOG_DEBUG("[spaceship] finish native fallback previous_time={} frames={}", previousTime.s32, spaceshipFrames.load(std::memory_order_relaxed));
     }
     return finish;
 }
@@ -516,7 +675,7 @@ void LogDominationCapitals(PPCRegister& r27, PPCRegister& r9, PPCRegister& r10, 
                              static_cast<int64_t>(static_cast<uint16_t>(required)) << 16 | static_cast<uint16_t>(total);
     if (dominationCapitalsLastKey[player].exchange(key, std::memory_order_relaxed) != key)
     {
-        REXLOG_INFO(
+        REXLOG_DEBUG(
             "GameplayFix: domination capitals player={} owned={} required={} total={}", player, owned, required, total);
     }
 }

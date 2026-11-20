@@ -6,6 +6,11 @@ address = 0x82D16348
 name = "RecordApolloCompletion"
 registers = ["r23", "r27"]
 
+# sub_82D86400 after its serializer call: requeue a grant the loaded world still owes.
+[[midasm_hook]]
+address = 0x82D86678
+name = "RebuildApolloDiscoveryAfterLoad"
+
 # Drain completions only when no native work is pending.
 [[midasm_hook]]
 address = 0x82C7DF5C

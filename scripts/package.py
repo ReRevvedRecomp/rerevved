@@ -408,7 +408,7 @@ def main():
     version = read_version()
     reject_developer_build(args.build_dir)
     name = f"rerevved-v{version}-{args.platform}-{args.arch}"
-    # Windows players host the private System Link relay from the package.
+    # Windows players host the private online server from the package.
     online = args.platform == "windows"
     if online:
         rexglue = find_rexglue(args.build_dir, args.sdk_bin)

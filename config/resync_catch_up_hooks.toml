@@ -1,0 +1,37 @@
+# Read-only resync restore observers (src/resync_catch_up_hooks.cpp), enabled by resync_catch_up_log.
+
+# sub_82D8FCC8 resync start: r3 is the handler, r4 the target slot; arms the window.
+[[midasm_hook]]
+address = 0x82D8FCC8
+name = "TraceRestoreStart"
+registers = ["r3", "r4"]
+
+# Session slot +4: r4 is the flag for the local member +0x1C.
+[[midasm_hook]]
+address = 0x82CA5210
+name = "TraceRestoreLocalGate"
+registers = ["r4"]
+
+# Session slot +8: r4 is the member index, r5 the +0x1D flag.
+[[midasm_hook]]
+address = 0x82CA51A8
+name = "TraceRestoreMemberHold"
+registers = ["r4", "r5"]
+
+# Session slot +0xC: r4 is the local member +0x1D flag.
+[[midasm_hook]]
+address = 0x82CA4A80
+name = "TraceRestoreLocalHold"
+registers = ["r4"]
+
+# Receive branch after the local member +0x1D load: r9 is the byte, r30 the message.
+[[midasm_hook]]
+address = 0x82CA59D0
+name = "TraceRestoreReceive"
+registers = ["r9", "r30"]
+
+# sub_82CE16C8 command ring entry: r3 is the five-word record.
+[[midasm_hook]]
+address = 0x82CE16C8
+name = "TraceRestoreCommand"
+registers = ["r3", "lr"]

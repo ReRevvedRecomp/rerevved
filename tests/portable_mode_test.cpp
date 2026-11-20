@@ -38,23 +38,10 @@ struct TempDir
 
 } // namespace
 
-TEST_CASE("portable_mode_marker_selects_userdata", "[ctest][portable-mode]")
+TEST_CASE("portable_mode_uses_userdata_beside_the_executable", "[ctest][portable-mode]")
 {
     TempDir dir;
-
-    UNSCOPED_INFO("no marker leaves the default data folder");
-    CHECK(!pm::PortableRoot(dir.path).has_value());
-
-    UNSCOPED_INFO("a directory named like the marker does not count");
-    fs::create_directory(dir.path / pm::kMarkerFileName);
-    CHECK(!pm::PortableRoot(dir.path).has_value());
-    fs::remove(dir.path / pm::kMarkerFileName);
-
-    UNSCOPED_INFO("a marker file selects userdata beside the executable");
-    std::ofstream(dir.path / pm::kMarkerFileName).close();
-    const auto root = pm::PortableRoot(dir.path);
-    REQUIRE(root.has_value());
-    CHECK(*root == dir.path / "userdata");
+    CHECK(pm::PortableRoot(dir.path) == dir.path / "userdata");
 }
 
 TEST_CASE("portable_mode_prepare_root", "[ctest][portable-mode]")

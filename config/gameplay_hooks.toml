@@ -160,6 +160,161 @@ address = 0x82D1FD70
 name = "IgnoreCatchUpDivisorRank"
 registers = ["r10"]
 
+# Artifact pickup 0x82D17AE0, Tower of Babel and Tesla arms: after each local player call.
+# 0x82D18508 and 0x82D18AB8 are in always_at_war_hooks.toml.
+[[midasm_hook]]
+address = 0x82D184D8
+name = "UseArtifactPickerForContacts"
+registers = ["r3", "r15"]
+
+[[midasm_hook]]
+address = 0x82D184E8
+name = "UseArtifactPickerForContacts"
+registers = ["r3", "r15"]
+
+[[midasm_hook]]
+address = 0x82D1851C
+name = "UseArtifactPickerForContacts"
+registers = ["r3", "r15"]
+
+[[midasm_hook]]
+address = 0x82D18534
+name = "UseArtifactPickerForContacts"
+registers = ["r3", "r15"]
+
+[[midasm_hook]]
+address = 0x82D1854C
+name = "UseArtifactPickerForContacts"
+registers = ["r3", "r15"]
+
+[[midasm_hook]]
+address = 0x82D18568
+name = "UseArtifactPickerForContacts"
+registers = ["r3", "r15"]
+
+[[midasm_hook]]
+address = 0x82D18588
+name = "UseArtifactPickerForContacts"
+registers = ["r3", "r15"]
+
+[[midasm_hook]]
+address = 0x82D18A88
+name = "UseArtifactPickerForContacts"
+registers = ["r3", "r15"]
+
+[[midasm_hook]]
+address = 0x82D18A98
+name = "UseArtifactPickerForContacts"
+registers = ["r3", "r15"]
+
+[[midasm_hook]]
+address = 0x82D18ACC
+name = "UseArtifactPickerForContacts"
+registers = ["r3", "r15"]
+
+[[midasm_hook]]
+address = 0x82D18AE4
+name = "UseArtifactPickerForContacts"
+registers = ["r3", "r15"]
+
+[[midasm_hook]]
+address = 0x82D18B00
+name = "UseArtifactPickerForContacts"
+registers = ["r3", "r15"]
+
+[[midasm_hook]]
+address = 0x82D18B1C
+name = "UseArtifactPickerForContacts"
+registers = ["r3", "r15"]
+
+[[midasm_hook]]
+address = 0x82D18B3C
+name = "UseArtifactPickerForContacts"
+registers = ["r3", "r15"]
+
+# Score-gated shared RNG draw in 0x82CB2E48.
+[[midasm_hook]]
+address = 0x82CB3AC0
+name = "SkipLocalScoreDraw"
+registers = ["r6"]
+
+# Expanded games share diplomacy leader slots 5..9 among ordinals 0..6.
+[[midasm_hook]]
+address = 0x82DA5ECC
+name = "CaptureLeaderManager"
+registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x82DA5EF8
+name = "AssignOpponentLeaderSlot"
+registers = ["r3", "r11", "r10"]
+jump_address_on_true = 0x82DA5F30
+
+[[midasm_hook]]
+address = 0x82DA88C4
+name = "EnterLeaderModelLookup"
+registers = ["r27"]
+
+[[midasm_hook]]
+address = 0x82DA88C8
+name = "LeaveLeaderModelLookup"
+
+[[midasm_hook]]
+address = 0x82DA88F0
+name = "EnterLeaderModelLookup"
+registers = ["r27"]
+
+[[midasm_hook]]
+address = 0x82DA88F4
+name = "LeaveLeaderModelLookup"
+
+[[midasm_hook]]
+address = 0x82DA8060
+name = "UseLeaderSlotCivilization"
+registers = ["r6", "r30"]
+
+[[midasm_hook]]
+address = 0x82DA6458
+name = "UseLeaderSlotMood"
+registers = ["r3", "r8", "r28"]
+
+# Ending screens follow the live player count and Barbarian slot, not retail 6 and 5.
+[[midasm_hook]]
+address = 0x82DD4B2C
+name = "ShowEveryWinLoseRow"
+registers = ["r10", "r25"]
+
+[[midasm_hook]]
+address = 0x82DF7A58
+name = "UseHistographPlayerCount"
+registers = ["f1"]
+
+[[midasm_hook]]
+address = 0x82DF7A98
+name = "MatchHistographBarbarian"
+registers = ["r29", "cr6"]
+
+[[midasm_hook]]
+address = 0x82DF7C34
+name = "BoundHistographPlayers"
+registers = ["r29", "cr6"]
+
+[[midasm_hook]]
+address = 0x82DF7FF4
+name = "BoundHistographPlayers"
+registers = ["r27", "cr6"]
+
+[[midasm_hook]]
+address = 0x82DF5A9C
+name = "MatchHistographBarbarian"
+registers = ["r11", "cr6"]
+
+[[midasm_hook]]
+address = 0x82DF58C8
+name = "SumHistographSample"
+registers = ["r3", "r4"]
+jump_address_on_true = 0x82DF59DC
+
 # Unlimited skips the native deadline check at 0x82D10FD8 and its warning, native 2100 and Game of the Week stay unchanged.
 [[midasm_hook]]
 address = 0x82D11304

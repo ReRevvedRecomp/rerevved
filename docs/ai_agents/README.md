@@ -4,9 +4,9 @@ Read these rules before making automated changes. The
 [documentation index](../README.md) separates player guides from development
 and technical references.
 
-Read the [style guide](../style-guide.md) and
-[Development](../development.md) before editing. These pages
-own branch, commit, verification, and review rules. Use the exact SDK lock; changes to another
+Read [Contributing](../../CONTRIBUTING.md), the
+[style guide](../style-guide.md), and [Development](../development.md) before
+editing. These pages own branch, commit, verification, and review rules. Use the exact SDK lock; changes to another
 repository require their own scope and verification.
 
 Keep retail inputs, generated guest code, credentials, machine paths, session

@@ -3,7 +3,7 @@ ReRevved for macOS arm64
 Build for Apple Silicon, a Vulkan-capable GPU and
 macOS 13.3 or newer.
 Supply your legally owned Civilization Revolution Xbox 360 game files and
-version 1.3 title update. No retail content is included.
+version 1.3 title update. No original game content is included.
 
 FIRST RUN
 
@@ -22,12 +22,13 @@ FIRST RUN
 F1 opens Settings, F2 manages mods, F3 opens Achievements, and F4 toggles FPS.
 Bundled Lua mods start disabled. Enable them in F2 and restart.
 
-User files use $XDG_DATA_HOME/rerevved, or ~/.local/share/rerevved if unset.
+User files are in the userdata folder beside rerevved.
 Exit before backing up that folder. Use --profile=<id> for separate saves
 and settings. F1 > General > Open Log Folder finds the active log.
 
 Report problems with the release version, macOS version, Mac model, GPU,
-reproduction steps, and a reviewed log. Do not share retail files or secrets.
+reproduction steps, and a reviewed log. Do not share original game files or
+secrets.
 Documentation: https://github.com/ReRevvedRecomp/rerevved/blob/main/docs/README.md
 Support: https://discord.gg/j6VttvdnMD
 

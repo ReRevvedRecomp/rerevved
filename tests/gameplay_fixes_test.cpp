@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <limits>
 #include <set>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -36,6 +37,21 @@ void ApplyMultiplayerAiDifficulty(PPCRegister& r11);
 void ShareCatchUpExclusion(PPCRegister& r27, PPCRegister& r11);
 void IgnoreCatchUpRank(PPCRegister& rank);
 void IgnoreCatchUpDivisorRank(PPCRegister& rank);
+void UseArtifactPickerForContacts(PPCRegister& r3, PPCRegister& r15);
+void SkipLocalScoreDraw(PPCRegister& score);
+bool AssignOpponentLeaderSlot(PPCRegister& slot, PPCRegister& ordinal, PPCRegister& barbarian);
+void CaptureLeaderManager(PPCRegister& manager);
+void EnterLeaderModelLookup(PPCRegister& slot);
+void LeaveLeaderModelLookup();
+void UseLeaderSlotCivilization(PPCRegister& offset, PPCRegister& slot);
+void UseLeaderSlotMood(PPCRegister& local, PPCRegister& cell, PPCRegister& slot);
+void ShowEveryWinLoseRow(PPCRegister& rows, PPCRegister& screen);
+void UseHistographPlayerCount(PPCRegister& players);
+void MatchHistographBarbarian(PPCRegister& slot, PPCCRRegister& cr6);
+void BoundHistographPlayers(PPCRegister& slot, PPCCRRegister& cr6);
+bool SumHistographSample(PPCRegister& total, PPCRegister& sample);
+bool RefuseTowerPair(PPCRegister& local, PPCRegister& other, PPCRegister& picker);
+bool RefuseTeslaPair(PPCRegister& local, PPCRegister& other, PPCRegister& picker);
 void ProjectAlwaysAtWarEarly();
 void ProjectAlwaysAtWarGroups();
 void ProjectAlwaysAtWarOnLoad();
@@ -1031,5 +1047,215 @@ TEST_CASE("catch_up_hooks_exclude_humans_and_ignore_rank_online", "[ctest][gamep
         rank.u64 = 3;
         IgnoreCatchUpDivisorRank(rank);
         CHECK(rank.u64 == (network == 0 ? 3u : 0u));
+    }
+}
+
+TEST_CASE("artifact_contacts_and_score_draw_drop_the_local_player_online", "[ctest][gameplay-fixes]")
+{
+    rex::Runtime runtime(std::filesystem::path{});
+    REQUIRE(runtime.Setup(rex::RuntimeConfig{
+                .kernel_init = rex::kernel::InitializeKernel,
+                .tool_mode   = true,
+            }) == 0);
+    auto* memory = runtime.memory();
+    auto* heap   = memory->LookupHeap(0x830E0000u);
+    REQUIRE(heap);
+    REQUIRE(heap->AllocFixed(0x830E0000u, 0x80000u, 0x10000, rex::memory::kMemoryAllocationReserve | rex::memory::kMemoryAllocationCommit, rex::memory::kMemoryProtectRead | rex::memory::kMemoryProtectWrite));
+    constexpr uint32_t kNetwork = 0x8314F10B;
+
+    PPCRegister local{}, picker{}, score{};
+    for (const uint8_t network : { uint8_t{ 0 }, uint8_t{ 1 } })
+    {
+        *memory->TranslateVirtual<uint8_t*>(kNetwork) = network;
+        local.u64                                     = 2;
+        picker.u64                                    = 0x1234567800000005ull;
+        UseArtifactPickerForContacts(local, picker);
+        CHECK(local.s64 == (network == 0 ? 2 : 5));
+        CHECK(picker.u64 == 0x1234567800000005ull);
+
+        for (auto* pair : { &RefuseTowerPair, &RefuseTeslaPair })
+        {
+            PPCRegister other{};
+            other.u64 = 1;
+            local.u64 = 2;
+            CHECK_FALSE(pair(local, other, picker));
+            CHECK(local.s64 == (network == 0 ? 2 : 5));
+        }
+
+        score.s64 = 900;
+        SkipLocalScoreDraw(score);
+        CHECK(score.s64 == (network == 0 ? 900 : int64_t{ std::numeric_limits<int32_t>::min() }));
+        CHECK((network == 0 || score.s32 <= 0));
+    }
+}
+
+TEST_CASE("leader_slots_share_five_slots_without_taking_the_resident", "[ctest][gameplay-fixes]")
+{
+    namespace gf = rerevved::gameplay_fixes;
+    gf::LeaderSlots slots;
+    CHECK(gf::AssignLeaderSlot(slots, 1, -1) == 6);
+    CHECK(gf::AssignLeaderSlot(slots, 5, -1) == 5);
+    CHECK(gf::AssignLeaderSlot(slots, 6, -1) == 7);
+    CHECK(gf::AssignLeaderSlot(slots, 0, -1) == 8);
+    CHECK(gf::AssignLeaderSlot(slots, 2, -1) == 9);
+    CHECK(gf::AssignLeaderSlot(slots, 3, 5) == 6);
+    CHECK(gf::AssignLeaderSlot(slots, 5, 5) == 5);
+    CHECK(gf::AssignLeaderSlot(slots, 4, 6) == 7);
+    CHECK(gf::LeaderSlotOrdinal(slots, 7) == 4);
+    CHECK(gf::AssignLeaderSlot(slots, 1, 8) == 9);
+    CHECK(gf::LeaderSlotOrdinal(slots, 3) == -2);
+    CHECK(gf::LeaderSlotOrdinal(gf::LeaderSlots{}, 8) == 3);
+}
+
+TEST_CASE("leader_slot_hooks_keep_retail_and_scope_the_model_lookup", "[ctest][gameplay-fixes]")
+{
+    rex::Runtime runtime(std::filesystem::path{});
+    REQUIRE(runtime.Setup(rex::RuntimeConfig{
+                .kernel_init = rex::kernel::InitializeKernel,
+                .tool_mode   = true,
+            }) == 0);
+    auto* memory = runtime.memory();
+    for (const uint32_t page : { 0x82F70000u, 0x830E0000u })
+    {
+        auto* heap = memory->LookupHeap(page);
+        REQUIRE(heap);
+        REQUIRE(heap->AllocFixed(page, 0x10000u, 0x10000, rex::memory::kMemoryAllocationReserve | rex::memory::kMemoryAllocationCommit, rex::memory::kMemoryProtectRead | rex::memory::kMemoryProtectWrite));
+    }
+    const auto word = [&](uint32_t address, uint32_t value)
+    {
+        rex::memory::store_and_swap<uint32_t>(memory->TranslateVirtual<uint8_t*>(address), value);
+    };
+    constexpr uint32_t kManager = 0x830E0000u;
+
+    PPCRegister slot{}, ordinal{}, barbarian{}, manager{}, offset{}, local{}, cell{}, advisor{};
+    manager.u64 = kManager;
+    local.s64   = 2;
+    CaptureLeaderManager(manager);
+    barbarian.s64 = 5;
+    CHECK_FALSE(AssignOpponentLeaderSlot(slot, ordinal, barbarian));
+
+    word(0x82F700B0, 7);
+    barbarian.s64 = 7;
+    ordinal.s64   = 6;
+    REQUIRE(AssignOpponentLeaderSlot(slot, ordinal, barbarian));
+    CHECK(slot.s64 == 5);
+
+    word(kManager + 0x120, 5);
+    offset.s64 = 0;
+    UseLeaderSlotCivilization(offset, slot);
+    CHECK(offset.s64 == 0);
+    EnterLeaderModelLookup(slot);
+    UseLeaderSlotCivilization(offset, slot);
+    CHECK(offset.s64 == 24);
+    LeaveLeaderModelLookup();
+
+    ordinal.s64 = 0;
+    REQUIRE(AssignOpponentLeaderSlot(slot, ordinal, barbarian));
+    CHECK(slot.s64 == 6);
+    ordinal.s64 = 6;
+    REQUIRE(AssignOpponentLeaderSlot(slot, ordinal, barbarian));
+    CHECK(slot.s64 == 5);
+    UseLeaderSlotMood(local, cell, slot);
+    CHECK(cell.s64 == 22);
+    advisor.s64 = 3;
+    UseLeaderSlotMood(local, cell, advisor);
+    CHECK(cell.s64 == 14);
+
+    // A later retail game keeps native slots for both lookups.
+    word(0x82F700B0, 5);
+    UseLeaderSlotMood(local, cell, slot);
+    CHECK(cell.s64 == 16);
+    barbarian.s64 = 5;
+    slot.s64      = -1;
+    CHECK_FALSE(AssignOpponentLeaderSlot(slot, ordinal, barbarian));
+    CHECK(slot.s64 == -1);
+    slot.s64 = 5;
+    EnterLeaderModelLookup(slot);
+    UseLeaderSlotCivilization(offset, slot);
+    CHECK(offset.s64 == 0);
+    LeaveLeaderModelLookup();
+}
+
+TEST_CASE("histograph_total_halves_only_the_barbarian_slot", "[ctest][gameplay-fixes]")
+{
+    namespace gf = rerevved::gameplay_fixes;
+    std::array<int16_t, 2 * gf::kHistographSlots> sample{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 3, 1, 2, 5, 4, 7 };
+    CHECK(gf::HistographTotal(sample, 6, 5) == 12 + 34 + 56 + 78 + 91 + 31 / 2);
+    CHECK(gf::HistographTotal(sample, 8, 7) == 12 + 34 + 56 + 78 + 91 + 31 + 25 + 47 / 2);
+    sample[14] = -1;
+    sample[15] = 0;
+    CHECK(gf::HistographTotal(sample, 8, 7) == 12 + 34 + 56 + 78 + 91 + 31 + 25 - 5);
+}
+
+TEST_CASE("ending_screen_hooks_follow_the_live_layout", "[ctest][gameplay-fixes]")
+{
+    rex::Runtime runtime(std::filesystem::path{});
+    REQUIRE(runtime.Setup(rex::RuntimeConfig{
+                .kernel_init = rex::kernel::InitializeKernel,
+                .tool_mode   = true,
+            }) == 0);
+    auto* memory = runtime.memory();
+    for (const uint32_t page : { 0x82F70000u, 0x830E0000u })
+    {
+        auto* heap = memory->LookupHeap(page);
+        REQUIRE(heap);
+        REQUIRE(heap->AllocFixed(page, 0x10000u, 0x10000, rex::memory::kMemoryAllocationReserve | rex::memory::kMemoryAllocationCommit, rex::memory::kMemoryProtectRead | rex::memory::kMemoryProtectWrite));
+    }
+    const auto word = [&](uint32_t address, uint32_t value)
+    {
+        rex::memory::store_and_swap<uint32_t>(memory->TranslateVirtual<uint8_t*>(address), value);
+    };
+
+    constexpr uint32_t kScreen     = 0x830E0100u;
+    const auto         winLoseRows = [&](uint32_t entries, int32_t native)
+    {
+        word(kScreen + 0x434, 0x830E1000u);
+        word(kScreen + 0x438, 0x830E1000u + 12 * entries);
+        PPCRegister rows{}, screen{};
+        rows.s64   = native;
+        screen.u64 = kScreen;
+        ShowEveryWinLoseRow(rows, screen);
+        return rows.s64;
+    };
+    word(0x82F700AC, 6);
+    word(0x82F700B0, 5);
+    CHECK(winLoseRows(5, 5) == 5);
+    word(0x82F700AC, 8);
+    word(0x82F700B0, 7);
+    CHECK(winLoseRows(7, 6) == 7);
+    CHECK(winLoseRows(0, 5) == 5);
+
+    // Two-player setups use count 2 and Barbarian -1 but keep the native 6 and 5.
+    for (const auto [count, barbarian, liveCount, liveBarbarian] :
+         { std::tuple{ 6u, 5u, 6u, 5u }, std::tuple{ 8u, 7u, 8u, 7u }, std::tuple{ 6u, 5u, 2u, 0xFFFFFFFFu } })
+    {
+        word(0x82F700AC, liveCount);
+        word(0x82F700B0, liveBarbarian);
+        PPCRegister players{};
+        UseHistographPlayerCount(players);
+        CHECK(players.f64 == count);
+
+        PPCRegister   slot{};
+        PPCCRRegister cr6{};
+        for (int32_t s = 0; s < 9; ++s)
+        {
+            slot.s64 = s;
+            MatchHistographBarbarian(slot, cr6);
+            CHECK(cr6.eq == (s == static_cast<int32_t>(barbarian)));
+            BoundHistographPlayers(slot, cr6);
+            CHECK(cr6.lt == (s < static_cast<int32_t>(count)));
+        }
+
+        PPCRegister total{}, sample{};
+        sample.u64 = 3;
+        for (uint32_t s = 0; s < 8; ++s)
+        {
+            word(0x830E9940 + 0x20 * 3 + 4 * s, (1u << 16) | 2u);
+        }
+        CHECK(SumHistographSample(total, sample) == (count == 8));
+        if (count == 8)
+        {
+            CHECK(total.s64 == 12 * 7 + 6);
+        }
     }
 }

@@ -177,6 +177,16 @@ EXPECTED_HOOKS = [
         "registers": ["r1", "r11", "r30"],
     },
     {
+        "address": 0x82DD448C,
+        "name": "UseWinLoseRowsMovie",
+        "registers": ["r4"],
+    },
+    {
+        "address": 0x82DF5C0C,
+        "name": "UseHistographRowsMovie",
+        "registers": ["r4"],
+    },
+    {
         "address": 0x82C7DF58,
         "name": "PublishGameplayState",
     },
@@ -598,6 +608,138 @@ EXPECTED_HOOKS = [
         "address": 0x82D1FD70,
         "name": "IgnoreCatchUpDivisorRank",
         "registers": ["r10"],
+    },
+    {
+        "address": 0x82D184D8,
+        "name": "UseArtifactPickerForContacts",
+        "registers": ["r3", "r15"],
+    },
+    {
+        "address": 0x82D184E8,
+        "name": "UseArtifactPickerForContacts",
+        "registers": ["r3", "r15"],
+    },
+    {
+        "address": 0x82D1851C,
+        "name": "UseArtifactPickerForContacts",
+        "registers": ["r3", "r15"],
+    },
+    {
+        "address": 0x82D18534,
+        "name": "UseArtifactPickerForContacts",
+        "registers": ["r3", "r15"],
+    },
+    {
+        "address": 0x82D1854C,
+        "name": "UseArtifactPickerForContacts",
+        "registers": ["r3", "r15"],
+    },
+    {
+        "address": 0x82D18568,
+        "name": "UseArtifactPickerForContacts",
+        "registers": ["r3", "r15"],
+    },
+    {
+        "address": 0x82D18588,
+        "name": "UseArtifactPickerForContacts",
+        "registers": ["r3", "r15"],
+    },
+    {
+        "address": 0x82D18A88,
+        "name": "UseArtifactPickerForContacts",
+        "registers": ["r3", "r15"],
+    },
+    {
+        "address": 0x82D18A98,
+        "name": "UseArtifactPickerForContacts",
+        "registers": ["r3", "r15"],
+    },
+    {
+        "address": 0x82D18ACC,
+        "name": "UseArtifactPickerForContacts",
+        "registers": ["r3", "r15"],
+    },
+    {
+        "address": 0x82D18AE4,
+        "name": "UseArtifactPickerForContacts",
+        "registers": ["r3", "r15"],
+    },
+    {
+        "address": 0x82D18B00,
+        "name": "UseArtifactPickerForContacts",
+        "registers": ["r3", "r15"],
+    },
+    {
+        "address": 0x82D18B1C,
+        "name": "UseArtifactPickerForContacts",
+        "registers": ["r3", "r15"],
+    },
+    {
+        "address": 0x82D18B3C,
+        "name": "UseArtifactPickerForContacts",
+        "registers": ["r3", "r15"],
+    },
+    {
+        "address": 0x82CB3AC0,
+        "name": "SkipLocalScoreDraw",
+        "registers": ["r6"],
+    },
+    {"address": 0x82DA5ECC, "name": "CaptureLeaderManager", "registers": ["r3"]},
+    {
+        "address": 0x82DA5EF8,
+        "name": "AssignOpponentLeaderSlot",
+        "registers": ["r3", "r11", "r10"],
+        "jump_address_on_true": 0x82DA5F30,
+    },
+    {
+        "address": 0x82DA88C4,
+        "name": "EnterLeaderModelLookup",
+        "registers": ["r27"],
+    },
+    {"address": 0x82DA88C8, "name": "LeaveLeaderModelLookup"},
+    {
+        "address": 0x82DA88F0,
+        "name": "EnterLeaderModelLookup",
+        "registers": ["r27"],
+    },
+    {"address": 0x82DA88F4, "name": "LeaveLeaderModelLookup"},
+    {
+        "address": 0x82DA8060,
+        "name": "UseLeaderSlotCivilization",
+        "registers": ["r6", "r30"],
+    },
+    {
+        "address": 0x82DA6458,
+        "name": "UseLeaderSlotMood",
+        "registers": ["r3", "r8", "r28"],
+    },
+    {"address": 0x82DD4B2C, "name": "ShowEveryWinLoseRow", "registers": ["r10", "r25"]},
+    {"address": 0x82DF7A58, "name": "UseHistographPlayerCount", "registers": ["f1"]},
+    {
+        "address": 0x82DF7A98,
+        "name": "MatchHistographBarbarian",
+        "registers": ["r29", "cr6"],
+    },
+    {
+        "address": 0x82DF7C34,
+        "name": "BoundHistographPlayers",
+        "registers": ["r29", "cr6"],
+    },
+    {
+        "address": 0x82DF7FF4,
+        "name": "BoundHistographPlayers",
+        "registers": ["r27", "cr6"],
+    },
+    {
+        "address": 0x82DF5A9C,
+        "name": "MatchHistographBarbarian",
+        "registers": ["r11", "cr6"],
+    },
+    {
+        "address": 0x82DF58C8,
+        "name": "SumHistographSample",
+        "registers": ["r3", "r4"],
+        "jump_address_on_true": 0x82DF59DC,
     },
     {
         "address": 0x82D11304,
@@ -1695,6 +1837,35 @@ class HookContractTests(unittest.TestCase):
         )
         for expected in (exclusion, rank, divisor):
             self.assertEqual(count_per_chunk(expected), 1, expected)
+
+    def test_artifact_and_score_draw_hooks_follow_the_local_player(self) -> None:
+        if not chunk_paths():
+            self.skipTest("generated sources are not available")
+
+        babel_first = (
+            "\t// bl 0x82d8a3a0\n\tctx.lr = 0x82D184D8;\n\tsub_82D8A3A0(ctx, base);\n"
+            "\t// cmpw cr6,r31,r3\n\tUseArtifactPickerForContacts(ctx.r3, ctx.r15);\n"
+            "\tctx.cr6.compare<int32_t>(ctx.r31.s32, ctx.r3.s32, ctx.xer);\n"
+        )
+        tesla_last = (
+            "\t// bl 0x82d8a3a0\n\tctx.lr = 0x82D18B3C;\n\tsub_82D8A3A0(ctx, base);\n"
+            "\t// add r7,r3,r28\n\tUseArtifactPickerForContacts(ctx.r3, ctx.r15);\n"
+        )
+        score = (
+            "\t// lwzx r6,r11,r9\n\tctx.r6.u64 = REX_LOAD_U32(ctx.r11.u32 + ctx.r9.u32);\n"
+            "\t// cmpw cr6,r6,r8\n\tSkipLocalScoreDraw(ctx.r6);\n"
+            "\tctx.cr6.compare<int32_t>(ctx.r6.s32, ctx.r8.s32, ctx.xer);\n"
+            "\t// ble cr6,0x82cb3ba0\n\tif (!ctx.cr6.gt) goto loc_82CB3BA0;\n"
+        )
+        for expected in (babel_first, tesla_last, score):
+            self.assertEqual(count_per_chunk(expected), 1, expected)
+        self.assertEqual(
+            count_per_chunk("UseArtifactPickerForContacts(ctx.r3, ctx.r15);\n"), 14
+        )
+        for pair in ("RefuseTowerPair", "RefuseTeslaPair"):
+            self.assertEqual(
+                count_per_chunk(f"if ({pair}(ctx.r3, ctx.r31, ctx.r15))"), 1, pair
+            )
 
     def test_vertex_selection_observer_precedes_restore_when_available(self) -> None:
         paths = chunk_paths()
@@ -5461,6 +5632,8 @@ class AlwaysAtWarHookContractTests(unittest.TestCase):
             self.assertEqual(by_address[address]["name"], "RefuseGoldContact")
             self.assertEqual(by_address[address]["registers"], registers)
         self.assertEqual(by_address[0x82D033C8]["registers"], ["r31", "r30", "r29"])
+        for address in (0x82D18508, 0x82D18AB8):
+            self.assertEqual(by_address[address]["registers"], ["r3", "r31", "r15"])
         self.assertEqual(by_address[0x82D25580]["name"], "SilenceAiContact")
         self.assertEqual(by_address[0x82D25580]["registers"], ["r31", "r29"])
         others = {hook["address"] for hook in compat_hooks()} & set(addresses)
@@ -5532,6 +5705,10 @@ class ApolloDiscoveryHookContractTests(unittest.TestCase):
                     "registers": ["r23", "r27"],
                 },
                 {
+                    "address": 0x82D86678,
+                    "name": "RebuildApolloDiscoveryAfterLoad",
+                },
+                {
                     "address": 0x82C7DF5C,
                     "name": "DrainApolloDiscoveryBonuses",
                     "registers": ["r1"],
@@ -5568,6 +5745,12 @@ class ApolloDiscoveryHookContractTests(unittest.TestCase):
         )[0]
         self.assertNotIn("ExecuteTrap", record)
         self.assertIn("CurrentSetupIsNotGameOfTheWeek()", record)
+        rebuild = source.split("void RebuildApolloDiscoveryAfterLoad", 1)[1].split(
+            "// The application frame driver", 1
+        )[0]
+        self.assertNotIn("ExecuteTrap", rebuild)
+        self.assertIn("CurrentSetupIsNotGameOfTheWeek()", rebuild)
+        self.assertIn("ad::GrantOwed(", rebuild)
         drain = source.split("void DrainApolloDiscoveryBonuses", 1)[1]
         self.assertIn("&thread->context()->r1 != &sp", drain)
         self.assertIn("draining.exchange(true)", drain)
@@ -5605,6 +5788,12 @@ class ApolloDiscoveryHookContractTests(unittest.TestCase):
         )
         for name in ("RecordApolloCompletion", "DrainApolloDiscoveryBonuses"):
             self.assertEqual(len(re.findall(rf"\t{name}\(ctx\.", generated)), 1)
+        rebuild = (
+            "\tsub_82CC4040(ctx, base);\n"
+            "\t// lis r11,-31981\n"
+            "\tRebuildApolloDiscoveryAfterLoad();\n"
+        )
+        self.assertEqual(generated.count(rebuild), 1)
 
 
 if __name__ == "__main__":

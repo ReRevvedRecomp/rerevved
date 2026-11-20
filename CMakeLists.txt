@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(rerevved VERSION 0.7.6 LANGUAGES C CXX)
+project(rerevved VERSION 0.7.7 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -250,6 +250,8 @@ set(REREVVED_SOURCES
     src/nation_select_text.cpp
     src/nation_select_text_hooks.cpp
     src/nation_select_text_registry.h
+    src/gfx_movie_rows.cpp
+    src/place_badges.cpp
     src/main_menu_logo_asset.cpp
     src/main_menu_logo_hooks.cpp
     src/map_packs.cpp
@@ -314,6 +316,8 @@ set(REREVVED_SOURCES
     src/intro_movie_hooks.cpp
     src/legal_screen.h
     src/legal_screen_hooks.cpp
+    src/support_log.cpp
+    src/support_log.h
     src/version_label.h
     src/version_label_hooks.cpp
     src/pause_menu.cpp
@@ -366,15 +370,18 @@ set(REREVVED_SOURCES
     src/system_link_trace.cpp
     src/system_link_trace.h
     src/system_link_trace_hooks.cpp
+    src/resync_catch_up_hooks.cpp
     src/resync_record.cpp
     src/resync_record.h
     src/resync_record_hooks.cpp
+    src/turn_order_trace_hooks.cpp
     src/network_admission.cpp
     src/network_admission.h
     src/network_admission_hooks.cpp
     src/network_admission_hooks.h
     src/join_refusal_hooks.cpp
     src/join_refusal_hooks.h
+    src/host_left_hooks.cpp
     src/lobby_content_watch.cpp
     src/lobby_content_watch.h
     src/research_prompt.h
@@ -390,6 +397,8 @@ set(REREVVED_SOURCES
     src/apollo_discovery.h
     src/apollo_discovery_hooks.cpp
     src/apollo_discovery_hooks.h
+    src/silent_player.h
+    src/silent_player_hooks.cpp
     src/ai_civilization_setup.h
     src/ai_civilization_setup.cpp
     src/ai_economy_settings.h
@@ -405,6 +414,7 @@ set(REREVVED_SOURCES
     src/custom_achievement_combat_hooks.h
     src/network_pause.h
     src/network_pause_hooks.cpp
+    src/resync_guard_hooks.cpp
     src/host_settings.cpp
     src/host_settings.h
     src/gameplay_session_settings.cpp

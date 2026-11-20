@@ -2,6 +2,7 @@
 #include "achievement_icons.h"
 #include "custom_achievements.h"
 #include "game_language.h"
+#include "gfx_movie_rows.h"
 #include "gotw_settings.h"
 #include "gpu/completion/guest_progress_hooks.h"
 
@@ -58,6 +59,7 @@
 #include "gpu/d3d12/native_renderer_d3d12.h"
 #include "gpu/guest_d3d/clear_consume.h"
 #include "gpu/guest_d3d/clear_derive.h"
+#include "support_log.h"
 #if REREVVED_DEVELOPER
 #include "gpu/guest_d3d/draw_effect_probe.h"
 #endif
@@ -676,7 +678,6 @@ void PublishModSnapshot(rex::Runtime& activeRuntime)
 
 void App::OnPreSetup(rex::RuntimeConfig& config)
 {
-    REXLOG_INFO("{}", REREVVED_BUILD_INFO);
     config.game_version = REREVVED_VERSION;
 
     // Sent to every peer that joins a game this machine hosts.
@@ -704,17 +705,7 @@ void App::OnPreSetup(rex::RuntimeConfig& config)
 
 std::filesystem::path App::GetDefaultUserDataRoot() const
 {
-    // Opt-in Portable Mode keeps player data beside the executable.
-    if (const auto portable = portable_mode::PortableRoot(rex::filesystem::GetExecutableFolder()))
-    {
-        return *portable;
-    }
-    const auto userFolder = rex::filesystem::GetUserFolder();
-#if defined(_WIN32)
-    return userFolder / "My Games" / "ReRevved";
-#else
-    return userFolder / "rerevved";
-#endif
+    return portable_mode::PortableRoot(rex::filesystem::GetExecutableFolder());
 }
 
 void App::OnConfigurePaths(rex::PathConfig& paths)
@@ -734,7 +725,10 @@ void App::OnConfigurePaths(rex::PathConfig& paths)
     rex::cvar::SetFlagAsApplicationDefault("mnk_drag_min_deflection", "8192");
     rex::cvar::SetFlagAsApplicationDefault("mnk_drag_sensitivity", "2.0");
 
-    // Keep user state outside a potentially read-only install directory.
+    // A posted log shows %USERPROFILE% instead of the account's folder name.
+    rex::cvar::SetFlagAsApplicationDefault("log_redact_user_folder", "true");
+
+    // Config lives in the active profile root, not beside the executable.
     paths.config_path = paths.user_data_root / "rerevved.toml";
 }
 
@@ -767,22 +761,19 @@ std::optional<rex::system::ProfileCopySpecification> App::GetProfileCopySpecific
 
 bool App::SetupEnvironment()
 {
-    // Portable Mode must prove its folder is writable before player data is
-    // touched. An explicit user_data_root overrides the marker.
+    // The data folder beside the executable must be writable before player data
+    // is touched. An explicit user_data_root replaces it.
     std::optional<std::filesystem::path> portableRoot;
     if (std::string(REXCVAR_GET(user_data_root)).empty())
     {
-        portableRoot = portable_mode::PortableRoot(rex::filesystem::GetExecutableFolder());
-    }
-    if (portableRoot)
-    {
+        portableRoot             = portable_mode::PortableRoot(rex::filesystem::GetExecutableFolder());
         const std::string reason = portable_mode::PrepareRoot(*portableRoot);
         if (!reason.empty())
         {
             const std::string message = fmt::format(
-                "Portable Mode is on (portable.txt is beside rerevved.exe), but ReRevved cannot use its data "
-                "folder:\n\n{}\n\n{}\n\nMove the game to a folder you can write to, or delete portable.txt "
-                "to use the normal Documents data folder.",
+                "ReRevved keeps its saves and settings in a userdata folder beside the game, but cannot use "
+                "it:\n\n{}\n\n{}\n\nMove the game to a folder you can write to, or start it with "
+                "--user_data_root=<folder>.",
                 portableRoot->string(),
                 reason);
             REXLOG_ERROR("{}", message);
@@ -794,11 +785,6 @@ bool App::SetupEnvironment()
     if (!rex::ReXApp::SetupEnvironment())
     {
         return false;
-    }
-
-    if (portableRoot)
-    {
-        REXLOG_INFO("Portable Mode is active; player data is stored in {}", portableRoot->string());
     }
 
     // Game of the Week and Leaderboards require a Live sign-in. The SDK
@@ -1183,6 +1169,9 @@ std::optional<rex::PathConfig> App::OnFinalizePaths(const rex::PathConfig& defau
 
 void App::OnPreSystemLinkInit()
 {
+    // The first title hook after the log file opens.
+    rerevved::support_log::LogStartup(user_data_root());
+
     if (!rerevved::DiscordInvitesEnabled() || !REXCVAR_GET(discord_join_launch))
     {
         return;
@@ -1205,6 +1194,7 @@ void App::OnPreSystemLinkInit()
 void App::OnPostLoadXexImage()
 {
     rex::ReXApp::OnPostLoadXexImage();
+    rerevved::gfx_movie_rows::SetGameRoot(game_data_root());
     if (!rerevved::custom_achievements::Register())
     {
         REXLOG_WARN("Custom achievements: registration failed");
@@ -1347,11 +1337,14 @@ void App::OnPostLaunchModule(rex::system::XThread* thread)
 {
     rex::ReXApp::OnPostLaunchModule(thread);
     PublishModSnapshot(*runtime());
+    rerevved::support_log::LogLoadout(*runtime());
+    rerevved::support_log::EnterPhase("guest launched");
 }
 
 void App::OnGuestThreadExit(rex::system::XThread* thread)
 {
     (void)thread;
+    rerevved::support_log::EnterPhase("shutting down");
     rerevved::xenos_frames::Finalize();
     rerevved::display_aspect::Shutdown();
 }

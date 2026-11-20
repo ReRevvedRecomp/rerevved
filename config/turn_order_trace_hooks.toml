@@ -1,0 +1,17 @@
+# Read-only turn selection pick loop observers (src/turn_order_trace_hooks.cpp), enabled by turn_order_trace.
+
+# Loop gate in sub_82D259E8, reached on every pass; resets the draw count.
+[[midasm_hook]]
+address = 0x82D25CAC
+name = "TracePickLoopGate"
+
+# One draw from the shared generator 0x8314F750.
+[[midasm_hook]]
+address = 0x82D25CEC
+name = "TracePickLoopDraw"
+
+# Pick accepted: r11 is the player, r31 the 0x830EE7E4 mask, r29 the 0x830EE7DC mask.
+[[midasm_hook]]
+address = 0x82D25D24
+name = "TracePickLoopPick"
+registers = ["r11", "r31", "r29"]

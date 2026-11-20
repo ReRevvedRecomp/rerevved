@@ -1,15 +1,16 @@
 # Online play
 
-ReRevved uses System Link over a self-hosted relay. One player runs the relay;
-everyone uses the same ReRevved release and relay room. This is not an Xbox
-Live connection. The Windows download includes the hosting tools.
+ReRevved Online uses System Link through an online server that one player
+runs. Everyone uses the same ReRevved release and an invite code from the
+same host. This is not an Xbox Live connection. The Windows download includes
+the hosting tools.
 
 ## Host or join
 
 1. Set up your [game content](getting-started.md) before hosting.
 2. The host closes ReRevved and runs `host-online.cmd` from the extracted
-   package. It tries UPnP, creates invite codes, starts the relay, and launches
-   the game connected to it.
+   package. It tries UPnP, creates invite codes, starts the online server, and
+   launches the game connected to it.
 3. Friends use Discord Join or the private invite code. With a code, paste it
    into **F1 > Online > Invite Code**, leave **Direct LAN** off, then save and
    restart.
@@ -22,10 +23,12 @@ troubleshooting. That plain-text guide ships beside the hosting scripts.
 
 ## If automatic hosting fails
 
-The packaged guide covers a different host, an overlay VPN for CGNAT or double
-NAT, and `host-manual.cmd` for manual UDP forwarding. The manual script runs
-the relay but does not start the game or set up Discord's advertised address;
-use its invite codes and start ReRevved yourself.
+The packaged guide covers a different host, an overlay VPN (a private network
+over the Internet) for a connection that stays unreachable even with a
+forwarded port, such as one Internet address shared by many customers, and
+`host-manual.cmd` for manual UDP port forwarding. The manual script runs the online server but
+does not start the game or set up Discord's advertised address; use its invite
+codes and start ReRevved yourself.
 
 ## Gameplay settings and mods
 
@@ -36,42 +39,44 @@ count goes up to 6 online; it is reduced so the humans, AI civilizations and Bar
 the other players' saved settings. Set the host's choices before starting the game.
 Always At War is a single-player setting; network games ignore it. Network
 games always use normal combat speed and unit movement and show Spaceship Scenes.
+The Tower of Babel and Tesla's Peace Ray artifacts affect only the player who
+found them.
 Joined players see these settings locked in F1. In the lobby they show the values
 from when the host opened it, and the host can still change them until the game starts.
-The Apollo Discovery Bonuses fix is always on and applies in network games too
-(Game of the Week excepted); each peer drains on its own frame timing, with no peer barrier.
+The Apollo Discovery Bonuses fix is always on and applies in network games
+too (Game of the Week excepted). Each player's game grants the bonus on its own
+timing, without waiting for the others.
 
 While Raging Barbarians is on, Barbarians cannot capture a civilization's
-capital before 3000 BC. Every peer must support this rule. The host payload
-requires the capital-grace capability bit whenever its Raging bit is set.
-Older builds reject that unknown bit. A payload with only one of those bits
-set is rejected as noncanonical.
+capital before 3000 BC. Every player's game must support this rule, so older
+builds cannot join such a game.
 
 Every player must apply the same Lua packages, versions, order, and rule content
-before joining. The game compares active package IDs and versions plus a digest
-of the decoded Lua loadout. Native DLL loadouts cannot pass this content check.
+before joining. The game compares active package IDs and versions plus a
+checksum of the Lua loadout's content. Native DLL loadouts cannot pass this
+content check.
 The host does not install or enable packages on other players' machines.
 A player whose loadout differs sees a warning on joining and can't ready up, so
 the host's countdown can't start until that player matches or leaves.
 
-New-game setup waits up to 15 seconds for authenticated settings prepared for
+New-game setup waits up to 15 seconds for the host's verified settings for
 that game. Missing, old, invalid, incomplete, or incompatible settings block
-setup, as do different or unverified mod rules. The game shows **Can't start
-this game** and logs the reason. Correct the settings or loadout before retrying.
-If session freshness cannot be established, recreate the session. See
-[Mods](mods.md#enable-or-change-mods) to apply Lua changes after leaving a session.
+setup, as do different or unverified mod rules. The game shows **Can't start this game**
+and logs the reason. Correct the settings or loadout before retrying.
+If the settings cannot be confirmed as current, create the game again. See
+[Mods](mods.md#enable-or-change-mods) to apply Lua changes after leaving a game.
 
 This synchronization covers new games. Multiplayer save loading has not been
-certified to restore one shared host gameplay snapshot. See the
-[save sidecar contract](rexglue-runtime.md#save-sidecar) for current load behavior.
+certified to give every player the host's saved gameplay settings. See the
+[save settings file](rexglue-runtime.md#save-sidecar) for current load behavior.
 
 ## Keep the test private
 
-Invite codes contain the room secret. Share them only with the players joining
-your game. Relay traffic is not encrypted or protected by a payload integrity
-check. Keep the relay open only while testing and check that any router
-mapping is removed afterwards. Review logs and screenshots before sharing them.
+Invite codes contain the password for your game. Share them only with the
+players joining it. Game traffic through the online server is not encrypted
+or protected against tampering. Keep the online server open only while testing
+and check that any router mapping is removed afterwards. Review logs and
+screenshots before sharing them.
 
-For two game copies on one PC, use separate profiles and player identities as
-shown in the packaged guide. Do not copy one online profile's config into the
-other.
+For two game copies on one PC, use separate profiles and player IDs as shown
+in the packaged guide. Do not copy one online profile's config into the other.

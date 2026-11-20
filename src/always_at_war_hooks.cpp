@@ -118,7 +118,7 @@ bool refuses(const char* site, int32_t p, int32_t q)
     {
         return false;
     }
-    REXLOG_INFO("Always At War: refused peace site={} p={} q={}", site, p, q);
+    REXLOG_DEBUG("Always At War: refused peace site={} p={} q={}", site, p, q);
     return true;
 }
 
@@ -136,7 +136,7 @@ bool refusesWrite(const char* site, int32_t p, int32_t q, uint32_t value)
     {
         return false;
     }
-    REXLOG_INFO("Always At War: refused peace site={} p={} q={}", site, p, q);
+    REXLOG_DEBUG("Always At War: refused peace site={} p={} q={}", site, p, q);
     return true;
 }
 
@@ -226,13 +226,18 @@ void RefuseConsumedResponse(PPCRegister& consumed, PPCRegister& p, PPCRegister& 
     }
 }
 
-bool RefuseTowerPair(PPCRegister& local, PPCRegister& other)
+// Shares these two addresses; each address takes one hook.
+void UseArtifactPickerForContacts(PPCRegister& r3, PPCRegister& r15);
+
+bool RefuseTowerPair(PPCRegister& local, PPCRegister& other, PPCRegister& picker)
 {
+    UseArtifactPickerForContacts(local, picker);
     return refuses("tower", local.s32, other.s32);
 }
 
-bool RefuseTeslaPair(PPCRegister& local, PPCRegister& other)
+bool RefuseTeslaPair(PPCRegister& local, PPCRegister& other, PPCRegister& picker)
 {
+    UseArtifactPickerForContacts(local, picker);
     return refuses("tesla", local.s32, other.s32);
 }
 
@@ -257,6 +262,6 @@ bool SilenceAiContact(PPCRegister& human, PPCRegister& other)
     {
         return false;
     }
-    REXLOG_INFO("Always At War: silenced contact x={} y={}", x, y);
+    REXLOG_DEBUG("Always At War: silenced contact x={} y={}", x, y);
     return true;
 }

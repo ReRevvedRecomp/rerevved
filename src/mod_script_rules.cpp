@@ -276,7 +276,7 @@ public:
             if (!gameplay_session::RuleReplacementAllowed())
             {
                 result.stage   = ModScriptStage::kSupport;
-                result.message = "Leave the multiplayer session before changing mods";
+                result.message = "Leave the multiplayer game before changing mods";
                 return nullptr;
             }
             for (const auto& request : requests)

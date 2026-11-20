@@ -11,7 +11,7 @@ Choose a guide by the task you want to complete.
 - [Mods](mods.md): apply Lua loadouts and manage native mods and asset overrides.
 - [Support](support.md): report a problem and share a reviewed log safely.
 - [Packaged README](../scripts/packaging/README.txt): use the offline player guide.
-- [Online play](../scripts/packaging/ONLINE.txt): use the offline relay guide.
+- [Online play](../scripts/packaging/ONLINE.txt): use the offline hosting guide.
 
 ## Build and package
 
@@ -23,7 +23,7 @@ Choose a guide by the task you want to complete.
 
 - [Runtime contracts](rexglue-runtime.md): inspect title integration and diagnostic boundaries.
 - [Mod API](modding-api.md): use Lua rules, native C interfaces, and Building and Wonder effects.
-- [Scaleform/GFx](scaleform-gfx.md): understand the retail UI integration.
+- [Scaleform/GFx](scaleform-gfx.md): understand the original game's UI integration.
 - [Native shaders](native-shaders.md): prepare inputs for shader translation
   during development.
 - [Shader adapter](../scripts/native-shader-adapter/README.md): build the pinned translator adapter.
@@ -31,7 +31,7 @@ Choose a guide by the task you want to complete.
 
 ## Contribute
 
-- [Pull requests](development.md#pull-requests): prepare a reviewable change.
+- [Contributing](../CONTRIBUTING.md): report a bug, suggest a feature, or open a pull request.
 - [Style guide](style-guide.md): follow source, API, and tool conventions.
 - [Coding agents](ai_agents/README.md): apply repository boundaries to automated changes.
 - [Comments and prose](ai_agents/comments-and-prose.md): keep useful comments and direct prose.

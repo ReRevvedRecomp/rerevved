@@ -254,7 +254,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "Developer",
           {
               { "Renderer", { "renderer", "@Graphics" } },
-              { "Online", { "system_link_relay_address" } },
+              { "Online", { "system_link_server_address" } },
           } },
     };
 
@@ -335,7 +335,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         // either backend and are for testing.
         { "renderer", Audience::kDeveloper },
         { "@Graphics", Audience::kDeveloper },
-        { "system_link_relay_address", Audience::kDeveloper },
+        { "system_link_server_address", Audience::kDeveloper },
     };
 
     layout.format_label      = titleCase;
@@ -387,12 +387,12 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "show_barbarian_messages", "Show the Barbarian leader's greeting when you first meet a tribe. Online games always show it." },
         { "show_village_barbarian_messages", "Show Barbarian reward messages. The reward is granted either way." },
         // Online.
-        { "system_link_status", "Your current connection to the local network or relay." },
+        { "system_link_status", "Your current connection to your local network or the online server." },
         { "system_link_profile_name", "The name other players see." },
-        { "system_link_invite", "Paste your host's invite code to join their relay room." },
-        { "system_link_lan_enabled", "Enable to play over your local network without a relay invite." },
-        { "system_link_direct", "Enable to connect directly to relay players when possible." },
-        { "live_sessions", "Enable to host and find Player Match games in your relay room." },
+        { "system_link_invite", "Paste your host's invite code to connect to their online server." },
+        { "system_link_lan_enabled", "Enable to play over your local network without an invite code." },
+        { "system_link_direct", "Enable to connect directly to the other players when possible, instead of through the online server." },
+        { "live_sessions", "Enable to host and find Player Match games on your host's online server." },
         { "discord_activity", "Enable to show what you're doing in ReRevved on Discord." },
         { "discord_invites", "Enable to let Discord friends join your hosted Player Match." },
         // Controls.
@@ -426,7 +426,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "retail_leader_volume", "Set the leader speech volume from 0 to 9. The game applies your choice each time a profile loads." },
         // Developer.
         { "renderer", "Native is experimental." },
-        { "system_link_relay_address", "Your relay server's address and port." },
+        { "system_link_server_address", "Your online server's address and port." },
     };
     layout.choice_labels = {
         // The guest renders 1280x720; the scale multiplies both axes.
@@ -526,11 +526,11 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "system_link_profile_name", "Profile Name" },
         { "system_link_invite", "Invite Code" },
         { "system_link_lan_enabled", "Direct LAN" },
-        { "system_link_direct", "Peer-to-Peer" },
-        { "live_sessions", "Player Match Through Relay" },
+        { "system_link_direct", "Direct Connection" },
+        { "live_sessions", "Online Player Match" },
         { "discord_activity", "Rich Presence" },
         { "discord_invites", "Join Button" },
-        { "system_link_relay_address", "Relay Address" },
+        { "system_link_server_address", "Server Address" },
         { "renderer", "Renderer" },
         { "monitor", "Monitor" },
     };

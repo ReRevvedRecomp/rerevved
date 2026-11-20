@@ -1,4 +1,4 @@
-// Exit Game uses the native quit question; Back reopens Special Functions.
+// Exit Game uses the native quit question; Back reopens Special Functions or Game Over.
 
 #include "game_language.h"
 #include "pause_menu.h"
@@ -19,6 +19,7 @@
 #include <rex/system/xmemory.h>
 
 REX_EXTERN(__imp__sub_82CE8338);
+REX_EXTERN(__imp__sub_82E6A3E0);
 REX_EXTERN(__imp__sub_82E6A430);
 
 namespace
@@ -116,12 +117,13 @@ int32_t showList(PPCContext& ctx, uint8_t* base, const PPCContext& show, uint32_
 }
 
 // Retail's Exit to the Main Menu question (0x82D85394..0x82D853AC) without its callback.
-int32_t showQuitQuestion(PPCContext& ctx, uint8_t* base, const PPCContext& show, uint32_t manager)
+int32_t showQuitQuestion(PPCContext& ctx, uint8_t* base, const PPCContext& show, uint32_t manager, bool header)
 {
     const uint32_t session = loadU32(base, pm::kQuitSessionGlobal);
     const uint32_t mode    = session != 0 ? loadU32(base, session + 4) : 0;
     const bool     ranked  = base[pm::kQuitRankedByte] != 0;
-    setHeader(ctx, base, show, manager);
+    if (header)
+        setHeader(ctx, base, show, manager);
     formatText(ctx, base, show, manager, pm::QuitText(mode, session != 0, ranked));
     PPCContext args = show;
     args.r3.s64     = -1;
@@ -133,10 +135,44 @@ int32_t showQuitQuestion(PPCContext& ctx, uint8_t* base, const PPCContext& show,
     return static_cast<int32_t>(callGuest(ctx, base, __imp__sub_82CE8338, args));
 }
 
+// The guest built the list text; Exit Game follows its last row.
+void showGameOverList(PPCContext& ctx, uint8_t* base)
+{
+    const uint32_t manager = loadU32(base, pm::kTextManagerGlobal);
+    const uint32_t begin   = ctx.r30.u32;
+    const uint32_t end     = ctx.r29.u32;
+    const uint32_t text    = retainedText(pm::GameOverExitRow(rerevved::game_language::ActiveId()));
+    if (manager == 0 || text == 0 || end < begin)
+    {
+        __imp__sub_82CE8338(ctx, base);
+        return;
+    }
+    const auto       retailRows = static_cast<int32_t>((end - begin) / 4);
+    const PPCContext show       = ctx;
+    PPCContext       args       = show;
+    args.r3.u64                 = manager;
+    args.r4.u64                 = text;
+    (void)callGuest(ctx, base, __imp__sub_82E6A3E0, args);
+    __imp__sub_82CE8338(ctx, base);
+    if (ctx.r3.s32 != retailRows)
+        return;
+    if (showQuitQuestion(ctx, base, show, manager, false) == pm::kQuitConfirmYes)
+    {
+        REXLOG_INFO("Game Over menu: Exit Game confirmed");
+        pm::RequestQuit();
+    }
+    ctx.r3.s64 = retailRows;
+}
+
 } // namespace
 
 REX_HOOK_RAW(sub_82CE8338)
 {
+    if (static_cast<uint32_t>(ctx.lr) == pm::kGameOverShowReturn)
+    {
+        showGameOverList(ctx, base);
+        return;
+    }
     const auto variant = pm::VariantForReturn(static_cast<uint32_t>(ctx.lr));
     if (!variant)
     {
@@ -182,7 +218,7 @@ REX_HOOK_RAW(sub_82CE8338)
                 ctx.r3.s64 = choice.retailRow;
                 return;
             case pm::Choice::Kind::kExitGame:
-                if (showQuitQuestion(ctx, base, show, manager) == pm::kQuitConfirmYes)
+                if (showQuitQuestion(ctx, base, show, manager, true) == pm::kQuitConfirmYes)
                 {
                     REXLOG_INFO("Pause menu: Exit Game confirmed");
                     pm::RequestQuit();
