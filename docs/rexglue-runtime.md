@@ -58,8 +58,9 @@ The guest baseline is the retail `default.xex` at version 0.0.0.2 plus the
 matching `game/default.xexp` title update. ReXGlue applies that patch during
 code generation and launch, producing the maintained executable version
 0.0.3.2 (game version 1.3, title ID `545407E5`, media ID `7DC1293B`). The
-retail `default.xex` with media ID `479CC0CC` at version 0.0.0.1 is also
-accepted. Its executable image is identical and only header fields differ. The
+retail `default.xex` files with media ID `479CC0CC` at version 0.0.0.1 and
+media ID `60533EB0` at version 0.0.0.4 are also accepted. Their executable
+images are identical and only header fields differ. The
 matching version 1.3 files under `game/Resource/Common/` are also required.
 All of these retail inputs remain ignored and are not distributed by this
 repository.
