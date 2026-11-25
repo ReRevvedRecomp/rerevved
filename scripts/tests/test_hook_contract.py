@@ -2359,10 +2359,12 @@ class HookContractTests(unittest.TestCase):
         self.assertIn('REXCVAR_GET(combat_speed) != "fast"', override)
         self.assertRegex(override, r"constexpr\s+float\s+kNativeStandard\s*=\s*2\.0f;")
         self.assertRegex(override, r"constexpr\s+float\s+kNativeAlternate\s*=\s*1\.5f;")
+        self.assertRegex(override, r"constexpr\s+float\s+kNativeReduced\s*=\s*1\.0f;")
         self.assertRegex(override, r"constexpr\s+float\s+kNativeFast\s*=\s*0\.5f;")
-        self.assertIn(
-            "selected != kNativeStandard && selected != kNativeAlternate",
+        self.assertRegex(
             override,
+            r"selected != kNativeStandard && selected != kNativeAlternate &&\s*"
+            r"selected != kNativeReduced\)",
         )
         self.assertEqual(override.count("writeGuestU32Safely("), 1)
         self.assertNotIn("REXLOG_", override)
