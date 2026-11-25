@@ -10,8 +10,9 @@ namespace rerevved::discord_invites
 namespace
 {
 
-constexpr std::array<std::string_view, 3> kPerLaunchOptions = {
+constexpr std::array<std::string_view, 4> kPerLaunchOptions = {
     "live_invite",
+    "online_host",
     "discord_join_launch",
     "profile_copy_from_default",
 };
@@ -269,10 +270,9 @@ std::string QuoteWindowsArgument(std::string_view argument)
     return quoted;
 }
 
-std::string BuildLaunchCommand(std::string_view                executablePath,
-                               const std::vector<std::string>& arguments)
+std::vector<std::string> PersistentArguments(const std::vector<std::string>& arguments)
 {
-    std::string command = "\"" + std::string(executablePath) + "\"";
+    std::vector<std::string> kept;
     for (size_t i = 0; i < arguments.size(); ++i)
     {
         bool consumesNext = false;
@@ -284,8 +284,19 @@ std::string BuildLaunchCommand(std::string_view                executablePath,
             }
             continue;
         }
+        kept.push_back(arguments[i]);
+    }
+    return kept;
+}
+
+std::string BuildLaunchCommand(std::string_view                executablePath,
+                               const std::vector<std::string>& arguments)
+{
+    std::string command = "\"" + std::string(executablePath) + "\"";
+    for (const std::string& argument : PersistentArguments(arguments))
+    {
         command += ' ';
-        command += QuoteWindowsArgument(arguments[i]);
+        command += QuoteWindowsArgument(argument);
     }
     command += ' ';
     command += kJoinLaunchArgument;

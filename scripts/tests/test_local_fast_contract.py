@@ -37,6 +37,7 @@ LOCAL_FAST_CASES = frozenset(
         "host_settings gameplay snapshot validates complete policy",
         "discord_presence_text",
         "discord_invites",
+        "online_host_status",
         "building_wonder_effect_rules_contract",
         "building_wonder_effect_rules_c_header",
         "unit_catalog_api_contract",

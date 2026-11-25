@@ -320,6 +320,10 @@ set(REREVVED_SOURCES
     src/support_log.h
     src/version_label.h
     src/version_label_hooks.cpp
+    src/online_host.cpp
+    src/online_host.h
+    src/online_host_status.cpp
+    src/online_host_status.h
     src/pause_menu.cpp
     src/pause_menu.h
     src/pause_menu_hooks.cpp

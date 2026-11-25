@@ -13,6 +13,9 @@ namespace rerevved
 // F1 Settings layout shared with Options: categories, order and labels.
 void ConfigureSettingsLayout(rex::ui::SettingsLayout& layout);
 
+// Hosting lasts a whole launch: the rows show what this launch can do.
+void ApplyHostingRows(rex::ui::SettingsLayout& layout, bool hosting);
+
 // The host's value in the text form the cvar's getter returns; a null host plays the native defaults.
 std::optional<rex::ui::SettingsRowLock> HostRowLock(const host_settings::HostSettings* host, std::string_view name);
 

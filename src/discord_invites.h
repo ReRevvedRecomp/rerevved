@@ -136,11 +136,15 @@ private:
 };
 
 // Arguments removed from the relaunch command: Discord launches carry their
-// own marker, and the invite and one-time profile copy apply to one launch.
+// own marker, and the invite, hosting and one-time profile copy apply to one
+// launch.
 inline constexpr std::string_view kJoinLaunchArgument = "--discord_join_launch=true";
 
 // Quotes one argument so CommandLineToArgvW returns it unchanged.
 std::string QuoteWindowsArgument(std::string_view argument);
+
+// The launch arguments without the ones that apply to one launch only.
+std::vector<std::string> PersistentArguments(const std::vector<std::string>& arguments);
 
 // The shell\open\command value: the quoted executable path, the current
 // launch arguments without the per-launch ones, then kJoinLaunchArgument.

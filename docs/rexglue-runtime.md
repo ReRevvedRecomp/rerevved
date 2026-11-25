@@ -659,13 +659,17 @@ entry with the note "Enter a week from 1 to 2147483647." Like F1, the page
 leaves out Week while Custom Week is off and Civilization while Custom
 Civilization is off. Keybinds and developer entries stay in F1.
 
-Four rows are not choices. They are curated in `src/native_settings.cpp` like
+Eight rows are not choices. They are curated in `src/native_settings.cpp` like
 the rest, with kinds of their own; F1 and this page read one layout:
 
 | Tab | Row | Setting | Kind |
 |---|---|---|---|
 | General (last) | Open Log Folder | `open_log_folder` | Action: the value column holds an Open button (A glyph); A, or a click on the button, runs the command once, and nothing is saved. F1 lists it in General too. |
 | Online (top) | Connection Status | `system_link_status` | Read-only text, read again about twice a second while the page is shown. The words are the SDK's own (English). A does nothing. |
+| Online > Hosting | Hosting Status | `online_host_status` | Read-only text like Connection Status. English. It reads `Not hosting`, why it cannot host, or how friends join: Join on the host's Discord profile when Join Button and Online Player Match are on, otherwise the friends' code. |
+| Online > Hosting | Host Game | `online_host_start` | Action with a Host button: closes the game as Exit Game does and starts it again with `--online_host=true --live_sessions=true`. Shown only when this launch does not host. Windows only. |
+| Online > Hosting | Stop Hosting | `online_host_stop` | Action with a Stop button: restarts the game without the hosting options. Shown only while this launch hosts, in place of Host Game. |
+| Online > Hosting | Copy Friends' Code | `online_host_copy_code` | Action with a Copy button: puts the friends' code on the clipboard, for friends without Discord. Shown only while this launch hosts; it does nothing while there is no code. The code is a credential and is never shown or logged. |
 | General | Profile Name | `system_link_profile_name` | Text: A opens the text entry. Up to 15 letters, digits, spaces, `-`, `_` or `.`. Restart-only. An empty name reads "Default". |
 | Online > Connection | Invite Code | `system_link_invite` | Text: A opens the text entry. Letters, digits, `-` and spaces (the SDK ignores separators inside a code), up to 1024 characters; a canonical code is at most 580. Restart-only. The row reads only "Set" or "Not set", beside a Paste button (X, Ctrl+V) and a Copy button (Y, Ctrl+C); the footer lists both while the row is highlighted. |
 
@@ -2890,6 +2894,10 @@ startup, so edits made in a running session apply at the next launch.
 | Group | Row | Setting | Meaning |
 |---|---|---|---|
 | (top) | Connection Status | `system_link_status` | Read-only connection status for this session |
+| Hosting | Hosting Status | `online_host_status` | Read-only: whether this launch hosts an online game and how friends join it |
+| Hosting | Host Game | `online_host_start` | Restarts ReRevved hosting an online game on this PC; see [Online play](online-play.md) |
+| Hosting | Stop Hosting | `online_host_stop` | Restarts ReRevved without hosting |
+| Hosting | Copy Friends' Code | `online_host_copy_code` | Copies the invite code for friends who do not use Discord Join |
 | Connection | Invite Code | `system_link_invite` | Invite code from the host; a nonempty code selects online server mode |
 | Connection | Direct LAN | `system_link_lan_enabled` | Direct LAN mode; cannot be combined with an invite |
 | Connection | Direct Connection | `system_link_direct` | Direct UDP to other players, with the online server as fallback; off by default, online server mode only |
@@ -2972,7 +2980,8 @@ rexglue online-server --port 30100 --password-file <path>
 server binds `0.0.0.0` by default, and Ctrl+C stops it. The Windows package adds
 `rexglue.exe`, `host-online.cmd`, `host-online.ps1`, `host-manual.cmd` and
 `ONLINE.txt`.
-`host-online.cmd` tries to open the UDP port with UPnP, creates invite codes, starts
+**F1 > Online > Host Game** hosts from the game itself; the scripts are
+the fallback. `host-online.cmd` tries to open the UDP port with UPnP, creates invite codes, starts
 the game against its own online server and runs it; `ONLINE.txt` walks
 players through hosting, joining and troubleshooting. The SDK's System
 Link online server documentation lists the remaining options and the invite format.

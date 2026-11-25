@@ -103,6 +103,10 @@ constexpr auto kSpecs = std::to_array<Spec>({
     { "show_popup_trophy_room", Kind::kBool, Applies::kLive, {}, {} },
 
     { "system_link_status", Kind::kStatus, Applies::kLive, {}, {} },
+    { "online_host_status", Kind::kStatus, Applies::kLive, {}, {} },
+    { "online_host_start", Kind::kAction, Applies::kLive, {}, {} },
+    { "online_host_stop", Kind::kAction, Applies::kLive, {}, {} },
+    { "online_host_copy_code", Kind::kAction, Applies::kLive, {}, {} },
     { "system_link_profile_name", Kind::kText, Applies::kLive, {}, {}, { 15, text_entry::Charset::kName } },
     { "system_link_invite", Kind::kSecret, Applies::kLive, {}, {}, { kInviteMaxLength, text_entry::Charset::kInvite } },
     { "system_link_lan_enabled", Kind::kBool, Applies::kLive, {}, {} },
@@ -405,6 +409,17 @@ std::string printable(std::string_view text)
     return result;
 }
 
+std::string_view actionCaption(std::string_view key)
+{
+    if (key == "online_host_start")
+        return "Host";
+    if (key == "online_host_stop")
+        return "Stop";
+    if (key == "online_host_copy_code")
+        return "Copy";
+    return "Open";
+}
+
 // Never copy a secret into the row; expose only whether it is set.
 void fillSingle(OptionRow& row, const Spec& spec, const FlagState& state, Language language)
 {
@@ -413,7 +428,7 @@ void fillSingle(OptionRow& row, const Spec& spec, const FlagState& state, Langua
     {
         case Kind::kAction:
             row.kind    = RowKind::kAction;
-            row.choices = { { "", tr(language, "common.open", "Open") } };
+            row.choices = { { "", tr(language, std::string(ActionCaptionKey(spec.key)), actionCaption(spec.key)) } };
             break;
         case Kind::kStatus:
             row.kind    = RowKind::kStatus;
@@ -527,6 +542,17 @@ std::string_view OutcomeNote(ApplyStatus status)
             break;
     }
     return {};
+}
+
+std::string_view ActionCaptionKey(std::string_view key)
+{
+    if (key == "online_host_start")
+        return "common.start";
+    if (key == "online_host_stop")
+        return "common.stop";
+    if (key == "online_host_copy_code")
+        return "button.copy";
+    return "common.open";
 }
 
 std::vector<std::string_view> CuratedKeys()
