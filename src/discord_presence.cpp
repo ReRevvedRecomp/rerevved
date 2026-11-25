@@ -24,8 +24,8 @@
 
 #include <gameplay_state.h>
 
-#include "discord_invites_model.h"
-#include "discord_presence_model.h"
+#include "discord_invites.h"
+#include "discord_presence_text.h"
 
 REXCVAR_DEFINE_BOOL(discord_invites, true, "Online", "Let Discord friends join your Player Match games (needs the Discord app and live_sessions)")
     .audience(rex::cvar::Audience::kPlayer)

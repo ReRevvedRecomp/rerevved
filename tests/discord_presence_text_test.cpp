@@ -1,4 +1,4 @@
-#include "discord_presence_model.h"
+#include "discord_presence_text.h"
 
 #include <array>
 #include <catch2/catch_test_macros.hpp>
@@ -30,7 +30,7 @@ GameplayState gameplayState(int32_t civilization,
 
 } // namespace
 
-TEST_CASE("discord_presence_model", "[ctest][discord-presence-model][local-fast]")
+TEST_CASE("discord_presence_text", "[ctest][discord-presence-text][local-fast]")
 {
     constexpr std::array<std::string_view, 16> kCivilizationAssets = {
         "civ-roman",

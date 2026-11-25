@@ -288,12 +288,12 @@ set(REREVVED_SOURCES
     src/building_wonder_effect_rules.cpp
     src/wonder_effect_rules_hooks.cpp
     src/wonder_effect_rules_registry.h
-    src/discord_invites_model.cpp
-    src/discord_invites_model.h
+    src/discord_invites.cpp
+    src/discord_invites.h
     src/discord_presence.cpp
     src/discord_presence.h
-    src/discord_presence_model.cpp
-    src/discord_presence_model.h
+    src/discord_presence_text.cpp
+    src/discord_presence_text.h
     src/rush_cost.cpp
     src/rush_cost.h
     src/unit_sale_value.cpp

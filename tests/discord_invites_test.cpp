@@ -1,4 +1,4 @@
-#include "discord_invites_model.h"
+#include "discord_invites.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <cstdint>
@@ -314,7 +314,7 @@ void testSessionJoin()
 
 } // namespace
 
-TEST_CASE("discord_invites_model", "[ctest][discord-invites-model][local-fast]")
+TEST_CASE("discord_invites", "[ctest][discord-invites][local-fast]")
 {
     testLaunchCommand();
     testJoinMessages();

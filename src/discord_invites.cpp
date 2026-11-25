@@ -1,4 +1,4 @@
-#include "discord_invites_model.h"
+#include "discord_invites.h"
 
 #include <algorithm>
 #include <array>
