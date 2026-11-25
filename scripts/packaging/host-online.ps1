@@ -1,4 +1,4 @@
-# Hosts a private ReRevved online game: opens the UDP port with UPnP, makes the
+# Hosts a private ReRevved online game: opens the UDP port with UPnP or NAT-PMP, makes the
 # invite codes, starts the game on this PC's own online server, and runs it.
 # Runs on Windows PowerShell 5.1.
 param(
@@ -11,6 +11,9 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2.0
 
 $MappingName = 'ReRevved online server'
+# Seconds a NAT-PMP mapping lasts. The script renews it at half that, and a
+# closed window leaves it to expire.
+$NatPmpLifetime = 3600
 
 # Addresses that cannot be reached from the Internet: private, CGNAT, loopback,
 # link-local and "this network".
@@ -41,26 +44,148 @@ function Test-UnreachableAddress([string]$Text) {
     return $false
 }
 
-# Routes carry Metric (route metric plus interface metric); the lowest wins.
+# Routes carry Metric (route metric plus interface metric) and Physical. The
+# router is on a physical adapter, so one wins over a VPN adapter's lower metric.
 function Select-DefaultRoute($Routes) {
-    $Routes | Sort-Object -Property Metric | Select-Object -First 1
+    $Routes | Sort-Object -Property @{ Expression = { -not $_.Physical } }, Metric |
+        Select-Object -First 1
 }
 
-function Get-LocalIPv4 {
-    $routes = foreach ($route in Get-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0') {
-        $nic = Get-NetIPInterface -AddressFamily IPv4 -InterfaceIndex $route.InterfaceIndex
-        [pscustomobject]@{
-            InterfaceIndex = $route.InterfaceIndex
-            Metric         = $route.RouteMetric + $nic.InterfaceMetric
-        }
-    }
+function Get-LocalNetwork {
+    $physical = @(Get-NetAdapter -Physical | ForEach-Object { $_.InterfaceIndex })
+    $routes = @(foreach ($route in Get-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0') {
+            $nic = Get-NetIPInterface -AddressFamily IPv4 -InterfaceIndex $route.InterfaceIndex
+            [pscustomobject]@{
+                InterfaceIndex = $route.InterfaceIndex
+                Metric         = $route.RouteMetric + $nic.InterfaceMetric
+                Physical       = $physical -contains $route.InterfaceIndex
+                Gateway        = $route.NextHop
+            }
+        })
     $best = Select-DefaultRoute $routes
     if (-not $best) { return $null }
     $address = Get-NetIPAddress -AddressFamily IPv4 -InterfaceIndex $best.InterfaceIndex |
         Where-Object { $_.IPAddress -notlike '169.254.*' } |
         Select-Object -First 1
-    if ($address) { return $address.IPAddress }
+    if (-not $address) { return $null }
+    $vpn = $null
+    $lowest = $routes | Sort-Object -Property Metric | Select-Object -First 1
+    if ($lowest.InterfaceIndex -ne $best.InterfaceIndex) {
+        $vpn = (Get-NetAdapter -InterfaceIndex $lowest.InterfaceIndex).Name
+    }
+    $category = $null
+    $connection = Get-NetConnectionProfile -InterfaceIndex $best.InterfaceIndex -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($connection) { $category = "$($connection.NetworkCategory)" }
+    $wireless = (Get-NetAdapter -InterfaceIndex $best.InterfaceIndex).PhysicalMediaType -like '*802.11*'
+    [pscustomobject]@{
+        Address = $address.IPAddress; Category = $category; VpnAdapter = $vpn; Wireless = $wireless
+        Gateway = $best.Gateway
+    }
+}
+
+# RFC 6886. Routers without NAT-PMP stay silent, which returns $null.
+function Send-NatPmp([string]$Gateway, [byte[]]$Request, [int]$GatewayPort) {
+    $udp = New-Object System.Net.Sockets.UdpClient
+    try {
+        $udp.Client.ReceiveTimeout = 1000
+        $udp.Connect($Gateway, $GatewayPort)
+        foreach ($attempt in 1..2) {
+            try {
+                $null = $udp.Send($Request, $Request.Length)
+                $remote = New-Object System.Net.IPEndPoint ([System.Net.IPAddress]::Any, 0)
+                $reply = $udp.Receive([ref]$remote)
+                # Opcode plus 128 marks the reply; bytes 2 and 3 are the result, 0 for success.
+                if ($reply.Length -ge 12 -and $reply[1] -eq $Request[1] + 128 -and
+                    $reply[2] -eq 0 -and $reply[3] -eq 0) { return , $reply }
+                return $null
+            } catch {
+                $reply = $null
+            }
+        }
+        return $null
+    } finally {
+        $udp.Close()
+    }
+}
+
+# A lifetime and outside port of 0 remove the mapping.
+function Request-NatPmpPort([string]$Gateway, [int]$Port, [int]$Outside, [int]$Lifetime, [int]$GatewayPort = 5351) {
+    $request = [byte[]](@(0, 1, 0, 0, ($Port -shr 8), ($Port -band 255),
+            ($Outside -shr 8), ($Outside -band 255),
+            (($Lifetime -shr 24) -band 255), (($Lifetime -shr 16) -band 255),
+            (($Lifetime -shr 8) -band 255), ($Lifetime -band 255)))
+    $reply = Send-NatPmp $Gateway $request $GatewayPort
+    if (-not $reply -or $reply.Length -lt 16) { return $null }
+    return $reply[10] * 256 + $reply[11]
+}
+
+# The router may choose the outside port itself.
+function Open-NatPmpPort([string]$Gateway, [int]$Port, [int]$GatewayPort = 5351) {
+    $reply = Send-NatPmp $Gateway ([byte[]](0, 0)) $GatewayPort
+    if (-not $reply) { return $null }
+    $address = '{0}.{1}.{2}.{3}' -f $reply[8], $reply[9], $reply[10], $reply[11]
+    $outside = Request-NatPmpPort $Gateway $Port $Port $NatPmpLifetime $GatewayPort
+    if (-not $outside) { return $null }
+    [pscustomobject]@{ Address = $address; Port = $outside }
+}
+
+# Windows can answer before it has found the router, so an empty answer is asked again.
+function Get-RouterMappings {
+    foreach ($attempt in 1..3) {
+        $found = (New-Object -ComObject HNetCfg.NATUPnP).StaticPortMappingCollection
+        if ($found) { return $found }
+        if ($attempt -lt 3) { Start-Sleep -Seconds 2 }
+    }
     return $null
+}
+
+function Select-FreePort([int]$Port, [int[]]$Taken) {
+    foreach ($candidate in $Port..([math]::Min($Port + 9, 65535))) {
+        if ($Taken -notcontains $candidate) { return $candidate }
+    }
+    return $null
+}
+
+# A typed port is the outside one, which can differ from the port the online
+# server listens on.
+function ConvertTo-FriendsAddress([string]$Text, [int]$Port) {
+    if ($Text -notmatch '^([A-Za-z0-9.-]{1,253})(:(\d{1,5}))?$') { return $null }
+    $name = $Matches[1]
+    if ($Matches.ContainsKey(3)) {
+        $Port = [int]$Matches[3]
+        if ($Port -lt 1 -or $Port -gt 65535) { return $null }
+    }
+    return "${name}:$Port"
+}
+
+function Get-FailureText([string]$Cause, [string]$Category, [int]$Port) {
+    switch ($Cause) {
+        'NoNetwork' { return 'No Internet connection was found on this PC.' }
+        'NoDiscovery' { return 'The Windows service "SSDP Discovery" is disabled, so this PC cannot find your router. Set it to Manual in the Services app, then run this again.' }
+        'NoRouter' {
+            if ($Category -eq 'Public') {
+                return 'Windows treats this network as Public, which hides your router from this script. Set it to Private in the Settings page that just opened, then run this again.'
+            }
+            return 'Your router did not answer. UPnP and NAT-PMP may be turned off in the router, or this network does not offer them.'
+        }
+        'PortsTaken' { return "Other programs already use UDP ports $Port to $($Port + 9) on your router. Run this again with another port, for example: host-online.cmd -Port $($Port + 100)" }
+        'SharedAddress' { return "Your router is behind another router or your Internet provider's shared address, so this PC cannot open a port." }
+        default { return "Your router refused to open UDP port $Port." }
+    }
+}
+
+# Windows adds a Block rule when the firewall prompt is dismissed or denied,
+# and never asks again.
+function Test-FirewallBlocked($Rules, [string]$Category) {
+    $name = $Category -replace '^DomainAuthenticated$', 'Domain'
+    foreach ($rule in $Rules) {
+        if ("$($rule.Enabled)" -ne 'True' -or "$($rule.Direction)" -ne 'Inbound' -or
+            "$($rule.Action)" -ne 'Block') { continue }
+        $profiles = "$($rule.Profile)" -split ',\s*'
+        if ($profiles -contains 'Any' -or $profiles -contains $name) { return $true }
+    }
+    return $false
 }
 
 function New-Invite([string]$Rexglue, [string]$Address, [string[]]$PasswordArgs) {
@@ -97,24 +222,45 @@ function Start-Hosting {
     $created = $false   # True only for a mapping this run added or reclaimed.
     try {
         $external = $null
+        $local = $null
+        $category = $null
+        $vpn = $null
+        $wireless = $false
+        $gateway = $null
+        $natPmpGateway = $null   # Set while a NAT-PMP mapping of this run is open.
+        $outsidePort = 0
+        $cause = 'NoNetwork'   # Names the step that failed; see Get-FailureText.
         try {
-            $local = Get-LocalIPv4
-            if ($local) {
-                $mappings = (New-Object -ComObject HNetCfg.NATUPnP).StaticPortMappingCollection
+            $network = Get-LocalNetwork
+            if ($network) {
+                $local = $network.Address
+                $category = $network.Category
+                $vpn = $network.VpnAdapter
+                $wireless = $network.Wireless
+                $gateway = $network.Gateway
+                $cause = 'NoRouter'
+                Write-Host 'Looking for your router...'
+                $mappings = Get-RouterMappings
             }
             if ($mappings) {
+                $cause = 'Refused'
                 # If listing fails, ownership is unknown: the catch below leaves
                 # $created false and the host gets the manual prompt.
-                $mapping = $null
-                foreach ($item in $mappings) {
-                    if ($item.ExternalPort -eq $Port -and $item.Protocol -eq 'UDP') {
-                        $mapping = $item
-                        break
-                    }
+                $mapped = @(foreach ($item in $mappings) {
+                        if ($item.Protocol -eq 'UDP') { $item }
+                    })
+                $taken = @($mapped | Where-Object { $_.Description -ne $MappingName } |
+                        ForEach-Object { $_.ExternalPort })
+                $free = Select-FreePort $Port $taken
+                if (-not $free) {
+                    $cause = 'PortsTaken'
+                    throw 'No free port.'
                 }
-                if ($mapping -and $mapping.Description -ne $MappingName) {
-                    throw 'The port is mapped by another program.'
+                if ($free -ne $Port) {
+                    Write-Host "Another program uses UDP port $Port on your router; using $free instead."
+                    $Port = $free
                 }
+                $mapping = $mapped | Where-Object { $_.ExternalPort -eq $Port } | Select-Object -First 1
                 if (-not $mapping) {
                     $mapping = $mappings.Add($Port, 'UDP', $Port, $local, $true, $MappingName)
                     $created = $true
@@ -133,20 +279,72 @@ function Start-Hosting {
             $external = $null
         }
         # Behind another NAT layer the mapping is no use; finally removes it if new.
-        if ($external -and (Test-UnreachableAddress $external)) { $external = $null }
+        if ($external -and (Test-UnreachableAddress $external)) {
+            $cause = 'SharedAddress'
+            $external = $null
+        }
+        # Some routers refuse UPnP and grant the same mapping over NAT-PMP.
+        if (-not $external -and $gateway -and $gateway -ne '0.0.0.0' -and $cause -ne 'SharedAddress') {
+            try {
+                $granted = Open-NatPmpPort $gateway $Port
+                if ($granted -and (Test-UnreachableAddress $granted.Address)) {
+                    $cause = 'SharedAddress'
+                    $null = Request-NatPmpPort $gateway $Port 0 0
+                } elseif ($granted) {
+                    $natPmpGateway = $gateway
+                    $external = $granted.Address
+                    $outsidePort = $granted.Port
+                }
+            } catch {
+                $external = $null
+            }
+        }
         if (-not $external) {
+            if ($cause -eq 'NoRouter') {
+                $discovery = Get-Service -Name SSDPSRV -ErrorAction SilentlyContinue
+                if ($discovery -and "$($discovery.StartType)" -eq 'Disabled') {
+                    $cause = 'NoDiscovery'
+                } elseif ($category -eq 'Public') {
+                    # Changing the network type needs administrator rights, so the
+                    # host does it on the page that holds the setting.
+                    $page = 'ms-settings:network-ethernet'
+                    if ($wireless) { $page = 'ms-settings:network-wifi' }
+                    Start-Process $page
+                }
+            }
+            Write-Host (Get-FailureText $cause $category $Port)
             Write-Host "This PC cannot host automatically. See `"CAN'T HOST?`" in ONLINE.txt."
+            Write-Host "If friends must use a port other than $Port, add it after the address, like example.net:41234."
             $external = (Read-Host 'Address friends can reach (for example a Tailscale or ZeroTier address), or press Enter to quit').Trim()
             if (-not $external) { return 0 }
-            if ($external -notmatch '^[A-Za-z0-9.-]{1,253}$') {
-                Write-Host 'ERROR: Enter an IPv4 address or DNS name without a port.'
+            $friendsAddress = ConvertTo-FriendsAddress $external $Port
+            if (-not $friendsAddress) {
+                Write-Host 'ERROR: Enter an IPv4 address or DNS name, with :port after it if needed.'
                 return 1
             }
         } else {
-            Write-Host "Opened UDP port $Port on your router."
+            if (-not $outsidePort) { $outsidePort = $Port }
+            $friendsAddress = "${external}:$outsidePort"
+            Write-Host "Opened UDP port $outsidePort on your router."
+            if ($vpn) {
+                Write-Host "A VPN ($vpn) carries this PC's Internet traffic. If friends cannot connect, turn it off and run this again."
+            }
         }
 
-        $friendsCode = New-Invite $rexglue "${external}:$Port" $passwordArgs
+        # Read before the server starts: its first start raises the firewall prompt,
+        # which holds a Block rule until the host answers.
+        $rules = @()
+        try {
+            $rules = @(Get-NetFirewallApplicationFilter -Program $rexglue | Get-NetFirewallRule)
+        } catch {
+            $rules = @()
+        }
+        if (Test-FirewallBlocked $rules $category) {
+            Write-Host 'WARNING: Windows Firewall blocks rexglue.exe, so friends cannot connect.'
+            Write-Host 'Open "Allow an app through Windows Firewall" from the Start menu, tick rexglue.exe for this network type, then run this again.'
+        }
+
+        $friendsCode = New-Invite $rexglue $friendsAddress $passwordArgs
         # The password file exists after the first call.
         $thisPcCode = New-Invite $rexglue "127.0.0.1:$Port" @('--password-file', $passwordFile)
         Set-Content -LiteralPath $invites -Encoding ASCII -Value @(
@@ -182,7 +380,7 @@ function Start-Hosting {
         # advertised address makes Discord join codes carry the friends' address
         # instead of this PC's 127.0.0.1 server address; the SDK accepts 35 characters.
         $gameArgs = @("--system_link_invite=$thisPcCode", '--system_link_lan_enabled=false')
-        $advertised = "${external}:$Port"
+        $advertised = $friendsAddress
         if ($advertised.Length -gt 35) {
             Write-Host "Discord Join won't work with this address. Friends should paste the copied code instead."
         } else {
@@ -191,7 +389,17 @@ function Start-Hosting {
         Start-Process -FilePath $game -WorkingDirectory $PSScriptRoot -ArgumentList $gameArgs
         Write-Host 'Started ReRevved. Leave this window open while you play; press Ctrl+C when done.'
 
-        Wait-Process -Id $server.Id
+        # Wakes at half the NAT-PMP lifetime to renew that mapping.
+        while (-not $server.HasExited) {
+            Wait-Process -Id $server.Id -Timeout ($NatPmpLifetime / 2) -ErrorAction SilentlyContinue
+            if ($natPmpGateway -and -not $server.HasExited) {
+                try {
+                    $null = Request-NatPmpPort $natPmpGateway $Port $outsidePort $NatPmpLifetime
+                } catch {
+                    Write-Host 'Could not renew the port mapping; friends may lose the connection.'
+                }
+            }
+        }
         $server.Refresh()
         if ($server.ExitCode -ne 0) {
             Write-Host "ERROR: The online server stopped with exit code $($server.ExitCode). See $log."
@@ -211,6 +419,14 @@ function Start-Hosting {
                 Write-Host "Port mapping removed (UDP $Port)."
             } catch {
                 Write-Host "Could not remove the UDP $Port port mapping. Remove it in your router."
+            }
+        }
+        if ($natPmpGateway) {
+            try {
+                $null = Request-NatPmpPort $natPmpGateway $Port 0 0
+                Write-Host "Port mapping removed (UDP $outsidePort)."
+            } catch {
+                Write-Host "The UDP $outsidePort port mapping will expire within the hour."
             }
         }
     }

@@ -28,7 +28,8 @@ troubleshooting. That plain-text guide ships in the Windows download.
 ## If automatic hosting fails
 
 The Windows download also includes `host-online.cmd`, which hosts from a
-script window instead: close ReRevved and run it. It can ask for an address
+script window instead: close ReRevved and run it. It tries UPnP, then
+NAT-PMP, and can ask for an address
 friends can reach when the router does not help.
 The packaged guide covers a different host, an overlay VPN (a private network
 over the Internet) for a connection that stays unreachable even with a

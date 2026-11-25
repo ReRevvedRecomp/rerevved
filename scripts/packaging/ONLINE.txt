@@ -49,8 +49,9 @@ Use this when the button cannot host (see CAN'T HOST?) or the game is not on
 Windows.
 
 1. Close ReRevved, then double-click host-online.cmd. It tries to open UDP
-   port 30100 with router UPnP, makes invites, copies the friends' code to the
-   clipboard, starts the online server, and launches ReRevved connected to it.
+   port 30100 with router UPnP, then NAT-PMP, makes invites, copies the
+   friends' code to the clipboard, starts the online server, and launches
+   ReRevved connected to it.
 2. Allow rexglue.exe through the Windows Firewall prompt.
 3. Let friends use Discord Join (see JOINING), or send them the copied code
    privately.
@@ -66,6 +67,8 @@ If ReRevved was already running, close it and run the script again.
 The script tries to remove mappings it added or reclaimed. Closing its window
 can leave a mapping open. A stale mapping it repoints stays for a later run to
 reclaim. Check your router after testing even if hosting worked.
+A NAT-PMP mapping lasts one hour, is renewed while the script runs, and
+expires by itself if the window is closed.
 
 JOINING
 
@@ -118,9 +121,36 @@ Windows network profile. When it cannot host, the usual causes are: router
 UPnP is off, CGNAT (your provider shares one Internet address between
 customers), or another NAT layer. Hosting Status names the cause it found.
 
-The script asks through Windows instead, which a Public network profile
-blocks. Use Host Game, or give the script an address friends can
-reach when it asks for one.
+The script asks through Windows instead. When that fails, it names the
+cause and asks for an address friends can reach. Host Game avoids the
+first two causes.
+
+"Windows treats this network as Public": Windows hides the router from the
+script on a Public network, which is common on Wi-Fi. The script opens the
+Settings page; switch to Private there and host again:
+  Settings > Network & internet > Ethernet or Wi-Fi >
+  Network profile type > Private network
+
+"The Windows service "SSDP Discovery" is disabled": open the Services app,
+double-click SSDP Discovery, set Startup type to Manual, and host again.
+
+"Your router did not answer": turn on UPnP or NAT-PMP in the router's
+settings; either one is enough. Some shared networks, such as dorms and
+hotels, offer neither.
+
+"Your router is behind another router or your Internet provider's shared
+address": common on mobile, satellite and apartment Internet. No router
+setting fixes it; use one of the options below.
+
+"Windows Firewall blocks rexglue.exe": the firewall prompt was closed or
+denied earlier, and Windows does not ask again. Open "Allow an app through
+Windows Firewall", tick rexglue.exe for your network type, and host again.
+
+"A VPN (its name) carries this PC's Internet traffic": friends reach your router, but
+the replies leave through the VPN. Turn the VPN off while hosting.
+
+If another program already uses the port on your router, the script moves to
+the next free one of ten and says which.
 
 A friend hosts: someone whose PC can host automatically presses Host Game,
 and everyone else joins.
@@ -128,6 +158,18 @@ and everyone else joins.
 Overlay VPN: everyone installs a VPN such as Tailscale or ZeroTier and joins
 the same network. The host closes ReRevved, runs host-online.cmd and enters
 their overlay address when asked, such as the 100.x.y.z address Tailscale shows.
+
+A different outside port: if friends must connect on a port other than the
+one the script uses, add it after the address when asked, such as
+example.net:41234. The online server on this PC keeps its own port, and the
+friends' code and Discord Join carry the one you typed.
+
+UDP tunnel, not tested by the project: a tunnel service gives the host a
+public address and port and passes UDP traffic to this PC, so friends install
+nothing. Point the tunnel at UDP 30100 on this PC, run host-online.cmd, and
+enter the tunnel's address and port when asked. The service must carry UDP;
+a TCP or HTTP tunnel does not work. Your game traffic passes through the
+service unencrypted (see SECURITY LIMITS).
 
 Manual port forward, for advanced users: forward UDP 30100 (or your chosen
 port) in your router to this PC's local IPv4 address. Run host-manual.cmd and
