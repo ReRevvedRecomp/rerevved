@@ -41,26 +41,88 @@ function Test-UnreachableAddress([string]$Text) {
     return $false
 }
 
-# Routes carry Metric (route metric plus interface metric); the lowest wins.
+# Routes carry Metric (route metric plus interface metric) and Physical. The
+# router is on a physical adapter, so one wins over a VPN adapter's lower metric.
 function Select-DefaultRoute($Routes) {
-    $Routes | Sort-Object -Property Metric | Select-Object -First 1
+    $Routes | Sort-Object -Property @{ Expression = { -not $_.Physical } }, Metric |
+        Select-Object -First 1
 }
 
-function Get-LocalIPv4 {
-    $routes = foreach ($route in Get-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0') {
-        $nic = Get-NetIPInterface -AddressFamily IPv4 -InterfaceIndex $route.InterfaceIndex
-        [pscustomobject]@{
-            InterfaceIndex = $route.InterfaceIndex
-            Metric         = $route.RouteMetric + $nic.InterfaceMetric
-        }
-    }
+function Get-LocalNetwork {
+    $physical = @(Get-NetAdapter -Physical | ForEach-Object { $_.InterfaceIndex })
+    $routes = @(foreach ($route in Get-NetRoute -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0') {
+            $nic = Get-NetIPInterface -AddressFamily IPv4 -InterfaceIndex $route.InterfaceIndex
+            [pscustomobject]@{
+                InterfaceIndex = $route.InterfaceIndex
+                Metric         = $route.RouteMetric + $nic.InterfaceMetric
+                Physical       = $physical -contains $route.InterfaceIndex
+            }
+        })
     $best = Select-DefaultRoute $routes
     if (-not $best) { return $null }
     $address = Get-NetIPAddress -AddressFamily IPv4 -InterfaceIndex $best.InterfaceIndex |
         Where-Object { $_.IPAddress -notlike '169.254.*' } |
         Select-Object -First 1
-    if ($address) { return $address.IPAddress }
+    if (-not $address) { return $null }
+    $vpn = $null
+    $lowest = $routes | Sort-Object -Property Metric | Select-Object -First 1
+    if ($lowest.InterfaceIndex -ne $best.InterfaceIndex) {
+        $vpn = (Get-NetAdapter -InterfaceIndex $lowest.InterfaceIndex).Name
+    }
+    $category = $null
+    $connection = Get-NetConnectionProfile -InterfaceIndex $best.InterfaceIndex -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($connection) { $category = "$($connection.NetworkCategory)" }
+    $wireless = (Get-NetAdapter -InterfaceIndex $best.InterfaceIndex).PhysicalMediaType -like '*802.11*'
+    [pscustomobject]@{
+        Address = $address.IPAddress; Category = $category; VpnAdapter = $vpn; Wireless = $wireless
+    }
+}
+
+# Windows can answer before it has found the router, so an empty answer is asked again.
+function Get-RouterMappings {
+    foreach ($attempt in 1..3) {
+        $found = (New-Object -ComObject HNetCfg.NATUPnP).StaticPortMappingCollection
+        if ($found) { return $found }
+        if ($attempt -lt 3) { Start-Sleep -Seconds 2 }
+    }
     return $null
+}
+
+function Select-FreePort([int]$Port, [int[]]$Taken) {
+    foreach ($candidate in $Port..([math]::Min($Port + 9, 65535))) {
+        if ($Taken -notcontains $candidate) { return $candidate }
+    }
+    return $null
+}
+
+function Get-FailureText([string]$Cause, [string]$Category, [int]$Port) {
+    switch ($Cause) {
+        'NoNetwork' { return 'No Internet connection was found on this PC.' }
+        'NoDiscovery' { return 'The Windows service "SSDP Discovery" is disabled, so this PC cannot find your router. Set it to Manual in the Services app, then run this again.' }
+        'NoRouter' {
+            if ($Category -eq 'Public') {
+                return 'Windows treats this network as Public, which hides your router from this script. Set it to Private in the Settings page that just opened, then run this again.'
+            }
+            return 'Your router did not answer. UPnP may be turned off in the router, or this network does not offer it.'
+        }
+        'PortsTaken' { return "Other programs already use UDP ports $Port to $($Port + 9) on your router. Run this again with another port, for example: host-online.cmd -Port $($Port + 100)" }
+        'SharedAddress' { return "Your router is behind another router or your Internet provider's shared address, so this PC cannot open a port." }
+        default { return "Your router refused to open UDP port $Port." }
+    }
+}
+
+# Windows adds a Block rule when the firewall prompt is dismissed or denied,
+# and never asks again.
+function Test-FirewallBlocked($Rules, [string]$Category) {
+    $name = $Category -replace '^DomainAuthenticated$', 'Domain'
+    foreach ($rule in $Rules) {
+        if ("$($rule.Enabled)" -ne 'True' -or "$($rule.Direction)" -ne 'Inbound' -or
+            "$($rule.Action)" -ne 'Block') { continue }
+        $profiles = "$($rule.Profile)" -split ',\s*'
+        if ($profiles -contains 'Any' -or $profiles -contains $name) { return $true }
+    }
+    return $false
 }
 
 function New-Invite([string]$Rexglue, [string]$Address, [string[]]$PasswordArgs) {
@@ -97,24 +159,41 @@ function Start-Hosting {
     $created = $false   # True only for a mapping this run added or reclaimed.
     try {
         $external = $null
+        $local = $null
+        $category = $null
+        $vpn = $null
+        $wireless = $false
+        $cause = 'NoNetwork'   # Names the step that failed; see Get-FailureText.
         try {
-            $local = Get-LocalIPv4
-            if ($local) {
-                $mappings = (New-Object -ComObject HNetCfg.NATUPnP).StaticPortMappingCollection
+            $network = Get-LocalNetwork
+            if ($network) {
+                $local = $network.Address
+                $category = $network.Category
+                $vpn = $network.VpnAdapter
+                $wireless = $network.Wireless
+                $cause = 'NoRouter'
+                Write-Host 'Looking for your router...'
+                $mappings = Get-RouterMappings
             }
             if ($mappings) {
+                $cause = 'Refused'
                 # If listing fails, ownership is unknown: the catch below leaves
                 # $created false and the host gets the manual prompt.
-                $mapping = $null
-                foreach ($item in $mappings) {
-                    if ($item.ExternalPort -eq $Port -and $item.Protocol -eq 'UDP') {
-                        $mapping = $item
-                        break
-                    }
+                $mapped = @(foreach ($item in $mappings) {
+                        if ($item.Protocol -eq 'UDP') { $item }
+                    })
+                $taken = @($mapped | Where-Object { $_.Description -ne $MappingName } |
+                        ForEach-Object { $_.ExternalPort })
+                $free = Select-FreePort $Port $taken
+                if (-not $free) {
+                    $cause = 'PortsTaken'
+                    throw 'No free port.'
                 }
-                if ($mapping -and $mapping.Description -ne $MappingName) {
-                    throw 'The port is mapped by another program.'
+                if ($free -ne $Port) {
+                    Write-Host "Another program uses UDP port $Port on your router; using $free instead."
+                    $Port = $free
                 }
+                $mapping = $mapped | Where-Object { $_.ExternalPort -eq $Port } | Select-Object -First 1
                 if (-not $mapping) {
                     $mapping = $mappings.Add($Port, 'UDP', $Port, $local, $true, $MappingName)
                     $created = $true
@@ -133,8 +212,24 @@ function Start-Hosting {
             $external = $null
         }
         # Behind another NAT layer the mapping is no use; finally removes it if new.
-        if ($external -and (Test-UnreachableAddress $external)) { $external = $null }
+        if ($external -and (Test-UnreachableAddress $external)) {
+            $cause = 'SharedAddress'
+            $external = $null
+        }
         if (-not $external) {
+            if ($cause -eq 'NoRouter') {
+                $discovery = Get-Service -Name SSDPSRV -ErrorAction SilentlyContinue
+                if ($discovery -and "$($discovery.StartType)" -eq 'Disabled') {
+                    $cause = 'NoDiscovery'
+                } elseif ($category -eq 'Public') {
+                    # Changing the network type needs administrator rights, so the
+                    # host does it on the page that holds the setting.
+                    $page = 'ms-settings:network-ethernet'
+                    if ($wireless) { $page = 'ms-settings:network-wifi' }
+                    Start-Process $page
+                }
+            }
+            Write-Host (Get-FailureText $cause $category $Port)
             Write-Host "This PC cannot host automatically. See `"CAN'T HOST?`" in ONLINE.txt."
             $external = (Read-Host 'Address friends can reach (for example a Tailscale or ZeroTier address), or press Enter to quit').Trim()
             if (-not $external) { return 0 }
@@ -144,6 +239,22 @@ function Start-Hosting {
             }
         } else {
             Write-Host "Opened UDP port $Port on your router."
+            if ($vpn) {
+                Write-Host "A VPN ($vpn) carries this PC's Internet traffic. If friends cannot connect, turn it off and run this again."
+            }
+        }
+
+        # Read before the server starts: its first start raises the firewall prompt,
+        # which holds a Block rule until the host answers.
+        $rules = @()
+        try {
+            $rules = @(Get-NetFirewallApplicationFilter -Program $rexglue | Get-NetFirewallRule)
+        } catch {
+            $rules = @()
+        }
+        if (Test-FirewallBlocked $rules $category) {
+            Write-Host 'WARNING: Windows Firewall blocks rexglue.exe, so friends cannot connect.'
+            Write-Host 'Open "Allow an app through Windows Firewall" from the Start menu, tick rexglue.exe for this network type, then run this again.'
         }
 
         $friendsCode = New-Invite $rexglue "${external}:$Port" $passwordArgs

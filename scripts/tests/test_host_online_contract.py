@@ -33,6 +33,26 @@ class HostOnlineSourceTest(unittest.TestCase):
         self.assertRegex(self.source, r"\.Add\(\$Port, 'UDP', \$Port, \$local,")
         self.assertIn(".ExternalIPAddress", self.source)
 
+    def test_router_lookup_retries_and_settings_open_only_for_a_public_network(self):
+        lookup = re.search(
+            r"function Get-RouterMappings \{(.*?)\n\}\n", self.source, re.S
+        ).group(1)
+        self.assertIn("foreach ($attempt in 1..3)", lookup)
+        self.assertIn("if ($found) { return $found }", lookup)
+        self.assertEqual(self.source.count("HNetCfg.NATUPnP"), 1)
+        # A disabled discovery service is reported instead of the network type.
+        opened = re.search(
+            r"if \(\$cause -eq 'NoRouter'\) \{.*?\$cause = 'NoDiscovery'\s+"
+            r"\} elseif \(\$category -eq 'Public'\) \{(.*?)\n                \}",
+            self.source,
+            re.S,
+        )
+        self.assertIsNotNone(opened)
+        self.assertIn("Start-Process $page", opened.group(1))
+        self.assertEqual(self.source.count("Start-Process $page"), 1)
+        self.assertNotIn("Set-NetConnectionProfile", self.source)
+        self.assertNotIn("Set-Service", self.source)
+
     def test_fallback_prompt_and_pointer_to_help(self):
         self.assertIn("CAN'T HOST?", self.source)
         self.assertIn("ONLINE.txt", self.source)
@@ -117,15 +137,22 @@ class HostOnlineSourceTest(unittest.TestCase):
     def test_existing_mapping_is_found_by_enumeration(self):
         self.assertNotIn(".Item(", self.source)
         self.assertIn("foreach ($item in $mappings)", self.source)
+        self.assertIn("if ($item.Protocol -eq 'UDP') { $item }", self.source)
         self.assertIn(
-            "$item.ExternalPort -eq $Port -and $item.Protocol -eq 'UDP'", self.source
+            "$mapped | Where-Object { $_.ExternalPort -eq $Port }", self.source
         )
 
     def test_only_our_own_mapping_is_ever_owned(self):
-        # Another program's mapping is unusable; ownership is set only by a fresh
-        # add or by reclaiming a matching mapping of ours.
-        self.assertIn("$mapping.Description -ne $MappingName", self.source)
-        self.assertIn("throw 'The port is mapped by another program.'", self.source)
+        # Another program's mapping is never touched: its port is skipped before
+        # any add. Ownership is set only by a fresh add or by reclaiming a
+        # matching mapping of ours.
+        self.assertIn(
+            "$mapped | Where-Object { $_.Description -ne $MappingName }", self.source
+        )
+        self.assertLess(
+            self.source.index("Select-FreePort $Port $taken"),
+            self.source.index("$mappings.Add("),
+        )
         self.assertEqual(self.source.count("$created = $true"), 2)
         reclaim = re.search(
             r"elseif \(\$mapping\.Enabled -and \$mapping\.InternalPort -eq \$Port -and"
@@ -155,6 +182,12 @@ class HostOnlineSourceTest(unittest.TestCase):
             "Invoke-RestMethod",
             "WebClient",
             "curl",
+            # The firewall is read, never changed.
+            "New-NetFirewallRule",
+            "Set-NetFirewallRule",
+            "Remove-NetFirewallRule",
+            "Enable-NetFirewallRule",
+            "Disable-NetFirewallRule",
         ):
             self.assertNotIn(forbidden, self.source)
         self.assertNotRegex(self.source, r"(?i)https?://")
@@ -265,11 +298,63 @@ class HostOnlineHelperTest(unittest.TestCase):
     def test_default_route_pick_uses_lowest_metric(self):
         output = self.run_helpers(
             "$r = @(1..3 | ForEach-Object { [pscustomobject]@{InterfaceIndex=$_; "
-            "Metric=(50, 10, 20)[$_ - 1]} }); "
+            "Metric=(50, 10, 20)[$_ - 1]; Physical=$true} }); "
             "(Select-DefaultRoute $r).InterfaceIndex; "
             "$null -eq (Select-DefaultRoute @())"
         )
         self.assertEqual(output, ["2", "True"])
+
+    def test_default_route_pick_prefers_a_physical_adapter_over_a_vpn(self):
+        output = self.run_helpers(
+            "$r = @([pscustomobject]@{InterfaceIndex=7; Metric=5; Physical=$false}, "
+            "[pscustomobject]@{InterfaceIndex=3; Metric=35; Physical=$true}); "
+            "(Select-DefaultRoute $r).InterfaceIndex; "
+            "(Select-DefaultRoute @($r[0])).InterfaceIndex"
+        )
+        self.assertEqual(output, ["3", "7"])
+
+    def test_free_port_skips_ports_other_programs_mapped(self):
+        output = self.run_helpers(
+            "Select-FreePort 30100 @(); "
+            "Select-FreePort 30100 @(30100, 30101, 40000); "
+            "$null -eq (Select-FreePort 30100 @(30100..30109)); "
+            "$null -eq (Select-FreePort 65535 @(65535))"
+        )
+        self.assertEqual(output, ["30100", "30102", "True", "True"])
+
+    def test_firewall_block_must_apply_to_this_network_type(self):
+        def rule(action, profile, enabled="True", direction="Inbound"):
+            return (
+                f"[pscustomobject]@{{Enabled='{enabled}'; Direction='{direction}'; "
+                f"Action='{action}'; Profile='{profile}'}}"
+            )
+
+        cases = [
+            (rule("Block", "Public"), "Public", True),
+            (rule("Block", "Public"), "Private", False),
+            (rule("Block", "Domain, Private"), "Private", True),
+            (rule("Block", "Domain, Private"), "DomainAuthenticated", True),
+            (rule("Block", "Any"), "Private", True),
+            (rule("Allow", "Any"), "Private", False),
+            (rule("Block", "Any", enabled="False"), "Private", False),
+            (rule("Block", "Any", direction="Outbound"), "Private", False),
+        ]
+        body = "; ".join(
+            f"Test-FirewallBlocked @({rules}) '{category}'"
+            for rules, category, _ in cases
+        )
+        output = self.run_helpers(body + "; Test-FirewallBlocked @() 'Public'")
+        expected = ["True" if blocked else "False" for _, _, blocked in cases]
+        self.assertEqual(output, expected + ["False"])
+
+    def test_failure_text_names_the_public_network_only_when_it_is_the_cause(self):
+        output = self.run_helpers(
+            "(Get-FailureText 'NoRouter' 'Public' 30100) -match 'Public'; "
+            "(Get-FailureText 'NoRouter' 'Private' 30100) -match 'Public'; "
+            "(Get-FailureText 'SharedAddress' 'Public' 30100) -match 'Public'; "
+            "(Get-FailureText 'PortsTaken' 'Private' 30100) -match '-Port 30200'"
+        )
+        self.assertEqual(output, ["True", "False", "False", "True"])
 
 
 if __name__ == "__main__":

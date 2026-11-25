@@ -118,9 +118,35 @@ Windows network profile. When it cannot host, the usual causes are: router
 UPnP is off, CGNAT (your provider shares one Internet address between
 customers), or another NAT layer. Hosting Status names the cause it found.
 
-The script asks through Windows instead, which a Public network profile
-blocks. Use Host Game, or give the script an address friends can
-reach when it asks for one.
+The script asks through Windows instead. When that fails, it names the
+cause and asks for an address friends can reach. Host Game avoids the
+first two causes.
+
+"Windows treats this network as Public": Windows hides the router from the
+script on a Public network, which is common on Wi-Fi. The script opens the
+Settings page; switch to Private there and host again:
+  Settings > Network & internet > Ethernet or Wi-Fi >
+  Network profile type > Private network
+
+"The Windows service "SSDP Discovery" is disabled": open the Services app,
+double-click SSDP Discovery, set Startup type to Manual, and host again.
+
+"Your router did not answer": turn on UPnP in the router's settings. Some
+shared networks, such as dorms and hotels, do not offer it.
+
+"Your router is behind another router or your Internet provider's shared
+address": common on mobile, satellite and apartment Internet. No router
+setting fixes it; use one of the options below.
+
+"Windows Firewall blocks rexglue.exe": the firewall prompt was closed or
+denied earlier, and Windows does not ask again. Open "Allow an app through
+Windows Firewall", tick rexglue.exe for your network type, and host again.
+
+"A VPN (its name) carries this PC's Internet traffic": friends reach your router, but
+the replies leave through the VPN. Turn the VPN off while hosting.
+
+If another program already uses the port on your router, the script moves to
+the next free one of ten and says which.
 
 A friend hosts: someone whose PC can host automatically presses Host Game,
 and everyone else joins.
