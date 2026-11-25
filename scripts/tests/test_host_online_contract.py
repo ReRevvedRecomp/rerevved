@@ -83,7 +83,9 @@ class HostOnlineSourceTest(unittest.TestCase):
     def test_game_start_flags(self):
         self.assertIn('"--system_link_invite=$thisPcCode"', self.source)
         self.assertIn("'--system_link_lan_enabled=false'", self.source)
-        self.assertIn('$advertised = "${external}:$Port"', self.source)
+        # Friends' code and Discord Join carry the same outside address.
+        self.assertIn("New-Invite $rexglue $friendsAddress $passwordArgs", self.source)
+        self.assertIn("$advertised = $friendsAddress", self.source)
         self.assertIn(
             '$gameArgs += "--system_link_advertised_address=$advertised"', self.source
         )
@@ -312,6 +314,24 @@ class HostOnlineHelperTest(unittest.TestCase):
             "(Select-DefaultRoute @($r[0])).InterfaceIndex"
         )
         self.assertEqual(output, ["3", "7"])
+
+    def test_typed_address_keeps_its_own_port_or_takes_the_server_port(self):
+        cases = {
+            "100.101.102.103": "100.101.102.103:30100",
+            "example.net:41234": "example.net:41234",
+            "example.net:65535": "example.net:65535",
+            "example.net:0": "None",
+            "example.net:65536": "None",
+            "example.net:": "None",
+            "example.net:12:34": "None",
+            "bad name": "None",
+        }
+        body = "; ".join(
+            f"$a = ConvertTo-FriendsAddress '{text}' 30100; "
+            "if ($null -eq $a) { 'None' } else { $a }"
+            for text in cases
+        )
+        self.assertEqual(self.run_helpers(body), list(cases.values()))
 
     def test_free_port_skips_ports_other_programs_mapped(self):
         output = self.run_helpers(

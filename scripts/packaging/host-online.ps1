@@ -96,6 +96,18 @@ function Select-FreePort([int]$Port, [int[]]$Taken) {
     return $null
 }
 
+# A typed port is the outside one, which can differ from the port the online
+# server listens on.
+function ConvertTo-FriendsAddress([string]$Text, [int]$Port) {
+    if ($Text -notmatch '^([A-Za-z0-9.-]{1,253})(:(\d{1,5}))?$') { return $null }
+    $name = $Matches[1]
+    if ($Matches.ContainsKey(3)) {
+        $Port = [int]$Matches[3]
+        if ($Port -lt 1 -or $Port -gt 65535) { return $null }
+    }
+    return "${name}:$Port"
+}
+
 function Get-FailureText([string]$Cause, [string]$Category, [int]$Port) {
     switch ($Cause) {
         'NoNetwork' { return 'No Internet connection was found on this PC.' }
@@ -231,13 +243,16 @@ function Start-Hosting {
             }
             Write-Host (Get-FailureText $cause $category $Port)
             Write-Host "This PC cannot host automatically. See `"CAN'T HOST?`" in ONLINE.txt."
+            Write-Host "If friends must use a port other than $Port, add it after the address, like example.net:41234."
             $external = (Read-Host 'Address friends can reach (for example a Tailscale or ZeroTier address), or press Enter to quit').Trim()
             if (-not $external) { return 0 }
-            if ($external -notmatch '^[A-Za-z0-9.-]{1,253}$') {
-                Write-Host 'ERROR: Enter an IPv4 address or DNS name without a port.'
+            $friendsAddress = ConvertTo-FriendsAddress $external $Port
+            if (-not $friendsAddress) {
+                Write-Host 'ERROR: Enter an IPv4 address or DNS name, with :port after it if needed.'
                 return 1
             }
         } else {
+            $friendsAddress = "${external}:$Port"
             Write-Host "Opened UDP port $Port on your router."
             if ($vpn) {
                 Write-Host "A VPN ($vpn) carries this PC's Internet traffic. If friends cannot connect, turn it off and run this again."
@@ -257,7 +272,7 @@ function Start-Hosting {
             Write-Host 'Open "Allow an app through Windows Firewall" from the Start menu, tick rexglue.exe for this network type, then run this again.'
         }
 
-        $friendsCode = New-Invite $rexglue "${external}:$Port" $passwordArgs
+        $friendsCode = New-Invite $rexglue $friendsAddress $passwordArgs
         # The password file exists after the first call.
         $thisPcCode = New-Invite $rexglue "127.0.0.1:$Port" @('--password-file', $passwordFile)
         Set-Content -LiteralPath $invites -Encoding ASCII -Value @(
@@ -293,7 +308,7 @@ function Start-Hosting {
         # advertised address makes Discord join codes carry the friends' address
         # instead of this PC's 127.0.0.1 server address; the SDK accepts 35 characters.
         $gameArgs = @("--system_link_invite=$thisPcCode", '--system_link_lan_enabled=false')
-        $advertised = "${external}:$Port"
+        $advertised = $friendsAddress
         if ($advertised.Length -gt 35) {
             Write-Host "Discord Join won't work with this address. Friends should paste the copied code instead."
         } else {

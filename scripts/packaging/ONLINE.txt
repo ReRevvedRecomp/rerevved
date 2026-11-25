@@ -155,6 +155,18 @@ Overlay VPN: everyone installs a VPN such as Tailscale or ZeroTier and joins
 the same network. The host closes ReRevved, runs host-online.cmd and enters
 their overlay address when asked, such as the 100.x.y.z address Tailscale shows.
 
+A different outside port: if friends must connect on a port other than the
+one the script uses, add it after the address when asked, such as
+example.net:41234. The online server on this PC keeps its own port, and the
+friends' code and Discord Join carry the one you typed.
+
+UDP tunnel, not tested by the project: a tunnel service gives the host a
+public address and port and passes UDP traffic to this PC, so friends install
+nothing. Point the tunnel at UDP 30100 on this PC, run host-online.cmd, and
+enter the tunnel's address and port when asked. The service must carry UDP;
+a TCP or HTTP tunnel does not work. Your game traffic passes through the
+service unencrypted (see SECURITY LIMITS).
+
 Manual port forward, for advanced users: forward UDP 30100 (or your chosen
 port) in your router to this PC's local IPv4 address. Run host-manual.cmd and
 enter your public IPv4 or DNS name when asked. It makes codes and runs the
