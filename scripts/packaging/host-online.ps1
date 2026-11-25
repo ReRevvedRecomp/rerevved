@@ -1,4 +1,4 @@
-# Hosts a private ReRevved online game: opens the UDP port with UPnP, makes the
+# Hosts a private ReRevved online game: opens the UDP port with UPnP or NAT-PMP, makes the
 # invite codes, starts the game on this PC's own online server, and runs it.
 # Runs on Windows PowerShell 5.1.
 param(
@@ -11,6 +11,9 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2.0
 
 $MappingName = 'ReRevved online server'
+# Seconds a NAT-PMP mapping lasts. The script renews it at half that, and a
+# closed window leaves it to expire.
+$NatPmpLifetime = 3600
 
 # Addresses that cannot be reached from the Internet: private, CGNAT, loopback,
 # link-local and "this network".
@@ -56,6 +59,7 @@ function Get-LocalNetwork {
                 InterfaceIndex = $route.InterfaceIndex
                 Metric         = $route.RouteMetric + $nic.InterfaceMetric
                 Physical       = $physical -contains $route.InterfaceIndex
+                Gateway        = $route.NextHop
             }
         })
     $best = Select-DefaultRoute $routes
@@ -76,7 +80,54 @@ function Get-LocalNetwork {
     $wireless = (Get-NetAdapter -InterfaceIndex $best.InterfaceIndex).PhysicalMediaType -like '*802.11*'
     [pscustomobject]@{
         Address = $address.IPAddress; Category = $category; VpnAdapter = $vpn; Wireless = $wireless
+        Gateway = $best.Gateway
     }
+}
+
+# RFC 6886. Routers without NAT-PMP stay silent, which returns $null.
+function Send-NatPmp([string]$Gateway, [byte[]]$Request, [int]$GatewayPort) {
+    $udp = New-Object System.Net.Sockets.UdpClient
+    try {
+        $udp.Client.ReceiveTimeout = 1000
+        $udp.Connect($Gateway, $GatewayPort)
+        foreach ($attempt in 1..2) {
+            try {
+                $null = $udp.Send($Request, $Request.Length)
+                $remote = New-Object System.Net.IPEndPoint ([System.Net.IPAddress]::Any, 0)
+                $reply = $udp.Receive([ref]$remote)
+                # Opcode plus 128 marks the reply; bytes 2 and 3 are the result, 0 for success.
+                if ($reply.Length -ge 12 -and $reply[1] -eq $Request[1] + 128 -and
+                    $reply[2] -eq 0 -and $reply[3] -eq 0) { return , $reply }
+                return $null
+            } catch {
+                $reply = $null
+            }
+        }
+        return $null
+    } finally {
+        $udp.Close()
+    }
+}
+
+# A lifetime and outside port of 0 remove the mapping.
+function Request-NatPmpPort([string]$Gateway, [int]$Port, [int]$Outside, [int]$Lifetime, [int]$GatewayPort = 5351) {
+    $request = [byte[]](@(0, 1, 0, 0, ($Port -shr 8), ($Port -band 255),
+            ($Outside -shr 8), ($Outside -band 255),
+            (($Lifetime -shr 24) -band 255), (($Lifetime -shr 16) -band 255),
+            (($Lifetime -shr 8) -band 255), ($Lifetime -band 255)))
+    $reply = Send-NatPmp $Gateway $request $GatewayPort
+    if (-not $reply -or $reply.Length -lt 16) { return $null }
+    return $reply[10] * 256 + $reply[11]
+}
+
+# The router may choose the outside port itself.
+function Open-NatPmpPort([string]$Gateway, [int]$Port, [int]$GatewayPort = 5351) {
+    $reply = Send-NatPmp $Gateway ([byte[]](0, 0)) $GatewayPort
+    if (-not $reply) { return $null }
+    $address = '{0}.{1}.{2}.{3}' -f $reply[8], $reply[9], $reply[10], $reply[11]
+    $outside = Request-NatPmpPort $Gateway $Port $Port $NatPmpLifetime $GatewayPort
+    if (-not $outside) { return $null }
+    [pscustomobject]@{ Address = $address; Port = $outside }
 }
 
 # Windows can answer before it has found the router, so an empty answer is asked again.
@@ -116,7 +167,7 @@ function Get-FailureText([string]$Cause, [string]$Category, [int]$Port) {
             if ($Category -eq 'Public') {
                 return 'Windows treats this network as Public, which hides your router from this script. Set it to Private in the Settings page that just opened, then run this again.'
             }
-            return 'Your router did not answer. UPnP may be turned off in the router, or this network does not offer it.'
+            return 'Your router did not answer. UPnP and NAT-PMP may be turned off in the router, or this network does not offer them.'
         }
         'PortsTaken' { return "Other programs already use UDP ports $Port to $($Port + 9) on your router. Run this again with another port, for example: host-online.cmd -Port $($Port + 100)" }
         'SharedAddress' { return "Your router is behind another router or your Internet provider's shared address, so this PC cannot open a port." }
@@ -175,6 +226,9 @@ function Start-Hosting {
         $category = $null
         $vpn = $null
         $wireless = $false
+        $gateway = $null
+        $natPmpGateway = $null   # Set while a NAT-PMP mapping of this run is open.
+        $outsidePort = 0
         $cause = 'NoNetwork'   # Names the step that failed; see Get-FailureText.
         try {
             $network = Get-LocalNetwork
@@ -183,6 +237,7 @@ function Start-Hosting {
                 $category = $network.Category
                 $vpn = $network.VpnAdapter
                 $wireless = $network.Wireless
+                $gateway = $network.Gateway
                 $cause = 'NoRouter'
                 Write-Host 'Looking for your router...'
                 $mappings = Get-RouterMappings
@@ -228,6 +283,22 @@ function Start-Hosting {
             $cause = 'SharedAddress'
             $external = $null
         }
+        # Some routers refuse UPnP and grant the same mapping over NAT-PMP.
+        if (-not $external -and $gateway -and $gateway -ne '0.0.0.0' -and $cause -ne 'SharedAddress') {
+            try {
+                $granted = Open-NatPmpPort $gateway $Port
+                if ($granted -and (Test-UnreachableAddress $granted.Address)) {
+                    $cause = 'SharedAddress'
+                    $null = Request-NatPmpPort $gateway $Port 0 0
+                } elseif ($granted) {
+                    $natPmpGateway = $gateway
+                    $external = $granted.Address
+                    $outsidePort = $granted.Port
+                }
+            } catch {
+                $external = $null
+            }
+        }
         if (-not $external) {
             if ($cause -eq 'NoRouter') {
                 $discovery = Get-Service -Name SSDPSRV -ErrorAction SilentlyContinue
@@ -252,8 +323,9 @@ function Start-Hosting {
                 return 1
             }
         } else {
-            $friendsAddress = "${external}:$Port"
-            Write-Host "Opened UDP port $Port on your router."
+            if (-not $outsidePort) { $outsidePort = $Port }
+            $friendsAddress = "${external}:$outsidePort"
+            Write-Host "Opened UDP port $outsidePort on your router."
             if ($vpn) {
                 Write-Host "A VPN ($vpn) carries this PC's Internet traffic. If friends cannot connect, turn it off and run this again."
             }
@@ -317,7 +389,17 @@ function Start-Hosting {
         Start-Process -FilePath $game -WorkingDirectory $PSScriptRoot -ArgumentList $gameArgs
         Write-Host 'Started ReRevved. Leave this window open while you play; press Ctrl+C when done.'
 
-        Wait-Process -Id $server.Id
+        # Wakes at half the NAT-PMP lifetime to renew that mapping.
+        while (-not $server.HasExited) {
+            Wait-Process -Id $server.Id -Timeout ($NatPmpLifetime / 2) -ErrorAction SilentlyContinue
+            if ($natPmpGateway -and -not $server.HasExited) {
+                try {
+                    $null = Request-NatPmpPort $natPmpGateway $Port $outsidePort $NatPmpLifetime
+                } catch {
+                    Write-Host 'Could not renew the port mapping; friends may lose the connection.'
+                }
+            }
+        }
         $server.Refresh()
         if ($server.ExitCode -ne 0) {
             Write-Host "ERROR: The online server stopped with exit code $($server.ExitCode). See $log."
@@ -337,6 +419,14 @@ function Start-Hosting {
                 Write-Host "Port mapping removed (UDP $Port)."
             } catch {
                 Write-Host "Could not remove the UDP $Port port mapping. Remove it in your router."
+            }
+        }
+        if ($natPmpGateway) {
+            try {
+                $null = Request-NatPmpPort $natPmpGateway $Port 0 0
+                Write-Host "Port mapping removed (UDP $outsidePort)."
+            } catch {
+                Write-Host "The UDP $outsidePort port mapping will expire within the hour."
             }
         }
     }

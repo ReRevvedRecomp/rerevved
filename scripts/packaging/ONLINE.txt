@@ -49,8 +49,9 @@ Use this when the button cannot host (see CAN'T HOST?) or the game is not on
 Windows.
 
 1. Close ReRevved, then double-click host-online.cmd. It tries to open UDP
-   port 30100 with router UPnP, makes invites, copies the friends' code to the
-   clipboard, starts the online server, and launches ReRevved connected to it.
+   port 30100 with router UPnP, then NAT-PMP, makes invites, copies the
+   friends' code to the clipboard, starts the online server, and launches
+   ReRevved connected to it.
 2. Allow rexglue.exe through the Windows Firewall prompt.
 3. Let friends use Discord Join (see JOINING), or send them the copied code
    privately.
@@ -66,6 +67,8 @@ If ReRevved was already running, close it and run the script again.
 The script tries to remove mappings it added or reclaimed. Closing its window
 can leave a mapping open. A stale mapping it repoints stays for a later run to
 reclaim. Check your router after testing even if hosting worked.
+A NAT-PMP mapping lasts one hour, is renewed while the script runs, and
+expires by itself if the window is closed.
 
 JOINING
 
@@ -131,8 +134,9 @@ Settings page; switch to Private there and host again:
 "The Windows service "SSDP Discovery" is disabled": open the Services app,
 double-click SSDP Discovery, set Startup type to Manual, and host again.
 
-"Your router did not answer": turn on UPnP in the router's settings. Some
-shared networks, such as dorms and hotels, do not offer it.
+"Your router did not answer": turn on UPnP or NAT-PMP in the router's
+settings; either one is enough. Some shared networks, such as dorms and
+hotels, offer neither.
 
 "Your router is behind another router or your Internet provider's shared
 address": common on mobile, satellite and apartment Internet. No router

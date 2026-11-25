@@ -2,8 +2,10 @@
 
 import re
 import shutil
+import socket
 import subprocess
 import sys
+import threading
 import unittest
 from pathlib import Path
 
@@ -103,7 +105,7 @@ class HostOnlineSourceTest(unittest.TestCase):
             "-RedirectStandardError (Join-Path $state 'online-server-console-err.txt')",
             "Get-NetUDPEndpoint -LocalPort $Port -OwningProcess $server.Id",
             "AddSeconds(10)",
-            "Wait-Process -Id $server.Id",
+            "Wait-Process -Id $server.Id -Timeout ($NatPmpLifetime / 2)",
         ):
             self.assertIn(text, self.source)
         self.assertIn("online-server.log", self.source)
@@ -128,9 +130,9 @@ class HostOnlineSourceTest(unittest.TestCase):
         )
 
     def test_mapping_is_removed_only_in_finally(self):
-        match = re.search(r"\} finally \{(.*)\n    \}\n\}", self.source, re.S)
-        self.assertIsNotNone(match)
-        cleanup = match.group(1)
+        # The last finally is Start-Hosting's; a helper has its own.
+        cleanup = self.source.rsplit("} finally {", 1)[1]
+        self.assertNotIn("\nfunction ", cleanup)
         self.assertIn("if ($created)", cleanup)
         self.assertIn("$mappings.Remove($Port, 'UDP')", cleanup)
         self.assertIn("Port mapping removed", cleanup)
@@ -332,6 +334,76 @@ class HostOnlineHelperTest(unittest.TestCase):
             for text in cases
         )
         self.assertEqual(self.run_helpers(body), list(cases.values()))
+
+    def serve_nat_pmp(self, answer):
+        """Runs a loopback gateway; answer(request) returns the reply or None."""
+        gateway = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        gateway.bind(("127.0.0.1", 0))
+        gateway.settimeout(0.2)
+        requests = []
+        stop = threading.Event()
+
+        def serve():
+            while not stop.is_set():
+                try:
+                    data, peer = gateway.recvfrom(64)
+                except socket.timeout:
+                    continue
+                requests.append(data)
+                reply = answer(data)
+                if reply:
+                    gateway.sendto(reply, peer)
+
+        thread = threading.Thread(target=serve, daemon=True)
+        thread.start()
+
+        def close():
+            stop.set()
+            thread.join()
+            gateway.close()
+
+        self.addCleanup(close)
+        return gateway.getsockname()[1], requests
+
+    def test_nat_pmp_opens_renews_and_removes_a_mapping(self):
+        def answer(data):
+            if data[1] == 0:
+                return bytes([0, 128, 0, 0, 0, 0, 0, 1, 203, 0, 113, 5])
+            # The router grants its own outside port, and none for a removal.
+            outside = bytes(2) if data[8:12] == bytes(4) else bytes([0xA1, 0x12])
+            return bytes([0, 129, 0, 0, 0, 0, 0, 1]) + data[4:6] + outside + data[8:12]
+
+        port, requests = self.serve_nat_pmp(answer)
+        output = self.run_helpers(
+            f"$g = Open-NatPmpPort '127.0.0.1' 30100 {port}; $g.Address; $g.Port; "
+            f"Request-NatPmpPort '127.0.0.1' 30100 $g.Port $NatPmpLifetime {port}; "
+            f"Request-NatPmpPort '127.0.0.1' 30100 0 0 {port}"
+        )
+        self.assertEqual(output, ["203.0.113.5", "41234", "41234", "0"])
+        mapping = bytes([0, 1, 0, 0, 0x75, 0x94])
+        hour = bytes([0, 0, 0x0E, 0x10])
+        self.assertEqual(
+            requests,
+            [
+                bytes(2),
+                mapping + bytes([0x75, 0x94]) + hour,
+                mapping + bytes([0xA1, 0x12]) + hour,
+                mapping + bytes(2) + bytes(4),
+            ],
+        )
+
+    def test_nat_pmp_gives_up_on_a_refusing_or_silent_router(self):
+        # Result code 2 is "not authorized"; most routers without NAT-PMP stay silent.
+        refusing, _ = self.serve_nat_pmp(
+            lambda data: bytes([0, data[1] + 128, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0])
+        )
+        silent, asked = self.serve_nat_pmp(lambda data: None)
+        output = self.run_helpers(
+            f"$null -eq (Open-NatPmpPort '127.0.0.1' 30100 {refusing}); "
+            f"$null -eq (Open-NatPmpPort '127.0.0.1' 30100 {silent})"
+        )
+        self.assertEqual(output, ["True", "True"])
+        self.assertEqual(asked, [bytes(2), bytes(2)])
 
     def test_free_port_skips_ports_other_programs_mapped(self):
         output = self.run_helpers(
