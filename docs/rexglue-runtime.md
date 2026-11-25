@@ -199,7 +199,7 @@ controller input.
 
 [Configuration](configuration.md) owns the player display and audio controls,
 including their restart requirements. Fullscreen applies while the game runs;
-Monitor, Window Size, Render Resolution, Upscaling and Anti-Aliasing require
+Monitor, Window Size, Aspect Ratio, Upscaling and Anti-Aliasing require
 a restart.
 
 Civilization Revolution renders a fixed 1280x720 guest image. The
@@ -234,7 +234,7 @@ video mode. With `4:3` it sets `video_mode_width` and `video_mode_height` to
 command-line values. `src/display_aspect_narrow_hooks.cpp` hooks the display
 setup after its original body and, only in such a run and only below 720
 lines, clears the widescreen byte and restores a 480-line mode to 640 wide.
-Automatic Render Resolution uses the guest mode, so it picks whole multiples
+Automatic `resolution_scale` uses the guest mode, so it picks whole multiples
 of 640x480. The ultrawide modes stay original for the whole run, since the
 widening assumes the 1280x720 image. A change to or from `4:3` applies at the
 next start.

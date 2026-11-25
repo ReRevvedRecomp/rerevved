@@ -128,7 +128,6 @@ constexpr auto kSpecs = std::to_array<Spec>({
     { "monitor", Kind::kMonitor, Applies::kLive, {}, {} },
     { "window_size", Kind::kEnum, Applies::kLive, {}, {} },
     { "display_aspect", Kind::kEnum, Applies::kLive, {}, {} },
-    { "resolution_scale", Kind::kLabeledInt, Applies::kLive, {}, {} },
     { "vsync", Kind::kBool, Applies::kLive, {}, {} },
     { "present_effect", Kind::kEnum, Applies::kLive, {}, {} },
     { "swap_post_effect", Kind::kEnum, Applies::kLive, {}, {} },
@@ -582,6 +581,15 @@ namespace
 {
 
 // Hide values with disabled inline toggles (Week while Custom Week is off).
+// Window Size does nothing in fullscreen.
+bool hiddenInFullscreen(const std::unordered_map<std::string, FlagState>& flags, std::string_view key)
+{
+    if (key != "window_size")
+        return false;
+    const auto fullscreen = flags.find("fullscreen");
+    return fullscreen != flags.end() && fullscreen->second.value == "true";
+}
+
 bool lockedByToggle(const rex::ui::SettingsLayout&                    layout,
                     const std::unordered_map<std::string, FlagState>& flags,
                     std::string_view                                  key)
@@ -793,7 +801,7 @@ void OptionsModel::rebuild()
             if (!spec)
                 return;
             const auto it = flags.find(source);
-            if (it == flags.end() || !qualifies(layout, *spec, it->second) || lockedByToggle(layout, flags, source))
+            if (it == flags.end() || !qualifies(layout, *spec, it->second) || lockedByToggle(layout, flags, source) || hiddenInFullscreen(flags, source))
                 return;
             OptionRow row;
             row.key     = source;

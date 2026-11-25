@@ -151,10 +151,11 @@ Multiplayer loads use the original game's behavior, whatever the save recorded.
 
 ## Display and audio
 
-ReRevved renders with Xenos. **Render Resolution** defaults to 1280x720, the fastest choice. **Auto** chooses at startup the largest multiple of 1280x720 that fits
-your window or fullscreen monitor, for example 1280x720 on a 1080p display or
-2560x1440 on a 1440p display. You can also choose 2560x1440 or
-3840x2160; higher choices cost frame rate. **Window Size** sets the window dimensions used by Auto at startup.
+ReRevved renders with Xenos at 1280x720 and scales the image to your window or
+monitor. To render more detail, set `resolution_scale` in `rerevved.toml` to 2
+for 2560x1440 or 3 for 3840x2160, or to 0 to pick at startup the largest
+multiple of 1280x720 that fits; higher values cost frame rate. **Window Size**
+sets the window dimensions and is locked while **Fullscreen** is on.
 **Monitor** selects a display. **Fullscreen** fills that monitor
 and applies immediately.
 
@@ -165,7 +166,6 @@ centered in a 16:9 region. **16:10** fits a 16:10 screen: gameplay shows a
 little more at the top and bottom, and the interface keeps its 16:9 shape in
 the middle. Menus and movies stay 16:9. The game's base resolution remains
 1280x720.
-**Render Resolution** controls the rendered detail.
 
 With **Ultrawide** selected, you can set `display_aspect_custom` in
 `rerevved.toml` to another fixed shape, such as `"3440:1440"`. This option is
@@ -176,8 +176,8 @@ Ultrawide defaults `present_letterbox` to on and both safe areas to 100 to
 preserve the shape of 16:9 frames. Conflicting explicit values keep gameplay
 at 16:9. It also defaults `present_bar_fill` to `blur`, filling the bars around
 16:9 menus, movies and loading screens with a dimmed, blurred copy of the
-image. Set it to `black` for plain bars. Aspect Ratio changes apply at the
-next frame boundary.
+image. Set it to `black` for plain bars. Aspect Ratio changes apply after a
+restart.
 
 Labels, the cursor and picking still use the original 16:9 coordinates, and
 objects in the extra width may be hidden by the game's visibility checks.
@@ -186,13 +186,13 @@ begins can keep subsequent frames at 16:9 until Aspect Ratio or the custom
 value changes.
 
 **4:3** uses the game's own 4:3 layout for displays of that shape. The game
-then renders from a 640x480 base, **Render Resolution** offers 640x480,
-1280x960 and 1920x1440, and wider windows show bars at the sides. Changing to
+then renders from a 640x480 base, `resolution_scale` multiplies 640x480, and
+wider windows show bars at the sides. Changing to
 or from **4:3** takes effect after a restart, and the Ultrawide choices do
 not widen the view until then. Explicit `video_mode_width` and
 `video_mode_height` values override the 640x480 base.
 
-Monitor, Window Size, Render Resolution, Upscaling, and Anti-Aliasing require
+Monitor, Window Size, Aspect Ratio, Upscaling, and Anti-Aliasing require
 a restart. Select **Save**, exit, and launch again after changing them.
 Explicit `window_width` and `window_height` values in the config or command
 line override Window Size.
