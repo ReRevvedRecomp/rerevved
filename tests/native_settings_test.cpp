@@ -99,7 +99,6 @@ std::map<std::string, ns::FlagState> defaultFlags()
     flags["monitor"]                                  = intState("0", 0, 16);
     flags["window_size"]                              = enumState("", { "", "1280x720", "1600x900", "1920x1080", "2560x1440", "3840x2160", "maximized" });
     flags["display_aspect"]                           = enumState("original", { "original", "16:10", "4:3", "auto", "21:9", "32:9" });
-    flags["resolution_scale"]                         = intState("1", 0, 8);
     flags["present_effect"]                           = enumState("bilinear", { "bilinear", "cas", "fsr", "fsr2", "fsr3" });
     flags["swap_post_effect"]                         = enumState("none", { "none", "fxaa", "fxaa_extreme" });
     flags["audio_volume"]                             = intState("100", 0, 100);
@@ -354,7 +353,6 @@ TEST_CASE("native_settings_rows_keep_the_f1_order_and_captions", "[ctest][native
                                                                     "Monitor: Default",
                                                                     "Window Size: Default (1280x720)",
                                                                     "Aspect Ratio: 16:9",
-                                                                    "Render Resolution: 1280x720",
                                                                     "VSync: Off",
                                                                     "Upscaling: Bilinear",
                                                                     "Anti-Aliasing: Off" });
@@ -456,6 +454,19 @@ TEST_CASE("native_settings_skips_sections_and_rows_without_qualifying_settings",
     ns::OptionsModel none(empty);
     CHECK(none.Sections().empty());
     CHECK(none.RowCount() == 0);
+}
+
+TEST_CASE("native_settings_hide_window_size_in_fullscreen", "[ctest][native-settings]")
+{
+    FakeServices services;
+    services.flags["fullscreen"] = boolState(true);
+    ns::OptionsModel model(services);
+    const auto       display = captionsOf(model, "Display");
+    CHECK(display.front() == "Fullscreen: On");
+    CHECK(std::none_of(display.begin(), display.end(), [](const std::string& row)
+                       {
+                           return row.starts_with("Window Size");
+                       }));
 }
 
 TEST_CASE("native_settings_enums_offer_only_the_allowed_values", "[ctest][native-settings]")

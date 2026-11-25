@@ -62,19 +62,12 @@ class NativeRendererIntegrationTests(unittest.TestCase):
             'rex::cvar::SetFlagAsApplicationDefault("gpu_plugin", "xenos")',
             APP_CPP,
         )
-        self.assertIn(
-            'rex::cvar::SetFlagAsApplicationDefault("render_target_path_d3d12", "rov")',
-            APP_CPP,
-        )
         # Only player builds force the plugin; see the player-build test.
         start = APP_CPP.index("configuredRenderer = REXCVAR_GET(renderer)")
         player = APP_CPP[APP_CPP.index("#else", start) : APP_CPP.index("#endif", start)]
         forced = 'rex::cvar::SetFlagByName("gpu_plugin", "xenos")'
         self.assertEqual(APP_CPP.count(forced), player.count(forced))
-        self.assertNotIn(
-            'rex::cvar::SetFlagByName("render_target_path_d3d12", "rov")',
-            APP_CPP,
-        )
+        self.assertNotIn('SetFlagByName("render_target_path_d3d12"', APP_CPP)
 
         environment = APP_CPP.index("bool App::SetupEnvironment()")
         base_environment = APP_CPP.index("rex::ReXApp::SetupEnvironment()", environment)
@@ -88,17 +81,28 @@ class NativeRendererIntegrationTests(unittest.TestCase):
         base_presentation = APP_CPP.index(
             "rex::ReXApp::SetupPresentation()", presentation
         )
-        rov_default = APP_CPP.index(
-            'SetFlagAsApplicationDefault("render_target_path_d3d12", "rov")',
-            presentation,
+        xenos_defaults = APP_CPP.index(
+            "for (const auto& [name, value] : kXenosDefaults)", presentation
         )
         self.assertLess(base_environment, selection)
         self.assertLess(selection, gpu_default)
         self.assertLess(gpu_default, presentation)
-        self.assertLess(base_presentation, rov_default)
-        # Preserve the SDK's automatic RTV path on AMD to avoid slow ROV.
-        amd_guard = APP_CPP.index("preferredAdapterVendor() != 0x1002", presentation)
-        self.assertLess(amd_guard, rov_default)
+        self.assertLess(base_presentation, xenos_defaults)
+        table = APP_CPP[
+            APP_CPP.index("kXenosDefaults{") : APP_CPP.index(
+                "} };", APP_CPP.index("kXenosDefaults{")
+            )
+        ]
+        for name, value in (
+            ("render_target_path_d3d12", "rtv"),
+            ("d3d12_transfer_assume_color_stencil_zero", "true"),
+            ("d3d12_submit_on_primary_buffer_end", "false"),
+            ("d3d12_tiled_shared_memory", "false"),
+            ("clear_memory_page_state", "false"),
+            ("occlusion_query_enable", "false"),
+            ("readback_memexport", "false"),
+        ):
+            self.assertIn(f'{{ "{name}", "{value}" }}', table)
 
     def test_renderer_is_restart_scoped_opt_in(self) -> None:
         self.assertIn('REXCVAR_DEFINE_STRING(renderer, "xenos"', APP_CPP)

@@ -42,7 +42,6 @@ original game files.
 
 ## Display or overlay input is wrong
 
-Use **F1 > Display** to distinguish Window Size from Render Resolution.
 After changing display settings that require a restart, save and restart.
 Check for explicit `window_width` and `window_height` overrides if Window Size
 appears to be ignored.

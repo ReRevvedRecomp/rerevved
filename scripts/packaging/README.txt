@@ -45,9 +45,9 @@ Change overlay keys in F1 > Controls > Overlay Hotkeys. Rebind game controls
 under Controls > Keybinds > Controller. Overlays need a mouse or keyboard;
 a game controller cannot navigate them.
 
-Display has resolution, window, and presentation settings. Fullscreen applies
-immediately. Monitor, Window Size, Render Resolution, Upscaling, and
-Anti-Aliasing need a restart.
+Display has window and presentation settings. Fullscreen applies immediately.
+Monitor, Window Size, Aspect Ratio, Upscaling, and Anti-Aliasing need a
+restart.
 
 The ReRevved logo is an enabled asset override by default. Saving the Asset
 Overrides list creates a profile-specific selection and priority order.

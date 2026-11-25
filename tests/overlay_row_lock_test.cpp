@@ -177,6 +177,16 @@ TEST_CASE("host_row_lock_leaves_player_rows_alone", "[ctest][native-settings]")
     }
 }
 
+TEST_CASE("fullscreen_locks_window_size_at_its_own_value", "[ctest][overlay-row-lock]")
+{
+    const auto lock = rerevved::FullscreenRowLock(true, "maximized", "window_size");
+    REQUIRE(lock);
+    CHECK(lock->value == "maximized");
+    CHECK(lock->reason == rerevved::kWindowSizeLockedReason);
+    CHECK_FALSE(rerevved::FullscreenRowLock(false, "maximized", "window_size"));
+    CHECK_FALSE(rerevved::FullscreenRowLock(true, "maximized", "monitor"));
+}
+
 TEST_CASE("every_wire_field_moves_a_settings_row", "[ctest][native-settings]")
 {
     const std::set<std::string> rows = layoutRows();
