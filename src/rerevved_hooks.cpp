@@ -201,6 +201,7 @@ void ApplyCombatPaceOverride()
     constexpr uint32_t kCombatPaceDivisor = 0x82F79FBC;
     constexpr float    kNativeStandard    = 2.0f;
     constexpr float    kNativeAlternate   = 1.5f;
+    constexpr float    kNativeReduced     = 1.0f;
     constexpr float    kNativeFast        = 0.5f;
     if (!isGuestReadableRange(kCombatPaceDivisor, sizeof(uint32_t)))
     {
@@ -209,7 +210,8 @@ void ApplyCombatPaceOverride()
 
     const float selected =
         std::bit_cast<float>(readGuestU32(kCombatPaceDivisor));
-    if (selected != kNativeStandard && selected != kNativeAlternate)
+    if (selected != kNativeStandard && selected != kNativeAlternate &&
+        selected != kNativeReduced)
     {
         return;
     }
