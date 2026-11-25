@@ -1,4 +1,4 @@
-#include "discord_invites_model.h"
+#include "discord_invites.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <cstdint>
@@ -116,6 +116,8 @@ void testLaunchCommand()
                      "\"--log_file=C:\\My Logs\\run.log\" \"--window_title=say \\\"hi\\\"\" "
                      "\"--trailing=C:\\dir with space\\\\\" \"\" positional --discord_join_launch=true");
 
+    UNSCOPED_INFO("a Discord launch never hosts");
+    CHECK(BuildLaunchCommand(exe, { "--online_host=true", "--profile=a" }) == BuildLaunchCommand(exe, { "--profile=a" }));
     UNSCOPED_INFO("only exact option names are filtered");
     CHECK(BuildLaunchCommand(exe, { "--live_invite_extra=1" }).find("--live_invite_extra=1") != std::string::npos);
     UNSCOPED_INFO("relaunching from Discord keeps the same command");
@@ -314,7 +316,7 @@ void testSessionJoin()
 
 } // namespace
 
-TEST_CASE("discord_invites_model", "[ctest][discord-invites-model][local-fast]")
+TEST_CASE("discord_invites", "[ctest][discord-invites][local-fast]")
 {
     testLaunchCommand();
     testJoinMessages();

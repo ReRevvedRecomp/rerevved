@@ -130,6 +130,9 @@ public:
     }
 };
 
+// The title text key of the word on an action row's button.
+std::string_view ActionCaptionKey(std::string_view key);
+
 std::vector<std::string_view> CuratedKeys();
 
 std::string SanitizeCaption(std::string_view text, size_t maxLength);

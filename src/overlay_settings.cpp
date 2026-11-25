@@ -181,6 +181,20 @@ constexpr HostRow kHostRows[] = {
 
 } // namespace
 
+void rerevved::ApplyHostingRows(rex::ui::SettingsLayout& layout, bool hosting)
+{
+    for (auto& tab : layout.tabs)
+    {
+        for (auto& section : tab.sections)
+        {
+            std::erase_if(section.sources, [hosting](const std::string& source)
+                          {
+                              return hosting ? source == "online_host_start" : source == "online_host_stop" || source == "online_host_copy_code";
+                          });
+        }
+    }
+}
+
 std::optional<rex::ui::SettingsRowLock> rerevved::HostRowLock(const host_settings::HostSettings* host, std::string_view name)
 {
     static const HostSettings native;
@@ -236,6 +250,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "Online",
           {
               { "", { "multiplayer_ai_difficulty", "system_link_status" } },
+              { "Hosting", { "online_host_status", "online_host_start", "online_host_stop", "online_host_copy_code" } },
               { "Connection", { "system_link_invite", "system_link_lan_enabled", "system_link_direct" } },
               { "Matchmaking", { "live_sessions" } },
               { "Discord", { "discord_activity", "discord_invites" } },
@@ -328,6 +343,10 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "live_sessions", Audience::kPlayer },
         { "discord_activity", Audience::kPlayer },
         { "discord_invites", Audience::kPlayer },
+        { "online_host_status", Audience::kPlayer },
+        { "online_host_start", Audience::kPlayer },
+        { "online_host_stop", Audience::kPlayer },
+        { "online_host_copy_code", Audience::kPlayer },
         // The debug overlay has no key and no row.
         { "bind_debug_overlay", Audience::kHidden },
         // Developer rows. Native draws nothing without developer-only shader
@@ -395,6 +414,10 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "live_sessions", "Enable to host and find Player Match games on your host's online server." },
         { "discord_activity", "Enable to show what you're doing in ReRevved on Discord." },
         { "discord_invites", "Enable to let Discord friends join your hosted Player Match." },
+        { "online_host_status", "Shows whether friends can join yet." },
+        { "online_host_start", "Restarts ReRevved and hosts on this PC. Friends join from your Discord profile, or you invite them in a Discord chat." },
+        { "online_host_stop", "Restarts ReRevved and stops hosting. Everyone is disconnected." },
+        { "online_host_copy_code", "For friends without Discord. They paste it into Invite Code." },
         // Controls.
         { "input_gamepad_in_background", "Enable to keep the gamepad active while the window is inactive." },
         { "input_vibration", "Enable controller rumble." },
@@ -530,6 +553,10 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "live_sessions", "Online Player Match" },
         { "discord_activity", "Rich Presence" },
         { "discord_invites", "Join Button" },
+        { "online_host_status", "Hosting Status" },
+        { "online_host_start", "Host Game" },
+        { "online_host_stop", "Stop Hosting" },
+        { "online_host_copy_code", "Copy Friends' Code" },
         { "system_link_server_address", "Server Address" },
         { "renderer", "Renderer" },
         { "monitor", "Monitor" },

@@ -31,6 +31,7 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_clipboard.h>
 #include <api/gameplay_state.h>
 #include <fmt/format.h>
 #include <rex/crypto/sha256.h>
@@ -97,6 +98,7 @@
 #include "maps_tab.h"
 #include "mod_script_rules.h"
 #include "native_settings.h"
+#include "online_host.h"
 #include "options_page.h"
 #include "overlay_settings.h"
 #include "pause_menu.h"
@@ -735,6 +737,7 @@ void App::OnConfigurePaths(rex::PathConfig& paths)
 void App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
 {
     rerevved::ConfigureSettingsLayout(layout);
+    rerevved::ApplyHostingRows(layout, rex::cvar::Query<bool>("online_host"));
 }
 
 void App::OnConfigureModManager(std::vector<rex::ui::AssetOverlayLoadoutSource>& tabs)
@@ -1272,12 +1275,35 @@ void App::OnPostSetup()
         },
     });
 
+    // The hosting rows run on the thread that invoked them; both act on the UI thread.
+    rerevved::online_host::SetHostActions({
+        .quit = [this, alive = std::weak_ptr(gameplayUiAlive)]
+        {
+            app_context().CallInUIThreadDeferred([this, alive]
+                                                 {
+                                                     const auto live = alive.lock();
+                                                     if (!live || !live->load())
+                                                         return;
+                                                     if (OnWindowCloseRequested())
+                                                         window()->RequestClose();
+                                                 });
+        },
+        .copy = [this](std::string text)
+        {
+            app_context().CallInUIThreadDeferred([text = std::move(text)]
+                                                 {
+                                                     SDL_SetClipboardText(text.c_str());
+                                                 });
+        },
+    });
+
     rerevved::retail_audio::PublishOverrides();
     rerevved::retail_audio::RegisterChangeCallbacks();
 
     {
         auto layout = std::make_shared<rex::ui::SettingsLayout>();
         rerevved::ConfigureSettingsLayout(*layout);
+        rerevved::ApplyHostingRows(*layout, rex::cvar::Query<bool>("online_host"));
         const auto alive = std::weak_ptr(gameplayUiAlive);
         rerevved::native_settings::SetHost({
             .post = [this, alive](std::function<void()> job)
@@ -1433,6 +1459,7 @@ void App::OnShutdown()
         window()->RemoveInputListener(&keybindCapture);
     rerevved::gotw::SetSeedDispatcher({});
     rerevved::pause_menu::SetHostActions({});
+    rerevved::online_host::SetHostActions({});
     rerevved::native_settings::SetHost({});
 #if REREVVED_DEVELOPER
     rerevved::gpu::guest_d3d::ReportCompletionProbe(true);
@@ -3131,6 +3158,7 @@ void App::OnBeforeHardExit()
     // native close path reaches here without OnShutdown. Repeated calls are no-ops.
     rerevved::StopPresence();
     rerevved::lobby_content_watch::Stop();
+    rerevved::online_host::RelaunchIfRequested();
 }
 
 void App::OnKeyDown(rex::ui::KeyEvent& event)
