@@ -11,7 +11,6 @@
 
 #include <rex/ui/overlay/settings_layout.h>
 
-#include "display_aspect.h"
 #include "gameplay_fixes.h"
 #include "gameplay_session_settings.h"
 
@@ -181,6 +180,20 @@ constexpr HostRow kHostRows[] = {
 
 } // namespace
 
+void rerevved::ApplyHostingRows(rex::ui::SettingsLayout& layout, bool hosting)
+{
+    for (auto& tab : layout.tabs)
+    {
+        for (auto& section : tab.sections)
+        {
+            std::erase_if(section.sources, [hosting](const std::string& source)
+                          {
+                              return hosting ? source == "online_host_start" : source == "online_host_stop" || source == "online_host_copy_code";
+                          });
+        }
+    }
+}
+
 std::optional<rex::ui::SettingsRowLock> rerevved::HostRowLock(const host_settings::HostSettings* host, std::string_view name)
 {
     static const HostSettings native;
@@ -192,6 +205,15 @@ std::optional<rex::ui::SettingsRowLock> rerevved::HostRowLock(const host_setting
         }
     }
     return std::nullopt;
+}
+
+std::optional<rex::ui::SettingsRowLock> rerevved::FullscreenRowLock(bool fullscreen, std::string_view windowSize, std::string_view name)
+{
+    if (!fullscreen || name != "window_size")
+    {
+        return std::nullopt;
+    }
+    return rex::ui::SettingsRowLock{ std::string(windowSize), std::string(kWindowSizeLockedReason) };
 }
 
 std::optional<rex::ui::SettingsRowLock> rerevved::LobbyRowLock(const rex::session_data::Status& status, std::string_view name)
@@ -217,6 +239,8 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
 {
     layout.row_lock = [](std::string_view name) -> std::optional<rex::ui::SettingsRowLock>
     {
+        if (name == "window_size")
+            return FullscreenRowLock(rex::cvar::Query<bool>("fullscreen"), rex::cvar::Query<std::string>("window_size"), name);
         if (!gameplay_session::NetworkGameActive())
             return LobbyRowLock(rex::session_data::Current(), name);
         return HostRowLock(gameplay_session::ForNetworkGame().get(), name);
@@ -236,6 +260,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "Online",
           {
               { "", { "multiplayer_ai_difficulty", "system_link_status" } },
+              { "Hosting", { "online_host_status", "online_host_start", "online_host_stop", "online_host_copy_code" } },
               { "Connection", { "system_link_invite", "system_link_lan_enabled", "system_link_direct" } },
               { "Matchmaking", { "live_sessions" } },
               { "Discord", { "discord_activity", "discord_invites" } },
@@ -248,7 +273,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
           } },
         { "Display",
           {
-              { "", { "fullscreen", "monitor", "window_size", "display_aspect", "resolution_scale", "vsync", "present_effect", "swap_post_effect" } },
+              { "", { "fullscreen", "monitor", "window_size", "display_aspect", "vsync", "present_effect", "swap_post_effect" } },
           } },
         { "Audio", { { "", { "audio_volume", "audio_mute", "audio_play_in_background", "retail_music_volume", "retail_effects_volume", "retail_advisor_volume", "retail_leader_volume" } } } },
         { "Developer",
@@ -268,7 +293,6 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "monitor", Audience::kPlayer },
         { "window_size", Audience::kPlayer },
         { "display_aspect", Audience::kPlayer },
-        { "resolution_scale", Audience::kPlayer },
         { "vsync", Audience::kPlayer },
         { "present_effect", Audience::kPlayer },
         { "swap_post_effect", Audience::kPlayer },
@@ -328,6 +352,10 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "live_sessions", Audience::kPlayer },
         { "discord_activity", Audience::kPlayer },
         { "discord_invites", Audience::kPlayer },
+        { "online_host_status", Audience::kPlayer },
+        { "online_host_start", Audience::kPlayer },
+        { "online_host_stop", Audience::kPlayer },
+        { "online_host_copy_code", Audience::kPlayer },
         // The debug overlay has no key and no row.
         { "bind_debug_overlay", Audience::kHidden },
         // Developer rows. Native draws nothing without developer-only shader
@@ -395,6 +423,10 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "live_sessions", "Enable to host and find Player Match games on your host's online server." },
         { "discord_activity", "Enable to show what you're doing in ReRevved on Discord." },
         { "discord_invites", "Enable to let Discord friends join your hosted Player Match." },
+        { "online_host_status", "Shows whether friends can join yet." },
+        { "online_host_start", "Restarts ReRevved and hosts on this PC. Friends join from your Discord profile, or you invite them in a Discord chat." },
+        { "online_host_stop", "Restarts ReRevved and stops hosting. Everyone is disconnected." },
+        { "online_host_copy_code", "For friends without Discord. They paste it into Invite Code." },
         // Controls.
         { "input_gamepad_in_background", "Enable to keep the gamepad active while the window is inactive." },
         { "input_vibration", "Enable controller rumble." },
@@ -408,8 +440,7 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "fullscreen", "Enable to fill your selected monitor with the game." },
         { "monitor", "Choose which monitor the game opens on." },
         { "window_size", "Choose the window size outside fullscreen." },
-        { "display_aspect", "Ultrawide shows more of the world on wide screens and keeps the interface centered. 4:3 takes effect after restart." },
-        { "resolution_scale", "Choose how much detail the game renders. Auto matches your display." },
+        { "display_aspect", "Ultrawide shows more of the world on wide screens and keeps the interface centered." },
         { "vsync", "Enable to keep the game at its normal frame pacing." },
         { "present_effect", "Choose how the image is scaled and sharpened for your display." },
         { "swap_post_effect", "Choose how jagged edges are smoothed." },
@@ -429,8 +460,6 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "system_link_server_address", "Your online server's address and port." },
     };
     layout.choice_labels = {
-        // The guest renders 1280x720; the scale multiplies both axes.
-        { "resolution_scale", { { "0", "Auto" }, { "1", "1280x720" }, { "2", "2560x1440" }, { "3", "3840x2160" } } },
         { "renderer", { { "xenos", "Xenos" }, { "native", "Native (Experimental)" } } },
         { "window_size", { { "", "Default (1280x720)" }, { "maximized", "Maximized" } } },
         { "button_icons", { { "auto", "Auto" }, { "xbox", "Xbox" }, { "playstation", "PlayStation" }, { "keyboard", "Keyboard" } } },
@@ -451,12 +480,8 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "game_language", { { "1", "English" }, { "3", "Deutsch" }, { "4", "Fran\u00e7ais" }, { "5", "Espa\u00f1ol" }, { "6", "Italiano" } } },
         { "present_effect", { { "cas", "CAS" }, { "fsr", "FSR" }, { "fsr2", "FSR 2" }, { "fsr3", "FSR 3" } } },
     };
-    // The 4:3 preset renders from 640x480.
-    if (rerevved::display_aspect::NarrowLatched())
-        layout.choice_labels["resolution_scale"] = { { "0", "Auto" }, { "1", "640x480" }, { "2", "1280x960" }, { "3", "1920x1440" } };
     layout.labels = {
         { "fullscreen", "Fullscreen" },
-        { "resolution_scale", "Render Resolution" },
         { "vsync", "VSync" },
         { "present_effect", "Upscaling" },
         { "swap_post_effect", "Anti-Aliasing" },
@@ -530,6 +555,10 @@ void rerevved::ConfigureSettingsLayout(rex::ui::SettingsLayout& layout)
         { "live_sessions", "Online Player Match" },
         { "discord_activity", "Rich Presence" },
         { "discord_invites", "Join Button" },
+        { "online_host_status", "Hosting Status" },
+        { "online_host_start", "Host Game" },
+        { "online_host_stop", "Stop Hosting" },
+        { "online_host_copy_code", "Copy Friends' Code" },
         { "system_link_server_address", "Server Address" },
         { "renderer", "Renderer" },
         { "monitor", "Monitor" },

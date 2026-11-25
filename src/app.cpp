@@ -8,9 +8,7 @@
 
 #if defined(_WIN32)
 #include <Windows.h>
-#include <dxgi1_6.h>
 #include <rex/ui/d3d12/d3d12_presenter.h>
-#include <wrl/client.h>
 #endif
 
 #include <algorithm>
@@ -31,6 +29,7 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_clipboard.h>
 #include <api/gameplay_state.h>
 #include <fmt/format.h>
 #include <rex/crypto/sha256.h>
@@ -97,6 +96,7 @@
 #include "maps_tab.h"
 #include "mod_script_rules.h"
 #include "native_settings.h"
+#include "online_host.h"
 #include "options_page.h"
 #include "overlay_settings.h"
 #include "pause_menu.h"
@@ -136,28 +136,17 @@ void openLogFolder()
     rex::LaunchFileExplorer(logFile.parent_path());
 }
 
-#if defined(_WIN32)
-// Match the SDK D3D12 provider's default adapter: first non-software adapter in
-// DXGI high-performance order. Return its PCI vendor ID, or 0 on failure.
-UINT preferredAdapterVendor()
-{
-    Microsoft::WRL::ComPtr<IDXGIFactory6> factory;
-    if (FAILED(CreateDXGIFactory2(0, IID_PPV_ARGS(&factory))))
-    {
-        return 0;
-    }
-    Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter;
-    for (UINT index = 0; SUCCEEDED(factory->EnumAdapterByGpuPreference(index, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&adapter))); ++index)
-    {
-        DXGI_ADAPTER_DESC1 desc;
-        if (SUCCEEDED(adapter->GetDesc1(&desc)) && !(desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE))
-        {
-            return desc.VendorId;
-        }
-    }
-    return 0;
-}
-#endif
+// Measured on a GTX 970 and an RTX 5060: the map holds 60 FPS only on the RTV
+// path with this work skipped. ROV ran at about 15 and 50.
+constexpr std::array<std::pair<std::string_view, std::string_view>, 7> kXenosDefaults{ {
+    { "render_target_path_d3d12", "rtv" },
+    { "d3d12_transfer_assume_color_stencil_zero", "true" },
+    { "d3d12_submit_on_primary_buffer_end", "false" },
+    { "d3d12_tiled_shared_memory", "false" },
+    { "clear_memory_page_state", "false" },
+    { "occlusion_query_enable", "false" },
+    { "readback_memexport", "false" },
+} };
 
 #if REREVVED_DEVELOPER
 // Tracks the current thread's draw-family build for native_frame_timing:
@@ -735,6 +724,7 @@ void App::OnConfigurePaths(rex::PathConfig& paths)
 void App::OnConfigureSettings(rex::ui::SettingsLayout& layout)
 {
     rerevved::ConfigureSettingsLayout(layout);
+    rerevved::ApplyHostingRows(layout, rex::cvar::Query<bool>("online_host"));
 }
 
 void App::OnConfigureModManager(std::vector<rex::ui::AssetOverlayLoadoutSource>& tabs)
@@ -1086,16 +1076,11 @@ bool App::SetupPresentation()
     // presentation setup loads the plugin.
     else
     {
-#if defined(_WIN32)
-        // ROV is slow on AMD (0x1002), so keep the SDK's automatic host render target (RTV) path.
         // Application defaults still allow user overrides.
-        if (preferredAdapterVendor() != 0x1002)
-#endif
+        for (const auto& [name, value] : kXenosDefaults)
         {
-            rex::cvar::SetFlagAsApplicationDefault("render_target_path_d3d12", "rov");
+            rex::cvar::SetFlagAsApplicationDefault(name, value);
         }
-        // Auto picks the largest whole multiple of 1280x720 that fits the display, at least 1x.
-        rex::cvar::SetFlagAsApplicationDefault("resolution_scale", "0");
         rerevved::display_aspect::Initialize(REREVVED_GIT_COMMIT " " REREVVED_GIT_DIRTY, REXGLUE_GIT_REVISION " " REXGLUE_GIT_DIRTY);
     }
 
@@ -1272,12 +1257,35 @@ void App::OnPostSetup()
         },
     });
 
+    // The hosting rows run on the thread that invoked them; both act on the UI thread.
+    rerevved::online_host::SetHostActions({
+        .quit = [this, alive = std::weak_ptr(gameplayUiAlive)]
+        {
+            app_context().CallInUIThreadDeferred([this, alive]
+                                                 {
+                                                     const auto live = alive.lock();
+                                                     if (!live || !live->load())
+                                                         return;
+                                                     if (OnWindowCloseRequested())
+                                                         window()->RequestClose();
+                                                 });
+        },
+        .copy = [this](std::string text)
+        {
+            app_context().CallInUIThreadDeferred([text = std::move(text)]
+                                                 {
+                                                     SDL_SetClipboardText(text.c_str());
+                                                 });
+        },
+    });
+
     rerevved::retail_audio::PublishOverrides();
     rerevved::retail_audio::RegisterChangeCallbacks();
 
     {
         auto layout = std::make_shared<rex::ui::SettingsLayout>();
         rerevved::ConfigureSettingsLayout(*layout);
+        rerevved::ApplyHostingRows(*layout, rex::cvar::Query<bool>("online_host"));
         const auto alive = std::weak_ptr(gameplayUiAlive);
         rerevved::native_settings::SetHost({
             .post = [this, alive](std::function<void()> job)
@@ -1433,6 +1441,7 @@ void App::OnShutdown()
         window()->RemoveInputListener(&keybindCapture);
     rerevved::gotw::SetSeedDispatcher({});
     rerevved::pause_menu::SetHostActions({});
+    rerevved::online_host::SetHostActions({});
     rerevved::native_settings::SetHost({});
 #if REREVVED_DEVELOPER
     rerevved::gpu::guest_d3d::ReportCompletionProbe(true);
@@ -3131,6 +3140,7 @@ void App::OnBeforeHardExit()
     // native close path reaches here without OnShutdown. Repeated calls are no-ops.
     rerevved::StopPresence();
     rerevved::lobby_content_watch::Stop();
+    rerevved::online_host::RelaunchIfRequested();
 }
 
 void App::OnKeyDown(rex::ui::KeyEvent& event)

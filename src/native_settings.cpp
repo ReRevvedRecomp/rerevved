@@ -103,6 +103,10 @@ constexpr auto kSpecs = std::to_array<Spec>({
     { "show_popup_trophy_room", Kind::kBool, Applies::kLive, {}, {} },
 
     { "system_link_status", Kind::kStatus, Applies::kLive, {}, {} },
+    { "online_host_status", Kind::kStatus, Applies::kLive, {}, {} },
+    { "online_host_start", Kind::kAction, Applies::kLive, {}, {} },
+    { "online_host_stop", Kind::kAction, Applies::kLive, {}, {} },
+    { "online_host_copy_code", Kind::kAction, Applies::kLive, {}, {} },
     { "system_link_profile_name", Kind::kText, Applies::kLive, {}, {}, { 15, text_entry::Charset::kName } },
     { "system_link_invite", Kind::kSecret, Applies::kLive, {}, {}, { kInviteMaxLength, text_entry::Charset::kInvite } },
     { "system_link_lan_enabled", Kind::kBool, Applies::kLive, {}, {} },
@@ -124,7 +128,6 @@ constexpr auto kSpecs = std::to_array<Spec>({
     { "monitor", Kind::kMonitor, Applies::kLive, {}, {} },
     { "window_size", Kind::kEnum, Applies::kLive, {}, {} },
     { "display_aspect", Kind::kEnum, Applies::kLive, {}, {} },
-    { "resolution_scale", Kind::kLabeledInt, Applies::kLive, {}, {} },
     { "vsync", Kind::kBool, Applies::kLive, {}, {} },
     { "present_effect", Kind::kEnum, Applies::kLive, {}, {} },
     { "swap_post_effect", Kind::kEnum, Applies::kLive, {}, {} },
@@ -405,6 +408,17 @@ std::string printable(std::string_view text)
     return result;
 }
 
+std::string_view actionCaption(std::string_view key)
+{
+    if (key == "online_host_start")
+        return "Host";
+    if (key == "online_host_stop")
+        return "Stop";
+    if (key == "online_host_copy_code")
+        return "Copy";
+    return "Open";
+}
+
 // Never copy a secret into the row; expose only whether it is set.
 void fillSingle(OptionRow& row, const Spec& spec, const FlagState& state, Language language)
 {
@@ -413,7 +427,7 @@ void fillSingle(OptionRow& row, const Spec& spec, const FlagState& state, Langua
     {
         case Kind::kAction:
             row.kind    = RowKind::kAction;
-            row.choices = { { "", tr(language, "common.open", "Open") } };
+            row.choices = { { "", tr(language, std::string(ActionCaptionKey(spec.key)), actionCaption(spec.key)) } };
             break;
         case Kind::kStatus:
             row.kind    = RowKind::kStatus;
@@ -529,6 +543,17 @@ std::string_view OutcomeNote(ApplyStatus status)
     return {};
 }
 
+std::string_view ActionCaptionKey(std::string_view key)
+{
+    if (key == "online_host_start")
+        return "common.start";
+    if (key == "online_host_stop")
+        return "common.stop";
+    if (key == "online_host_copy_code")
+        return "button.copy";
+    return "common.open";
+}
+
 std::vector<std::string_view> CuratedKeys()
 {
     std::vector<std::string_view> keys;
@@ -556,6 +581,15 @@ namespace
 {
 
 // Hide values with disabled inline toggles (Week while Custom Week is off).
+// Window Size does nothing in fullscreen.
+bool hiddenInFullscreen(const std::unordered_map<std::string, FlagState>& flags, std::string_view key)
+{
+    if (key != "window_size")
+        return false;
+    const auto fullscreen = flags.find("fullscreen");
+    return fullscreen != flags.end() && fullscreen->second.value == "true";
+}
+
 bool lockedByToggle(const rex::ui::SettingsLayout&                    layout,
                     const std::unordered_map<std::string, FlagState>& flags,
                     std::string_view                                  key)
@@ -767,7 +801,7 @@ void OptionsModel::rebuild()
             if (!spec)
                 return;
             const auto it = flags.find(source);
-            if (it == flags.end() || !qualifies(layout, *spec, it->second) || lockedByToggle(layout, flags, source))
+            if (it == flags.end() || !qualifies(layout, *spec, it->second) || lockedByToggle(layout, flags, source) || hiddenInFullscreen(flags, source))
                 return;
             OptionRow row;
             row.key     = source;

@@ -2,27 +2,35 @@
 
 ReRevved Online uses System Link through an online server that one player
 runs. Everyone uses the same ReRevved release and an invite code from the
-same host. This is not an Xbox Live connection. The Windows download includes
-the hosting tools.
+same host. This is not an Xbox Live connection. On Windows the host needs
+nothing but the game.
 
 ## Host or join
 
 1. Set up your [game content](getting-started.md) before hosting.
-2. The host closes ReRevved and runs `host-online.cmd` from the extracted
-   package. It tries UPnP, creates invite codes, starts the online server, and
-   launches the game connected to it.
-3. Friends use Discord Join or the private invite code. With a code, paste it
-   into **F1 > Online > Invite Code**, leave **Direct LAN** off, then save and
-   restart.
+2. The host presses **F1 > Online > Host Game**. The game restarts,
+   runs the online server itself and asks the router to open its UDP port.
+   **Hosting Status** on the same page shows when friends can join, or why
+   hosting failed. **Stop Hosting**, which replaces Host Game while hosting,
+   or quitting ends it and removes the port.
+3. Friends click Join on the host's Discord profile, or the host sends them
+   an invite from a Discord chat. For friends without
+   Discord, the host presses **Copy Friends' Code** and sends the code
+   privately; they paste it into **F1 > Online > Invite Code**, leave
+   **Direct LAN** off, then save and restart.
 4. Open **Multiplayer > Player Match**. The host creates a game with an open
    public slot; the other players join it from the game list.
 
 Use [ONLINE.txt](../scripts/packaging/ONLINE.txt) for the full
 hosting and joining steps, Discord requirements, status messages, and
-troubleshooting. That plain-text guide ships beside the hosting scripts.
+troubleshooting. That plain-text guide ships in the Windows download.
 
 ## If automatic hosting fails
 
+The Windows download also includes `host-online.cmd`, which hosts from a
+script window instead: close ReRevved and run it. It tries UPnP, then
+NAT-PMP, and can ask for an address
+friends can reach when the router does not help.
 The packaged guide covers a different host, an overlay VPN (a private network
 over the Internet) for a connection that stays unreachable even with a
 forwarded port, such as one Internet address shared by many customers, and

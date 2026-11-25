@@ -20,7 +20,9 @@
 #include "gpu/renderer_backend.h"
 
 REXCVAR_DEFINE_STRING(display_aspect, "original", "ReRevved", "Picture shape: original keeps 16:9, 4:3 uses the game's 4:3 layout after a restart, auto matches a wider window or display_aspect_custom, 16:10, 21:9 and 32:9 fix the shape")
-    .allowed({ "original", "16:10", "4:3", "auto", "21:9", "32:9" });
+    .allowed({ "original", "16:10", "4:3", "auto", "21:9", "32:9" })
+    // Only 4:3 waits for a restart; this lifecycle gives the row the standard restart note.
+    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 REXCVAR_DEFINE_STRING(display_aspect_custom, "", "ReRevved", "Optional aspect for display_aspect=auto as numerator:denominator, for example 21:9 or 3440:1440; empty matches the window");
 REXCVAR_DEFINE_BOOL(display_aspect_debug_scissor, true, "ReRevved", "Diagnostic: false skips ultrawide scissor compression while retaining viewport or affine correction")
     .audience(rex::cvar::Audience::kHidden);

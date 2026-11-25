@@ -118,6 +118,20 @@ class OverlaySettingsContractTests(unittest.TestCase):
             ),
         )
 
+    def test_online_hosting_follows_the_status(self):
+        self.assertEqual(
+            tab_groups("Online")[1],
+            (
+                "Hosting",
+                [
+                    "online_host_status",
+                    "online_host_start",
+                    "online_host_stop",
+                    "online_host_copy_code",
+                ],
+            ),
+        )
+
     def test_owner_tooltips(self):
         for key, text in (
             ("skip_intro_movie", "Enable to skip the opening scenes at startup."),

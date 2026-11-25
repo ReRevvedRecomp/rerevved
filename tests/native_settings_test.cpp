@@ -99,12 +99,15 @@ std::map<std::string, ns::FlagState> defaultFlags()
     flags["monitor"]                                  = intState("0", 0, 16);
     flags["window_size"]                              = enumState("", { "", "1280x720", "1600x900", "1920x1080", "2560x1440", "3840x2160", "maximized" });
     flags["display_aspect"]                           = enumState("original", { "original", "16:10", "4:3", "auto", "21:9", "32:9" });
-    flags["resolution_scale"]                         = intState("1", 0, 8);
     flags["present_effect"]                           = enumState("bilinear", { "bilinear", "cas", "fsr", "fsr2", "fsr3" });
     flags["swap_post_effect"]                         = enumState("none", { "none", "fxaa", "fxaa_extreme" });
     flags["audio_volume"]                             = intState("100", 0, 100);
     flags["open_log_folder"]                          = ns::FlagState{};
     flags["system_link_status"]                       = enumState("Off", {});
+    flags["online_host_status"]                       = enumState("Not hosting", {});
+    flags["online_host_start"]                        = ns::FlagState{};
+    flags["online_host_stop"]                         = ns::FlagState{};
+    flags["online_host_copy_code"]                    = ns::FlagState{};
     flags["system_link_profile_name"]                 = enumState("", {});
     flags["system_link_invite"]                       = enumState("", {});
     flags["system_link_profile_name"].requiresRestart = true;
@@ -298,6 +301,10 @@ TEST_CASE("native_settings_rows_keep_the_f1_order_and_captions", "[ctest][native
 
     CHECK(captionsOf(model, "Online") == std::vector<std::string>{ "AI Difficulty (Multiplayer): King",
                                                                    "Connection Status: Off",
+                                                                   "Hosting Status: Not hosting",
+                                                                   "Host Game: Host",
+                                                                   "Stop Hosting: Stop",
+                                                                   "Copy Friends' Code: Copy",
                                                                    "Invite Code: Not set",
                                                                    "Direct LAN: Off",
                                                                    "Direct Connection: Off",
@@ -346,7 +353,6 @@ TEST_CASE("native_settings_rows_keep_the_f1_order_and_captions", "[ctest][native
                                                                     "Monitor: Default",
                                                                     "Window Size: Default (1280x720)",
                                                                     "Aspect Ratio: 16:9",
-                                                                    "Render Resolution: 1280x720",
                                                                     "VSync: Off",
                                                                     "Upscaling: Bilinear",
                                                                     "Anti-Aliasing: Off" });
@@ -448,6 +454,19 @@ TEST_CASE("native_settings_skips_sections_and_rows_without_qualifying_settings",
     ns::OptionsModel none(empty);
     CHECK(none.Sections().empty());
     CHECK(none.RowCount() == 0);
+}
+
+TEST_CASE("native_settings_hide_window_size_in_fullscreen", "[ctest][native-settings]")
+{
+    FakeServices services;
+    services.flags["fullscreen"] = boolState(true);
+    ns::OptionsModel model(services);
+    const auto       display = captionsOf(model, "Display");
+    CHECK(display.front() == "Fullscreen: On");
+    CHECK(std::none_of(display.begin(), display.end(), [](const std::string& row)
+                       {
+                           return row.starts_with("Window Size");
+                       }));
 }
 
 TEST_CASE("native_settings_enums_offer_only_the_allowed_values", "[ctest][native-settings]")
@@ -1742,7 +1761,7 @@ TEST_CASE("options_model_text_is_all_in_the_title_text_table", "[ctest][native-s
                         use("common.bind_none", choice.caption);
                 }
                 else if (row.kind == ns::RowKind::kAction)
-                    use("common.open", choice.caption);
+                    use(std::string(ns::ActionCaptionKey(row.key)), choice.caption);
                 else if (row.kind == ns::RowKind::kStatus)
                     continue; // the registry's own words
                 else if (row.kind == ns::RowKind::kText)
@@ -1832,7 +1851,7 @@ TEST_CASE("options_model_follows_the_table_for_the_language", "[ctest][native-se
                             CHECK(b.choices[c].caption == tt::Screen("common.bind_none", a.choices[c].caption, language));
                     }
                     else if (a.kind == ns::RowKind::kAction)
-                        CHECK(b.choices[c].caption == tt::Screen("common.open", a.choices[c].caption, language));
+                        CHECK(b.choices[c].caption == tt::Screen(std::string(ns::ActionCaptionKey(a.key)), a.choices[c].caption, language));
                     else if (a.kind == ns::RowKind::kStatus)
                         CHECK(b.choices[c].caption == a.choices[c].caption);
                     else if (a.kind == ns::RowKind::kText)
@@ -1943,8 +1962,8 @@ TEST_CASE("options_model_labels_and_times_the_text_rows", "[ctest][native-settin
     CHECK(general.rows[0].timing == ns::Timing::kRestart);
     const auto& online = model.Sections()[3];
     REQUIRE(online.title == "Online");
-    CHECK(online.rows[2].label == "Invite Code");
-    CHECK(online.rows[2].timing == ns::Timing::kRestart);
+    CHECK(online.rows[6].label == "Invite Code");
+    CHECK(online.rows[6].timing == ns::Timing::kRestart);
 }
 
 TEST_CASE("options_model_a_text_row_opens_an_entry_and_applies_the_text", "[ctest][native-settings]")
@@ -2090,6 +2109,10 @@ TEST_CASE("options_model_text_rows_follow_the_table_for_the_language", "[ctest][
         ns::OptionsModel model(services, language);
         CAPTURE(static_cast<int>(language));
         CHECK(selectRow(model, "open_log_folder").Caption() == tt::Screen("common.open", "Open", language));
+        CHECK(selectRow(model, "online_host_start").Caption() == tt::Screen("common.start", "Host", language));
+        CHECK(selectRow(model, "online_host_stop").Caption() == tt::Screen("common.stop", "Stop", language));
+        CHECK(selectRow(model, "online_host_copy_code").Caption() == tt::Screen("button.copy", "Copy", language));
+        CHECK(selectRow(model, "online_host_start").label == tt::Screen("setting.online_host_start.label", "Host Game", language));
         CHECK(selectRow(model, "system_link_invite").Caption() == tt::Screen("common.not_set", "Not set", language));
         CHECK(selectRow(model, "system_link_profile_name").Caption() == tt::Screen("choice.system_link_profile_name.default", "Default", language));
         CHECK(selectRow(model, "system_link_status").label == tt::Screen("setting.system_link_status.label", "Connection Status", language));

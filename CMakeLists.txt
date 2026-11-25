@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(rerevved VERSION 0.7.8 LANGUAGES C CXX)
+project(rerevved VERSION 0.8.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -288,12 +288,12 @@ set(REREVVED_SOURCES
     src/building_wonder_effect_rules.cpp
     src/wonder_effect_rules_hooks.cpp
     src/wonder_effect_rules_registry.h
-    src/discord_invites_model.cpp
-    src/discord_invites_model.h
+    src/discord_invites.cpp
+    src/discord_invites.h
     src/discord_presence.cpp
     src/discord_presence.h
-    src/discord_presence_model.cpp
-    src/discord_presence_model.h
+    src/discord_presence_text.cpp
+    src/discord_presence_text.h
     src/rush_cost.cpp
     src/rush_cost.h
     src/unit_sale_value.cpp
@@ -320,6 +320,10 @@ set(REREVVED_SOURCES
     src/support_log.h
     src/version_label.h
     src/version_label_hooks.cpp
+    src/online_host.cpp
+    src/online_host.h
+    src/online_host_status.cpp
+    src/online_host_status.h
     src/pause_menu.cpp
     src/pause_menu.h
     src/pause_menu_hooks.cpp

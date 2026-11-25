@@ -54,8 +54,8 @@ add_executable(rerevved_tests
     src/custom_achievements.cpp
     src/ai_civilization_setup.cpp
     src/ai_economy_hooks.cpp
-    src/discord_invites_model.cpp
-    src/discord_presence_model.cpp
+    src/discord_invites.cpp
+    src/discord_presence_text.cpp
     src/display_aspect.cpp
     src/city_founding_unit_rules.cpp
     src/gotw_hooks.cpp
@@ -86,6 +86,7 @@ add_executable(rerevved_tests
     src/intro_movie_hooks.cpp
     src/legal_screen_hooks.cpp
     src/version_label_hooks.cpp
+    src/online_host_status.cpp
     src/pause_menu.cpp
     src/title_text.cpp
     src/main_menu_options.cpp
@@ -147,8 +148,8 @@ add_executable(rerevved_tests
     tests/barbarian_messages_test.cpp
     tests/building_wonder_effect_rules_test.cpp
     tests/bundled_mods_test.cpp
-    tests/discord_invites_model_test.cpp
-    tests/discord_presence_model_test.cpp
+    tests/discord_invites_test.cpp
+    tests/discord_presence_text_test.cpp
     tests/display_aspect_test.cpp
     tests/city_founding_unit_rules_test.cpp
     tests/gameplay_fixes_test.cpp
@@ -171,6 +172,7 @@ add_executable(rerevved_tests
     tests/intro_movie_test.cpp
     tests/legal_screen_test.cpp
     tests/version_label_test.cpp
+    tests/online_host_status_test.cpp
     tests/pause_menu_test.cpp
     tests/title_text_test.cpp
     tests/main_menu_options_test.cpp

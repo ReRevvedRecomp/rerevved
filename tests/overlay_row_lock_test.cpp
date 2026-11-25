@@ -58,6 +58,24 @@ void checkTexts(const host::HostSettings* settings, const TextByName& expected)
     }
 }
 
+std::vector<std::string> hostingRows(bool hosting)
+{
+    rex::ui::SettingsLayout layout;
+    rerevved::ConfigureSettingsLayout(layout);
+    rerevved::ApplyHostingRows(layout, hosting);
+    for (const auto& tab : layout.tabs)
+    {
+        for (const auto& section : tab.sections)
+        {
+            if (section.title == "Hosting")
+            {
+                return section.sources;
+            }
+        }
+    }
+    return {};
+}
+
 std::set<std::string> layoutRows()
 {
     rex::ui::SettingsLayout layout;
@@ -159,6 +177,16 @@ TEST_CASE("host_row_lock_leaves_player_rows_alone", "[ctest][native-settings]")
     }
 }
 
+TEST_CASE("fullscreen_locks_window_size_at_its_own_value", "[ctest][overlay-row-lock]")
+{
+    const auto lock = rerevved::FullscreenRowLock(true, "maximized", "window_size");
+    REQUIRE(lock);
+    CHECK(lock->value == "maximized");
+    CHECK(lock->reason == rerevved::kWindowSizeLockedReason);
+    CHECK_FALSE(rerevved::FullscreenRowLock(false, "maximized", "window_size"));
+    CHECK_FALSE(rerevved::FullscreenRowLock(true, "maximized", "monitor"));
+}
+
 TEST_CASE("every_wire_field_moves_a_settings_row", "[ctest][native-settings]")
 {
     const std::set<std::string> rows = layoutRows();
@@ -258,4 +286,10 @@ TEST_CASE("every_wire_field_moves_a_settings_row", "[ctest][native-settings]")
         }
         CHECK(moved);
     }
+}
+
+TEST_CASE("hosting_rows_show_what_this_launch_can_do", "[ctest][overlay-row-lock]")
+{
+    CHECK(hostingRows(false) == std::vector<std::string>{ "online_host_status", "online_host_start" });
+    CHECK(hostingRows(true) == std::vector<std::string>{ "online_host_status", "online_host_stop", "online_host_copy_code" });
 }

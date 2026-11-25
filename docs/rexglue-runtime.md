@@ -199,12 +199,12 @@ controller input.
 
 [Configuration](configuration.md) owns the player display and audio controls,
 including their restart requirements. Fullscreen applies while the game runs;
-Monitor, Window Size, Render Resolution, Upscaling and Anti-Aliasing require
+Monitor, Window Size, Aspect Ratio, Upscaling and Anti-Aliasing require
 a restart.
 
 Civilization Revolution renders a fixed 1280x720 guest image. The
-`resolution_scale` setting scales that image. ReRevved defaults it to 0
-(auto), which chooses once at startup the largest whole-number scale whose
+`resolution_scale` setting scales that image. It defaults to 1. A value of 0
+(auto) chooses once at startup the largest whole-number scale whose
 image fits the window or fullscreen monitor, at least 1, and logs a `Display:`
 line. With a fixed scale, `window_size` controls the host
 window without changing render resolution. Explicit `window_width` and
@@ -234,7 +234,7 @@ video mode. With `4:3` it sets `video_mode_width` and `video_mode_height` to
 command-line values. `src/display_aspect_narrow_hooks.cpp` hooks the display
 setup after its original body and, only in such a run and only below 720
 lines, clears the widescreen byte and restores a 480-line mode to 640 wide.
-Automatic Render Resolution uses the guest mode, so it picks whole multiples
+Automatic `resolution_scale` uses the guest mode, so it picks whole multiples
 of 640x480. The ultrawide modes stay original for the whole run, since the
 widening assumes the 1280x720 image. A change to or from `4:3` applies at the
 next start.
@@ -659,13 +659,17 @@ entry with the note "Enter a week from 1 to 2147483647." Like F1, the page
 leaves out Week while Custom Week is off and Civilization while Custom
 Civilization is off. Keybinds and developer entries stay in F1.
 
-Four rows are not choices. They are curated in `src/native_settings.cpp` like
+Eight rows are not choices. They are curated in `src/native_settings.cpp` like
 the rest, with kinds of their own; F1 and this page read one layout:
 
 | Tab | Row | Setting | Kind |
 |---|---|---|---|
 | General (last) | Open Log Folder | `open_log_folder` | Action: the value column holds an Open button (A glyph); A, or a click on the button, runs the command once, and nothing is saved. F1 lists it in General too. |
 | Online (top) | Connection Status | `system_link_status` | Read-only text, read again about twice a second while the page is shown. The words are the SDK's own (English). A does nothing. |
+| Online > Hosting | Hosting Status | `online_host_status` | Read-only text like Connection Status. English. It reads `Not hosting`, why it cannot host, or how friends join: Join on the host's Discord profile when Join Button and Online Player Match are on, otherwise the friends' code. |
+| Online > Hosting | Host Game | `online_host_start` | Action with a Host button: closes the game as Exit Game does and starts it again with `--online_host=true --live_sessions=true`. Shown only when this launch does not host. Windows only. |
+| Online > Hosting | Stop Hosting | `online_host_stop` | Action with a Stop button: restarts the game without the hosting options. Shown only while this launch hosts, in place of Host Game. |
+| Online > Hosting | Copy Friends' Code | `online_host_copy_code` | Action with a Copy button: puts the friends' code on the clipboard, for friends without Discord. Shown only while this launch hosts; it does nothing while there is no code. The code is a credential and is never shown or logged. |
 | General | Profile Name | `system_link_profile_name` | Text: A opens the text entry. Up to 15 letters, digits, spaces, `-`, `_` or `.`. Restart-only. An empty name reads "Default". |
 | Online > Connection | Invite Code | `system_link_invite` | Text: A opens the text entry. Letters, digits, `-` and spaces (the SDK ignores separators inside a code), up to 1024 characters; a canonical code is at most 580. Restart-only. The row reads only "Set" or "Not set", beside a Paste button (X, Ctrl+V) and a Copy button (Y, Ctrl+C); the footer lists both while the row is highlighted. |
 
@@ -2890,6 +2894,10 @@ startup, so edits made in a running session apply at the next launch.
 | Group | Row | Setting | Meaning |
 |---|---|---|---|
 | (top) | Connection Status | `system_link_status` | Read-only connection status for this session |
+| Hosting | Hosting Status | `online_host_status` | Read-only: whether this launch hosts an online game and how friends join it |
+| Hosting | Host Game | `online_host_start` | Restarts ReRevved hosting an online game on this PC; see [Online play](online-play.md) |
+| Hosting | Stop Hosting | `online_host_stop` | Restarts ReRevved without hosting |
+| Hosting | Copy Friends' Code | `online_host_copy_code` | Copies the invite code for friends who do not use Discord Join |
 | Connection | Invite Code | `system_link_invite` | Invite code from the host; a nonempty code selects online server mode |
 | Connection | Direct LAN | `system_link_lan_enabled` | Direct LAN mode; cannot be combined with an invite |
 | Connection | Direct Connection | `system_link_direct` | Direct UDP to other players, with the online server as fallback; off by default, online server mode only |
@@ -2972,15 +2980,20 @@ rexglue online-server --port 30100 --password-file <path>
 server binds `0.0.0.0` by default, and Ctrl+C stops it. The Windows package adds
 `rexglue.exe`, `host-online.cmd`, `host-online.ps1`, `host-manual.cmd` and
 `ONLINE.txt`.
-`host-online.cmd` tries to open the UDP port with UPnP, creates invite codes, starts
+**F1 > Online > Host Game** hosts from the game itself; the scripts are
+the fallback. `host-online.cmd` tries to open the UDP port with UPnP, creates invite codes, starts
 the game against its own online server and runs it; `ONLINE.txt` walks
 players through hosting, joining and troubleshooting. The SDK's System
 Link online server documentation lists the remaining options and the invite format.
 
 ## Runtime boundary
 
-The default Windows launch uses the `xenos` plugin and the D3D12 ROV
-render-target path. The experimental `renderer=native` route uses title-owned
+The default Windows launch uses the `xenos` plugin on the D3D12 RTV
+render-target path with `d3d12_transfer_assume_color_stencil_zero` on and
+`d3d12_submit_on_primary_buffer_end`, `d3d12_tiled_shared_memory`,
+`clear_memory_page_state`, `occlusion_query_enable` and `readback_memexport`
+off, on every adapter. These are application defaults: a value in `rerevved.toml` or on the command line
+wins. The experimental `renderer=native` route uses title-owned
 D3D12 presentation and requires explicitly configured shader inputs. The
 main-menu logo is supplied through the bundled `rerevved-logo` asset override.
 The renderer selection and a successful build do not certify graphics coverage.

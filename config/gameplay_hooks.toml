@@ -54,7 +54,7 @@ registers = ["r15", "r16", "r29"]
 jump_address_on_true = 0x82D0A280
 
 # Fast combat selects the guest's native 0.5 presentation divisor only after
-# setup selected an observed native 2.0 or 1.5 divisor.
+# setup selected a native 2.0, 1.5 or 1.0 divisor.
 [[midasm_hook]]
 address = 0x82D7F934
 name = "ApplyCombatPaceOverride"
