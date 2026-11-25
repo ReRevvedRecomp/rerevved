@@ -203,8 +203,8 @@ Monitor, Window Size, Render Resolution, Upscaling and Anti-Aliasing require
 a restart.
 
 Civilization Revolution renders a fixed 1280x720 guest image. The
-`resolution_scale` setting scales that image. ReRevved defaults it to 0
-(auto), which chooses once at startup the largest whole-number scale whose
+`resolution_scale` setting scales that image. It defaults to 1. A value of 0
+(auto) chooses once at startup the largest whole-number scale whose
 image fits the window or fullscreen monitor, at least 1, and logs a `Display:`
 line. With a fixed scale, `window_size` controls the host
 window without changing render resolution. Explicit `window_width` and
@@ -2988,8 +2988,12 @@ Link online server documentation lists the remaining options and the invite form
 
 ## Runtime boundary
 
-The default Windows launch uses the `xenos` plugin and the D3D12 ROV
-render-target path. The experimental `renderer=native` route uses title-owned
+The default Windows launch uses the `xenos` plugin on the D3D12 RTV
+render-target path with `d3d12_transfer_assume_color_stencil_zero` on and
+`d3d12_submit_on_primary_buffer_end`, `d3d12_tiled_shared_memory`,
+`clear_memory_page_state`, `occlusion_query_enable` and `readback_memexport`
+off, on every adapter. These are application defaults: a value in `rerevved.toml` or on the command line
+wins. The experimental `renderer=native` route uses title-owned
 D3D12 presentation and requires explicitly configured shader inputs. The
 main-menu logo is supplied through the bundled `rerevved-logo` asset override.
 The renderer selection and a successful build do not certify graphics coverage.

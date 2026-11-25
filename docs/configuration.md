@@ -151,10 +151,10 @@ Multiplayer loads use the original game's behavior, whatever the save recorded.
 
 ## Display and audio
 
-ReRevved renders with Xenos. **Render Resolution** defaults to **Auto**, which chooses at startup the largest multiple of 1280x720 that fits
+ReRevved renders with Xenos. **Render Resolution** defaults to 1280x720, the fastest choice. **Auto** chooses at startup the largest multiple of 1280x720 that fits
 your window or fullscreen monitor, for example 1280x720 on a 1080p display or
-2560x1440 on a 1440p display. You can also choose 1280x720, 2560x1440 or
-3840x2160. **Window Size** sets the window dimensions used by Auto at startup.
+2560x1440 on a 1440p display. You can also choose 2560x1440 or
+3840x2160; higher choices cost frame rate. **Window Size** sets the window dimensions used by Auto at startup.
 **Monitor** selects a display. **Fullscreen** fills that monitor
 and applies immediately.
 
