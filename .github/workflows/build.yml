@@ -176,8 +176,13 @@ jobs:
           git clone --quiet --depth 1 --branch main --single-branch `
             "https://github.com/$env:ASSETS_REPO" $assetsRoot
           if ($LASTEXITCODE -ne 0) { throw 'Private asset clone failed' }
-          git -C $assetsRoot lfs pull `
-            --include='game/default.xex,game/default.xexp' --exclude=''
+          # GitHub LFS sometimes fails with "couldn't respond to your request in time".
+          foreach ($wait in 0, 15, 30, 60, 120) {
+            Start-Sleep -Seconds $wait
+            git -C $assetsRoot lfs pull `
+              --include='game/default.xex,game/default.xexp' --exclude=''
+            if ($LASTEXITCODE -eq 0) { break }
+          }
           if ($LASTEXITCODE -ne 0) { throw 'Private asset LFS pull failed' }
           $gameRoot = Join-Path $PWD 'game'
           New-Item -ItemType Directory -Force -Path $gameRoot | Out-Null
@@ -421,8 +426,13 @@ jobs:
           git clone --quiet --depth 1 --branch main --single-branch `
             "https://github.com/$env:ASSETS_REPO" $assetsRoot
           if ($LASTEXITCODE -ne 0) { throw 'Private asset clone failed' }
-          git -C $assetsRoot lfs pull `
-            --include='game/default.xex,game/default.xexp' --exclude=''
+          # GitHub LFS sometimes fails with "couldn't respond to your request in time".
+          foreach ($wait in 0, 15, 30, 60, 120) {
+            Start-Sleep -Seconds $wait
+            git -C $assetsRoot lfs pull `
+              --include='game/default.xex,game/default.xexp' --exclude=''
+            if ($LASTEXITCODE -eq 0) { break }
+          }
           if ($LASTEXITCODE -ne 0) { throw 'Private asset LFS pull failed' }
           $gameRoot = Join-Path $PWD 'game'
           New-Item -ItemType Directory -Force -Path $gameRoot | Out-Null
@@ -679,8 +689,13 @@ jobs:
           git clone --quiet --depth 1 --branch main --single-branch `
             "https://github.com/$env:ASSETS_REPO" $assetsRoot
           if ($LASTEXITCODE -ne 0) { throw 'Private asset clone failed' }
-          git -C $assetsRoot lfs pull `
-            --include='game/default.xex,game/default.xexp' --exclude=''
+          # GitHub LFS sometimes fails with "couldn't respond to your request in time".
+          foreach ($wait in 0, 15, 30, 60, 120) {
+            Start-Sleep -Seconds $wait
+            git -C $assetsRoot lfs pull `
+              --include='game/default.xex,game/default.xexp' --exclude=''
+            if ($LASTEXITCODE -eq 0) { break }
+          }
           if ($LASTEXITCODE -ne 0) { throw 'Private asset LFS pull failed' }
           $gameRoot = Join-Path $PWD 'game'
           New-Item -ItemType Directory -Force -Path $gameRoot | Out-Null
