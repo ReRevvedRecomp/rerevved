@@ -60,6 +60,10 @@ std::string_view guestString(rex::memory::Memory& memory, uint32_t address, uint
 std::mutex                      gMutex;
 std::map<std::string, uint32_t> gStrings;
 
+// True from the argument builder's entry for a help method until its next
+// entry on this thread. Guest invokes build their arguments on the calling thread.
+thread_local bool gHelpInvoke = false;
+
 // Intern `text` in the guest system heap for process lifetime.
 // Return zero on allocation failure.
 uint32_t guestCopy(rex::memory::Memory& memory, const std::string& text)
@@ -110,16 +114,11 @@ void SwapButtonIconImage(PPCRegister& name)
     }
 }
 
-// Set at entry of the GFx argument builder 0x82C7BDD0 when the movie invoke
-// wrapper called it; zero otherwise. Guest invokes run on the calling thread.
-thread_local uint32_t gHelpInvoke = 0;
-
-// Constructor 0x82D3A6C8 copies the C string in r4.
-// Replace whole control labels such as "LB"; write only r4. A face letter is
-// replaced only as a %s argument of a help method (see IsHelpMethod).
+// Constructor 0x82D3A6C8 copies the C string in r4. Only r4 changes.
+// A face letter swaps only as a %s argument of a help method; elsewhere it is text.
 void SwapButtonIconLabel(PPCRegister& text, uint64_t lr)
 {
-    // The builder's %s case calls the constructor from here.
+    // Return address of the argument builder's %s case.
     constexpr uint64_t kArgsStringReturn = 0x82C7BF80;
     if (!bp::MaySwap())
     {
@@ -130,17 +129,17 @@ void SwapButtonIconLabel(PPCRegister& text, uint64_t lr)
     {
         return;
     }
-    // Every label is 1 to 11 characters; longer ones start with B, D, L, R or S.
+    // Longer labels start with B, D, L, R or S and have at most 11 characters.
     const std::string_view          label = guestString(*memory, text.u32, 12);
     std::optional<std::string_view> swapped;
     if (label.size() == 1)
     {
-        if (lr == kArgsStringReturn && gHelpInvoke != 0)
+        if (lr == kArgsStringReturn && gHelpInvoke)
         {
             swapped = bp::FaceLabel(label);
         }
     }
-    else if (label.size() >= 2 && std::string_view("BDLRS").find(label[0]) != std::string_view::npos)
+    else if (!label.empty() && std::string_view("BDLRS").find(label[0]) != std::string_view::npos)
     {
         swapped = bp::Label(label);
     }
@@ -153,21 +152,17 @@ void SwapButtonIconLabel(PPCRegister& text, uint64_t lr)
     }
 }
 
-// Entry of the printf-style argument builder 0x82C7BDD0. Only the invoke
-// wrapper 0x82C7C138, returning to 0x82C7C1E8, keeps the method name in r24.
+// r24 holds the method name only when the invoke wrapper called the argument builder.
 void NoteButtonIconInvoke(uint64_t lr, PPCRegister& method)
 {
     constexpr uint64_t kInvokeWrapperReturn = 0x82C7C1E8;
-    gHelpInvoke                             = 0;
+    gHelpInvoke                             = false;
     if (lr != kInvokeWrapperReturn || !bp::MaySwap())
     {
         return;
     }
     auto* memory = guestMemory();
-    if (memory && bp::IsHelpMethod(guestString(*memory, method.u32, 128)))
-    {
-        gHelpInvoke = method.u32;
-    }
+    gHelpInvoke  = memory && bp::IsHelpMethod(guestString(*memory, method.u32, 128));
 }
 
 // At the entry of the loading-tip image builder 0x82E81F58, called while the

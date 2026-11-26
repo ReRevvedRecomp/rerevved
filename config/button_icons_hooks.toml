@@ -13,8 +13,8 @@ address = 0x82D3A6C8
 name = "SwapButtonIconLabel"
 registers = ["r4", "lr"]
 
-# Entry of the printf-style GFx argument builder. Called from the movie invoke
-# wrapper 0x82C7C138 (return 0x82C7C1E8), r24 holds the method name.
+# Argument builder entry: lr is the caller, r24 the method name when the
+# invoke wrapper 0x82C7C138 calls it.
 [[midasm_hook]]
 address = 0x82C7BDD0
 name = "NoteButtonIconInvoke"

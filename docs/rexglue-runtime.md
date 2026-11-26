@@ -402,13 +402,10 @@ already carry both controller families. With `playstation`, or `auto`
 resolving to it, the hooks in `config/button_icons_hooks.toml` swap the Xbox
 names the game requests; `src/button_icons.cpp` holds the tables.
 
-The label swap leaves single letters alone, except a face button (`A`, `B`,
-`X`, `Y`) passed as a `%s` argument to a movie's `SetHelp` method. The hook on
-the argument builder at `0x82C7BDD0` notes the method name the invoke wrapper
-`0x82C7C138` keeps in r24, and the label hook then swaps the letter for its
-`PS3` name. Every retail movie that exports or labels a face button also has
-the PlayStation counterpart, so this reaches prompts drawn from vector frames,
-such as the post-game crawl's, as well as image ones.
+A label is swapped only when the whole string is a control name. A single
+letter is usually text, so `A`, `B`, `X` and `Y` swap only as a `%s` argument
+to a movie method named `SetHelp`. This covers the screens that draw the
+button as a shape with no image to swap, such as the end-of-game replay.
 
 The family is resolved once, when startup finishes and before the guest runs.
 With `auto`, the SDK reports the family of the physical pad that last produced
