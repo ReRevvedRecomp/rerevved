@@ -457,10 +457,15 @@ DUP, DDOWN, DLEFT and DRIGHT labels in MainMenu and CityScreen draw the generic
 `DPAD.dds` image, so rebinding a D-pad direction does not reach those prompts
 and they stay retail.
 
-Only external DDS images are covered. A prompt a movie draws as vector art stays
-Xbox, whatever the binding: the D-pad in `buttonLegend.gfx` and single-button
-frames in other movies such as the stat screen's LB frame. No replacement path
-exists for them.
+Four retail movies draw their buttons as shapes instead of loading these
+images: `gfx_endgamecrawl.gfx` (the end-of-game replay), `gfx_statscreen.gfx`,
+`gfx_waitingoverlay.gfx` and `hoa_gpdirectory.gfx`. In the keyboard family the
+game receives copies in which A, B, X, Y, LB, RB, LT, RT, START and BACK load
+the same images as `gfx_pauseoverlay.gfx`, so the keycaps above appear there.
+The copies are built once from the player's `Common0.FPK`. The log shows
+`GfxMovieRows: served` at INFO for each, or the reason a movie stays retail.
+The D-pad and stick buttons in these movies stay Xbox, as do the D-pad in
+`buttonLegend.gfx` and any button another movie draws as a shape.
 
 The art is one 64x64 uncompressed DDS per key under
 `assets/button-icons/xelu-light`, staged next to the executable as
