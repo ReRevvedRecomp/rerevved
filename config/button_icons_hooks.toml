@@ -7,11 +7,18 @@ address = 0x821E3018
 name = "SwapButtonIconImage"
 registers = ["r4"]
 
-# Narrow-string constructor entry: r4 is the C string it copies.
+# Narrow-string constructor entry: r4 is the C string it copies, lr the caller.
 [[midasm_hook]]
 address = 0x82D3A6C8
 name = "SwapButtonIconLabel"
-registers = ["r4"]
+registers = ["r4", "lr"]
+
+# Entry of the printf-style GFx argument builder. Called from the movie invoke
+# wrapper 0x82C7C138 (return 0x82C7C1E8), r24 holds the method name.
+[[midasm_hook]]
+address = 0x82C7BDD0
+name = "NoteButtonIconInvoke"
+registers = ["lr", "r24"]
 
 # Loading-tip image builder entry: r3 name, r4 width, r5 height.
 [[midasm_hook]]

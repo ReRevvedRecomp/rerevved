@@ -399,8 +399,16 @@ commit, and packages carry its zlib notice under `licenses`.
 The `button_icons` setting accepts `auto`, `xbox`, `playstation` or `keyboard`,
 defaults to `auto` and requires a restart. The retail movies and loading tips
 already carry both controller families. With `playstation`, or `auto`
-resolving to it, three hooks in `config/button_icons_hooks.toml` swap the Xbox
+resolving to it, the hooks in `config/button_icons_hooks.toml` swap the Xbox
 names the game requests; `src/button_icons.cpp` holds the tables.
+
+The label swap leaves single letters alone, except a face button (`A`, `B`,
+`X`, `Y`) passed as a `%s` argument to a movie's `SetHelp` method. The hook on
+the argument builder at `0x82C7BDD0` notes the method name the invoke wrapper
+`0x82C7C138` keeps in r24, and the label hook then swaps the letter for its
+`PS3` name. Every retail movie that exports or labels a face button also has
+the PlayStation counterpart, so this reaches prompts drawn from vector frames,
+such as the post-game crawl's, as well as image ones.
 
 The family is resolved once, when startup finishes and before the guest runs.
 With `auto`, the SDK reports the family of the physical pad that last produced

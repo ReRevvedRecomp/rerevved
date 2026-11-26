@@ -552,7 +552,12 @@ EXPECTED_HOOKS = [
     {
         "address": 0x82D3A6C8,
         "name": "SwapButtonIconLabel",
-        "registers": ["r4"],
+        "registers": ["r4", "lr"],
+    },
+    {
+        "address": 0x82C7BDD0,
+        "name": "NoteButtonIconInvoke",
+        "registers": ["lr", "r24"],
     },
     {
         "address": 0x82E81F58,

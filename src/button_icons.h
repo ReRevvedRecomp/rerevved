@@ -58,6 +58,16 @@ std::optional<std::string_view> ImageStem(std::string_view basename) noexcept;
 // 0x82D3A6C8. Matching is exact and case-sensitive.
 std::optional<std::string_view> Label(std::string_view label) noexcept;
 
+// Movie method that shows a prompt by its control name. Some movies draw the
+// prompt from a clip with one frame per button labelled in both families ("B",
+// "PS3CIRCLE"); the others export both families' symbols. Matches "SetHelp" or
+// a path ending in ".SetHelp", case-sensitively.
+bool IsHelpMethod(std::string_view method) noexcept;
+
+// A, B, X and Y to their PlayStation names, only as an IsHelpMethod argument:
+// single letters elsewhere are ordinary text.
+std::optional<std::string_view> FaceLabel(std::string_view label) noexcept;
+
 // Loading-tip HTML image names passed to the tip builder at 0x82E81F58.
 struct TipImage
 {
