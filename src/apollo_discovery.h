@@ -49,13 +49,12 @@ inline bool GrantOwed(int32_t claimOwner, int32_t claimCity, int32_t cityOwner, 
            cityOwner == claimOwner && !EligibleTechnologies(words).empty();
 }
 
-// Unresolved presentation: completion 0x830E3348[p], context 0x830E3328[p], recursive marker 0x830E3430.
+// Completion marker 0x830E3348[p] is not read: phase 2 leaves the technology there until the
+// player's next turn.
 struct StageWords
 {
-    uint32_t completionMarker = 0;
-    uint32_t context          = 0;
-    uint32_t recursiveMarker  = 0;
-    uint32_t cityFlags        = 0;
+    uint32_t recursiveMarker = 0;
+    uint32_t cityFlags       = 0;
 };
 
 constexpr bool IsIdleMarker(uint32_t value) noexcept
@@ -65,8 +64,7 @@ constexpr bool IsIdleMarker(uint32_t value) noexcept
 
 constexpr bool DrainReady(const StageWords& stage) noexcept
 {
-    return IsIdleMarker(stage.completionMarker) && IsIdleMarker(stage.context) && IsIdleMarker(stage.recursiveMarker) &&
-           (stage.cityFlags & kPendingCityItems) == 0;
+    return IsIdleMarker(stage.recursiveMarker) && (stage.cityFlags & kPendingCityItems) == 0;
 }
 
 } // namespace rerevved::apollo_discovery

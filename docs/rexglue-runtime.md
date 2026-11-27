@@ -2241,12 +2241,13 @@ pure decisions are in `src/apollo_discovery.h`; the hooks in
 
 The drain runs through the dispatcher's `ExecuteTrap`, which restores the interrupted
 register state, like the Stonehenge hook. A nested pump re-enters the frame driver;
-a flag turns that call into a no-op. A record is ready when every player's
-completion marker `0x830E3348[p]` and context `0x830E3328[p]` and the recursive
-marker `0x830E3430` are zero or -1, and no owned city has a pending Wonder
-(`0x1000`) or spaceship part (`0x100`) flag at city+0x24. A value left in any
-player's marker by an earlier presentation therefore delays the drain until the
-native reset. For each technology 1 to 46 in ascending
+a flag turns that call into a no-op. A record is ready when the recursive
+marker `0x830E3430` is zero or -1 and no owned city has a pending Wonder
+(`0x1000`) or spaceship part (`0x100`) flag at city+0x24. The completion marker
+`0x830E3348[p]` is not read, because phase 2 leaves the technology there until that
+player's next turn. A drain inside a modal pump between another player's phase 1
+and phase 2 can therefore replace the shared recipient that phase 2 captions.
+For each technology 1 to 46 in ascending
 order, with the raw word `U32[0x830EDC48 + 4 * t]` equal to zero, the player owning
 the city and still holding the claim, it calls `0x82D09208(p, t, c, 0, 1)` and
 then `(p, t, c, 0, 2)`, each to its full return, logging
