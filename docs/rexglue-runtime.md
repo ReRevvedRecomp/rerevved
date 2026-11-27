@@ -449,10 +449,15 @@ the numpad keys, Pause and ScrollLock have no art. The default D-pad bindings
 are chords or keys without art, so the D-pad directions stay retail until
 rebound to single keys with art.
 
-The left and right stick images, the D-pad image and the vertical and
-horizontal axis images stand for several directions or a whole control, so they
-have no single key and keep their retail art. The `dup.dds`, `ddown.dds`,
-`dleft.dds` and `dright.dds` images are served for any direct request, but the
+The left and right stick images, `ls.dds` and `rs.dds`, show the four keys
+bound to the stick's directions: the up key above a row of left, down and
+right. Each direction uses the same first-qualifying-key rule as a button. If
+any of the four has no single key with art, that stick keeps its retail image.
+
+The D-pad image and the vertical and horizontal axis images stand for several
+directions or a whole control, so they keep their retail art. The `dup.dds`,
+`ddown.dds`, `dleft.dds` and `dright.dds` images are served for any direct
+request, but the
 DUP, DDOWN, DLEFT and DRIGHT labels in MainMenu and CityScreen draw the generic
 `DPAD.dds` image, so rebinding a D-pad direction does not reach those prompts
 and they stay retail.

@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cmath>
+#include <cstddef>
 #include <cstring>
 #include <fstream>
 #include <mutex>
@@ -103,8 +105,8 @@ constexpr std::array<std::string_view, 80> kKeys{ {
     "MMB",
 } };
 
-std::shared_mutex                   selectionMutex;
-std::array<Prepared, kSlots.size()> selected;
+std::shared_mutex                    selectionMutex;
+std::array<Prepared, kPreparedCount> selected;
 
 constexpr size_t kHeaderSize = 128;
 
@@ -214,6 +216,22 @@ std::optional<size_t> FindSlot(std::string_view requestedName) noexcept
     return std::nullopt;
 }
 
+std::optional<size_t> FindPrepared(std::string_view requestedName) noexcept
+{
+    if (const auto slot = FindSlot(requestedName))
+    {
+        return slot;
+    }
+    for (size_t i = 0; i < kClusters.size(); ++i)
+    {
+        if (equalsLower(requestedName, kClusters[i].fileName))
+        {
+            return kSlots.size() + i;
+        }
+    }
+    return std::nullopt;
+}
+
 std::optional<std::string_view> PrimaryKey(std::string_view binding) noexcept
 {
     while (true)
@@ -304,12 +322,108 @@ std::vector<uint8_t> ComposeCanvas(std::span<const uint8_t> icon, uint32_t width
     return canvas;
 }
 
+std::vector<uint8_t> ComposeCluster(const std::array<std::span<const uint8_t>, 4>& icons)
+{
+    // One key above a row of three.
+    constexpr size_t                                   kCell = 21;
+    constexpr size_t                                   kTop  = (kIconSize - 2 * kCell) / 2;
+    constexpr std::array<std::pair<size_t, size_t>, 4> kOrigins{ {
+        { kCell, kTop },
+        { 0, kTop + kCell },
+        { kCell, kTop + kCell },
+        { 2 * kCell, kTop + kCell },
+    } };
+    // Clear source pixels kept around each keycap, so neighbors do not touch.
+    constexpr size_t kMargin = 1;
+
+    size_t left = kIconSize, top = kIconSize, right = 0, bottom = 0;
+    for (const auto& icon : icons)
+    {
+        if (!IsValidIconDds(icon))
+        {
+            return {};
+        }
+        for (size_t y = 0; y < kIconSize; ++y)
+        {
+            for (size_t x = 0; x < kIconSize; ++x)
+            {
+                if (icon[kHeaderSize + (y * kIconSize + x) * 4 + 3] != 0)
+                {
+                    left   = std::min(left, x);
+                    top    = std::min(top, y);
+                    right  = std::max(right, x + 1);
+                    bottom = std::max(bottom, y + 1);
+                }
+            }
+        }
+    }
+    if (left >= right)
+    {
+        return {};
+    }
+
+    // One square crop for all four keeps their relative size. It may extend past the icon.
+    const double side    = static_cast<double>(std::max(right - left, bottom - top) + 2 * kMargin);
+    const double originX = (static_cast<double>(left + right) - side) / 2;
+    const double originY = (static_cast<double>(top + bottom) - side) / 2;
+    const double step    = side / kCell;
+    const auto   size    = static_cast<ptrdiff_t>(kIconSize);
+
+    std::vector<uint8_t> cluster(kIconDdsSize, 0);
+    std::memcpy(cluster.data(), icons[0].data(), kHeaderSize);
+    for (size_t i = 0; i < icons.size(); ++i)
+    {
+        const uint8_t* source = icons[i].data() + kHeaderSize;
+        for (size_t cellY = 0; cellY < kCell; ++cellY)
+        {
+            for (size_t cellX = 0; cellX < kCell; ++cellX)
+            {
+                // Area average weighted by alpha, so transparent texels add no dark fringe.
+                const double x0 = originX + static_cast<double>(cellX) * step;
+                const double y0 = originY + static_cast<double>(cellY) * step;
+                const double x1 = x0 + step;
+                const double y1 = y0 + step;
+                double       sum[4]{};
+                for (auto y = static_cast<ptrdiff_t>(std::floor(y0)); y < static_cast<ptrdiff_t>(std::ceil(y1)); ++y)
+                {
+                    for (auto x = static_cast<ptrdiff_t>(std::floor(x0)); x < static_cast<ptrdiff_t>(std::ceil(x1)); ++x)
+                    {
+                        if (x < 0 || y < 0 || x >= size || y >= size)
+                        {
+                            continue;
+                        }
+                        const double   weight = (std::min(static_cast<double>(x + 1), x1) - std::max(static_cast<double>(x), x0)) *
+                                                (std::min(static_cast<double>(y + 1), y1) - std::max(static_cast<double>(y), y0));
+                        const uint8_t* texel  = source + (static_cast<size_t>(y) * kIconSize + static_cast<size_t>(x)) * 4;
+                        const double   alpha  = weight * texel[3];
+                        sum[0] += alpha * texel[0];
+                        sum[1] += alpha * texel[1];
+                        sum[2] += alpha * texel[2];
+                        sum[3] += alpha;
+                    }
+                }
+                if (sum[3] <= 0)
+                {
+                    continue;
+                }
+                uint8_t* out = cluster.data() + kHeaderSize + ((kOrigins[i].second + cellY) * kIconSize + kOrigins[i].first + cellX) * 4;
+                for (size_t channel = 0; channel < 3; ++channel)
+                {
+                    out[channel] = static_cast<uint8_t>(std::lround(sum[channel] / sum[3]));
+                }
+                out[3] = static_cast<uint8_t>(std::lround(sum[3] / (step * step)));
+            }
+        }
+    }
+    return cluster;
+}
+
 size_t Prepare(const std::filesystem::path& dir, const BindingLookup& lookup)
 {
     clearSelection();
 
-    std::array<Prepared, kSlots.size()> prepared{};
-    size_t                              count = 0;
+    std::array<Prepared, kPreparedCount> prepared{};
+    size_t                               count = 0;
     for (size_t i = 0; i < kSlots.size(); ++i)
     {
         const Slot&       slot    = kSlots[i];
@@ -333,6 +447,33 @@ size_t Prepare(const std::filesystem::path& dir, const BindingLookup& lookup)
         REXLOG_DEBUG("ButtonIcons: keyboard {} is {}", slot.fileName, *key);
     }
 
+    for (size_t i = 0; i < kClusters.size(); ++i)
+    {
+        const Cluster&                      cluster = kClusters[i];
+        std::array<std::vector<uint8_t>, 4> icons;
+        std::string_view                    upKey;
+        bool                                complete = true;
+        for (size_t direction = 0; direction < icons.size() && complete; ++direction)
+        {
+            const auto key  = PrimaryKey(lookup ? lookup(cluster.keybinds[direction]) : std::string());
+            auto       icon = key ? readIcon(dir / (std::string(*key) + ".dds")) : std::nullopt;
+            complete        = icon.has_value();
+            if (complete)
+            {
+                icons[direction] = std::move(*icon);
+                upKey            = direction == 0 ? *key : upKey;
+            }
+        }
+        auto image = complete ? ComposeCluster({ icons[0], icons[1], icons[2], icons[3] }) : std::vector<uint8_t>();
+        if (image.empty())
+        {
+            REXLOG_DEBUG("ButtonIcons: {} needs four single keys with art; keeping the retail icon", cluster.fileName);
+            continue;
+        }
+        prepared[kSlots.size() + i] = { std::make_shared<const std::vector<uint8_t>>(std::move(image)), upKey };
+        ++count;
+    }
+
     std::unique_lock lock(selectionMutex);
     selected = std::move(prepared);
     return count;
@@ -340,13 +481,13 @@ size_t Prepare(const std::filesystem::path& dir, const BindingLookup& lookup)
 
 bool TryGetPrepared(std::string_view requestedName, Prepared& prepared)
 {
-    const auto slot = FindSlot(requestedName);
-    if (!slot)
+    const auto index = FindPrepared(requestedName);
+    if (!index)
     {
         return false;
     }
     std::shared_lock lock(selectionMutex);
-    prepared = selected[*slot];
+    prepared = selected[*index];
     return static_cast<bool>(prepared.payload);
 }
 

@@ -36,7 +36,7 @@ struct KeyboardServe
     bool     logged = false;
 };
 
-thread_local std::array<KeyboardServe, rerevved::keyboard_icons::kSlots.size()> keyboardServes;
+thread_local std::array<KeyboardServe, rerevved::keyboard_icons::kPreparedCount> keyboardServes;
 
 // Longest requested name read from the guest; covers a movie name with a path.
 constexpr uint32_t kMaxRequestedNameLength = 127;
@@ -310,7 +310,7 @@ void ApplyAssetFileOverride(PPCRegister& stackPointer,
         {
             return;
         }
-        KeyboardServe& serve = keyboardServes[*rerevved::keyboard_icons::FindSlot(fileName)];
+        KeyboardServe& serve = keyboardServes[*rerevved::keyboard_icons::FindPrepared(fileName)];
         if (serveGuestPayload(memory,
                               stackPointer,
                               returnedDataPointer,
