@@ -58,6 +58,13 @@ std::optional<std::string_view> ImageStem(std::string_view basename) noexcept;
 // 0x82D3A6C8. Matching is exact and case-sensitive.
 std::optional<std::string_view> Label(std::string_view label) noexcept;
 
+// Movie method that picks a prompt frame by control name: "SetHelp" or a path
+// ending in ".SetHelp". Matching is case-sensitive.
+bool IsHelpMethod(std::string_view method) noexcept;
+
+// Face letters passed to an IsHelpMethod method. Any other single letter is text.
+std::optional<std::string_view> FaceLabel(std::string_view label) noexcept;
+
 // Loading-tip HTML image names passed to the tip builder at 0x82E81F58.
 struct TipImage
 {

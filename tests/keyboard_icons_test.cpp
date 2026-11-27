@@ -230,6 +230,56 @@ TEST_CASE("keyboard_icons_compose_canvas", "[ctest][button-icons]")
     CHECK(ki::ComposeCanvas(std::span<const uint8_t>(icon.data(), 128), 128, 64).empty());
 }
 
+TEST_CASE("keyboard_icons_compose_cluster", "[ctest][button-icons]")
+{
+    // Each icon is the shipped header over an opaque square of its own color at 8..55.
+    const auto header = readFile(kArtDir / "W.dds");
+    auto       solid  = [&](uint8_t color)
+    {
+        std::vector<uint8_t> icon(ki::kIconDdsSize, 0);
+        std::copy_n(header.begin(), 128, icon.begin());
+        for (size_t y = 8; y < 56; ++y)
+        {
+            for (size_t x = 8; x < 56; ++x)
+            {
+                uint8_t* texel = icon.data() + 128 + (y * 64 + x) * 4;
+                texel[0] = texel[1] = texel[2] = color;
+                texel[3]                       = 255;
+            }
+        }
+        return icon;
+    };
+    const auto up = solid(10), left = solid(20), down = solid(30), right = solid(40);
+
+    const auto cluster = ki::ComposeCluster({ up, left, down, right });
+    REQUIRE(ki::IsValidIconDds(cluster));
+    auto texel = [&](size_t x, size_t y)
+    {
+        const uint8_t* at = cluster.data() + 128 + (y * 64 + x) * 4;
+        return std::pair<int, int>{ at[0], at[3] };
+    };
+    CHECK(texel(31, 21) == std::pair{ 10, 255 });
+    CHECK(texel(10, 42) == std::pair{ 20, 255 });
+    CHECK(texel(31, 42) == std::pair{ 30, 255 });
+    CHECK(texel(52, 42) == std::pair{ 40, 255 });
+    // The cells beside the up key and the canvas edges stay transparent.
+    CHECK(texel(10, 21).second == 0);
+    CHECK(texel(52, 21).second == 0);
+    CHECK(texel(31, 5).second == 0);
+    CHECK(texel(31, 58).second == 0);
+    // A cell's first column covers one clear source pixel of its 50 / 21 wide span.
+    CHECK(texel(21, 42).second == 148);
+
+    CHECK(ki::ComposeCluster({ up, left, down, std::span<const uint8_t>(right).first(100) }).empty());
+    const std::vector<uint8_t> blank = [&]
+    {
+        auto icon = solid(0);
+        std::fill(icon.begin() + 128, icon.end(), uint8_t{ 0 });
+        return icon;
+    }();
+    CHECK(ki::ComposeCluster({ blank, blank, blank, blank }).empty());
+}
+
 TEST_CASE("keyboard_icons_dds_validator", "[ctest][button-icons]")
 {
     const auto valid = readFile(kArtDir / "Semicolon.dds");
@@ -332,7 +382,7 @@ TEST_CASE("keyboard_icons_prepare", "[ctest][button-icons]")
     };
 
     CHECK(!ki::AnyPrepared());
-    CHECK(ki::Prepare(dir.path, bindAll(" Space ,G")) == ki::kSlots.size());
+    CHECK(ki::Prepare(dir.path, bindAll(" Space ,G")) == ki::kPreparedCount);
     CHECK(ki::AnyPrepared());
     {
         const auto a = prepared("A.dds");
@@ -357,7 +407,7 @@ TEST_CASE("keyboard_icons_prepare", "[ctest][button-icons]")
                                              { "keybind_right_shoulder", "" },
                                              { "keybind_left_trigger", "Numpad0" },
                                              { "keybind_dpad_up", "Shift+Up" } }));
-    CHECK(count == ki::kSlots.size() - 6);
+    CHECK(count == ki::kPreparedCount - 6);
     CHECK(prepared("b.dds").key == "Space");
     CHECK(prepared("a.dds").key == "Space");
     CHECK(prepared("startbutton.dds").key == "Space");
@@ -368,14 +418,18 @@ TEST_CASE("keyboard_icons_prepare", "[ctest][button-icons]")
     }
     CHECK(prepared("rt.dds").payload);
 
-    for (const std::string_view name : { "ls.dds", "dpad.dds", "ps3x.dds", "ui\\a.dds", "" })
+    CHECK(*prepared("LS.dds").payload == ki::ComposeCluster({ space, space, space, space }));
+    for (const std::string_view name : { "dpad.dds", "ps3x.dds", "ui\\a.dds", "" })
     {
         CHECK(!prepared(name).payload);
     }
 
     CHECK(ki::Prepare(dir.path / "missing", bindAll("Space")) == 0);
     CHECK(!ki::AnyPrepared());
-    REQUIRE(ki::Prepare(dir.path, bindAll("Space")) == ki::kSlots.size());
+    REQUIRE(ki::Prepare(dir.path, bindAll("Space")) == ki::kPreparedCount);
+    CHECK(ki::Prepare(dir.path, bindAll("Space", { { "keybind_rstick_left", "Shift+Left" } })) == ki::kPreparedCount - 1);
+    CHECK(prepared("ls.dds").payload);
+    CHECK(!prepared("rs.dds").payload);
     CHECK(ki::Prepare(dir.path, nullptr) == 0);
     CHECK(!ki::AnyPrepared());
     CHECK(!prepared("a.dds").payload);
@@ -397,12 +451,22 @@ TEST_CASE("keyboard_icons_prepare", "[ctest][button-icons]")
         { "keybind_dpad_right", "Shift+Right" },
         { "keybind_start", "X,Return" },
         { "keybind_back", "Z,Tab" },
+        { "keybind_lstick_up", "W" },
+        { "keybind_lstick_left", "A" },
+        { "keybind_lstick_down", "S" },
+        { "keybind_lstick_right", "D" },
+        { "keybind_rstick_up", "Up" },
+        { "keybind_rstick_left", "Left" },
+        { "keybind_rstick_down", "Down" },
+        { "keybind_rstick_right", "Right" },
     };
-    REQUIRE(defaults.size() == ki::kSlots.size());
+    REQUIRE(defaults.size() == ki::kSlots.size() + 4 * ki::kClusters.size());
     CHECK(ki::Prepare(kArtDir, [&](std::string_view keybind)
                       {
                           return defaults.at(std::string(keybind));
-                      }) == ki::kSlots.size() - 4);
+                      }) == ki::kPreparedCount - 4);
+    CHECK(prepared("ls.dds").key == "W");
+    CHECK(prepared("rs.dds").key == "Up");
     CHECK(prepared("a.dds").key == "Semicolon");
     CHECK(prepared("b.dds").key == "Quote");
     CHECK(prepared("lt.dds").key == "Q");

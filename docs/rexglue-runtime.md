@@ -399,8 +399,13 @@ commit, and packages carry its zlib notice under `licenses`.
 The `button_icons` setting accepts `auto`, `xbox`, `playstation` or `keyboard`,
 defaults to `auto` and requires a restart. The retail movies and loading tips
 already carry both controller families. With `playstation`, or `auto`
-resolving to it, three hooks in `config/button_icons_hooks.toml` swap the Xbox
+resolving to it, the hooks in `config/button_icons_hooks.toml` swap the Xbox
 names the game requests; `src/button_icons.cpp` holds the tables.
+
+A label is swapped only when the whole string is a control name. A single
+letter is usually text, so `A`, `B`, `X` and `Y` swap only as a `%s` argument
+to a movie method named `SetHelp`. This covers the screens that draw the
+button as a shape with no image to swap, such as the end-of-game replay.
 
 The family is resolved once, when startup finishes and before the guest runs.
 With `auto`, the SDK reports the family of the physical pad that last produced
@@ -444,18 +449,28 @@ the numpad keys, Pause and ScrollLock have no art. The default D-pad bindings
 are chords or keys without art, so the D-pad directions stay retail until
 rebound to single keys with art.
 
-The left and right stick images, the D-pad image and the vertical and
-horizontal axis images stand for several directions or a whole control, so they
-have no single key and keep their retail art. The `dup.dds`, `ddown.dds`,
-`dleft.dds` and `dright.dds` images are served for any direct request, but the
+The left and right stick images, `ls.dds` and `rs.dds`, show the four keys
+bound to the stick's directions: the up key above a row of left, down and
+right. Each direction uses the same first-qualifying-key rule as a button. If
+any of the four has no single key with art, that stick keeps its retail image.
+
+The D-pad image and the vertical and horizontal axis images stand for several
+directions or a whole control, so they keep their retail art. The `dup.dds`,
+`ddown.dds`, `dleft.dds` and `dright.dds` images are served for any direct
+request, but the
 DUP, DDOWN, DLEFT and DRIGHT labels in MainMenu and CityScreen draw the generic
 `DPAD.dds` image, so rebinding a D-pad direction does not reach those prompts
 and they stay retail.
 
-Only external DDS images are covered. A prompt a movie draws as vector art stays
-Xbox, whatever the binding: the D-pad in `buttonLegend.gfx` and single-button
-frames in other movies such as the stat screen's LB frame. No replacement path
-exists for them.
+Four retail movies draw their buttons as shapes instead of loading these
+images: `gfx_endgamecrawl.gfx` (the end-of-game replay), `gfx_statscreen.gfx`,
+`gfx_waitingoverlay.gfx` and `hoa_gpdirectory.gfx`. In the keyboard family the
+game receives copies in which A, B, X, Y, LB, RB, LT, RT, START and BACK load
+the same images as `gfx_pauseoverlay.gfx`, so the keycaps above appear there.
+The copies are built once from the player's `Common0.FPK`. The log shows
+`GfxMovieRows: served` at INFO for each, or the reason a movie stays retail.
+The D-pad and stick buttons in these movies stay Xbox, as do the D-pad in
+`buttonLegend.gfx` and any button another movie draws as a shape.
 
 The art is one 64x64 uncompressed DDS per key under
 `assets/button-icons/xelu-light`, staged next to the executable as

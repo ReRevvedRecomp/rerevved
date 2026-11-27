@@ -63,6 +63,13 @@ constexpr std::array<Pair, 17> kLabels{ {
     { "BACKBUTTON", "PS3SELECT" },
 } };
 
+constexpr std::array<Pair, 4> kFaceLabels{ {
+    { "A", "PS3X" },
+    { "B", "PS3CIRCLE" },
+    { "X", "PS3SQUARE" },
+    { "Y", "PS3TRIANGLE" },
+} };
+
 // The eight images the tip table builds; no face letter reaches the builder.
 constexpr std::array<std::pair<std::string_view, TipImage>, 8> kTips{ {
     { "LT", { "PS3L2", true } },
@@ -166,6 +173,26 @@ std::optional<std::string_view> ImageStem(std::string_view basename) noexcept
 std::optional<std::string_view> Label(std::string_view label) noexcept
 {
     for (const auto& [from, to] : kLabels)
+    {
+        if (label == from)
+        {
+            return to;
+        }
+    }
+    return std::nullopt;
+}
+
+bool IsHelpMethod(std::string_view method) noexcept
+{
+    constexpr std::string_view kMethod = "SetHelp";
+    return method == kMethod ||
+           (method.size() > kMethod.size() && method.ends_with(kMethod) &&
+            method[method.size() - kMethod.size() - 1] == '.');
+}
+
+std::optional<std::string_view> FaceLabel(std::string_view label) noexcept
+{
+    for (const auto& [from, to] : kFaceLabels)
     {
         if (label == from)
         {

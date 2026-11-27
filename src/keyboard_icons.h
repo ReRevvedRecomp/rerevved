@@ -52,8 +52,25 @@ inline constexpr std::array<Slot, 16> kSlots{ {
 
 inline constexpr size_t kMaxFileNameLength = 15;
 
+// A stick image shows the four keys bound to its directions.
+struct Cluster
+{
+    std::string_view                fileName;
+    std::array<std::string_view, 4> keybinds; // up, left, down, right
+};
+
+inline constexpr std::array<Cluster, 2> kClusters{ {
+    { "ls.dds", { "keybind_lstick_up", "keybind_lstick_left", "keybind_lstick_down", "keybind_lstick_right" } },
+    { "rs.dds", { "keybind_rstick_up", "keybind_rstick_left", "keybind_rstick_down", "keybind_rstick_right" } },
+} };
+
+inline constexpr size_t kPreparedCount = kSlots.size() + kClusters.size();
+
 // Matched in any case
 std::optional<size_t> FindSlot(std::string_view requestedName) noexcept;
+
+// Slots first, then clusters. Matched in any case
+std::optional<size_t> FindPrepared(std::string_view requestedName) noexcept;
 
 std::span<const std::string_view> ShippedKeys() noexcept;
 
@@ -68,16 +85,19 @@ bool IsValidCanvasDds(std::span<const uint8_t> data, uint32_t width, uint32_t he
 // Each canvas dimension is at least 64 and an even number of pixels above it. Empty when invalid.
 std::vector<uint8_t> ComposeCanvas(std::span<const uint8_t> icon, uint32_t width, uint32_t height);
 
+// The up key above a row of left, down and right. Empty when an icon is invalid or nothing is visible.
+std::vector<uint8_t> ComposeCluster(const std::array<std::span<const uint8_t>, 4>& icons);
+
 // Returns the binding of a keybind cvar; empty when it is unset.
 using BindingLookup = std::function<std::string(std::string_view keybind)>;
 
-// Retain <dir>/<SdkName>.dds per slot for the process
+// Retain <dir>/<SdkName>.dds per slot and cluster for the process. Returns how many were prepared.
 size_t Prepare(const std::filesystem::path& dir, const BindingLookup& lookup);
 
 struct Prepared
 {
     Payload          payload;
-    std::string_view key;
+    std::string_view key; // a cluster reports its up key
 };
 
 bool TryGetPrepared(std::string_view requestedName, Prepared& prepared);

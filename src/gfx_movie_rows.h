@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <optional>
@@ -30,6 +31,18 @@ inline constexpr std::string_view kHistographRowsName = "GFX_HistographRows.gfx"
 inline constexpr uint32_t kWinLosePlaceRows = 6;
 inline constexpr uint32_t kHistographRows   = 8;
 
+// Retail movies that draw their button icons as shapes instead of loading images.
+enum class PromptMovie
+{
+    EndGameCrawl,
+    StatScreen,
+    WaitingOverlay,
+    GpDirectory,
+};
+
+inline constexpr size_t           kPromptMovies     = 4;
+inline constexpr std::string_view kPromptDonorEntry = "gfx_pauseoverlay.gfx";
+
 struct Result
 {
     std::vector<uint8_t> bytes;  // patched movie; empty unless the patch applied
@@ -45,6 +58,15 @@ std::optional<Movie> FindRowsMovie(std::string_view fileName);
 // retail structure exactly; anything else fails and nothing is derived from it.
 Result PatchMovie(Movie movie, std::span<const uint8_t> source);
 
+std::string_view PromptMovieName(PromptMovie movie);
+
+// Ignores case and path.
+std::optional<PromptMovie> FindPromptMovie(std::string_view fileName);
+
+// Makes the target's button frames load images, using sprites copied from the donor.
+// Fails when either movie differs from the retail structure.
+Result PatchPromptMovie(std::span<const uint8_t> target, std::span<const uint8_t> donor);
+
 struct Prepared
 {
     std::vector<uint8_t> bytes;  // patched movie; empty when unavailable
@@ -56,6 +78,8 @@ void SetGameRoot(std::filesystem::path root);
 
 // Reads and patches the player's retail movie once per process.
 const Prepared& PreparedMovie(Movie movie);
+
+const Prepared& PreparedPromptMovie(PromptMovie movie);
 
 // The patched win/lose movie shows places 6 and 7 with these images, drawn
 // once per process from the player's place 5 badge.
