@@ -68,12 +68,10 @@ TEST_CASE("apollo_discovery_rebuilds_a_grant_the_loaded_world_still_owes", "[cte
 TEST_CASE("apollo_discovery_drains_only_when_nothing_native_is_pending", "[ctest][apollo-discovery]")
 {
     CHECK(ad::DrainReady({}));
-    CHECK(ad::DrainReady({ 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0 }));
-    CHECK_FALSE(ad::DrainReady({ 3, 0, 0, 0 }));
-    CHECK_FALSE(ad::DrainReady({ 0, 12, 0, 0 }));
-    CHECK_FALSE(ad::DrainReady({ 0, 0, 4, 0 }));
-    CHECK_FALSE(ad::DrainReady({ 0, 0, 0, 0x1000 }));
-    CHECK_FALSE(ad::DrainReady({ 0, 0, 0, 0x1100 }));
-    CHECK_FALSE(ad::DrainReady({ 0, 0, 0, 0x0100 }));
-    CHECK(ad::DrainReady({ 0, 0, 0, 0xFFFFEEFFu }));
+    CHECK(ad::DrainReady({ 0xFFFFFFFFu, 0 }));
+    CHECK_FALSE(ad::DrainReady({ 4, 0 }));
+    CHECK_FALSE(ad::DrainReady({ 0, 0x1000 }));
+    CHECK_FALSE(ad::DrainReady({ 0, 0x1100 }));
+    CHECK_FALSE(ad::DrainReady({ 0, 0x0100 }));
+    CHECK(ad::DrainReady({ 0, 0xFFFFEEFFu }));
 }

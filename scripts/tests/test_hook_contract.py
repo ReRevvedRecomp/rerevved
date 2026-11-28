@@ -5761,7 +5761,7 @@ class ApolloDiscoveryHookContractTests(unittest.TestCase):
         drain = source.split("void DrainApolloDiscoveryBonuses", 1)[1]
         self.assertIn("&thread->context()->r1 != &sp", drain)
         self.assertIn("draining.exchange(true)", drain)
-        self.assertIn("constexpr uint32_t kAcquire          = 0x82D09208;", source)
+        self.assertIn("constexpr uint32_t kAcquire         = 0x82D09208;", source)
         self.assertIn(
             "uint64_t arguments[] = { player, static_cast<uint64_t>(technology), "
             "city, 0, phase };",
