@@ -103,6 +103,7 @@
 #include "portable_mode.h"
 #include "release_id.h"
 #include "retail_audio.h"
+#include "retail_dlc.h"
 #include "xenos_frame_counter.h"
 #if REREVVED_DEVELOPER
 #include "gpu/diagnostics/label_draw_capture.h"
@@ -1228,6 +1229,8 @@ void App::OnPostSetup()
         runtime()->active_asset_overlays(),
         nullptr,
         rerevved::display_aspect::NarrowLatched() ? rerevved::main_menu_logo::kNarrowScale : 1.0f);
+    rerevved::retail_dlc::RegisterFolder(rex::filesystem::GetExecutableFolder() /
+                                         rerevved::retail_dlc::kDlcDirectory);
     rerevved::map_packs::RegisterSelected(rerevved::map_packs::SelectEnabled(
         runtime()->user_data_root(),
         rex::filesystem::GetExecutableFolder() / rerevved::map_packs::kMapsDirectory));

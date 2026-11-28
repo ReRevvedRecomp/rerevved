@@ -1,7 +1,9 @@
 #pragma once
 
+#include <climits>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -27,6 +29,18 @@ inline constexpr uint32_t kFirstPackSlot   = 5;
 inline constexpr uint32_t kLastPackSlot    = 31;
 inline constexpr int32_t  kFirstScenarioId = 100;
 
+// Scenario files and IDs an archive may use, inclusive.
+struct ArchiveRules
+{
+    uint32_t firstSlot         = kFirstPackSlot;
+    uint32_t lastSlot          = kLastPackSlot;
+    int32_t  firstScenarioId   = kFirstScenarioId;
+    int32_t  lastScenarioId    = INT32_MAX;
+    bool     requiresScenarios = true;
+};
+
+inline constexpr size_t kMaxScenarioFileBytes = 1024u * 1024u;
+
 struct Scenario
 {
     int32_t     id = 0;
@@ -40,7 +54,11 @@ struct Contents
     std::vector<Scenario>    scenarios;
 };
 
-// Returns an empty string on success, otherwise why the pack is refused.
+using ReadAt = std::function<bool(uint64_t offset, std::span<uint8_t> out)>;
+
+// Reads only the table and scenario files; returns why the archive is refused, or empty.
+std::string ParseArchive(uint64_t size, const ReadAt& read, const ArchiveRules& rules, Contents& contents);
+
 std::string ParseArchive(std::span<const uint8_t> archive, Contents& contents);
 
 struct Candidate
