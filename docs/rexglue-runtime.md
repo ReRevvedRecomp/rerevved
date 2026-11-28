@@ -134,6 +134,21 @@ and reads "Not Available" otherwise. Changes apply on the next launch; see
 [`map_packs.h`](../src/map_packs.h). Release archives include the map packs
 from `rerevved-mods`. They start disabled; enable them in the Maps tab.
 
+Retail DLC packages are single files in `dlc/` beside the executable, shared by
+every profile. Before the guest starts, each file is checked in file-name
+order. It must be a plain file of at most 256 MiB, with a name that fits
+XContent and does not start with the map packs' `rr_` prefix. It must be a
+single-file STFS marketplace package for this title with `name.txt` and
+`dlc.fpk` at its root. Only the `dlc.fpk` table and its
+`DLCScenarioData0-4.xml` files are read. Scenario IDs must be below 100, so
+retail packs never collide with map packs. A package is refused when it repeats
+an earlier accepted package's file name (ignoring case), `name.txt` token,
+scenario file slot or scenario ID. Accepted files register under their own
+names as read-only XUID-zero marketplace content, mounted in place. Nothing is
+written beside them or under `B`. Refusals are logged by file name; see
+[`retail_dlc.h`](../src/retail_dlc.h). Release archives ship `dlc/` holding
+only `README.txt`.
+
 F2 discovers packages installed under `mods/` beside the executable. Release
 archives include the first-party mods there. With no profile `mod_order.txt`,
 they start disabled. [Mods](mods.md#enable-or-change-mods) describes Apply

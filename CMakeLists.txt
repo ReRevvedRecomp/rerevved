@@ -256,6 +256,8 @@ set(REREVVED_SOURCES
     src/main_menu_logo_hooks.cpp
     src/map_packs.cpp
     src/map_packs_hooks.cpp
+    src/retail_dlc.cpp
+    src/retail_dlc_register.cpp
     src/gpu/renderer_backend.cpp
     src/gpu/renderer_backend.h
     src/unique_era_abilities.cpp

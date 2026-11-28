@@ -67,6 +67,11 @@ folders. To keep edits, copy a mod folder under a new name, set that name as
 the id in its mod.toml, and edit the copy. Back up custom packages separately
 from user data.
 
+RETAIL DLC
+
+To play DLC you own, copy its Xbox 360 package files unchanged into the dlc
+folder and restart. See dlc\README.txt.
+
 ONLINE
 
 On Windows, see ONLINE.txt for System Link over the Internet.

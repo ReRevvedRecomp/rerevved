@@ -55,6 +55,24 @@ Package sources and contribution rules are in
 - Do not keep backup copies of a package inside `mods/`; F2 finds them as
   extra packages.
 
+## Retail DLC
+
+ReRevved ships no DLC, but it can use Xbox 360 DLC packages you own:
+
+1. On the console drive, open
+   `Content\0000000000000000\545407E5\00000002\`. Each package there is one
+   file with a 42-character name.
+2. Copy the files, unchanged and with their names, into `dlc\` beside the
+   executable. Do not unpack or rename them.
+3. Restart ReRevved. The game announces the packs at startup.
+
+ReRevved reads each package in place and never writes to it. It accepts only
+single-file marketplace packages for this game with `name.txt` and `dlc.fpk` at
+their root. Keep one package per pack: when two packages provide the same pack,
+scenario file or scenario ID, the first by file name is used and the other is
+refused. The log names each refused file and the reason. Elemental multiplayer
+maps need the same DLC on every player's computer.
+
 ## Asset overrides
 
 The **Asset Overrides** tab manages asset packages separately from code mods.

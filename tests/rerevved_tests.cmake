@@ -114,6 +114,7 @@ add_executable(rerevved_tests
     src/capital_grace_nuclear.cpp
     src/resource_identity_overrides.cpp
     src/resource_settings.cpp
+    src/retail_dlc.cpp
     src/retail_ui_art.cpp
     src/rush_cost.cpp
     src/unit_sale_value.cpp
@@ -180,6 +181,7 @@ add_executable(rerevved_tests
     tests/native_settings_test.cpp
     tests/overlay_row_lock_test.cpp
     tests/retail_audio_test.cpp
+    tests/retail_dlc_test.cpp
     tests/game_language_test.cpp
     tests/gotw_practice_test.cpp
     tests/gotw_settings_test.cpp

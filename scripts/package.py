@@ -83,6 +83,8 @@ MAP_MANIFEST = "asset-pack.toml"
 MAP_ARCHIVE = "assets/map-pack/dlc.fpk"
 MAP_FILES = (MAP_MANIFEST, MAP_ARCHIVE)
 
+DLC_README = "dlc/README.txt"
+
 
 def expected_entries(platform):
     """Return the (directories, files) an archive holds, relative to its root."""
@@ -107,6 +109,7 @@ def expected_entries(platform):
         files |= {f"mods/{package_id}/{name}" for name in MOD_FILES}
     for map_id in BUNDLED_MAPS:
         files |= {f"maps/{map_id}/{name}" for name in MAP_FILES}
+    files.add(DLC_README)
     directories = {"game"}
     for name in files:
         directories |= {str(parent) for parent in pathlib.PurePosixPath(name).parents}
@@ -504,6 +507,9 @@ def main():
     # Omit map_order.txt so bundled map packs start disabled.
     for map_id in BUNDLED_MAPS:
         shutil.copytree(args.maps_dir / map_id, stage / "maps" / map_id)
+
+    (stage / DLC_README).parent.mkdir()
+    shutil.copy2(REPO / "scripts" / "packaging" / "DLC-README.txt", stage / DLC_README)
 
     for staged in stage.rglob("*"):
         if staged.suffix.lower() in FORBIDDEN_SUFFIXES:

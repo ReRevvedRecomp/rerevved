@@ -54,6 +54,7 @@ NORMAL_FILES = (
         "licenses/xelu-prompts-PROVENANCE.md",
         "gamecontrollerdb.txt",
         "licenses/sdl-gamecontrollerdb-LICENSE",
+        "dlc/README.txt",
     }
     | MOD_NAMES
     | MAP_NAMES

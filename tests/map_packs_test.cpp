@@ -3,9 +3,11 @@
 #include <algorithm>
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -99,12 +101,82 @@ TEST_CASE("map pack archive refuses retail slots, IDs and malformed tables", "[c
                     makeArchive({ { "DLCScenarioData05.xml", scenarioXml(9000, "Q") } }), contents)
                     .empty());
 
+    CHECK(rerevved::map_packs::ParseArchive(makeArchive({ { "DLCScenarioData5.xml", scenarioXml(9000, "Q") },
+                                                          { "dlcscenariodata5.xml", scenarioXml(9001, "R") } }),
+                                            contents) == "dlcscenariodata5.xml repeats scenario file slot 5");
+
     auto truncated = makeArchive({ { "DLCScenarioData5.xml", scenarioXml(9000, "Q") } });
     truncated.resize(truncated.size() - 1);
     CHECK_FALSE(rerevved::map_packs::ParseArchive(truncated, contents).empty());
     auto shortTable = makeArchive({ { "DLCScenarioData5.xml", scenarioXml(9000, "Q") } });
     shortTable.resize(30);
     CHECK_FALSE(rerevved::map_packs::ParseArchive(shortTable, contents).empty());
+}
+
+TEST_CASE("retail archive rules accept retail slots, IDs and no scenarios", "[ctest][map-packs]")
+{
+    constexpr rerevved::map_packs::ArchiveRules retail{ 0, 4, 0, 99, false };
+    auto                                        parseWith = [&](const std::vector<uint8_t>& archive, rerevved::map_packs::Contents& contents)
+    {
+        const rerevved::map_packs::ReadAt read = [&](uint64_t offset, std::span<uint8_t> out)
+        {
+            if (offset > archive.size() || out.size() > archive.size() - offset)
+            {
+                return false;
+            }
+            std::copy_n(archive.begin() + static_cast<ptrdiff_t>(offset), out.size(), out.begin());
+            return true;
+        };
+        return rerevved::map_packs::ParseArchive(archive.size(), read, retail, contents);
+    };
+    rerevved::map_packs::Contents contents;
+    REQUIRE(parseWith(makeArchive({ { "DLCScenarioData0.xml", scenarioXml(10, "Victory") } }), contents)
+                .empty());
+    CHECK(contents.slots == std::vector<uint32_t>{ 0 });
+    CHECK(contents.scenarios[0].id == 10);
+    CHECK(parseWith(makeArchive({ { "Wonder.xml", "w" } }), contents).empty());
+    CHECK(contents.slots.empty());
+    CHECK_FALSE(parseWith(makeArchive({ { "DLCScenarioData5.xml", scenarioXml(10, "Q") } }), contents)
+                    .empty());
+    CHECK_FALSE(parseWith(makeArchive({ { "DLCScenarioData4.xml", scenarioXml(100, "Q") } }), contents)
+                    .empty());
+}
+
+TEST_CASE("map pack archive reads a large table in parts", "[ctest][map-packs]")
+{
+    // Past the reader's first 64 KiB, so the table is fetched in several reads.
+    std::vector<Entry> entries;
+    for (int index = 0; index < 3000; ++index)
+    {
+        entries.push_back({ "assets/maps/filler_" + std::to_string(index) + ".dds", "x" });
+    }
+    entries.push_back({ "DLCScenarioData9.xml", scenarioXml(9000, "Q") });
+    const auto archive = makeArchive(entries);
+    REQUIRE(archive.size() > 128u * 1024u);
+
+    size_t                            reads = 0;
+    const rerevved::map_packs::ReadAt read  = [&](uint64_t offset, std::span<uint8_t> out)
+    {
+        ++reads;
+        if (offset > archive.size() || out.size() > archive.size() - offset)
+        {
+            return false;
+        }
+        std::copy_n(archive.begin() + static_cast<ptrdiff_t>(offset), out.size(), out.begin());
+        return true;
+    };
+    rerevved::map_packs::Contents contents;
+    REQUIRE(rerevved::map_packs::ParseArchive(archive.size(), read, {}, contents).empty());
+    CHECK(contents.entryNames.size() == entries.size());
+    CHECK(contents.scenarios.size() == 1);
+    CHECK(reads > 2);
+
+    const rerevved::map_packs::ReadAt failing = [](uint64_t, std::span<uint8_t>)
+    {
+        return false;
+    };
+    CHECK(rerevved::map_packs::ParseArchive(archive.size(), failing, {}, contents) ==
+          "dlc.fpk is not a version 6 FPK archive");
 }
 
 TEST_CASE("map pack archive ignores commented scenarios", "[ctest][map-packs]")
