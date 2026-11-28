@@ -23,6 +23,7 @@ constexpr uint16_t kTagEnd           = 0;
 constexpr uint16_t kTagShowFrame     = 1;
 constexpr uint16_t kTagPlaceObject   = 4;
 constexpr uint16_t kTagPlaceObject2  = 26;
+constexpr uint16_t kTagDoAction      = 12;
 constexpr uint16_t kTagDefineSprite  = 39;
 constexpr uint16_t kTagPlaceObject3  = 70;
 constexpr uint16_t kTagDefineShape   = 2;
@@ -1151,7 +1152,492 @@ bool equalsIgnoreCase(std::string_view left, std::string_view right)
                       });
 }
 
+constexpr std::array<std::string_view, kPromptMovies> kPromptNames = {
+    "gfx_endgamecrawl.gfx",
+    "gfx_statscreen.gfx",
+    "gfx_waitingoverlay.gfx",
+    "hoa_gpdirectory.gfx",
+};
+
+// The buttons that have a key image.
+constexpr std::array<std::string_view, 10> kPromptLabels = {
+    "A",
+    "B",
+    "X",
+    "Y",
+    "LB",
+    "RB",
+    "LT",
+    "RT",
+    "STARTBUTTON",
+    "BACKBUTTON",
+};
+
+constexpr std::array<std::string_view, 4> kLegendMarkers = { "A", "B", "X", "Y" };
+
+// DefineShape2, DefineShape3 and DefineShape4
+constexpr std::initializer_list<uint16_t> kVectorShapes = { 22, 32, 83 };
+
+constexpr uint16_t kTagImportAssets  = 57;
+constexpr uint16_t kTagImportAssets2 = 71;
+constexpr uint16_t kTagExporterInfo  = 1000;
+
+// HasCharacter | HasMatrix | HasRatio
+constexpr uint8_t  kPromptPlaceFlags = 0x16;
+constexpr uint16_t kNoImage          = 0xFFFF;
+
+bool skipMatrix(BitReader& reader)
+{
+    auto skipPair = [&](uint32_t width)
+    {
+        return reader.Skip(width) && reader.Skip(width);
+    };
+    uint32_t present = 0;
+    uint32_t bits    = 0;
+    for (int part = 0; part < 2; ++part)
+    {
+        if (!reader.Read(1, present) || (present != 0 && (!reader.Read(5, bits) || !skipPair(bits))))
+        {
+            return false;
+        }
+    }
+    return reader.Read(5, bits) && skipPair(bits);
+}
+
+bool isPromptPlaceBody(std::span<const uint8_t> body)
+{
+    if (body.size() < 7 || body[0] != kPromptPlaceFlags)
+    {
+        return false;
+    }
+    BitReader reader{ body.subspan(5) };
+    return skipMatrix(reader) && 5 + reader.BytesUsed() + 2 == body.size();
+}
+
+bool importedMaxId(std::span<const uint8_t> data, const Tag& tag, size_t& maxId)
+{
+    const auto* text = data.data() + tag.bodyStart;
+    const auto* nul  = static_cast<const uint8_t*>(std::memchr(text, 0, tag.bodySize));
+    if (!nul)
+    {
+        return false;
+    }
+    size_t at = static_cast<size_t>(nul - data.data()) + 1 + (tag.code == kTagImportAssets2 ? 2 : 0);
+    if (at + 2 > tag.End())
+    {
+        return false;
+    }
+    const size_t count = readU16(data, at);
+    at += 2;
+    for (size_t i = 0; i < count; ++i)
+    {
+        if (at + 3 > tag.End())
+        {
+            return false;
+        }
+        maxId            = std::max<size_t>(maxId, readU16(data, at));
+        const auto* name = static_cast<const uint8_t*>(std::memchr(data.data() + at + 2, 0, tag.End() - at - 2));
+        if (!name)
+        {
+            return false;
+        }
+        at = static_cast<size_t>(name - data.data()) + 1;
+    }
+    return at == tag.End();
+}
+
+struct LegendMovie
+{
+    std::vector<Tag> tags;
+    Tag              sprite;
+    std::vector<Tag> inner;
+};
+
+bool hasLabel(std::span<const uint8_t> data, const std::vector<Tag>& inner, std::string_view name)
+{
+    return std::any_of(inner.begin(),
+                       inner.end(),
+                       [&](const Tag& tag)
+                       {
+                           return tag.code == kTagFrameLabel && frameLabel(data, tag) == name;
+                       });
+}
+
+std::string_view parseLegendMovie(std::span<const uint8_t> data, bool donor, LegendMovie& movie)
+{
+    size_t tagsStart = 0;
+    if (!parseHeader(data, tagsStart))
+    {
+        return donor ? "donor is not a GFX movie of its declared size"
+                     : "not a GFX movie of its declared size";
+    }
+    if (!parseTags(data, tagsStart, data.size(), movie.tags))
+    {
+        return donor ? "donor tag stream does not end cleanly" : "tag stream does not end cleanly";
+    }
+    bool found = false;
+    for (const Tag& tag : movie.tags)
+    {
+        std::vector<Tag> children;
+        if (tag.code != kTagDefineSprite || tag.bodySize < 4 ||
+            !parseTags(data, tag.bodyStart + 4, tag.End(), children) ||
+            !std::all_of(kLegendMarkers.begin(), kLegendMarkers.end(), [&](std::string_view marker)
+                         {
+                             return hasLabel(data, children, marker);
+                         }))
+        {
+            continue;
+        }
+        if (found)
+        {
+            return donor ? "donor has several prompt legends" : "several prompt legends";
+        }
+        found        = true;
+        movie.sprite = tag;
+        movie.inner  = std::move(children);
+    }
+    if (!found)
+    {
+        return donor ? "donor has no prompt legend" : "no prompt legend";
+    }
+    return {};
+}
+
+// Tags [begin, end) of the labelled frame; end is its ShowFrame.
+bool labelFrame(std::span<const uint8_t> data,
+                const LegendMovie&       movie,
+                std::string_view         label,
+                size_t&                  begin,
+                size_t&                  end)
+{
+    const std::vector<Tag>& inner = movie.inner;
+    size_t                  index = SIZE_MAX;
+    for (size_t i = 0; i < inner.size(); ++i)
+    {
+        if (inner[i].code == kTagFrameLabel && frameLabel(data, inner[i]) == label)
+        {
+            if (index != SIZE_MAX)
+            {
+                return false;
+            }
+            index = i;
+        }
+    }
+    if (index == SIZE_MAX)
+    {
+        return false;
+    }
+    begin = 0;
+    for (size_t i = 0; i < index; ++i)
+    {
+        begin = inner[i].code == kTagShowFrame ? i + 1 : begin;
+    }
+    for (end = index; end < inner.size(); ++end)
+    {
+        if (inner[end].code == kTagShowFrame)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+struct SpriteShape
+{
+    Tag  sprite;
+    Tag  shapePlace;
+    Tag  shape;
+    bool plain = false; // holds nothing besides the placement
+};
+
+std::optional<SpriteShape> findSpriteShape(std::span<const uint8_t>        data,
+                                           const std::vector<Tag>&         tags,
+                                           uint16_t                        spriteId,
+                                           std::initializer_list<uint16_t> shapeCodes)
+{
+    const Tag*       sprite = findDefinition(data, tags, spriteId, { kTagDefineSprite });
+    std::vector<Tag> children;
+    if (!sprite || sprite->bodySize < 4 ||
+        !parseTags(data, sprite->bodyStart + 4, sprite->End(), children))
+    {
+        return std::nullopt;
+    }
+    const Tag* place = singleCharacterPlace(data, children, 0, children.size());
+    const Tag* shape =
+        place ? findDefinition(data, tags, readU16(data, place->bodyStart + 3), shapeCodes) : nullptr;
+    if (!shape)
+    {
+        return std::nullopt;
+    }
+    // Retail LT sprites also carry an empty DoAction, which does nothing.
+    const bool plain = std::all_of(children.begin(),
+                                   children.end(),
+                                   [&](const Tag& child)
+                                   {
+                                       return child.code == kTagPlaceObject2 || child.code == kTagShowFrame ||
+                                              child.code == kTagEnd ||
+                                              (child.code == kTagDoAction && child.bodySize == 1 &&
+                                               data[child.bodyStart] == 0);
+                                   });
+    return SpriteShape{ *sprite, *place, *shape, plain };
+}
+
+// False when any fill is not a bitmap. Retail shapes lead with a bitmap that names no image.
+bool bitmapFillIds(std::span<const uint8_t> data, const Tag& shape, std::vector<size_t>& ids)
+{
+    if (shape.bodySize < 3)
+    {
+        return false;
+    }
+    size_t at = shape.bodyStart + 2;
+    at += (5 + 4 * size_t{ static_cast<size_t>(data[at] >> 3) } + 7) / 8;
+    if (at >= shape.End())
+    {
+        return false;
+    }
+    const size_t count = data[at++];
+    for (size_t i = 0; i < count; ++i)
+    {
+        if (at + 3 > shape.End() || (data[at] & 0xFC) != 0x40)
+        {
+            return false;
+        }
+        ids.push_back(at + 1);
+        at += 3;
+
+        BitReader reader{ data.subspan(at, shape.End() - at) };
+        if (!skipMatrix(reader))
+        {
+            return false;
+        }
+        at += reader.BytesUsed();
+    }
+    return true;
+}
+
+std::string_view imageFileName(std::span<const uint8_t> data, const Tag& image)
+{
+    if (image.bodySize < 10)
+    {
+        return {};
+    }
+    const size_t nameAt = image.bodyStart + 8;
+    const size_t fileAt = nameAt + 1 + data[nameAt];
+    if (fileAt >= image.End() || fileAt + 1 + data[fileAt] != image.End())
+    {
+        return {};
+    }
+    return std::string_view(reinterpret_cast<const char*>(data.data() + fileAt + 1), data[fileAt]);
+}
+
+struct DonorPrompt
+{
+    Tag    place;
+    Tag    sprite;
+    Tag    shapePlace;
+    Tag    shape;
+    Tag    image;
+    size_t fillAt = 0;
+};
+
+std::optional<DonorPrompt> findDonorPrompt(std::span<const uint8_t> data,
+                                           const LegendMovie&       movie,
+                                           std::string_view         label)
+{
+    size_t begin = 0;
+    size_t end   = 0;
+    if (!labelFrame(data, movie, label, begin, end))
+    {
+        return std::nullopt;
+    }
+    const Tag* place = singleCharacterPlace(data, movie.inner, begin, end);
+    if (!place || !isPromptPlaceBody(data.subspan(place->bodyStart, place->bodySize)))
+    {
+        return std::nullopt;
+    }
+    const auto found = findSpriteShape(
+        data, movie.tags, readU16(data, place->bodyStart + 3), { kTagDefineShape });
+    std::vector<size_t> fills;
+    if (!found || !found->plain || !bitmapFillIds(data, found->shape, fills))
+    {
+        return std::nullopt;
+    }
+
+    // Each fill is the blank bitmap or the one image, which must be named after the button.
+    const Tag* image  = nullptr;
+    size_t     fillAt = 0;
+    for (const size_t at : fills)
+    {
+        const uint16_t id = readU16(data, at);
+        if (id == kNoImage)
+        {
+            continue;
+        }
+        const Tag* candidate = findDefinition(data, movie.tags, id, { kTagExternalImage });
+        if (!candidate || image)
+        {
+            return std::nullopt;
+        }
+        image  = candidate;
+        fillAt = at;
+    }
+    if (!image || !equalsIgnoreCase(imageFileName(data, *image), std::string(label) + ".dds"))
+    {
+        return std::nullopt;
+    }
+    return DonorPrompt{ *place, found->sprite, found->shapePlace, found->shape, *image, fillAt };
+}
+
+const Tag* findTargetPlace(std::span<const uint8_t> data, const LegendMovie& movie, std::string_view label)
+{
+    size_t begin = 0;
+    size_t end   = 0;
+    if (!labelFrame(data, movie, label, begin, end))
+    {
+        return nullptr;
+    }
+    const Tag* place = singleCharacterPlace(data, movie.inner, begin, end);
+    if (!place || !findSpriteShape(data,
+                                   movie.tags,
+                                   readU16(data, place->bodyStart + 3),
+                                   kVectorShapes))
+    {
+        return nullptr;
+    }
+    return place;
+}
+
+std::vector<uint8_t> tagBody(std::span<const uint8_t> data, const Tag& tag)
+{
+    return std::vector<uint8_t>(data.begin() + static_cast<ptrdiff_t>(tag.bodyStart),
+                                data.begin() + static_cast<ptrdiff_t>(tag.End()));
+}
+
 } // namespace
+
+Result PatchPromptMovie(std::span<const uint8_t> target, std::span<const uint8_t> donor)
+{
+    constexpr size_t kIdsPerPrompt = 3;
+
+    LegendMovie targetMovie;
+    if (const auto reason = parseLegendMovie(target, false, targetMovie); !reason.empty())
+    {
+        return fail(reason);
+    }
+    LegendMovie donorMovie;
+    if (const auto reason = parseLegendMovie(donor, true, donorMovie); !reason.empty())
+    {
+        return fail(reason);
+    }
+
+    // New ids clear every character the target defines or imports.
+    size_t maxCharacter = 0;
+    for (const Tag& tag : targetMovie.tags)
+    {
+        if (tag.code == kTagImportAssets || tag.code == kTagImportAssets2)
+        {
+            if (!importedMaxId(target, tag, maxCharacter))
+            {
+                return fail("prompt movie has an unreadable import tag");
+            }
+        }
+        else if (tag.code != kTagExporterInfo && definesCharacter(tag.code) && tag.bodySize >= 2)
+        {
+            maxCharacter = std::max<size_t>(maxCharacter, readU16(target, tag.bodyStart));
+        }
+    }
+    if (maxCharacter + kIdsPerPrompt * kPromptLabels.size() > UINT16_MAX)
+    {
+        return fail("prompt movie has no room for new characters");
+    }
+
+    std::vector<uint8_t> definitions;
+    std::vector<Edit>    edits;
+    size_t               spriteSize = targetMovie.sprite.bodySize;
+    auto                 nextId     = static_cast<uint16_t>(maxCharacter);
+    for (const std::string_view label : kPromptLabels)
+    {
+        // A button missing from either movie is skipped; one present in both must match.
+        if (!hasLabel(target, targetMovie.inner, label) || !hasLabel(donor, donorMovie.inner, label))
+        {
+            continue;
+        }
+        const Tag* place = findTargetPlace(target, targetMovie, label);
+        if (!place)
+        {
+            return fail("a target prompt frame is not a vector prompt");
+        }
+        const std::optional<DonorPrompt> from = findDonorPrompt(donor, donorMovie, label);
+        if (!from)
+        {
+            return fail("a donor prompt frame is not an image prompt");
+        }
+        const uint16_t imageId  = ++nextId;
+        const uint16_t shapeId  = ++nextId;
+        const uint16_t spriteId = ++nextId;
+
+        auto imageBody = tagBody(donor, from->image);
+        setU16(imageBody, 0, imageId);
+        appendTag(definitions, kTagExternalImage, imageBody);
+
+        auto shapeBody = tagBody(donor, from->shape);
+        setU16(shapeBody, 0, shapeId);
+        setU16(shapeBody, from->fillAt - from->shape.bodyStart, imageId);
+        appendTag(definitions, from->shape.code, shapeBody);
+
+        auto spriteBody = tagBody(donor, from->sprite);
+        setU16(spriteBody, 0, spriteId);
+        setU16(spriteBody, from->shapePlace.bodyStart + 3 - from->sprite.bodyStart, shapeId);
+        appendTag(definitions, kTagDefineSprite, spriteBody);
+
+        // The donor placement keeps its matrix; the target's depth keeps its RemoveObject2 valid.
+        auto placeBody = tagBody(donor, from->place);
+        setU16(placeBody, 1, readU16(target, place->bodyStart + 1));
+        setU16(placeBody, 3, spriteId);
+        Edit edit;
+        edit.offset = place->start;
+        edit.remove = place->End() - place->start;
+        appendTag(edit.insert, kTagPlaceObject2, placeBody);
+        spriteSize = spriteSize - edit.remove + edit.insert.size();
+        edits.push_back(std::move(edit));
+    }
+    if (edits.empty())
+    {
+        return fail("target and donor share no prompt button");
+    }
+
+    // Definitions must precede the sprite that places them.
+    const Tag& sprite = targetMovie.sprite;
+    Edit       header;
+    header.offset = sprite.start;
+    header.remove = sprite.bodyStart - sprite.start;
+    header.insert = std::move(definitions);
+    appendTagHeader(header.insert, kTagDefineSprite, spriteSize);
+    edits.push_back(std::move(header));
+    return applyEdits(target, std::move(edits));
+}
+
+std::string_view PromptMovieName(PromptMovie movie)
+{
+    return kPromptNames[static_cast<size_t>(movie)];
+}
+
+std::optional<PromptMovie> FindPromptMovie(std::string_view fileName)
+{
+    const size_t separator = fileName.find_last_of("/\\");
+    if (separator != std::string_view::npos)
+    {
+        fileName.remove_prefix(separator + 1);
+    }
+    for (size_t i = 0; i < kPromptNames.size(); ++i)
+    {
+        if (equalsIgnoreCase(fileName, kPromptNames[i]))
+        {
+            return static_cast<PromptMovie>(i);
+        }
+    }
+    return std::nullopt;
+}
 
 std::string_view RowsMovieName(Movie movie)
 {
@@ -1193,6 +1679,7 @@ struct PreparedSlot
 };
 
 std::array<PreparedSlot, 2>                                                        preparedSlots;
+std::array<PreparedSlot, kPromptMovies>                                            promptSlots;
 std::array<PreparedSlot, place_badges::kLastPlace - place_badges::kFirstPlace + 1> badgeSlots;
 
 std::optional<std::vector<uint8_t>> readRetailEntry(std::string_view entry, std::string& reason)
@@ -1226,6 +1713,29 @@ const Prepared& PreparedMovie(Movie movie)
                            return;
                        }
                        Result result        = PatchMovie(movie, *source);
+                       slot.prepared.bytes  = std::move(result.bytes);
+                       slot.prepared.reason = result.reason;
+                   });
+    return slot.prepared;
+}
+
+const Prepared& PreparedPromptMovie(PromptMovie movie)
+{
+    PreparedSlot& slot = promptSlots[static_cast<size_t>(movie)];
+    std::call_once(slot.once,
+                   [&]
+                   {
+                       const auto target = readRetailEntry(PromptMovieName(movie), slot.prepared.reason);
+                       if (!target)
+                       {
+                           return;
+                       }
+                       const auto donor = readRetailEntry(kPromptDonorEntry, slot.prepared.reason);
+                       if (!donor)
+                       {
+                           return;
+                       }
+                       Result result        = PatchPromptMovie(*target, *donor);
                        slot.prepared.bytes  = std::move(result.bytes);
                        slot.prepared.reason = result.reason;
                    });

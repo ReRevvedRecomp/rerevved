@@ -23,16 +23,14 @@ namespace
 
 namespace ad = rerevved::apollo_discovery;
 
-constexpr uint32_t kOwnershipWords   = 0x830EDC48;
-constexpr uint32_t kClaimOwnerWord   = 0x830E51D0; // Wonder 17: 0x830E5148 + 8 * 17.
-constexpr uint32_t kClaimCityWord    = 0x830E51D4;
-constexpr uint32_t kCompletionMarker = 0x830E3348;
-constexpr uint32_t kContext          = 0x830E3328;
-constexpr uint32_t kRecursiveMarker  = 0x830E3430;
-constexpr uint32_t kCities           = 0x8314FE28;
-constexpr uint32_t kCityStride       = 188;
-constexpr uint32_t kCityFlags        = 0x24;
-constexpr uint32_t kAcquire          = 0x82D09208; // (owner, technology, city, source, phase).
+constexpr uint32_t kOwnershipWords  = 0x830EDC48;
+constexpr uint32_t kClaimOwnerWord  = 0x830E51D0; // Wonder 17: 0x830E5148 + 8 * 17.
+constexpr uint32_t kClaimCityWord   = 0x830E51D4;
+constexpr uint32_t kRecursiveMarker = 0x830E3430;
+constexpr uint32_t kCities          = 0x8314FE28;
+constexpr uint32_t kCityStride      = 188;
+constexpr uint32_t kCityFlags       = 0x24;
+constexpr uint32_t kAcquire         = 0x82D09208; // (owner, technology, city, source, phase).
 
 struct Completion
 {
@@ -67,19 +65,16 @@ bool holdsApollo(const Completion& entry)
            static_cast<int32_t>(word(kClaimCityWord)) == entry.city;
 }
 
-// A grant could overwrite another player's recipient or a city's pending Wonder/spaceship part.
+// A grant could overwrite a city's pending Wonder/spaceship part.
 bool ready(const Completion&)
 {
-    for (uint32_t player = 0; player < ad::kPlayers; ++player)
+    if (!ad::DrainReady({ word(kRecursiveMarker), 0 }))
     {
-        if (!ad::DrainReady({ word(kCompletionMarker + 4 * player), word(kContext + 4 * player), word(kRecursiveMarker), 0 }))
-        {
-            return false;
-        }
+        return false;
     }
     for (int32_t city = 0; city < ad::kCities; ++city)
     {
-        if (cityOwner(city) >= 0 && !ad::DrainReady({ 0, 0, 0, cityFlags(city) }))
+        if (cityOwner(city) >= 0 && !ad::DrainReady({ 0, cityFlags(city) }))
         {
             return false;
         }

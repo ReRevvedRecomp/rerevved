@@ -14,7 +14,8 @@
 #include <rex/system/xmemory.h>
 
 void SwapButtonIconImage(PPCRegister& name);
-void SwapButtonIconLabel(PPCRegister& text);
+void SwapButtonIconLabel(PPCRegister& text, uint64_t lr);
+void NoteButtonIconInvoke(uint64_t lr, PPCRegister& method);
 void SwapButtonIconTipImage(PPCRegister& name, PPCRegister& width, PPCRegister& height);
 
 namespace bp = rerevved::button_icons;
@@ -72,6 +73,19 @@ TEST_CASE("button_icons_tables", "[ctest][button-icons]")
     {
         CHECK(!bp::Label(kept));
     }
+
+    CHECK(bp::IsHelpMethod("SetHelp"));
+    CHECK(bp::IsHelpMethod("theMainPanel.SetHelp"));
+    for (const std::string_view other : { "", "setHelp", "SetHelps", "panelSetHelp" })
+    {
+        CHECK(!bp::IsHelpMethod(other));
+    }
+    CHECK(bp::FaceLabel("A") == "PS3X");
+    CHECK(bp::FaceLabel("B") == "PS3CIRCLE");
+    CHECK(bp::FaceLabel("X") == "PS3SQUARE");
+    CHECK(bp::FaceLabel("Y") == "PS3TRIANGLE");
+    CHECK(!bp::FaceLabel("a"));
+    CHECK(!bp::FaceLabel("LB"));
 
     const auto shoulder = bp::Tip("LB");
     REQUIRE(shoulder);
@@ -136,29 +150,48 @@ TEST_CASE("button_icons_hooks_swap_only_matching_strings", "[ctest][button-icons
 
     PPCRegister text{};
     text.u64 = guest("RB");
-    SwapButtonIconLabel(text);
+    SwapButtonIconLabel(text, 0);
     CHECK(read(text) == "PS3R1");
     for (const std::string_view kept : { "A", "Rome", "LBX", "RB " })
     {
         const uint32_t address = guest(kept);
         text.u64               = address;
-        SwapButtonIconLabel(text);
+        SwapButtonIconLabel(text, 0);
         CHECK(text.u64 == address);
     }
     text.u64 = 0x1000;
-    SwapButtonIconLabel(text);
+    SwapButtonIconLabel(text, 0);
     CHECK(text.u64 == 0x1000);
     // A label ending at the last mapped byte still reads; an unterminated one
     // running into the unmapped page does not.
     constexpr uint32_t kEdge = kPage + 0x10000 - 3;
     std::memcpy(memory->TranslateVirtual<char*>(kEdge), "LB", 3);
     text.u64 = kEdge;
-    SwapButtonIconLabel(text);
+    SwapButtonIconLabel(text, 0);
     CHECK(read(text) == "PS3L1");
     std::memcpy(memory->TranslateVirtual<char*>(kEdge), "LBX", 3);
     text.u64 = kEdge;
-    SwapButtonIconLabel(text);
+    SwapButtonIconLabel(text, 0);
     CHECK(text.u64 == kEdge);
+
+    // A face letter swaps only as a %s argument of a help method invoke.
+    constexpr uint64_t kInvokeWrapperReturn = 0x82C7C1E8;
+    constexpr uint64_t kArgsStringReturn    = 0x82C7BF80;
+    PPCRegister        method{};
+    auto               face = [&](std::string_view methodName, uint64_t invokeLr, uint64_t constructLr)
+    {
+        method.u64 = guest(methodName);
+        NoteButtonIconInvoke(invokeLr, method);
+        text.u64 = guest("B");
+        SwapButtonIconLabel(text, constructLr);
+        return read(text);
+    };
+    CHECK(face("SetHelp", kInvokeWrapperReturn, kArgsStringReturn) == "PS3CIRCLE");
+    CHECK(face("theMainPanel.SetHelp", kInvokeWrapperReturn, kArgsStringReturn) == "PS3CIRCLE");
+    CHECK(face("SetText", kInvokeWrapperReturn, kArgsStringReturn) == "B");
+    CHECK(face("SetHelp", 0x82000000, kArgsStringReturn) == "B");
+    CHECK(face("SetHelp", kInvokeWrapperReturn, 0x82C7C0B8) == "B");
+    CHECK(face("SetHelp", kInvokeWrapperReturn, 0) == "B");
 
     PPCRegister width{}, height{};
     name.u64   = guest("LT");

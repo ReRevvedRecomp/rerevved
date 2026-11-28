@@ -107,7 +107,7 @@ std::string withoutComments(std::string_view xml)
     return result;
 }
 
-std::string parseScenarios(std::string_view source, std::string_view entry, Contents& contents)
+std::string parseScenarios(std::string_view source, std::string_view entry, const ArchiveRules& rules, Contents& contents)
 {
     // Tools and retail packs write bare EntryInfo elements with ID and MAP children.
     const std::string          text = withoutComments(source);
@@ -139,7 +139,7 @@ std::string parseScenarios(std::string_view source, std::string_view entry, Cont
         {
             return fmt::format("{} has a non-numeric ID '{}'", entry, idText);
         }
-        if (scenario.id < kFirstScenarioId)
+        if (scenario.id < rules.firstScenarioId || scenario.id > rules.lastScenarioId)
         {
             return fmt::format("{} uses reserved scenario ID {}", entry, scenario.id);
         }
@@ -151,60 +151,134 @@ std::string parseScenarios(std::string_view source, std::string_view entry, Cont
     return found == 0 ? fmt::format("{} has no scenarios", entry) : std::string{};
 }
 
+// Archive table prefix, read on demand.
+class TableBytes
+{
+public:
+    TableBytes(uint64_t size, const ReadAt& read)
+    : size_(size)
+    , read_(read)
+    {
+    }
+
+    bool Ensure(uint64_t end)
+    {
+        if (end <= bytes_.size())
+        {
+            return true;
+        }
+        if (end > size_)
+        {
+            return false;
+        }
+        const uint64_t target = std::min<uint64_t>(
+            size_, std::max<uint64_t>({ end, uint64_t{ bytes_.size() } * 2, 64u * 1024u }));
+        const size_t start = bytes_.size();
+        bytes_.resize(static_cast<size_t>(target));
+        if (!read_(start, std::span(bytes_).subspan(start)))
+        {
+            bytes_.resize(start);
+            return false;
+        }
+        return true;
+    }
+
+    std::span<const uint8_t> bytes() const
+    {
+        return bytes_;
+    }
+
+private:
+    uint64_t             size_;
+    const ReadAt&        read_;
+    std::vector<uint8_t> bytes_;
+};
+
 } // namespace
 
-std::string ParseArchive(std::span<const uint8_t> archive, Contents& contents)
+std::string ParseArchive(uint64_t archiveSize, const ReadAt& read, const ArchiveRules& rules, Contents& contents)
 {
     contents = {};
-    if (archive.size() < kHeaderSize || readU32(archive, 0) != kFpkVersion ||
-        std::memcmp(archive.data() + 4, "FPK_", 4) != 0)
+    TableBytes table(archiveSize, read);
+    if (!table.Ensure(kHeaderSize) || readU32(table.bytes(), 0) != kFpkVersion ||
+        std::memcmp(table.bytes().data() + 4, "FPK_", 4) != 0)
     {
         return "dlc.fpk is not a version 6 FPK archive";
     }
 
-    const uint32_t count  = readU32(archive, 10);
-    size_t         offset = kHeaderSize;
+    const uint32_t count  = readU32(table.bytes(), 10);
+    uint64_t       offset = kHeaderSize;
     for (uint32_t index = 0; index < count; ++index)
     {
-        if (archive.size() - offset < 4)
+        if (!table.Ensure(offset + 4))
         {
             return "dlc.fpk table is truncated";
         }
-        const uint32_t nameLength = readU32(archive, offset);
-        const size_t   padded     = (size_t{ nameLength } + 3) & ~size_t{ 3 };
-        if (nameLength == 0 || archive.size() - offset - 4 < padded + kRecordTail)
+        const uint32_t nameLength = readU32(table.bytes(), static_cast<size_t>(offset));
+        const uint64_t padded     = (uint64_t{ nameLength } + 3) & ~uint64_t{ 3 };
+        if (nameLength == 0 || !table.Ensure(offset + 4 + padded + kRecordTail))
         {
             return "dlc.fpk table is truncated";
         }
-        const std::string_view name(reinterpret_cast<const char*>(archive.data() + offset + 4),
-                                    nameLength);
+        const std::string name(
+            reinterpret_cast<const char*>(table.bytes().data() + offset + 4), nameLength);
         offset += 4 + padded;
-        const uint32_t size       = readU32(archive, offset + 8);
-        const uint32_t dataOffset = readU32(archive, offset + 12);
+        const uint32_t size       = readU32(table.bytes(), static_cast<size_t>(offset + 8));
+        const uint32_t dataOffset = readU32(table.bytes(), static_cast<size_t>(offset + 12));
         offset += kRecordTail;
-        if (dataOffset > archive.size() || size > archive.size() - dataOffset)
+        if (dataOffset > archiveSize || size > archiveSize - dataOffset)
         {
             return fmt::format("dlc.fpk entry {} lies outside the archive", name);
         }
-        contents.entryNames.emplace_back(name);
+        contents.entryNames.push_back(name);
 
         uint32_t slot = 0;
         if (!scenarioSlot(name, slot))
         {
             continue;
         }
-        if (slot < kFirstPackSlot || slot > kLastPackSlot)
+        if (slot < rules.firstSlot || slot > rules.lastSlot)
         {
             return fmt::format("{} uses reserved scenario file slot {}", name, slot);
         }
+        if (std::find(contents.slots.begin(), contents.slots.end(), slot) != contents.slots.end())
+        {
+            return fmt::format("{} repeats scenario file slot {}", name, slot);
+        }
+        if (size > kMaxScenarioFileBytes)
+        {
+            return fmt::format("{} is larger than {} bytes", name, kMaxScenarioFileBytes);
+        }
         contents.slots.push_back(slot);
-        const std::string_view xml(reinterpret_cast<const char*>(archive.data() + dataOffset), size);
-        if (auto error = parseScenarios(xml, name, contents); !error.empty())
+        std::string xml(size, '\0');
+        if (!read(dataOffset, std::span(reinterpret_cast<uint8_t*>(xml.data()), xml.size())))
+        {
+            return fmt::format("dlc.fpk entry {} is unreadable", name);
+        }
+        if (auto error = parseScenarios(xml, name, rules, contents); !error.empty())
         {
             return error;
         }
     }
-    return contents.slots.empty() ? "dlc.fpk has no DLCScenarioData5-31.xml" : std::string{};
+    if (rules.requiresScenarios && contents.slots.empty())
+    {
+        return fmt::format("dlc.fpk has no DLCScenarioData{}-{}.xml", rules.firstSlot, rules.lastSlot);
+    }
+    return {};
+}
+
+std::string ParseArchive(std::span<const uint8_t> archive, Contents& contents)
+{
+    const ReadAt read = [archive](uint64_t offset, std::span<uint8_t> out)
+    {
+        if (offset > archive.size() || out.size() > archive.size() - offset)
+        {
+            return false;
+        }
+        std::memcpy(out.data(), archive.data() + offset, out.size());
+        return true;
+    };
+    return ParseArchive(archive.size(), read, ArchiveRules{}, contents);
 }
 
 std::vector<Decision> SelectPacks(std::span<const Candidate> candidates)

@@ -649,3 +649,322 @@ TEST_CASE("gfx_movie_rows_refuses_non_retail_structure", "[ctest][gfx-movie-rows
     CHECK(refused(Movie::WinLoseScreen, notGfx));
     CHECK(refused(Movie::Histograph, Bytes{}));
 }
+
+namespace
+{
+
+constexpr const char* kPromptButtons[]   = { "A", "B", "X", "Y", "LB", "RB", "LT", "RT", "STARTBUTTON", "BACKBUTTON" };
+constexpr size_t      kPromptButtonCount = sizeof(kPromptButtons) / sizeof(kPromptButtons[0]);
+
+Bytes promptPlace(uint16_t depth, uint16_t character, int32_t x, int32_t y)
+{
+    Bytes body{ 0x16 };
+    put16(body, depth);
+    put16(body, character);
+    Bits matrix;
+    matrix.Put(1, 0);
+    matrix.Put(1, 0);
+    matrix.Put(5, 16);
+    matrix.Put(16, static_cast<uint32_t>(x) & 0xffff);
+    matrix.Put(16, static_cast<uint32_t>(y) & 0xffff);
+    body.insert(body.end(), matrix.bytes.begin(), matrix.bytes.end());
+    put16(body, 0);
+    return tag(kTagPlace2, body);
+}
+
+Bytes removeDepth(uint16_t depth)
+{
+    Bytes body;
+    put16(body, depth);
+    return tag(kTagRemove2, body);
+}
+
+// A legend with a blank frame, one frame per button and a DUP frame that stays as it is.
+Bytes promptLegend(uint16_t                     id,
+                   uint16_t                     depth,
+                   int32_t                      x,
+                   const std::vector<uint16_t>& characters,
+                   uint16_t                     dupCharacter)
+{
+    std::vector<Bytes> frames{ label("blank"), tag(kTagShowFrame, {}) };
+    uint16_t           frameCount = 1;
+    for (size_t i = 0; i < characters.size(); ++i)
+    {
+        frames.push_back(label(kPromptButtons[i]));
+        if (i > 0)
+        {
+            frames.push_back(removeDepth(depth));
+        }
+        frames.push_back(promptPlace(depth, characters[i], x, 157 + static_cast<int32_t>(i)));
+        frames.push_back(tag(kTagShowFrame, {}));
+        ++frameCount;
+    }
+    frames.push_back(label("DUP"));
+    frames.push_back(removeDepth(depth));
+    frames.push_back(promptPlace(3, dupCharacter, 1, 2));
+    frames.push_back(tag(kTagShowFrame, {}));
+    return sprite(id, ++frameCount, frames);
+}
+
+Bytes shapeBody(uint16_t id)
+{
+    Bytes body;
+    put16(body, id);
+    body.insert(body.end(), { 0, 0, 0 });
+    return body;
+}
+
+// Exporter info (tag 1000) whose first word is not a character, vector shapes 20.. (tag 22), their
+// sprites 40.., a DUP sprite 50 and legend 90. importedId, when set, adds an ImportAssets2 tag.
+Bytes promptTarget(uint16_t importedId = 0)
+{
+    constexpr uint16_t kTagImport2 = 71;
+    std::vector<Bytes> tags{ tag(1000, { 0x08, 0x02, 0, 0 }) };
+    if (importedId != 0)
+    {
+        Bytes body{ 'a', '.', 'g', 'f', 'x', 0, 1, 0, 1, 0 };
+        put16(body, importedId);
+        body.insert(body.end(), { 'n', 0 });
+        tags.push_back(tag(kTagImport2, body));
+    }
+    std::vector<uint16_t> characters;
+    for (uint16_t i = 0; i < kPromptButtonCount; ++i)
+    {
+        tags.push_back(tag(22, shapeBody(20 + i)));
+        tags.push_back(sprite(40 + i, 1, { badgePlace(20 + i), tag(kTagShowFrame, {}) }));
+        characters.push_back(40 + i);
+    }
+    tags.push_back(tag(22, shapeBody(30)));
+    tags.push_back(sprite(50, 1, { badgePlace(30), tag(kTagShowFrame, {}) }));
+    tags.push_back(promptLegend(90, 1, 100, characters, 50));
+    tags.push_back(tag(kTagShowFrame, {}));
+    return movie(tags);
+}
+
+// Images 40.., shapes 60.. (tag 2) with a blank bitmap fill before the image fill, sprites 80..
+// and legend 99. The shape of button vectorIndex is a vector shape (tag 22) instead.
+Bytes promptDonor(int vectorIndex = -1, size_t count = kPromptButtonCount)
+{
+    std::vector<Bytes>    tags;
+    std::vector<uint16_t> characters;
+    for (uint16_t i = 0; i < count; ++i)
+    {
+        Bytes shape;
+        put16(shape, 60 + i);
+        shape.insert(shape.end(), { 0x00, 0x02, 0x41, 0xff, 0xff, 0x00, 0x41 });
+        put16(shape, 40 + i);
+        shape.push_back(0x00);
+        shape.insert(shape.end(), { 0, 0, 0 });
+        tags.push_back(image(40 + i, kPromptButtons[i]));
+        tags.push_back(static_cast<int>(i) == vectorIndex ? tag(22, shapeBody(60 + i)) : tag(2, shape));
+        tags.push_back(sprite(80 + i, 1, { badgePlace(60 + i), tag(kTagShowFrame, {}) }));
+        characters.push_back(80 + i);
+    }
+    tags.push_back(promptLegend(99, 5, 281, characters, 120));
+    tags.push_back(tag(kTagShowFrame, {}));
+    return movie(tags);
+}
+
+uint16_t idOf(const ParsedTag& definition)
+{
+    return static_cast<uint16_t>(definition.body[0] | (definition.body[1] << 8));
+}
+
+std::string imageFile(const ParsedTag& definition)
+{
+    const size_t at = 9 + definition.body[8];
+    return std::string(definition.body.begin() + static_cast<ptrdiff_t>(at + 1), definition.body.end());
+}
+
+std::vector<ParsedTag> legendInner(const Bytes& data, uint16_t id)
+{
+    for (const ParsedTag& parsed : topLevel(data))
+    {
+        if (parsed.code == kTagDefineSprite && idOf(parsed) == id)
+        {
+            return walk(parsed.body, 4, parsed.body.size());
+        }
+    }
+    return {};
+}
+
+const ParsedTag* framePlace(const std::vector<ParsedTag>& inner, std::string_view name)
+{
+    for (size_t i = 0; i < inner.size(); ++i)
+    {
+        const std::string_view text(reinterpret_cast<const char*>(inner[i].body.data()),
+                                    inner[i].body.empty() ? 0 : inner[i].body.size() - 1);
+        if (inner[i].code != kTagFrameLabel || text != name)
+        {
+            continue;
+        }
+        for (size_t j = i; j < inner.size() && inner[j].code != kTagShowFrame; ++j)
+        {
+            if (inner[j].code == kTagPlace2)
+            {
+                return &inner[j];
+            }
+        }
+    }
+    return nullptr;
+}
+
+bool promptRefused(const Bytes& target, const Bytes& donor)
+{
+    const auto result = rerevved::gfx_movie_rows::PatchPromptMovie(target, donor);
+    return result.bytes.empty() && !result.reason.empty();
+}
+
+} // namespace
+
+TEST_CASE("gfx_movie_rows_prompt_rewires_slot_frames_to_image_sprites", "[ctest][gfx-movie-rows]")
+{
+    const Bytes target = promptTarget();
+    const Bytes donor  = promptDonor();
+    const auto  result = rerevved::gfx_movie_rows::PatchPromptMovie(target, donor);
+    REQUIRE(!result.bytes.empty());
+    CHECK(result.reason.empty());
+
+    const Bytes& patched = result.bytes;
+    CHECK((static_cast<uint32_t>(patched[4]) | (static_cast<uint32_t>(patched[5]) << 8) |
+           (static_cast<uint32_t>(patched[6]) << 16) | (static_cast<uint32_t>(patched[7]) << 24)) ==
+          patched.size());
+
+    const auto tags        = topLevel(patched);
+    const auto inner       = legendInner(patched, 90);
+    const auto donorInner  = legendInner(donor, 99);
+    const auto sourceInner = legendInner(target, 90);
+    for (size_t i = 0; i < kPromptButtonCount; ++i)
+    {
+        const std::string name = kPromptButtons[i];
+        UNSCOPED_INFO(name);
+
+        const ParsedTag* newImage = nullptr;
+        for (const ParsedTag& parsed : tags)
+        {
+            if (parsed.code == kTagImage && imageFile(parsed) == name + ".dds")
+            {
+                newImage = &parsed;
+            }
+        }
+        REQUIRE(newImage != nullptr);
+        UNSCOPED_INFO("new ids start just above the target's highest character, ignoring exporter info");
+        CHECK(idOf(*newImage) == 91 + 3 * i);
+
+        const ParsedTag* newShape = nullptr;
+        for (const ParsedTag& parsed : tags)
+        {
+            if (parsed.code == 2 && (parsed.body[9] | (parsed.body[10] << 8)) == idOf(*newImage))
+            {
+                newShape = &parsed;
+            }
+        }
+        REQUIRE(newShape != nullptr);
+        CHECK(idOf(*newShape) == idOf(*newImage) + 1);
+
+        const ParsedTag* newSprite = nullptr;
+        for (const ParsedTag& parsed : tags)
+        {
+            if (parsed.code == kTagDefineSprite && idOf(parsed) != 90 &&
+                placedCharacter(walk(parsed.body, 4, parsed.body.size())[0]) == idOf(*newShape))
+            {
+                newSprite = &parsed;
+            }
+        }
+        REQUIRE(newSprite != nullptr);
+
+        UNSCOPED_INFO("the frame places the new sprite at the target depth with the donor matrix");
+        const ParsedTag* placed      = framePlace(inner, name);
+        const ParsedTag* donorPlaced = framePlace(donorInner, name);
+        const ParsedTag* oldPlaced   = framePlace(sourceInner, name);
+        REQUIRE(placed != nullptr);
+        REQUIRE(donorPlaced != nullptr);
+        REQUIRE(oldPlaced != nullptr);
+        CHECK((placed->body[1] | (placed->body[2] << 8)) == 1);
+        CHECK(placedCharacter(*placed) == idOf(*newSprite));
+        const Bytes matrix(placed->body.begin() + 5, placed->body.end());
+        CHECK((matrix == Bytes(donorPlaced->body.begin() + 5, donorPlaced->body.end())));
+        CHECK((matrix != Bytes(oldPlaced->body.begin() + 5, oldPlaced->body.end())));
+    }
+
+    UNSCOPED_INFO("the legend keeps its frame count and its tags fill its length");
+    const ParsedTag* legend = nullptr;
+    for (const ParsedTag& parsed : tags)
+    {
+        if (parsed.code == kTagDefineSprite && idOf(parsed) == 90)
+        {
+            legend = &parsed;
+        }
+    }
+    REQUIRE(legend != nullptr);
+    CHECK((legend->body[2] | (legend->body[3] << 8)) == 12);
+    size_t total = 0;
+    for (const ParsedTag& child : inner)
+    {
+        total += child.raw.size();
+    }
+    CHECK(total == legend->body.size() - 4);
+    CHECK(inner.back().code == kTagEnd);
+
+    UNSCOPED_INFO("the DUP frame is copied as it was");
+    const ParsedTag* dup = framePlace(inner, "DUP");
+    REQUIRE(dup != nullptr);
+    CHECK((dup->raw == framePlace(sourceInner, "DUP")->raw));
+
+    UNSCOPED_INFO("a button the donor lacks keeps its retail frame");
+    const auto partial = rerevved::gfx_movie_rows::PatchPromptMovie(target, promptDonor(-1, 4));
+    REQUIRE(!partial.bytes.empty());
+    const auto partialInner = legendInner(partial.bytes, 90);
+    CHECK((framePlace(partialInner, "LB")->raw == framePlace(sourceInner, "LB")->raw));
+    CHECK((framePlace(partialInner, "A")->raw != framePlace(sourceInner, "A")->raw));
+}
+
+TEST_CASE("gfx_movie_rows_prompt_ids_clear_imported_characters", "[ctest][gfx-movie-rows]")
+{
+    const auto result = rerevved::gfx_movie_rows::PatchPromptMovie(promptTarget(700), promptDonor());
+    REQUIRE(!result.bytes.empty());
+    for (const ParsedTag& parsed : topLevel(result.bytes))
+    {
+        if (parsed.code == kTagImage && imageFile(parsed) == "A.dds")
+        {
+            CHECK(idOf(parsed) == 701);
+        }
+    }
+}
+
+TEST_CASE("gfx_movie_rows_prompt_refuses_unexpected_structure", "[ctest][gfx-movie-rows]")
+{
+    const Bytes target = promptTarget();
+    const Bytes donor  = promptDonor();
+    REQUIRE(!promptRefused(target, donor));
+
+    UNSCOPED_INFO("a target without a prompt legend, and a donor without one");
+    CHECK(promptRefused(winLoseMovie(), donor));
+    CHECK(promptRefused(target, winLoseMovie()));
+
+    UNSCOPED_INFO("a button in both legends whose donor frame draws a vector shape");
+    CHECK(promptRefused(target, promptDonor(1)));
+
+    UNSCOPED_INFO("a target whose button frames already show images");
+    const auto once = rerevved::gfx_movie_rows::PatchPromptMovie(target, donor);
+    REQUIRE(!once.bytes.empty());
+    CHECK(promptRefused(once.bytes, donor));
+
+    UNSCOPED_INFO("a declared length that differs from the bytes");
+    Bytes shortLength = target;
+    shortLength[4]    = static_cast<uint8_t>(shortLength[4] - 1);
+    CHECK(promptRefused(shortLength, donor));
+    Bytes shortDonor = donor;
+    shortDonor[4]    = static_cast<uint8_t>(shortDonor[4] - 1);
+    CHECK(promptRefused(target, shortDonor));
+    CHECK(promptRefused(Bytes{}, donor));
+}
+
+TEST_CASE("gfx_movie_rows_find_prompt_movie", "[ctest][gfx-movie-rows]")
+{
+    using rerevved::gfx_movie_rows::FindPromptMovie;
+    using rerevved::gfx_movie_rows::PromptMovie;
+    CHECK((FindPromptMovie("GFX_StatScreen.gfx") == PromptMovie::StatScreen));
+    CHECK((FindPromptMovie("ui/hoa_gpdirectory.GFX") == PromptMovie::GpDirectory));
+    CHECK(!FindPromptMovie("GFX_PauseOverlay.gfx"));
+}

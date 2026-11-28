@@ -1,4 +1,5 @@
 #include "ai_civilizations.h"
+#include "button_icons.h"
 #include "gfx_movie_rows.h"
 #include "keyboard_icons.h"
 #include "main_menu_logo_asset.h"
@@ -35,7 +36,7 @@ struct KeyboardServe
     bool     logged = false;
 };
 
-thread_local std::array<KeyboardServe, rerevved::keyboard_icons::kSlots.size()> keyboardServes;
+thread_local std::array<KeyboardServe, rerevved::keyboard_icons::kPreparedCount> keyboardServes;
 
 // Longest requested name read from the guest; covers a movie name with a path.
 constexpr uint32_t kMaxRequestedNameLength = 127;
@@ -51,6 +52,7 @@ struct ServedAsset
 };
 
 std::array<ServedAsset, 2>                                                                            rowsMovies;
+std::array<ServedAsset, rerevved::gfx_movie_rows::kPromptMovies>                                      promptMovies;
 std::array<ServedAsset, rerevved::place_badges::kLastPlace - rerevved::place_badges::kFirstPlace + 1> badges;
 
 bool isGuestRangeAccessible(rex::memory::Memory* memory,
@@ -176,7 +178,8 @@ bool servePrepared(rex::memory::Memory*                      memory,
                    PPCRegister&                              returnedDataPointer,
                    const rerevved::gfx_movie_rows::Prepared& prepared,
                    ServedAsset&                              rows,
-                   std::string_view                          name)
+                   std::string_view                          name,
+                   bool                                      announce = false)
 {
     std::lock_guard guard(rows.lock);
     if (prepared.bytes.empty())
@@ -204,7 +207,14 @@ bool servePrepared(rex::memory::Memory*                      memory,
     }
     if (!rows.logged)
     {
-        REXLOG_DEBUG("GfxMovieRows: served {} ({} bytes)", name, prepared.bytes.size());
+        if (announce)
+        {
+            REXLOG_INFO("GfxMovieRows: served {} ({} bytes)", name, prepared.bytes.size());
+        }
+        else
+        {
+            REXLOG_DEBUG("GfxMovieRows: served {} ({} bytes)", name, prepared.bytes.size());
+        }
         rows.logged = true;
     }
     return true;
@@ -252,7 +262,7 @@ void ApplyAssetFileOverride(PPCRegister& stackPointer,
                     rerevved::main_menu_logo::kGuestFileName.size() + 1) == 0;
     if (!isLogo)
     {
-        // Bare prompt names ignore case; movie vector prompts bypass this hook and stay Xbox.
+        // Bare prompt names ignore case.
         char   name[kMaxRequestedNameLength + 1];
         size_t length = 0;
         if (!readGuestFileName(memory, requestedName.u32, name, length))
@@ -271,6 +281,20 @@ void ApplyAssetFileOverride(PPCRegister& stackPointer,
                           rerevved::gfx_movie_rows::RowsMovieName(*movie));
             return;
         }
+        if (const auto prompt = rerevved::gfx_movie_rows::FindPromptMovie(fileName))
+        {
+            if (rerevved::button_icons::ActiveFamily() == rerevved::button_icons::Family::kKeyboard)
+            {
+                servePrepared(memory,
+                              stackPointer,
+                              returnedDataPointer,
+                              rerevved::gfx_movie_rows::PreparedPromptMovie(*prompt),
+                              promptMovies[static_cast<size_t>(*prompt)],
+                              rerevved::gfx_movie_rows::PromptMovieName(*prompt),
+                              true);
+            }
+            return;
+        }
         if (const auto place = rerevved::place_badges::FindBadge(fileName))
         {
             servePrepared(memory,
@@ -286,7 +310,7 @@ void ApplyAssetFileOverride(PPCRegister& stackPointer,
         {
             return;
         }
-        KeyboardServe& serve = keyboardServes[*rerevved::keyboard_icons::FindSlot(fileName)];
+        KeyboardServe& serve = keyboardServes[*rerevved::keyboard_icons::FindPrepared(fileName)];
         if (serveGuestPayload(memory,
                               stackPointer,
                               returnedDataPointer,

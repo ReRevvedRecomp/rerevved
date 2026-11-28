@@ -134,6 +134,21 @@ and reads "Not Available" otherwise. Changes apply on the next launch; see
 [`map_packs.h`](../src/map_packs.h). Release archives include the map packs
 from `rerevved-mods`. They start disabled; enable them in the Maps tab.
 
+Retail DLC packages are single files in `dlc/` beside the executable, shared by
+every profile. Before the guest starts, each file is checked in file-name
+order. It must be a plain file of at most 256 MiB, with a name that fits
+XContent and does not start with the map packs' `rr_` prefix. It must be a
+single-file STFS marketplace package for this title with `name.txt` and
+`dlc.fpk` at its root. Only the `dlc.fpk` table and its
+`DLCScenarioData0-4.xml` files are read. Scenario IDs must be below 100, so
+retail packs never collide with map packs. A package is refused when it repeats
+an earlier accepted package's file name (ignoring case), `name.txt` token,
+scenario file slot or scenario ID. Accepted files register under their own
+names as read-only XUID-zero marketplace content, mounted in place. Nothing is
+written beside them or under `B`. Refusals are logged by file name; see
+[`retail_dlc.h`](../src/retail_dlc.h). Release archives ship `dlc/` holding
+only `README.txt`.
+
 F2 discovers packages installed under `mods/` beside the executable. Release
 archives include the first-party mods there. With no profile `mod_order.txt`,
 they start disabled. [Mods](mods.md#enable-or-change-mods) describes Apply
@@ -399,8 +414,13 @@ commit, and packages carry its zlib notice under `licenses`.
 The `button_icons` setting accepts `auto`, `xbox`, `playstation` or `keyboard`,
 defaults to `auto` and requires a restart. The retail movies and loading tips
 already carry both controller families. With `playstation`, or `auto`
-resolving to it, three hooks in `config/button_icons_hooks.toml` swap the Xbox
+resolving to it, the hooks in `config/button_icons_hooks.toml` swap the Xbox
 names the game requests; `src/button_icons.cpp` holds the tables.
+
+A label is swapped only when the whole string is a control name. A single
+letter is usually text, so `A`, `B`, `X` and `Y` swap only as a `%s` argument
+to a movie method named `SetHelp`. This covers the screens that draw the
+button as a shape with no image to swap, such as the end-of-game replay.
 
 The family is resolved once, when startup finishes and before the guest runs.
 With `auto`, the SDK reports the family of the physical pad that last produced
@@ -444,18 +464,28 @@ the numpad keys, Pause and ScrollLock have no art. The default D-pad bindings
 are chords or keys without art, so the D-pad directions stay retail until
 rebound to single keys with art.
 
-The left and right stick images, the D-pad image and the vertical and
-horizontal axis images stand for several directions or a whole control, so they
-have no single key and keep their retail art. The `dup.dds`, `ddown.dds`,
-`dleft.dds` and `dright.dds` images are served for any direct request, but the
+The left and right stick images, `ls.dds` and `rs.dds`, show the four keys
+bound to the stick's directions: the up key above a row of left, down and
+right. Each direction uses the same first-qualifying-key rule as a button. If
+any of the four has no single key with art, that stick keeps its retail image.
+
+The D-pad image and the vertical and horizontal axis images stand for several
+directions or a whole control, so they keep their retail art. The `dup.dds`,
+`ddown.dds`, `dleft.dds` and `dright.dds` images are served for any direct
+request, but the
 DUP, DDOWN, DLEFT and DRIGHT labels in MainMenu and CityScreen draw the generic
 `DPAD.dds` image, so rebinding a D-pad direction does not reach those prompts
 and they stay retail.
 
-Only external DDS images are covered. A prompt a movie draws as vector art stays
-Xbox, whatever the binding: the D-pad in `buttonLegend.gfx` and single-button
-frames in other movies such as the stat screen's LB frame. No replacement path
-exists for them.
+Four retail movies draw their buttons as shapes instead of loading these
+images: `gfx_endgamecrawl.gfx` (the end-of-game replay), `gfx_statscreen.gfx`,
+`gfx_waitingoverlay.gfx` and `hoa_gpdirectory.gfx`. In the keyboard family the
+game receives copies in which A, B, X, Y, LB, RB, LT, RT, START and BACK load
+the same images as `gfx_pauseoverlay.gfx`, so the keycaps above appear there.
+The copies are built once from the player's `Common0.FPK`. The log shows
+`GfxMovieRows: served` at INFO for each, or the reason a movie stays retail.
+The D-pad and stick buttons in these movies stay Xbox, as do the D-pad in
+`buttonLegend.gfx` and any button another movie draws as a shape.
 
 The art is one 64x64 uncompressed DDS per key under
 `assets/button-icons/xelu-light`, staged next to the executable as
@@ -2226,12 +2256,13 @@ pure decisions are in `src/apollo_discovery.h`; the hooks in
 
 The drain runs through the dispatcher's `ExecuteTrap`, which restores the interrupted
 register state, like the Stonehenge hook. A nested pump re-enters the frame driver;
-a flag turns that call into a no-op. A record is ready when every player's
-completion marker `0x830E3348[p]` and context `0x830E3328[p]` and the recursive
-marker `0x830E3430` are zero or -1, and no owned city has a pending Wonder
-(`0x1000`) or spaceship part (`0x100`) flag at city+0x24. A value left in any
-player's marker by an earlier presentation therefore delays the drain until the
-native reset. For each technology 1 to 46 in ascending
+a flag turns that call into a no-op. A record is ready when the recursive
+marker `0x830E3430` is zero or -1 and no owned city has a pending Wonder
+(`0x1000`) or spaceship part (`0x100`) flag at city+0x24. The completion marker
+`0x830E3348[p]` is not read, because phase 2 leaves the technology there until that
+player's next turn. A drain inside a modal pump between another player's phase 1
+and phase 2 can therefore replace the shared recipient that phase 2 captions.
+For each technology 1 to 46 in ascending
 order, with the raw word `U32[0x830EDC48 + 4 * t]` equal to zero, the player owning
 the city and still holding the claim, it calls `0x82D09208(p, t, c, 0, 1)` and
 then `(p, t, c, 0, 2)`, each to its full return, logging

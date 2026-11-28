@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(rerevved VERSION 0.8.0 LANGUAGES C CXX)
+project(rerevved VERSION 0.8.1 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -256,6 +256,8 @@ set(REREVVED_SOURCES
     src/main_menu_logo_hooks.cpp
     src/map_packs.cpp
     src/map_packs_hooks.cpp
+    src/retail_dlc.cpp
+    src/retail_dlc_register.cpp
     src/gpu/renderer_backend.cpp
     src/gpu/renderer_backend.h
     src/unique_era_abilities.cpp
